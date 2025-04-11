@@ -349,12 +349,12 @@ namespace KryneEngine
 #endif
         }
     }
-    
+
     BufferHandle Dx12GraphicsContext::CreateBuffer(const BufferCreateDesc& _desc)
     {
         return m_resources.CreateBuffer(_desc);
     }
-    
+
     bool Dx12GraphicsContext::NeedsStagingBuffer(BufferHandle _buffer)
     {
         D3D12MA::Allocation** pAllocation = m_resources.m_buffers.GetCold(_buffer.m_handle);
@@ -363,20 +363,20 @@ namespace KryneEngine
 
         return allocation->GetHeap()->GetDesc().Properties.Type != D3D12_HEAP_TYPE_UPLOAD;
     }
-    
+
     bool Dx12GraphicsContext::DestroyBuffer(BufferHandle _buffer) {
         return m_resources.DestroyBuffer(_buffer);
     }
-    
+
     TextureHandle Dx12GraphicsContext::CreateTexture(const TextureCreateDesc& _createDesc)
     {
         return m_resources.CreateTexture(_createDesc, m_device.Get());
     }
-    
+
     eastl::vector<TextureMemoryFootprint> Dx12GraphicsContext::FetchTextureSubResourcesMemoryFootprints(const TextureDesc& _desc)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::FetchTextureSubResourcesMemoryFootprints");
-        
+
         D3D12_RESOURCE_DESC resourceDesc {
             .Dimension = Dx12Converters::GetTextureResourceDimension(_desc.m_type),
             .Alignment = 0,
@@ -413,23 +413,23 @@ namespace KryneEngine
 
         return finalFootprints;
     }
-    
+
     BufferHandle Dx12GraphicsContext::CreateStagingBuffer(
         const TextureDesc& _createDesc, const eastl::span<const TextureMemoryFootprint>& _footprints)
     {
         return m_resources.CreateStagingBuffer(_createDesc, _footprints);
     }
-    
+
     bool Dx12GraphicsContext::DestroyTexture(TextureHandle _texture)
     {
         return m_resources.ReleaseTexture(_texture, true);
     }
-    
+
     TextureViewHandle Dx12GraphicsContext::CreateTextureView(const TextureViewDesc& _viewDesc)
     {
         return m_resources.CreateTextureView(_viewDesc, m_device.Get());
     }
-    
+
     bool Dx12GraphicsContext::DestroyTextureView(TextureViewHandle _textureView)
     {
         return m_resources.DestroyTextureView(_textureView);
@@ -454,12 +454,12 @@ namespace KryneEngine
     {
         return m_resources.DestroyBufferView(_handle);
     }
-    
+
     RenderTargetViewHandle Dx12GraphicsContext::CreateRenderTargetView(const RenderTargetViewDesc& _desc)
     {
         return m_resources.CreateRenderTargetView(_desc, m_device.Get());
     }
-    
+
     bool Dx12GraphicsContext::DestroyRenderTargetView(RenderTargetViewHandle _rtv)
     {
         return m_resources.FreeRenderTargetView(_rtv);
@@ -476,17 +476,17 @@ namespace KryneEngine
                    ? m_swapChain.m_renderTargetTextures[_swapChainIndex]
                    : TextureHandle { GenPool::kInvalidHandle };
     }
-    
+
     u32 Dx12GraphicsContext::GetCurrentPresentImageIndex() const
     {
         return m_swapChain.GetBackBufferIndex();
     }
-    
+
     RenderPassHandle Dx12GraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)
     {
         return m_resources.CreateRenderPass(_desc);
     }
-    
+
     bool Dx12GraphicsContext::DestroyRenderPass(RenderPassHandle _renderPass)
     {
         return m_resources.FreeRenderPass(_renderPass);
@@ -655,23 +655,68 @@ namespace KryneEngine
 
         commandList->EndRenderPass();
 
-        eastl::fixed_vector<D3D12_RESOURCE_BARRIER, RenderPassDesc::kMaxSupportedColorAttachments + 1, false> barriers;
-        const auto addBarrier = [&barriers](const RenderPassDesc::Attachment& _desc, ID3D12Resource* _resource, bool _isDepthTarget = false)
+        eastl::fixed_vector<TextureMemoryBarrier, RenderPassDesc::kMaxSupportedColorAttachments + 1, false> barriers;
+        const auto addBarrier = [&barriers](const RenderPassDesc::Attachment& _desc, TextureHandle _texture, bool _isDepthTarget = false)
         {
-            const auto oldState = _isDepthTarget ? D3D12_RESOURCE_STATE_DEPTH_WRITE : D3D12_RESOURCE_STATE_RENDER_TARGET;
-            const auto newState = Dx12Converters::ToDx12ResourceState(_desc.m_finalLayout);
-
-            if (newState != oldState)
+            const auto oldLayout = _isDepthTarget ? TextureLayout::DepthStencilAttachment : TextureLayout::ColorAttachment;
+            if (oldLayout != _desc.m_finalLayout)
             {
-                barriers.push_back(D3D12_RESOURCE_BARRIER{
-                        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-                        .Transition = D3D12_RESOURCE_TRANSITION_BARRIER{
-                                .pResource = _resource,
-                                .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-                                .StateBefore = oldState,
-                                .StateAfter = newState,
-                        }
-                });
+                TextureMemoryBarrier barrier {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::All,
+                    .m_accessSrc = BarrierAccessFlags::ColorAttachment,
+                    .m_texture = _texture,
+                    .m_layoutSrc = oldLayout,
+                    .m_layoutDst = _desc.m_finalLayout,
+                };
+
+                switch (_desc.m_finalLayout)
+                {
+                    case TextureLayout::Unknown:
+                        barrier.m_accessDst = BarrierAccessFlags::None;
+                        break;
+                    case TextureLayout::Common:
+                        barrier.m_accessDst = BarrierAccessFlags::All;
+                        break;
+                    case TextureLayout::Present:
+                        barrier.m_accessDst = BarrierAccessFlags::AllRead;
+                        break;
+                    case TextureLayout::GenericRead:
+                        barrier.m_accessDst = BarrierAccessFlags::AllRead;
+                        break;
+                    case TextureLayout::ColorAttachment:
+                        barrier.m_accessDst = BarrierAccessFlags::ColorAttachment;
+                        break;
+                    case TextureLayout::DepthStencilAttachment:
+                        barrier.m_accessDst = BarrierAccessFlags::DepthStencilWrite;
+                        break;
+                    case TextureLayout::DepthStencilReadOnly:
+                        barrier.m_accessDst = BarrierAccessFlags::DepthStencilRead;
+                        break;
+                    case TextureLayout::UnorderedAccess:
+                        barrier.m_accessDst = BarrierAccessFlags::UnorderedAccess;
+                        break;
+                    case TextureLayout::ShaderResource:
+                        barrier.m_accessDst = BarrierAccessFlags::ShaderResource;
+                        break;
+                    case TextureLayout::TransferSrc:
+                        barrier.m_accessDst = BarrierAccessFlags::TransferSrc;
+                        break;
+                    case TextureLayout::TransferDst:
+                        barrier.m_accessDst = BarrierAccessFlags::TransferDst;
+                        break;
+                    case TextureLayout::ResolveSrc:
+                        barrier.m_accessDst = BarrierAccessFlags::ResolveSrc;
+                        break;
+                    case TextureLayout::ResolveDst:
+                        barrier.m_accessDst = BarrierAccessFlags::ResolveDst;
+                        break;
+                    case TextureLayout::ShadingRate:
+                        barrier.m_accessDst = BarrierAccessFlags::ShadingRate;
+                        break;
+                }
+
+                barriers.push_back(barrier);
             }
         };
 
@@ -680,7 +725,7 @@ namespace KryneEngine
             auto* rtvData = m_resources.m_renderTargetViews.Get(attachment.m_rtv.m_handle);
             VERIFY_OR_RETURN_VOID(rtvData != nullptr);
 
-            addBarrier(attachment, *m_resources.m_textures.Get(rtvData->m_resource.m_handle));
+            addBarrier(attachment, rtvData->m_resource);
         }
 
         if (desc->m_depthStencilAttachment.has_value())
@@ -693,10 +738,10 @@ namespace KryneEngine
             auto* rtvData = m_resources.m_renderTargetViews.Get(handle);
             VERIFY_OR_RETURN_VOID(rtvData != nullptr);
 
-            addBarrier(attachment, *m_resources.m_textures.Get(rtvData->m_resource.m_handle), true);
+            addBarrier(attachment, rtvData->m_resource, true);
         }
 
-        commandList->ResourceBarrier(barriers.size(), barriers.data());
+        PlaceMemoryBarriers(commandList, {}, {}, barriers);
 
         m_currentRenderPass = GenPool::kInvalidHandle;
     }
