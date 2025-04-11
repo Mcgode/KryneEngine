@@ -668,7 +668,7 @@ namespace KryneEngine
         static_assert(static_cast<u8>(TextureComponentMapping::One)   == D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1);
 
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc {
-            .Format = Dx12Converters::ToDx12Format(_viewDesc.m_format),
+            .Format = Dx12Converters::ToDx12SrvFormat(_viewDesc.m_format),
             .Shader4ComponentMapping = (u32)D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
                 static_cast<u8>(_viewDesc.m_componentsMapping[0]),
                 static_cast<u8>(_viewDesc.m_componentsMapping[1]),

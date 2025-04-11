@@ -134,6 +134,50 @@ namespace KryneEngine
             return format;
         }
 
+        constexpr inline DXGI_FORMAT ToDx12SrvFormat(TextureFormat _format)
+        {
+            DXGI_FORMAT format;
+
+#define MAP(commonFormat, dx12Format) case TextureFormat::commonFormat: format = dx12Format; break
+
+            switch (_format)
+            {
+                MAP(R8_UNorm, DXGI_FORMAT_R8_UNORM);
+                MAP(RG8_UNorm, DXGI_FORMAT_R8G8_UNORM);
+                MAP(RGB8_UNorm, DXGI_FORMAT_R8G8B8A8_UNORM);
+                MAP(RGBA8_UNorm, DXGI_FORMAT_R8G8B8A8_UNORM);
+
+                MAP(RGB8_sRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+                MAP(RGBA8_sRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+
+                MAP(BGRA8_UNorm, DXGI_FORMAT_B8G8R8A8_UNORM);
+                MAP(BGRA8_sRGB, DXGI_FORMAT_B8G8R8A8_UNORM_SRGB);
+
+                MAP(R8_SNorm, DXGI_FORMAT_R8_SNORM);
+                MAP(RG8_SNorm, DXGI_FORMAT_R8G8_SNORM);
+                MAP(RGB8_SNorm, DXGI_FORMAT_R8G8B8A8_SNORM);
+                MAP(RGBA8_SNorm, DXGI_FORMAT_R8G8B8A8_SNORM);
+
+                MAP(R32_Float, DXGI_FORMAT_R32_FLOAT);
+                MAP(RG32_Float, DXGI_FORMAT_R32G32_FLOAT);
+                MAP(RGB32_Float, DXGI_FORMAT_R32G32B32_FLOAT);
+                MAP(RGBA32_Float, DXGI_FORMAT_R32G32B32A32_FLOAT);
+
+                MAP(D16, DXGI_FORMAT_R16_UNORM);
+                MAP(D24, DXGI_FORMAT_R24_UNORM_X8_TYPELESS);
+                MAP(D32F, DXGI_FORMAT_R32_FLOAT);
+                MAP(D24S8, DXGI_FORMAT_R24G8_TYPELESS);
+                MAP(D32FS8, DXGI_FORMAT_R32G8X24_TYPELESS);
+                default:
+                    KE_ASSERT_MSG(_format == TextureFormat::NoFormat, "Unknown format");
+                    format = DXGI_FORMAT_UNKNOWN;
+            }
+
+#undef MAP
+
+            return format;
+        }
+
         constexpr inline TextureFormat FromDx12Format(DXGI_FORMAT _format)
         {
             TextureFormat format;
