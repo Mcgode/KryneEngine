@@ -21,9 +21,9 @@ namespace KryneEngine
             : m_hash(_value)
         {}
 
-        explicit StringHash(const eastl::string_view& _string)
-            : m_string(_string)
-            , m_hash(Hash64(_string))
+        explicit StringHash(const eastl::string_view& _string, const AllocatorInstance _allocator = {})
+            : m_hash(Hash64(_string))
+            , m_string(_string, _allocator)
         {}
 
         StringHash(const StringHash& _other) = default;
