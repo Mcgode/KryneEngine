@@ -25,6 +25,11 @@ option(KRYNE_ENGINE_TRACK_DEFAULT_HEAP_ALLOCATIONS "Toggles default heap allocat
 add_subdirectory(External)
 add_subdirectory(Core)
 
+target_compile_definitions(KryneEngine_Core PUBLIC "-DKE_GRAPHICS_API_${GraphicsApi}=1")
+if (TypeName STREQUAL "Release")
+    target_compile_definitions(KryneEngine_Core PUBLIC "-DKE_FINAL=1")
+endif()
+
 if (KRYNE_ENGINE_TRACK_DEFAULT_HEAP_ALLOCATIONS)
     message(STATUS "Default heap allocation tracking is enabled")
     target_compile_definitions(KryneEngine_Core PUBLIC KE_TRACK_DEFAULT_HEAP_ALLOCATIONS=1)

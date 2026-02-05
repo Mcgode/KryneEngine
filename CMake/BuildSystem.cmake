@@ -28,14 +28,9 @@ if (NOT DEFINED GraphicsApi)
 endif()
 
 message(STATUS "Using API: " ${GraphicsApi})
-add_definitions("-DKE_GRAPHICS_API_${GraphicsApi}")
 
 list(GET BUILD_TYPE 0 TypeName)
 set(CMAKE_BUILD_TYPE "${TypeName}")
-
-if (TypeName STREQUAL "Release")
-    add_definitions("-DKE_FINAL")
-endif()
 
 message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
 
