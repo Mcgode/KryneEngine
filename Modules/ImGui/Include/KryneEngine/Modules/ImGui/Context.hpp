@@ -88,6 +88,8 @@ namespace KryneEngine::Modules::ImGui
             u64 m_stagingFrame = 0;
         };
 
+        TextureMemoryFootprint m_fontsMemoryFootprint;
+
         ImGuiContext* m_context;
         StagingData* m_stagingData = nullptr;
         BufferHandle m_fontsStagingHandle { GenPool::kInvalidHandle };

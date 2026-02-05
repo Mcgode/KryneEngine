@@ -189,9 +189,10 @@ namespace KryneEngine::Modules::ImGui
 #endif
             };
 
+            m_fontsMemoryFootprint = graphicsContext->FetchTextureSubResourcesMemoryFootprints(fontsTextureDesc).front();
             const TextureCreateDesc textureCreateDesc {
                 .m_desc = fontsTextureDesc,
-                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(fontsTextureDesc),
+                .m_footprintPerSubResource = { &m_fontsMemoryFootprint, 1 },
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferDstImage | MemoryUsage::SampledImage,
             };
 
@@ -313,7 +314,7 @@ namespace KryneEngine::Modules::ImGui
                 _commandList,
                 m_fontsStagingHandle,
                 m_fontsTextureHandle,
-                m_stagingData->m_fontsTextureDesc.m_footprintPerSubResource[0],
+                m_fontsMemoryFootprint,
                 { m_stagingData->m_fontsTextureDesc.m_desc, 0 },
                 m_stagingData->m_data);
 
