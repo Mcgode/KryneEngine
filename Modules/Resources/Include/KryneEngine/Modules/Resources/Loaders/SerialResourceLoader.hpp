@@ -21,7 +21,11 @@ namespace KryneEngine::Modules::Resources
     public:
         explicit SerialResourceLoader(AllocatorInstance _allocator);
 
-        void RequestLoad(const StringHash& _path, ResourceEntry* _entry, IResourceManager* _resourceManager) override;
+        void RequestLoad(
+            const StringHash& _path,
+            ResourceEntry* _entry,
+            IResourceManager* _resourceManager,
+            u64 _loadFlags) override;
 
     private:
         eastl::vector_set<StringHash> m_pendingRequests;

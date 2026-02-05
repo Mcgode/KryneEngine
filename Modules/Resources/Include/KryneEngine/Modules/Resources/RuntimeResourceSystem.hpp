@@ -38,10 +38,20 @@ namespace KryneEngine::Modules::Resources
             return reinterpret_cast<ResourceManager*>(GetResourceManager(Resource::kTypeId));
         }
 
-        template <class Resource> [[nodiscard]] ResourceEntry* GetResourceEntry(const StringHash& _name) { return GetResourceEntry(_name, Resource::kTypeId); }
+        template <class Resource>
+        [[nodiscard]] ResourceEntry* GetResourceEntry(const StringHash& _name)
+        {
+            return GetResourceEntry(_name, Resource::kTypeId);
+        }
         [[nodiscard]] ResourceEntry* GetResourceEntry(const StringHash& _name, u64 _typeId);
 
-        void LoadResource(const StringHash& _name, ResourceEntry* _entry);
+        template<class Enum>
+        void LoadResource(const StringHash& _name, ResourceEntry* _entry, Enum _loadFlags)
+        {
+            LoadResource(_name, _entry, static_cast<u64>(_loadFlags));
+        }
+
+        void LoadResource(const StringHash& _name, ResourceEntry* _entry, u64 _loadFlags = 0);
 
     private:
         AllocatorInstance m_allocator;

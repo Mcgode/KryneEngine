@@ -55,7 +55,7 @@ namespace KryneEngine::Modules::Resources
         return it != m_resourceManagers.end() ? it->second : nullptr;
     }
 
-    void RuntimeResourceSystem::LoadResource(const StringHash& _name, ResourceEntry* _entry)
+    void RuntimeResourceSystem::LoadResource(const StringHash& _name, ResourceEntry* _entry, const u64 _loadFlags)
     {
         IResourceManager* manager = nullptr;
         {
@@ -65,6 +65,6 @@ namespace KryneEngine::Modules::Resources
                 return;
             manager = it->second;
         }
-        m_resourceLoader->RequestLoad(_name, _entry, manager);
+        m_resourceLoader->RequestLoad(_name, _entry, manager, _loadFlags);
     }
 } // namespace KryneEngine::Modules::Resources

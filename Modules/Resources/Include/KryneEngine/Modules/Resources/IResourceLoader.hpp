@@ -18,6 +18,10 @@ namespace KryneEngine::Modules::Resources
     public:
         virtual ~IResourceLoader() = default;
 
-        virtual void RequestLoad(const StringHash& _path, ResourceEntry* _entry, IResourceManager* _resourceManager) = 0;
+        virtual void RequestLoad(
+            const StringHash& _path,
+            ResourceEntry* _entry,
+            IResourceManager* _resourceManager,
+            u64 _loadFlags) = 0;
     };
 }

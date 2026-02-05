@@ -18,7 +18,10 @@ namespace KryneEngine::Modules::Resources
     {}
 
     void SerialResourceLoader::RequestLoad(
-        const StringHash& _path, ResourceEntry* _entry, IResourceManager* _resourceManager)
+        const StringHash& _path,
+        ResourceEntry* _entry,
+        IResourceManager* _resourceManager,
+        const u64)
     {
         {
             const auto lock = m_lock.AutoLock();
