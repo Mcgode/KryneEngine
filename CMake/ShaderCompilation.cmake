@@ -1,19 +1,19 @@
 
 # Fetch DirectX shader compiler executable
 if (LINUX)
-    set(DirectXShaderCompiler "${CMAKE_SOURCE_DIR}/External/DirectXCompiler/linux/bin/dxc")
+    set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/bin/dxc")
 elseif (WIN32)
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
-        set(DirectXShaderCompiler "${CMAKE_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x64/dxc.exe")
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x64/dxc.exe")
     elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86")
-        set(DirectXShaderCompiler "${CMAKE_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x86/dxc.exe")
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x86/dxc.exe")
     elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64")
-        set(DirectXShaderCompiler "${CMAKE_SOURCE_DIR}/External/DirectXCompiler/win32/bin/arm64/dxc.exe")
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/arm64/dxc.exe")
     else ()
         message(FATAL_ERROR "Unsupported processor ${CMAKE_SYSTEM_PROCESSOR}")
     endif ()
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-    set(DirectXShaderCompiler "${CMAKE_SOURCE_DIR}/External/DirectXCompiler/macos/bin/dxc")
+    set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/macos/bin/dxc")
 else ()
     message(FATAL_ERROR "Platform unsupported")
 endif ()
@@ -38,7 +38,7 @@ endif ()
 # Optionally fetch spirv-cross executable
 if (NeedSpirVCross)
     if (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-        set(SpirVCross "${CMAKE_SOURCE_DIR}/External/spirv-cross/macos/bin/spirv-cross")
+        set(SpirVCross "${CMAKE_CURRENT_SOURCE_DIR}/External/spirv-cross/macos/bin/spirv-cross")
     else ()
         message(FATAL_ERROR "SpirV-Cross: Platform unsupported")
     endif ()
@@ -55,7 +55,7 @@ endif ()
 # Global variables set
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/Shaders")
 set(SHADER_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}/ShaderBuild")
-set(GENERATE_SCRIPT "${CMAKE_SOURCE_DIR}/CMake/ShaderListParser.py")
+set(GENERATE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderListParser.py")
 find_package(Python3 REQUIRED)
 
 # target_compile_shaders implementation
@@ -102,7 +102,7 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
                 ${COMMANDS_FILE}
                 "${ShaderTools}"
                 ${SHADER_INPUT_DIR}
-                ${CMAKE_SOURCE_DIR}
+                ${CMAKE_CURRENT_SOURCE_DIR}
                 "${SHADER_INCLUDE_LIST}"
                 ${ShaderListFiles}
             DEPENDS ${GENERATE_SCRIPT} ${ShaderListFiles}
