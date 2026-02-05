@@ -75,6 +75,7 @@ namespace KryneEngine
         [[nodiscard]] IAllocator* GetAllocator() const { return m_allocator; }
 
         bool operator ==(const AllocatorInstance& _other) const { return m_allocator == _other.m_allocator; }
+        bool operator ==(std::nullptr_t) const { return m_allocator == nullptr; }
 
     private:
         IAllocator* m_allocator = nullptr;
