@@ -56,6 +56,7 @@ endif ()
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/Shaders")
 set(SHADER_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}/ShaderBuild")
 set(GENERATE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderListParser.py")
+set(BUILD_COMMAND_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderBuildCommand.py")
 find_package(Python3 REQUIRED)
 
 # target_compile_shaders implementation
@@ -102,7 +103,7 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
                 ${COMMANDS_FILE}
                 "${ShaderTools}"
                 ${SHADER_INPUT_DIR}
-                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${BUILD_COMMAND_SCRIPT}
                 "${SHADER_INCLUDE_LIST}"
                 ${ShaderListFiles}
             DEPENDS ${GENERATE_SCRIPT} ${ShaderListFiles}

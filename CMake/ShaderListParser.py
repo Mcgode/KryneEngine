@@ -16,13 +16,11 @@ def main():
     for pair in sys.argv[5].split("%%"):
         shader_tools[pair.split("=")[0]] = Path(pair.split("=")[1])
     shaders_dir = Path(sys.argv[6])
-    source_dir = Path(sys.argv[7])
+    python_script = Path(sys.argv[7])
     include_list = sys.argv[8]
     shader_list_files = sys.argv[9:]
 
     working_dir = output_file.parent
-
-    python_script = source_dir / "CMake/ShaderBuildCommand.py"
 
     with open(output_file, 'w') as f:
         writer = ninja_syntax.Writer(f, 150)
