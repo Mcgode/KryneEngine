@@ -23,7 +23,7 @@ namespace KryneEngine::Hashing
         {
             u64 hash = _base;
 
-            if consteval
+            IF_CONSTEVAL
             {
                 const u64 blocks = _size >> 3;
                 for (u32 i = 0; i < blocks; ++i)

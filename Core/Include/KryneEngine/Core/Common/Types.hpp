@@ -42,4 +42,10 @@ namespace KryneEngine
         u32 m_right;
         u32 m_bottom;
     };
+
+#if __cpp_if_consteval >= 202106L
+#   define IF_CONSTEVAL if consteval
+#else
+#   define IF_CONSTEVAL if (std::is_constant_evaluated())
+#endif
 }
