@@ -8,6 +8,7 @@
 
 #include "KryneEngine/Core/Common/Types.hpp"
 #include "KryneEngine/Core/Memory/Allocators/Allocator.hpp"
+#include "KryneEngine/Core/Threads/SpinLock.hpp"
 
 namespace KryneEngine
 {
@@ -45,6 +46,9 @@ namespace KryneEngine
         void SetAutoGrowth(bool _autoGrowth) { m_autoGrowth = _autoGrowth; }
         [[nodiscard]] bool IsAutoGrowth() const { return m_autoGrowth; }
 
+        void SetThreadSafe(bool _threadSafe) { m_threadSafe = _threadSafe; }
+        [[nodiscard]] bool IsThreadSafe() const { return m_threadSafe; }
+
         bool AddHeap();
 
     protected:
@@ -68,6 +72,9 @@ namespace KryneEngine
 
         u32 m_allocatorSize;
         bool m_autoGrowth = true;
+
+        SpinLock m_lock;
+        bool m_threadSafe = true;
 
         void InsertBlock(TlsfHeap::BlockHeader* _block);
         void RemoveBlock(TlsfHeap::BlockHeader* _block, u8 _fl, u8 _sl);

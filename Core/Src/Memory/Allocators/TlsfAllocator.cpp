@@ -6,12 +6,12 @@
 
 #include "KryneEngine/Core/Memory/Allocators/TlsfAllocator.hpp"
 
-#include <cstring>
 #include <stdexcept>
 
 #include "KryneEngine/Core/Common/BitUtils.hpp"
 #include "KryneEngine/Core/Common/Utils/Alignment.hpp"
 #include "KryneEngine/Core/Memory/Heaps/TlsfHeap.hpp"
+#include "KryneEngine/Core/Profiling/TracyHeader.hpp"
 
 #if !defined(TLSF_HEAP_ASSERT)
 #   define TLSF_HEAP_ASSERT 1
@@ -40,6 +40,11 @@ namespace KryneEngine
 
     void* TlsfAllocator::Allocate(size_t _size, size_t _alignment)
     {
+        KE_ZoneScopedFunction("TlsfAllocator::Allocate");
+
+        if (m_threadSafe)
+            m_lock.Lock();
+
         TlsfHeap::BlockHeader* block = nullptr;
 
         if (_size == 0)
@@ -116,11 +121,20 @@ namespace KryneEngine
             }
         }
 
-        return PrepareBlockUsed(block, alignedSize);
+        void* ptr =  PrepareBlockUsed(block, alignedSize);
+        if (m_threadSafe)
+            m_lock.Unlock();
+        return ptr;
     }
 
     void TlsfAllocator::Free(void* _ptr, size_t /* _size */)
     {
+        KE_ZoneScopedFunction("TlsfAllocator::Free");
+
+        TlsfHeap::ControlBlock* control = GetControlBlock();
+        if (m_threadSafe)
+            m_lock.Lock();
+
         if (_ptr == nullptr)
             return;
 
@@ -130,6 +144,9 @@ namespace KryneEngine
         block = MergePreviousBlock(block);
         block = MergeNextBlock(block);
         InsertBlock(block);
+
+        if (m_threadSafe)
+            m_lock.Unlock();
     }
 
     TlsfAllocator* TlsfAllocator::Create(AllocatorInstance _parentAllocator, size_t _heapSize, const char* _name)
