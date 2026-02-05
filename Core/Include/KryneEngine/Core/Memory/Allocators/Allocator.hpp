@@ -7,16 +7,26 @@
 #pragma once
 
 #include <cstddef>
+#include <cstring>
 
 namespace KryneEngine
 {
     class IAllocator
     {
     public:
+        explicit IAllocator(const char* _name)
+        {
+            strcpy(m_name, _name);
+        }
         virtual ~IAllocator() = default;
 
         virtual void* Allocate(size_t _size, size_t _alignment) = 0;
         virtual void Free(void* _ptr, size_t _alignment) = 0;
+
+        [[nodiscard]] const char* GetName() const { return m_name; }
+
+    private:
+        char m_name[256] {};
     };
 
     struct AllocatorInstance final
@@ -33,8 +43,8 @@ namespace KryneEngine
         AllocatorInstance(AllocatorInstance& _other, const char*): m_allocator(_other.m_allocator) {};
         AllocatorInstance(IAllocator* _allocator): m_allocator(_allocator) {}
 
-        void* allocate(size_t _size, int _flags = 0) const;
-        void* allocate(size_t _size, size_t _alignment, size_t _alignmentOffset = 0, int _flags = 0) const;
+        [[nodiscard]] void* allocate(size_t _size, int _flags = 0) const;
+        [[nodiscard]] void* allocate(size_t _size, size_t _alignment, size_t _alignmentOffset = 0, int _flags = 0) const;
         void deallocate(void* _ptr, size_t _size = 0) const;
 
         template <class T>

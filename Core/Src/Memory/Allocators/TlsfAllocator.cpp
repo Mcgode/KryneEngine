@@ -132,7 +132,7 @@ namespace KryneEngine
         InsertBlock(block);
     }
 
-    TlsfAllocator* TlsfAllocator::Create(AllocatorInstance _parentAllocator, size_t _heapSize)
+    TlsfAllocator* TlsfAllocator::Create(AllocatorInstance _parentAllocator, size_t _heapSize, const char* _name)
     {
         const u32 allocatorSize = Alignment::AlignUp(sizeof(TlsfAllocator), TlsfHeap::kAlignment);
         KE_ASSERT_MSG(_heapSize > allocatorSize, "Heap size must be greater than the size of the control structures");
@@ -144,7 +144,7 @@ namespace KryneEngine
         }
 
         auto* allocator = reinterpret_cast<TlsfAllocator*>(heapStart);
-        new (allocator) TlsfAllocator(_parentAllocator, _heapSize, allocatorSize);
+        new (allocator) TlsfAllocator(_parentAllocator, _heapSize, allocatorSize, _name);
         heapStart += allocator->m_allocatorSize;
         _heapSize -= allocator->m_allocatorSize;
 
@@ -190,10 +190,15 @@ namespace KryneEngine
         return true;
     }
 
-    TlsfAllocator::TlsfAllocator(AllocatorInstance _parentAllocator, size_t _heapSize, u32 _allocatorSize)
-        : m_parentAllocator(_parentAllocator)
-        , m_heapSize(_heapSize)
-        , m_allocatorSize(_allocatorSize)
+    TlsfAllocator::TlsfAllocator(
+        const AllocatorInstance _parentAllocator,
+        const size_t _heapSize,
+        const u32 _allocatorSize,
+        const char* _name)
+            : IAllocator(_name)
+            , m_parentAllocator(_parentAllocator)
+            , m_heapSize(_heapSize)
+            , m_allocatorSize(_allocatorSize)
     {}
 
     void TlsfAllocator::SetupHeapPool(std::byte* _heapStart, size_t _heapSize)

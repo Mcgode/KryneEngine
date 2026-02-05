@@ -19,6 +19,7 @@ option(KRYNE_ENGINE_BUILD_TOOLS "Build tools for KryneEngine" ON)
 option(KRYNE_ENGINE_BUILD_SAMPLES "Build samples for KryneEngine" ON)
 option(KRYNE_ENGINE_ENABLE_TESTING "Toggle testing for KryneEngine" ON)
 
+option(KRYNE_ENGINE_PROFILE_MEMORY_ALLOCATIONS "Toggles Tracy memory allocation tracking and profiling" ON)
 option(KRYNE_ENGINE_TRACK_DEFAULT_HEAP_ALLOCATIONS "Toggles default heap allocation tracking" ON)
 
 add_subdirectory(External)
@@ -27,6 +28,11 @@ add_subdirectory(Core)
 if (KRYNE_ENGINE_TRACK_DEFAULT_HEAP_ALLOCATIONS)
     message(STATUS "Default heap allocation tracking is enabled")
     target_compile_definitions(KryneEngine_Core PUBLIC KE_TRACK_DEFAULT_HEAP_ALLOCATIONS=1)
+endif ()
+
+if (KRYNE_ENGINE_PROFILE_MEMORY_ALLOCATIONS)
+    message(STATUS "Memory allocation profiling is enabled")
+    target_compile_definitions(KryneEngine_Core PUBLIC KE_PROFILE_MEMORY_ALLOCATIONS=1)
 endif ()
 
 if (KRYNE_ENGINE_BUILD_MODULES)
