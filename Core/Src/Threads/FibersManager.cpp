@@ -92,9 +92,9 @@ namespace KryneEngine
         }
     }
 
-    void FibersManager::QueueJob(FibersManager::Job _job)
+    void FibersManager::QueueJob(Job _job)
     {
-        VERIFY_OR_RETURN_VOID(_job != nullptr && _job->m_associatedCounterId != kInvalidSyncCounterId);
+        VERIFY_OR_RETURN_VOID(_job != nullptr);
 
         KE_ASSERT(_job->CanRun());
 
@@ -191,8 +191,11 @@ namespace KryneEngine
 
         if (oldJob != nullptr && oldJob->GetStatus() == FiberJob::Status::Finished)
         {
-            // Decrement counter
-            m_syncCounterPool.DecrementCounterValue(oldJob->m_associatedCounterId);
+            if (oldJob->m_associatedCounterId != kInvalidSyncCounterId)
+            {
+                // Decrement counter
+                m_syncCounterPool.DecrementCounterValue(oldJob->m_associatedCounterId);
+            }
 
             m_contextAllocator->Free(oldJob->m_contextId);
 
@@ -249,6 +252,30 @@ namespace KryneEngine
             0,
             _priority,
             _useBigStack);
+    }
+
+    void FibersManager::InitAndBatchNoCounterJobs(
+        const size_t _jobCount,
+        FiberJob::JobFunc* _jobFunc,
+        void* _userData,
+        const size_t _userDataStride,
+        const FiberJob::Priority _priority,
+        const bool _useBigStack)
+    {
+        const auto userData = reinterpret_cast<uintptr_t>(_userData);
+
+        const AllocatorInstance allocator = m_fiberThreads.GetAllocator();
+
+        for (u32 i = 0; i < _jobCount; i++)
+        {
+            auto* job = allocator.New<FiberJob>();
+            job->m_functionPtr = _jobFunc;
+            job->m_userData = reinterpret_cast<void*>(userData + _userDataStride * i);
+            job->m_priority = _priority;
+            job->m_bigStack = _useBigStack;
+            job->m_associatedCounterId = kInvalidSyncCounterId;
+            QueueJob(job);
+        }
     }
 
     SyncCounterPool::AutoSyncCounter FibersManager::AcquireAutoSyncCounter(u32 _count)

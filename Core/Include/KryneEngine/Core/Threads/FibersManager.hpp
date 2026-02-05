@@ -13,6 +13,8 @@
 #include <KryneEngine/Core/Threads/FiberTls.hpp>
 #include <KryneEngine/Core/Threads/SyncCounterPool.hpp>
 
+#include "EASTL/span.h"
+
 namespace KryneEngine
 {
     struct FiberContextAllocator;
@@ -78,6 +80,35 @@ namespace KryneEngine
                 sizeof(T),
                 _priority,
                 _useBigStack);
+        }
+
+        void InitAndBatchNoCounterJobs(
+            size_t _jobCount,
+            FiberJob::JobFunc* _jobFunc,
+            void *_userData,
+            size_t _userDataStride,
+            FiberJob::Priority _priority = FiberJob::Priority::Medium,
+            bool _useBigStack = false);
+
+        void InitAndBatchNoCounterJobs(
+            FiberJob::JobFunc* _jobFunc,
+            void *_userData,
+            size_t _jobCount = 1,
+            const FiberJob::Priority _priority = FiberJob::Priority::Medium,
+            const bool _useBigStack = false)
+        {
+            InitAndBatchNoCounterJobs(_jobCount, _jobFunc, _userData, 0, _priority, _useBigStack);
+        }
+
+        template <class T>
+        void InitAndBatchNoCounterJobs(
+            size_t _jobCount,
+            FiberJob::JobFunc* _jobFunc,
+            eastl::span<T> _userData,
+            const FiberJob::Priority _priority = FiberJob::Priority::Medium,
+            const bool _useBigStack = false)
+        {
+            InitAndBatchNoWaitJobs(_jobCount, _jobFunc, _userData.data(), sizeof(T), _priority, _useBigStack);
         }
 
         [[nodiscard]] SyncCounterPool::AutoSyncCounter AcquireAutoSyncCounter(u32 _count = 1);
