@@ -98,6 +98,7 @@ set(MemorySrc
         Include/KryneEngine/Core/Memory/Containers/VectorDeLinkedList.hpp
         Include/KryneEngine/Core/Memory/IntrusivePtr.hpp
         Include/KryneEngine/Core/Memory/Containers/ConcurrentQueue.hpp
+        Include/KryneEngine/Core/Memory/Containers/Pool.hpp
 )
 
 message(STATUS "Loading implementation for platform '${CMAKE_SYSTEM_NAME}'")
