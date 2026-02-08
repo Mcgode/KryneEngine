@@ -9,9 +9,12 @@
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 
 #include "KryneEngine/Modules/Resources/ResourceEntry.hpp"
+#include "KryneEngine/Modules/Resources/ResourceTypeId.hpp"
 
 namespace KryneEngine::Modules::Resources
 {
+#define KE_DECLARE_RESOURCE_TYPE(name) static constexpr KryneEngine::Modules::Resources::ResourceTypeId kTypeId = KryneEngine::Modules::Resources::GenerateResourceTypeId(name)
+
     template <class ResourceManager>
     class ResourceBase
     {
