@@ -15,6 +15,7 @@ function(target_add_raw_resources_dir TARGET_NAME SRC_DIR TARGET_DIR_NAME)
         message(FATAL_ERROR "Cannot find directory '${INPUT_DIR}'")
     endif ()
 
+    set(COMMON_RAW_RESOURCES_DIR "${CMAKE_BINARY_DIR}/Resources")
     set(OUTPUT_DIR "${COMMON_RAW_RESOURCES_DIR}/${TARGET_DIR_NAME}")
 
     if (KE_RAW_RESOURCE_HARD_COPY)
