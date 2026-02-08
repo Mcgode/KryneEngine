@@ -35,6 +35,7 @@ namespace KryneEngine
         ~FibersManager();
 
         [[nodiscard]] static FibersManager* GetInstance();
+        static void SetInstance(FibersManager* _instance);
 
         [[nodiscard]] static u16 GetFibersCount()
         {

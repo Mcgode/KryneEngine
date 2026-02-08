@@ -147,6 +147,11 @@ namespace KryneEngine
         return s_manager;
     }
 
+    void FibersManager::SetInstance(FibersManager* _instance)
+    {
+        s_manager = _instance;
+    }
+
     FibersManager::~FibersManager()
     {
         for (auto& fiberThread: m_fiberThreads)
