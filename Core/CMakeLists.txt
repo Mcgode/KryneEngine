@@ -97,6 +97,7 @@ set(MemorySrc
         Include/KryneEngine/Core/Memory/Containers/StableVector.inl
         Include/KryneEngine/Core/Memory/Containers/VectorDeLinkedList.hpp
         Include/KryneEngine/Core/Memory/IntrusivePtr.hpp
+        Src/Memory/Containers/ConcurrentQueue.cpp
         Include/KryneEngine/Core/Memory/Containers/ConcurrentQueue.hpp
         Include/KryneEngine/Core/Memory/Containers/Pool.hpp
 )
