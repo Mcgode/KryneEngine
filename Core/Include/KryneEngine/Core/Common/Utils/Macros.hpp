@@ -23,8 +23,8 @@
  * }
  * @endcode
  */
-#define KE_DEFINE_COPY_MOVE_SEMANTICS(className, copyKeyword, moveKeyword) \
+#define KE_DEFINE_COPY_MOVE_SEMANTICS(className, copyKeyword, moveKeyword)    \
     className(const className& _other) = copyKeyword;                         \
     className& operator=(const className& _other) = copyKeyword;              \
-    className(className&& _other) = moveKeyword;                              \
-    className& operator=(className&& _other) = moveKeyword
+    className(className&& _other) noexcept = moveKeyword;                     \
+    className& operator=(className&& _other) noexcept = moveKeyword
