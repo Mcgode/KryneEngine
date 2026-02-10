@@ -106,7 +106,7 @@ namespace KryneEngine
     requires FlatHashMapValidKvp<Key, Value>
     FlatHashMap<Key, Value>::iterator FlatHashMap<Key, Value>::Find(const Key& _key)
     {
-        const size_t hash = HashKey<Key>(_key);
+        const size_t hash = Hashing::HashKey<Key>(_key);
         const u8 expectedControl = hash >> (sizeof(size_t) == 8 ? 57 : 25);
 
         size_t probeIndex = hash % m_capacity;
@@ -264,7 +264,7 @@ namespace KryneEngine
                 Grow(m_capacity * 2);
         }
 
-        const u64 hash = HashKey<Key>(_key);
+        const u64 hash = Hashing::HashKey<Key>(_key);
         const u8 control = hash >> (sizeof(size_t) == 8 ? 57 : 25);
         KE_ASSERT((control & kAvailableSlotFlag) == 0);
 
