@@ -100,6 +100,8 @@ set(MemorySrc
         Src/Memory/Containers/ConcurrentQueue.cpp
         Include/KryneEngine/Core/Memory/Containers/ConcurrentQueue.hpp
         Include/KryneEngine/Core/Memory/Containers/Pool.hpp
+        Include/KryneEngine/Core/Memory/Containers/FlatHashMap.hpp
+        Include/KryneEngine/Core/Memory/Containers/FlatHashMap.inl
 )
 
 message(STATUS "Loading implementation for platform '${CMAKE_SYSTEM_NAME}'")
