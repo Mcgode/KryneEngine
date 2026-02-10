@@ -18,6 +18,18 @@ namespace KryneEngine::Hashing
         static constexpr u64 kMurmurPrime = 14'313'749'767'032'793'493u;
         static constexpr u64 kMurmurShift = 47u;
 
+        constexpr u64 Murmur2Hash64(u64 _value, u64 _base)
+        {
+            u64 _hash = _base;
+            u64 k = _value;
+            k *= kMurmurPrime;
+            k ^= k >> kMurmurShift;
+            k *= kMurmurPrime;
+            _hash ^= k;
+            _hash *= kMurmurPrime;
+            return _hash;
+        }
+
         // https://github.com/abrandoned/murmur2/blob/master/MurmurHash2.c
         constexpr u64 Murmur2Hash64(const char* _data, const u64 _size, u64 _base)
         {
@@ -150,5 +162,21 @@ namespace KryneEngine::Hashing
     u64 Hash64Append(eastl::span<T> _span, u64 _accumulatedHash)
     {
         return Hash64Append(reinterpret_cast<const char*>(_span.data()), _span.size() * sizeof(T), _accumulatedHash);
+    }
+
+    // A helper method to retrieve hash values from keys
+
+    template <class T>
+    size_t HashKey(const T& _value)
+    {
+        // Fallback to eastl::hash()
+        return eastl::hash<T>()(_value);
+    }
+
+    // Override for integers, for better distribution
+    template <class T> requires std::is_integral_v<T>
+    size_t HashKey(const T& _value)
+    {
+        return Murmur2Hash64(_value, Murmur2::kMurmurSeed);
     }
 }
