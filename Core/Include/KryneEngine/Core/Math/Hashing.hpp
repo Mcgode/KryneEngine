@@ -175,8 +175,15 @@ namespace KryneEngine::Hashing
 
     // Override for integers, for better distribution
     template <class T> requires std::is_integral_v<T>
+    constexpr size_t HashKey(const T& _value)
+    {
+        return Murmur2::Murmur2Hash64(_value, Murmur2::kMurmurSeed);
+    }
+
+    // Override for pointers
+    template <class T> requires std::is_pointer_v<std::remove_reference_t<T>>
     size_t HashKey(const T& _value)
     {
-        return Murmur2Hash64(_value, Murmur2::kMurmurSeed);
+        return Murmur2::Murmur2Hash64(reinterpret_cast<size_t>(_value), Murmur2::kMurmurSeed);
     }
 }
