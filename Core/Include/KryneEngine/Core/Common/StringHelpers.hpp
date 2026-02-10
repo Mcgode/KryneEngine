@@ -11,44 +11,66 @@
 #include <string>
 
 #include "KryneEngine/Core/Common/Types.hpp"
+#include "KryneEngine/Core/Common/Utils/Macros.hpp"
 #include "KryneEngine/Core/Math/Hashing.hpp"
 
 namespace KryneEngine
 {
-    struct StringHash
+    struct StringHashBase
     {
-        explicit StringHash(u64 _value)
+        explicit StringHashBase(u64 _value)
             : m_hash(_value)
         {}
 
-        explicit StringHash(const eastl::string_view& _string, const AllocatorInstance _allocator = {})
-            : m_hash(Hash64(_string))
-            , m_string(_string, _allocator)
-        {}
-
-        StringHash(const StringHash& _other) = default;
-        StringHash(StringHash&& _other) noexcept = default;
-
-        StringHash& operator=(const StringHash& _other) = default;
-        StringHash& operator=(StringHash&& _other) noexcept = default;
+        KE_DEFINE_COPY_MOVE_SEMANTICS(StringHashBase, default, default);
 
         u64 m_hash;
-        eastl::string m_string {};
 
         static u64 Hash64(const eastl::string_view& _string)
         {
             return Hashing::Hash64(_string.data(), _string.size());
         }
 
-        bool operator==(const StringHash &rhs) const
+        bool operator==(const StringHashBase &rhs) const
         {
             return m_hash == rhs.m_hash;
         }
 
-        bool operator<(const StringHash &rhs) const
+        bool operator<(const StringHashBase &rhs) const
         {
             return m_hash < rhs.m_hash;
         }
+    };
+
+    struct StringHash: StringHashBase
+    {
+        StringHash(const u64 _hash, const eastl::string_view& _string, const AllocatorInstance _allocator)
+            : StringHashBase(_hash)
+            , m_string(_string, _allocator)
+        {}
+
+        explicit StringHash(const eastl::string_view& _string, const AllocatorInstance _allocator = {})
+            : StringHash(Hash64(_string), _string, _allocator)
+        {}
+
+        KE_DEFINE_COPY_MOVE_SEMANTICS(StringHash, default, default);
+
+        eastl::string m_string {};
+    };
+
+    struct StringViewHash: StringHashBase
+    {
+        StringViewHash(const u64 _hash, const eastl::string_view& _stringView)
+            : StringHashBase(_hash)
+            , m_stringView(_stringView)
+        {}
+
+        explicit StringViewHash(const eastl::string_view& _string): StringViewHash(Hash64(_string), _string) {}
+        explicit StringViewHash(const StringHash& _stringHash): StringViewHash(_stringHash.m_hash, _stringHash.m_string) {}
+
+        KE_DEFINE_COPY_MOVE_SEMANTICS(StringViewHash, default, default);
+
+        eastl::string_view m_stringView {};
     };
 
     struct Utf8Iterator
@@ -91,6 +113,18 @@ namespace KryneEngine
 
             return result;
         }
+    }
+
+    namespace Hashing
+    {
+        template <>
+        inline size_t HashKey<StringHashBase>(const StringHashBase& _val) { return static_cast<size_t>(_val.m_hash); }
+
+        template <>
+        inline size_t HashKey<StringHash>(const StringHash& _val) { return static_cast<size_t>(_val.m_hash); }
+
+        template <>
+        inline size_t HashKey<StringViewHash>(const StringViewHash& _val) { return static_cast<size_t>(_val.m_hash); }
     }
 }
 
