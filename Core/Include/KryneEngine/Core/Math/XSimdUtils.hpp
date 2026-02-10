@@ -53,6 +53,12 @@ namespace KryneEngine::Math
     using XsimdArch512 = XsimdArch256;
 #endif
 
+    using SimdHighestArch =
+        std::conditional_t<std::is_same_v<xsimd::unavailable, XsimdArch128>, xsimd::unavailable,
+        std::conditional_t<std::is_same_v<XsimdArch128, XsimdArch256>, XsimdArch128,
+        std::conditional_t<std::is_same_v<XsimdArch256, XsimdArch512>, XsimdArch256, XsimdArch512>>>;
+    constexpr bool kSimdAvailable = !std::is_same_v<SimdHighestArch, xsimd::unavailable>;
+
     template <class T, class Container>
     struct SimdOperability
     {
