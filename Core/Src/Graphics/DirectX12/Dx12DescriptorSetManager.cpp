@@ -230,9 +230,9 @@ namespace KryneEngine
     void Dx12DescriptorSetManager::SetGraphicsDescriptorSets(
         CommandList _commandList,
         const eastl::span<const DescriptorSetHandle>& _sets,
-        u16* _tableSetOffsets,
-        u32 _offset,
-        u8 _currentFrame)
+        const u16* _tableSetOffsets,
+        const u32 _offset,
+        const u8 _currentFrame)
     {
         KE_ZoneScopedFunction("Dx12DescriptorSetManager::SetGraphicsDescriptorSets");
 
@@ -265,6 +265,49 @@ namespace KryneEngine
                     pRanges->m_offsets[samplerIndex],
                     m_samplerDescriptorSize);
                 _commandList->SetGraphicsRootDescriptorTable(tableIndex, handle);
+                tableIndex++;
+            }
+        }
+    }
+
+    void Dx12DescriptorSetManager::SetComputeDescriptorSets(
+        CommandList _commandList,
+        const eastl::span<const DescriptorSetHandle>& _sets,
+        const u16* _tableSetOffsets,
+        const u32 _offset,
+        const u8 _currentFrame)
+    {
+        KE_ZoneScopedFunction("Dx12DescriptorSetManager::SetComputeDescriptorSets");
+
+        constexpr u32 samplerIndex = static_cast<u32>(RangeType::Sampler);
+
+        u32 tableIndex = _tableSetOffsets[_offset];
+        for (auto setIndex = 0u; setIndex < _sets.size(); setIndex++)
+        {
+            const DescriptorSetHandle set = _sets[setIndex];
+            DescriptorSetRanges* pRanges = m_descriptorSets.Get(set.m_handle);
+            VERIFY_OR_RETURN_VOID(pRanges != nullptr);
+
+            u32 cbvSrvUavTotal = 0;
+            for (auto i = 0u; i < samplerIndex; i++) { cbvSrvUavTotal += pRanges->m_sizes[i]; }
+
+            if (cbvSrvUavTotal > 0)
+            {
+                const CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
+                    m_cbvSrvUavGpuDescriptorHeaps[_currentFrame]->GetGPUDescriptorHandleForHeapStart(),
+                    pRanges->m_offsets[0],
+                    m_cbvSrvUavDescriptorSize);
+                _commandList->SetComputeRootDescriptorTable(tableIndex, handle);
+                tableIndex++;
+            }
+
+            if (pRanges->m_sizes[samplerIndex] > 0)
+            {
+                const CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
+                    m_samplerGpuDescriptorHeaps[_currentFrame]->GetGPUDescriptorHandleForHeapStart(),
+                    pRanges->m_offsets[samplerIndex],
+                    m_samplerDescriptorSize);
+                _commandList->SetComputeRootDescriptorTable(tableIndex, handle);
                 tableIndex++;
             }
         }

@@ -80,6 +80,9 @@ namespace KryneEngine
         [[nodiscard]] GraphicsPipelineHandle CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc, ID3D12Device* _device);
         bool DestroyGraphicsPipeline(GraphicsPipelineHandle _pipeline);
 
+        [[nodiscard]] ComputePipelineHandle CreateComputePipeline(const ComputePipelineDesc& _desc, ID3D12Device* _device);
+        bool DestroyComputePipeline(ComputePipelineHandle _pipeline);
+
         struct RtvHotData
         {
             CD3DX12_CPU_DESCRIPTOR_HANDLE m_cpuHandle {};

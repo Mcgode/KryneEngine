@@ -1300,4 +1300,42 @@ namespace KryneEngine
         }
         return false;
     }
+
+    ComputePipelineHandle Dx12Resources::CreateComputePipeline(const ComputePipelineDesc& _desc, ID3D12Device* _device)
+    {
+        KE_ZoneScopedFunction("Dx12Resources::CreateComputePipeline");
+
+        ID3D12RootSignature* signature = m_pipelineLayouts.Get(_desc.m_pipelineLayout.m_handle)->m_signature;
+        const D3D12_SHADER_BYTECODE csBytecode = *m_shaderBytecodes.Get(_desc.m_computeStage.m_shaderModule.m_handle);
+
+        D3D12_COMPUTE_PIPELINE_STATE_DESC desc {
+            .pRootSignature = signature,
+            .CS = csBytecode
+        };
+
+        const GenPool::Handle handle = m_pipelineStateObjects.Allocate();
+        auto [hot, cold] = m_pipelineStateObjects.GetAll(handle);
+
+        Dx12Assert(_device->CreateComputePipelineState(&desc, IID_PPV_ARGS(hot)));
+        cold->m_signature = signature;
+
+#if !defined(KE_FINAL)
+        Dx12SetName(*hot, _desc.m_debugName.c_str());
+#endif
+
+        return { handle };
+    }
+
+    bool Dx12Resources::DestroyComputePipeline(const ComputePipelineHandle _pipeline)
+    {
+        KE_ZoneScopedFunction("Dx12Resources::DestroyComputePipeline");
+
+        ID3D12PipelineState* pso;
+        if (m_pipelineStateObjects.Free(_pipeline.m_handle, &pso))
+        {
+            SafeRelease(pso);
+            return true;
+        }
+        return false;
+    }
 } // KryneEngine

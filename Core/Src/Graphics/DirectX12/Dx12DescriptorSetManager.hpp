@@ -43,7 +43,14 @@ namespace KryneEngine
         void SetGraphicsDescriptorSets(
             CommandList _commandList,
             const eastl::span<const DescriptorSetHandle>& _sets,
-            u16* _tableSetOffsets,
+            const u16* _tableSetOffsets,
+            u32 _offset,
+            u8 _currentFrame);
+
+        void SetComputeDescriptorSets(
+            CommandList _commandList,
+            const eastl::span<const DescriptorSetHandle>& _sets,
+            const u16* _tableSetOffsets,
             u32 _offset,
             u8 _currentFrame);
 
