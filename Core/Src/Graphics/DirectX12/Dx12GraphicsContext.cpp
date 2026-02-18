@@ -77,7 +77,7 @@ namespace KryneEngine
 
         m_resources.InitHeaps(m_device.Get());
 
-        m_descriptorSetManager.Init(m_device.Get(), m_frameContextCount, _currentFrameId % m_frameContextCount);
+        m_descriptorSetManager.Init(m_device.Get(), m_frameContextCount, m_frameId % m_frameContextCount);
 
         m_frameContexts.Resize(m_frameContextCount);
         m_frameContexts.InitAll(m_device.Get(),
