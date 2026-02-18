@@ -22,11 +22,11 @@ namespace KryneEngine
     Dx12Resources::Dx12Resources(AllocatorInstance _allocator)
         : m_buffers(_allocator)
         , m_textures(_allocator)
-        , m_cbvSrvUav(_allocator)
         , m_samplers(_allocator)
         , m_textureViews(_allocator)
         , m_bufferViews(_allocator)
         , m_renderTargetViews(_allocator)
+        , m_depthStencilViews(_allocator)
         , m_renderPasses(_allocator)
         , m_pipelineLayouts(_allocator)
         , m_shaderBytecodes(_allocator)
@@ -879,7 +879,7 @@ namespace KryneEngine
                         case Dx12DescriptorSetManager::RangeType::Srv:
                             range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
                             break;
-                        case Dx12DescriptorSetManager::RangeType::UAV:
+                        case Dx12DescriptorSetManager::RangeType::Uav:
                             range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
                             break;
                         default:
@@ -902,7 +902,7 @@ namespace KryneEngine
                         .ShaderVisibility = Dx12Converters::ToDx12ShaderVisibility(
                             layoutData->m_visibilities[static_cast<u32>(Dx12DescriptorSetManager::RangeType::Cbv)] |
                             layoutData->m_visibilities[static_cast<u32>(Dx12DescriptorSetManager::RangeType::Srv)] |
-                            layoutData->m_visibilities[static_cast<u32>(Dx12DescriptorSetManager::RangeType::UAV)]),
+                            layoutData->m_visibilities[static_cast<u32>(Dx12DescriptorSetManager::RangeType::Uav)]),
                     });
                     offsets.push_back(rangesOffset);
                 }
