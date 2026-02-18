@@ -146,9 +146,9 @@ namespace KryneEngine
         ComPtr<ID3D12DescriptorHeap> m_dsvDescriptorHeap = nullptr;
         u32 m_dsvDescriptorSize = 0;
 
-        static constexpr GenPool::IndexType kDsvFlag = 1u << 15;
+        static constexpr u32 kDsvFlag = 1u << (GenPool::kIndexBits - 1u);
 
-        static_assert(sizeof(GenPool::IndexType) == 2, "GenPool index type changed, please update size appropriately.");
+        static_assert(GenPool::kIndexBits == 20, "GenPool index type changed, please update size appropriately.");
         static constexpr u64 kCbvSrvUavHeapSize = 1u << 16;
         ComPtr<ID3D12DescriptorHeap> m_cbvSrvUavDescriptorStorageHeap;
         u32 m_cbvSrvUavDescriptorSize = 0;
