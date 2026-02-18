@@ -16,7 +16,7 @@ namespace KryneEngine
     public:
         explicit IAllocator(const char* _name)
         {
-            strcpy(m_name, _name);
+            strcpy_s(m_name, _name);
         }
         virtual ~IAllocator() = default;
 
