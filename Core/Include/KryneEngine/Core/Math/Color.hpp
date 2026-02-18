@@ -57,7 +57,7 @@ namespace KryneEngine
             }
         }
 
-        [[nodiscard]] u32 ToRgba8(bool _lowEndian = true) const
+        [[nodiscard]] u32 ToRgba8(const bool _lowEndian = true) const
         {
             const float4 unormValue = m_value * 255.0f;
             if (_lowEndian)
@@ -73,6 +73,25 @@ namespace KryneEngine
                        | (static_cast<u32>(unormValue.z) & 0xff) << 8
                        | (static_cast<u32>(unormValue.y) & 0xff) << 16
                        | (static_cast<u32>(unormValue.x) & 0xff) << 24;
+            }
+        }
+
+        [[nodiscard]] u32 ToArgb8(const bool _lowEndian = true) const
+        {
+            const float4 unormValue = m_value * 255.0f;
+            if (_lowEndian)
+            {
+                return (static_cast<u32>(unormValue.a) & 0xff)
+                       | (static_cast<u32>(unormValue.r) & 0xff) << 8
+                       | (static_cast<u32>(unormValue.g) & 0xff) << 16
+                       | (static_cast<u32>(unormValue.b) & 0xff) << 24;
+            }
+            else
+            {
+                return (static_cast<u32>(unormValue.b) & 0xff)
+                       | (static_cast<u32>(unormValue.g) & 0xff) << 8
+                       | (static_cast<u32>(unormValue.r) & 0xff) << 16
+                       | (static_cast<u32>(unormValue.a) & 0xff) << 24;
             }
         }
 
