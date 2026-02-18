@@ -990,7 +990,8 @@ namespace KryneEngine
         PipelineLayoutHotData hotData;
         if (m_pipelineLayouts.Free(_layout.m_handle, &hotData))
         {
-            SafeRelease(hotData.m_signature);;
+            SafeRelease(hotData.m_signature);
+            m_buffers.GetAllocator().deallocate(hotData.m_tableSetOffsets);
             return true;
         }
         return false;
