@@ -9,13 +9,14 @@
 #include <bit>
 #include <D3D12MemAlloc.h>
 #include <dxgidebug.h>
+#include <WinPixEventRuntime/PIXEvents.h>
 
 #include "Graphics/DirectX12/Dx12DescriptorSetManager.hpp"
 #include "Graphics/DirectX12/Dx12SwapChain.hpp"
 #include "Graphics/DirectX12/HelperFunctions.hpp"
-#include "KryneEngine/Core/Common/Utils/Alignment.hpp"
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
+#include "KryneEngine/Core/Math/Color.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
 #include "KryneEngine/Core/Window/Window.hpp"
 
@@ -1411,12 +1412,12 @@ namespace KryneEngine
         const eastl::string_view &_markerName,
         const Color &_color)
     {
-        // TODO
+        PIXBeginEvent(_commandList, _color.ToArgb8(false), _markerName.data());
     }
 
     void Dx12GraphicsContext::PopDebugMarker(CommandListHandle _commandList)
     {
-        // TODO
+        PIXEndEvent(_commandList);
     }
 
     void Dx12GraphicsContext::InsertDebugMarker(
@@ -1424,7 +1425,7 @@ namespace KryneEngine
         const eastl::string_view &_markerName,
         const Color &_color)
     {
-        // TODO
+        PIXSetMarker(_commandList, _color.ToArgb8(false), _markerName.data());
     }
 
     void Dx12GraphicsContext::CalibrateCpuGpuClocks()
