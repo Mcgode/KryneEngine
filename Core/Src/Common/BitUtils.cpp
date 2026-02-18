@@ -57,7 +57,7 @@ namespace KryneEngine::BitUtils
         return ComputeMsb(_value);
 #   endif
 #else
-        return ComputeMsb(_value)
+        return ComputeMsb(_value);
 #endif
     }
 
@@ -70,7 +70,7 @@ namespace KryneEngine::BitUtils
 #if defined(__has_builtin) && __has_builtin(__builtin_ctzll)
         return __builtin_ctzll(_value);
 #else
-        return computeLsb(_value)
+        return computeLsb(_value);
 #endif
     }
 }
