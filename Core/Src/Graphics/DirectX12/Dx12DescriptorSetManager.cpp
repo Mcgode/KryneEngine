@@ -98,6 +98,7 @@ namespace KryneEngine
             case DescriptorBindingDesc::Type::StorageReadOnlyBuffer:
                 rangeType = RangeType::Srv;
                 descriptorType = DescriptorType::BufferSrv;
+                break;
             case DescriptorBindingDesc::Type::StorageReadOnlyTexture:
             case DescriptorBindingDesc::Type::SampledTexture:
                 rangeType = RangeType::Srv;
@@ -132,6 +133,7 @@ namespace KryneEngine
                 total = binding.m_bindingIndex + binding.m_count;
             }
 
+            const u8 rangeTypeIndex = static_cast<u8>(rangeType);
             visibilities[rangeTypeIndex] |= binding.m_visibility;
         }
 
