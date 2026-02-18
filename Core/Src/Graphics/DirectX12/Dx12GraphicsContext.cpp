@@ -1310,7 +1310,7 @@ namespace KryneEngine
         u32 _offset)
     {
         m_descriptorSetManager.SetGraphicsDescriptorSets(
-            _commandList,
+            static_cast<CommandList>(_commandList),
             _sets,
             m_resources.m_pipelineLayouts.Get(_pipelineLayout.m_handle)->m_tableSetOffsets,
             _offset,
