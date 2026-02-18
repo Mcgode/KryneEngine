@@ -1162,6 +1162,18 @@ namespace KryneEngine
         return m_resources.UnRegisterShaderModule(_module);
     }
 
+    ComputePipelineHandle Dx12GraphicsContext::CreateComputePipeline(const ComputePipelineDesc &_desc)
+    {
+        // TODO
+        return {};
+    }
+
+    bool Dx12GraphicsContext::DestroyComputePipeline(ComputePipelineHandle _pipeline)
+    {
+        // TODO
+        return false;
+    }
+
     void Dx12GraphicsContext::UpdateDescriptorSet(
         DescriptorSetHandle _descriptorSet,
         const eastl::span<const DescriptorSetWriteInfo>& _writes,
@@ -1330,5 +1342,76 @@ namespace KryneEngine
             _desc.m_indexOffset,
             _desc.m_vertexOffset,
             _desc.m_instanceOffset);
+    }
+
+    void Dx12GraphicsContext::SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline)
+    {
+        // TODO
+    }
+
+    void Dx12GraphicsContext::SetComputeDescriptorSetsWithOffset(
+        CommandListHandle _commandList,
+        PipelineLayoutHandle _layout,
+        eastl::span<const DescriptorSetHandle> _sets,
+        u32 _offset)
+    {
+        // TODO
+    }
+
+    void Dx12GraphicsContext::SetComputePushConstant(
+        CommandListHandle _commandList,
+        PipelineLayoutHandle _layout,
+        eastl::span<const u32> _data)
+    {
+        // TODO
+    }
+
+    void Dx12GraphicsContext::Dispatch(CommandListHandle _commandList, uint3 _threadGroupCount, uint3 _threadGroupSize)
+    {
+        // TODO
+    }
+
+    void Dx12GraphicsContext::PushDebugMarker(
+        CommandListHandle _commandList,
+        const eastl::string_view &_markerName,
+        const Color &_color)
+    {
+        // TODO
+    }
+
+    void Dx12GraphicsContext::PopDebugMarker(CommandListHandle _commandList)
+    {
+        // TODO
+    }
+
+    void Dx12GraphicsContext::InsertDebugMarker(
+        CommandListHandle _commandList,
+        const eastl::string_view &_markerName,
+        const Color &_color)
+    {
+        // TODO
+    }
+
+    void Dx12GraphicsContext::CalibrateCpuGpuClocks()
+    {
+        // TODO
+    }
+
+    TimestampHandle Dx12GraphicsContext::PutTimestamp(CommandListHandle _commandList)
+    {
+        // TODO
+        return {};
+    }
+
+    u64 Dx12GraphicsContext::GetResolvedTimestamp(TimestampHandle _timestamp) const
+    {
+        // TODO
+        return 0;
+    }
+
+    eastl::span<const u64> Dx12GraphicsContext::GetResolvedTimestamps(u64 _frameId) const
+    {
+        // TODO
+        return {};
     }
 } // KryneEngine

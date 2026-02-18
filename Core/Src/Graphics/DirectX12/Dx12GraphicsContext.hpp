@@ -33,7 +33,7 @@ namespace KryneEngine
     struct DrawInstancedDesc;
     struct Viewport;
 
-    class Dx12GraphicsContext: public GraphicsContext
+    class Dx12GraphicsContext final: public GraphicsContext
     {
     public:
         explicit Dx12GraphicsContext(
@@ -41,7 +41,7 @@ namespace KryneEngine
             const GraphicsCommon::ApplicationInfo& _appInfo,
             Window* _window);
 
-        ~Dx12GraphicsContext();
+        virtual ~Dx12GraphicsContext();
 
         [[nodiscard]] u8 GetFrameContextCount() const override { return m_frameContextCount; }
 
@@ -115,6 +115,9 @@ namespace KryneEngine
         void BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _renderPass) override;
         void EndRenderPass(CommandListHandle _commandList) override;
 
+        void BeginComputePass(CommandListHandle _commandList) override {}
+        void EndComputePass(CommandListHandle _commandList) override {}
+
         void SetTextureData(
             CommandListHandle _commandList,
             BufferHandle _stagingBuffer,
@@ -161,6 +164,9 @@ namespace KryneEngine
         bool DestroyDescriptorSetLayout(DescriptorSetLayoutHandle _layout) override;
         bool FreeShaderModule(ShaderModuleHandle _module) override;
 
+        [[nodiscard]] ComputePipelineHandle CreateComputePipeline(const ComputePipelineDesc& _desc) override;
+        bool DestroyComputePipeline(ComputePipelineHandle _pipeline) override;
+
         void UpdateDescriptorSet(
             DescriptorSetHandle _descriptorSet,
             const eastl::span<const DescriptorSetWriteInfo>& _writes,
@@ -184,6 +190,34 @@ namespace KryneEngine
             u32 _offset) override;
         void DrawInstanced(CommandListHandle _commandList, const DrawInstancedDesc& _desc) override;
         void DrawIndexedInstanced(CommandListHandle _commandList, const DrawIndexedInstancedDesc& _desc) override;
+
+        void SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline) override;
+        void SetComputeDescriptorSetsWithOffset(
+            CommandListHandle _commandList,
+            PipelineLayoutHandle _layout,
+            eastl::span<const DescriptorSetHandle> _sets,
+            u32 _offset) override;
+        void SetComputePushConstant(
+            CommandListHandle _commandList,
+            PipelineLayoutHandle _layout,
+            eastl::span<const u32> _data) override;
+
+        void Dispatch(CommandListHandle _commandList, uint3 _threadGroupCount, uint3 _threadGroupSize) override;
+
+        void PushDebugMarker(
+            CommandListHandle _commandList,
+            const eastl::string_view &_markerName,
+            const Color &_color) override;
+        void PopDebugMarker(CommandListHandle _commandList) override;
+        void InsertDebugMarker(
+            CommandListHandle _commandList,
+            const eastl::string_view &_markerName,
+            const Color &_color) override;
+
+        void CalibrateCpuGpuClocks() override;
+        TimestampHandle PutTimestamp(CommandListHandle _commandList) override;
+        u64 GetResolvedTimestamp(TimestampHandle _timestamp) const override;
+        eastl::span<const u64> GetResolvedTimestamps(u64 _frameId) const override;
 
     private:
         Dx12Resources m_resources;
