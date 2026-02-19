@@ -10,7 +10,7 @@
 #include <D3D12MemAlloc.h>
 #include <dxgidebug.h>
 #if KE_WinPixEventRuntime_Linked
-#   include <WinPixEventRuntime/PIXEvents.h>
+#   include <WinPixEventRuntime/pix3.h>
 #endif
 
 #include "Graphics/DirectX12/Dx12DescriptorSetManager.hpp"
