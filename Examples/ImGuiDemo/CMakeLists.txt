@@ -1,3 +1,4 @@
 add_executable(ImGuiDemo main.cpp)
-target_shaders_dir_symlink(ImGuiDemo)
 target_link_libraries(ImGuiDemo KryneEngine)
+set_target_properties(ImGuiDemo PROPERTIES FOLDER "EngineSamples")
+target_shaders_dir_symlink(ImGuiDemo)

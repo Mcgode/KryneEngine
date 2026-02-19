@@ -10,3 +10,4 @@ add_library(KryneEngine_Modules_ShaderReflection STATIC
 target_include_directories(KryneEngine_Modules_ShaderReflection PUBLIC Include)
 
 target_link_libraries(KryneEngine_Modules_ShaderReflection PUBLIC KryneEngine_Core)
+set_target_properties(KryneEngine_Modules_ShaderReflection PROPERTIES FOLDER "EngineModules")

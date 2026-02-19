@@ -19,6 +19,7 @@ add_library(KryneEngine_Modules_RenderGraph STATIC
 )
 
 target_link_libraries(KryneEngine_Modules_RenderGraph KryneEngine_Core)
+set_target_properties(KryneEngine_Modules_RenderGraph PROPERTIES FOLDER "EngineModules")
 
 target_compile_definitions(KryneEngine_Modules_RenderGraph PRIVATE KE_TRACY_COLOR=0xE89005 KE_TRACY_FUNC_COLOR=0xEC7505)
 

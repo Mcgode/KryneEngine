@@ -32,6 +32,7 @@ target_link_libraries(RenderGraphDemo
         # KryneEngine_Modules_ImGui         (bundled with RenderGraphDebug)
         KryneEngine_Modules_RenderGraphDebug
 )
+set_target_properties(RenderGraphDemo PROPERTIES FOLDER "EngineSamples")
 
 # Link shader libraries and compile sample shaders
 target_link_shader_libraries(RenderGraphDemo ShaderLib)

@@ -26,3 +26,4 @@ target_include_directories(KryneEngine_Modules_TextRendering PRIVATE Extern/msdf
 
 target_link_libraries(KryneEngine_Modules_TextRendering PRIVATE Freetype::Freetype msdfgen-core)
 target_link_libraries(KryneEngine_Modules_TextRendering PUBLIC KryneEngine_Core KryneEngine_Modules_GraphicsUtils KryneEngine_Modules_Resources)
+set_target_properties(KryneEngine_Modules_TextRendering PROPERTIES FOLDER "EngineModules")

@@ -4,6 +4,7 @@ add_library(KryneEngine_Modules_ImGui STATIC
         Src/Input.cpp
         Src/Input.hpp
 )
+set_target_properties(KryneEngine_Modules_ImGui PROPERTIES FOLDER "EngineModules")
 
 target_link_shader_libraries(KryneEngine_Modules_ImGui ShaderLib)
 target_compile_shaders(KryneEngine_Modules_ImGui Shaders Modules/ImGui)

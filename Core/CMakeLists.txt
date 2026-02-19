@@ -272,4 +272,6 @@ target_compile_definitions(KryneEngine_Core PUBLIC EASTL_USER_CONFIG_HEADER="Kry
 target_include_directories(KryneEngine_Core PUBLIC Include)
 target_include_directories(KryneEngine_Core PRIVATE Src)
 
+set_target_properties(KryneEngine_Core PROPERTIES FOLDER "EngineCore")
+
 AddCoverage(KryneEngine_Core)

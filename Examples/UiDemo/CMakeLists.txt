@@ -5,6 +5,7 @@ add_executable(UiDemo UiDemo.cpp
         UiCube.hpp)
 
 target_link_libraries(UiDemo KryneEngine_Modules_GuiLib)
+set_target_properties(UiDemo PROPERTIES FOLDER "EngineSamples")
 
 target_compile_shaders(UiDemo Shaders Examples/UiDemo)
 

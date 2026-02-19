@@ -118,6 +118,11 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
             COMMENT "Shader Compilation [${TARGET_NAME}]"
     )
 
+    get_target_property(folder ${TARGET_NAME} FOLDER)
+    if (NOT folder STREQUAL "folder-NOTFOUND")
+        set_target_properties(${TARGET_NAME}_ShaderCommands PROPERTIES FOLDER ${folder})
+    endif ()
+
     set_target_properties(${TARGET_NAME} PROPERTIES SET_UP_COMPILE_COMMANDS ON)
 
     add_dependencies(${TARGET_NAME} ${TARGET_NAME}_ShaderCommands)
