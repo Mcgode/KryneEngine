@@ -1466,14 +1466,17 @@ namespace KryneEngine
         const Color &_color)
     {
 #if KE_WinPixEventRuntime_Linked
-        PIXBeginEvent(_commandList, _color.ToArgb8(false), _markerName.data());
+        PIXBeginEvent(
+            static_cast<CommandList>(_commandList),
+            _color.ToArgb8(false),
+            _markerName.data());
 #endif
     }
 
     void Dx12GraphicsContext::PopDebugMarker(CommandListHandle _commandList)
     {
 #if KE_WinPixEventRuntime_Linked
-        PIXEndEvent(_commandList);
+        PIXEndEvent(static_cast<CommandList>(_commandList));
 #endif
     }
 
@@ -1483,7 +1486,10 @@ namespace KryneEngine
         const Color &_color)
     {
 #if KE_WinPixEventRuntime_Linked
-        PIXSetMarker(_commandList, _color.ToArgb8(false), _markerName.data());
+        PIXSetMarker(
+            static_cast<CommandList>(_commandList),
+            _color.ToArgb8(false),
+            _markerName.data());
 #endif
     }
 
