@@ -95,6 +95,48 @@ namespace KryneEngine
 #endif
         m_frameFenceEvent = CreateEvent(nullptr, false, false, nullptr);
         KE_ASSERT(m_frameFenceEvent != nullptr);
+
+        if (m_appInfo.m_features.m_gpuTimestamps != GraphicsCommon::SoftEnable::Disabled)
+        {
+            const u32 bufferSize = m_appInfo.m_features.m_gpuTimestampBufferCapacity;
+            const D3D12_QUERY_HEAP_DESC heapDesc = {
+                .Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP,
+                .Count = bufferSize * m_frameContextCount,
+            };
+
+            Dx12Assert(m_device->CreateQueryHeap(&heapDesc, IID_PPV_ARGS(&m_timestampQueryHeap)));
+            Dx12SetName(m_timestampQueryHeap.Get(), "Timestamp Query Heap");
+
+            for (auto i = 0; i < m_frameContextCount; ++i)
+            {
+                m_frameContexts[i].m_timestampOffset = i * bufferSize;
+
+                m_frameContexts[i].m_timestamps.set_allocator(m_allocator);
+                m_frameContexts[i].m_timestamps.reserve(bufferSize);
+
+                const D3D12_RESOURCE_DESC bufferDesc = {
+                    .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+                    .Alignment = 0,
+                    .Width = bufferSize * sizeof(u64),
+                    .Height = 1,
+                    .DepthOrArraySize = 1,
+                    .MipLevels = 1,
+                    .Format = DXGI_FORMAT_UNKNOWN,
+                    .SampleDesc = { .Count = 1, .Quality = 0 },
+                    .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+                };
+                D3D12MA::ALLOCATION_DESC bufferAllocDesc = {
+                    .HeapType = D3D12_HEAP_TYPE_READBACK,
+                };
+                Dx12Assert(m_resources.m_memoryAllocator->CreateResource(
+                    &bufferAllocDesc,
+                    &bufferDesc,
+                    D3D12_RESOURCE_STATE_COPY_DEST,
+                    nullptr,
+                    &m_frameContexts[i].m_timestampBufferAllocation,
+                    IID_PPV_ARGS(&m_frameContexts[i].m_resolvedTimestampBuffer)));
+            }
+        }
     }
 
     Dx12GraphicsContext::~Dx12GraphicsContext()
@@ -177,6 +219,15 @@ namespace KryneEngine
             executeCommands(m_copyQueue.Get(), frameContext.m_copyCommandAllocationSet);
             executeCommands(m_computeQueue.Get(), frameContext.m_computeCommandAllocationSet);
             executeCommands(m_directQueue.Get(), frameContext.m_directCommandAllocationSet);
+        }
+
+        if (m_timestampQueryHeap != nullptr && !frameContext.m_directCommandAllocationSet.m_usedCommandLists.empty())
+        {
+            frameContext.ResolveTimestamps(
+                frameContext.m_directCommandAllocationSet.m_usedCommandLists.back(),
+                m_timestampQueryHeap.Get(),
+                m_directQueueTimestampPeriod,
+                m_directQueueTimestampOffset);
         }
 
         // Present the frame (if applicable)
@@ -1438,24 +1489,40 @@ namespace KryneEngine
 
     void Dx12GraphicsContext::CalibrateCpuGpuClocks()
     {
-        // TODO
+        u64 frequency;
+        Dx12Assert(m_directQueue->GetTimestampFrequency(&frequency));
+        m_directQueueTimestampPeriod = 1.0 / static_cast<double>(frequency);
+
+        u64 cpuTimestamp, gpuTimestamp;
+        Dx12Assert(m_directQueue->GetClockCalibration(&gpuTimestamp, &cpuTimestamp));
+        const u64 gpuTimestampSolved = static_cast<u64>(static_cast<double>(gpuTimestamp) * m_directQueueTimestampPeriod);
+        m_directQueueTimestampOffset = cpuTimestamp - gpuTimestampSolved;
     }
 
     TimestampHandle Dx12GraphicsContext::PutTimestamp(CommandListHandle _commandList)
     {
-        // TODO
-        return {};
+        const auto commandList = static_cast<CommandList>(_commandList);
+        return {
+            .m_index = m_frameContexts[m_frameId % m_frameContextCount].PutTimestamp(commandList, m_timestampQueryHeap.Get()),
+            .m_frameId = static_cast<u32>(m_frameId)
+        };
     }
 
     u64 Dx12GraphicsContext::GetResolvedTimestamp(TimestampHandle _timestamp) const
     {
-        // TODO
-        return 0;
+        if (m_timestampQueryHeap == nullptr)
+            return 0;
+
+        const auto& frameContext = m_frameContexts[_timestamp.m_frameId % m_frameContextCount];
+        return frameContext.m_timestamps[_timestamp.m_index];
     }
 
     eastl::span<const u64> Dx12GraphicsContext::GetResolvedTimestamps(u64 _frameId) const
     {
-        // TODO
-        return {};
+        if (m_timestampQueryHeap == nullptr)
+            return {};
+
+        const auto& frameContext = m_frameContexts[_frameId % m_frameContextCount];
+        return frameContext.m_timestamps;
     }
 } // KryneEngine

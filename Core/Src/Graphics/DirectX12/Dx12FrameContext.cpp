@@ -5,6 +5,9 @@
  */
 
 #include "Graphics/DirectX12/Dx12FrameContext.hpp"
+
+#include <D3D12MemAlloc.h>
+
 #include "Graphics/DirectX12/HelperFunctions.hpp"
 #include "KryneEngine/Core/Common/Assert.hpp"
 
@@ -35,13 +38,60 @@ namespace KryneEngine
 
     Dx12FrameContext::~Dx12FrameContext()
     {
+        if (m_timestampBufferAllocation != nullptr)
+        {
+            m_timestampBufferAllocation->Release();
+        }
+
         m_directCommandAllocationSet.Destroy();
         m_computeCommandAllocationSet.Destroy();
         m_copyCommandAllocationSet.Destroy();
     }
 
-    ID3D12GraphicsCommandList7 * Dx12FrameContext::CommandAllocationSet::BeginCommandList(ID3D12Device *_device,
-                                                                                          D3D12_COMMAND_LIST_TYPE _commandType)
+    u32 Dx12FrameContext::PutTimestamp(CommandList _commandList, ID3D12QueryHeap* _heap)
+    {
+        const u32 index = m_timestampIndex.fetch_add(1, std::memory_order_acquire) + m_timestampOffset;
+        _commandList->EndQuery(_heap, D3D12_QUERY_TYPE_TIMESTAMP, index);
+        return index;
+    }
+
+    void Dx12FrameContext::ResolveTimestamps(
+        CommandList _commandList,
+        ID3D12QueryHeap* _heap,
+        const double _timestampPeriod,
+        const u64 _timestampSyncOffset)
+    {
+        KE_ZoneScopedFunction("Dx12FrameContext::ResolveTimestamps");
+
+        VERIFY_OR_RETURN_VOID(m_timestampBufferAllocation != nullptr);
+
+        const u32 count = m_timestampIndex.load(std::memory_order_acquire);
+        _commandList->ResolveQueryData(
+            _heap,
+            D3D12_QUERY_TYPE_TIMESTAMP,
+            m_timestampOffset,
+            count,
+            m_resolvedTimestampBuffer,
+            0);
+
+        const D3D12_RANGE readRange { 0, sizeof(u64) * count };
+        u64* buffer;
+        Dx12Assert(m_resolvedTimestampBuffer->Map(0, &readRange, reinterpret_cast<void**>(&buffer)));
+
+        m_timestamps.resize(count);
+        for (u32 i = 0; i < count; i++)
+        {
+            m_timestamps[i] = static_cast<u64>(static_cast<double>(buffer[i]) * _timestampPeriod) + _timestampSyncOffset;
+        }
+
+        m_resolvedTimestampBuffer->Unmap(0, nullptr);
+
+        m_timestampIndex.store(0u, std::memory_order::release);
+    }
+
+    ID3D12GraphicsCommandList7* Dx12FrameContext::CommandAllocationSet::BeginCommandList(
+        ID3D12Device *_device,
+        const D3D12_COMMAND_LIST_TYPE _commandType)
     {
         KE_ZoneScopedFunction("Dx12FrameContext::CommandAllocationSet::BeginCommandList");
 

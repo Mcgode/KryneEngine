@@ -8,7 +8,13 @@
 
 #include "Dx12Types.hpp"
 #include "Graphics/DirectX12/Dx12Headers.hpp"
+#include "KryneEngine/Core/Memory/DynamicArray.hpp"
 #include "KryneEngine/Core/Threads/LightweightMutex.hpp"
+
+namespace D3D12MA
+{
+    class Allocation;
+}
 
 namespace KryneEngine
 {
@@ -51,6 +57,14 @@ namespace KryneEngine
             m_copyCommandAllocationSet.EndCommandList(_commandList);
         }
 
+        u32 PutTimestamp(CommandList _commandList, ID3D12QueryHeap* _heap);
+
+        void ResolveTimestamps(
+            CommandList _commandList,
+            ID3D12QueryHeap* _heap,
+            double _timestampPeriod,
+            u64 _timestampSyncOffset);
+
     private:
         ComPtr<ID3D12Device> m_device;
 
@@ -75,5 +89,10 @@ namespace KryneEngine
         CommandAllocationSet m_computeCommandAllocationSet;
         CommandAllocationSet m_copyCommandAllocationSet;
         u64 m_frameId = 0;
+        u32 m_timestampOffset = 0;
+        std::atomic<u32> m_timestampIndex = 0;
+        D3D12MA::Allocation* m_timestampBufferAllocation = nullptr;
+        ID3D12Resource* m_resolvedTimestampBuffer;
+        eastl::vector<u64> m_timestamps {};
     };
 } // KryneEngine
