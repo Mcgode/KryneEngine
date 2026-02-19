@@ -9,7 +9,9 @@
 #include <bit>
 #include <D3D12MemAlloc.h>
 #include <dxgidebug.h>
-#include <WinPixEventRuntime/PIXEvents.h>
+#if KE_WinPixEventRuntime_Linked
+#   include <WinPixEventRuntime/PIXEvents.h>
+#endif
 
 #include "Graphics/DirectX12/Dx12DescriptorSetManager.hpp"
 #include "Graphics/DirectX12/Dx12SwapChain.hpp"
@@ -1412,12 +1414,16 @@ namespace KryneEngine
         const eastl::string_view &_markerName,
         const Color &_color)
     {
+#if KE_WinPixEventRuntime_Linked
         PIXBeginEvent(_commandList, _color.ToArgb8(false), _markerName.data());
+#endif
     }
 
     void Dx12GraphicsContext::PopDebugMarker(CommandListHandle _commandList)
     {
+#if KE_WinPixEventRuntime_Linked
         PIXEndEvent(_commandList);
+#endif
     }
 
     void Dx12GraphicsContext::InsertDebugMarker(
@@ -1425,7 +1431,9 @@ namespace KryneEngine
         const eastl::string_view &_markerName,
         const Color &_color)
     {
+#if KE_WinPixEventRuntime_Linked
         PIXSetMarker(_commandList, _color.ToArgb8(false), _markerName.data());
+#endif
     }
 
     void Dx12GraphicsContext::CalibrateCpuGpuClocks()
