@@ -41,11 +41,11 @@ function(AddCoverage TargetName)
 endfunction()
 
 function(CopyDLLs TargetName)
-    message(STATUS "Sym-linking DLLs for '${TargetName}'")
     add_custom_command(TARGET ${TargetName} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_RUNTIME_DLLS:${TargetName}>
-            $<TARGET_FILE_DIR:${TargetName}>
-            COMMAND_EXPAND_LISTS
+            COMMAND ${CMAKE_COMMAND}
+            -DDLLs=$<TARGET_RUNTIME_DLLS:${TargetName}>
+            -DOUT_DIR=$<TARGET_FILE_DIR:${TargetName}>
+            -P "${CMAKE_SOURCE_DIR}/CMake/CopyRuntimeDeps.cmake"
+            VERBATIM
     )
 endfunction()
