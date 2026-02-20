@@ -46,6 +46,7 @@ namespace KryneEngine
             LoadOperation m_stencilLoadOperation = LoadOperation::DontCare;
             StoreOperation m_stencilStoreOperation = StoreOperation::DontCare;
             u8 m_stencilClearValue = 0;
+            bool m_readOnly = false;
         };
 
         static constexpr u8 kMaxSupportedColorAttachments = 8;
