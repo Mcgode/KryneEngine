@@ -137,6 +137,7 @@ void PreparePso(
 
 void PrepareBuffers(
     GraphicsContext& _graphicsContext,
+    BufferHandle& _stagingBuffer,
     BufferHandle& _vertexBuffer,
     BufferHandle& _indexBuffer,
     BufferSpan& _vertexBufferView,
@@ -197,7 +198,7 @@ void PrepareBuffers(
     // Upload buffer data
     // We'll use a single staging buffer for this, for demo purposes
     {
-        BufferHandle stagingBuffer = _graphicsContext.CreateBuffer(
+        _stagingBuffer = _graphicsContext.CreateBuffer(
             {
                 .m_desc = {
                     .m_size = _vertexBufferView.m_size + _indexBufferView.m_size,
@@ -208,7 +209,7 @@ void PrepareBuffers(
                 .m_usage = MemoryUsage::StageEveryFrame_UsageType | MemoryUsage::TransferSrcBuffer
             });
 
-        BufferMapping mapping { stagingBuffer };
+        BufferMapping mapping { _stagingBuffer };
         _graphicsContext.MapBuffer(mapping);
         memcpy(mapping.m_ptr, vertexData, sizeof(vertexData));
         memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(mapping.m_ptr) + sizeof(vertexData)), indexData, sizeof(indexData));
@@ -226,23 +227,20 @@ void PrepareBuffers(
                 commandList,
                 {
                     .m_copySize = _vertexBufferView.m_size,
-                    .m_bufferSrc = stagingBuffer,
+                    .m_bufferSrc = _stagingBuffer,
                     .m_bufferDst = _vertexBuffer,
                 });
             _graphicsContext.CopyBuffer(
                 commandList,
                 {
                     .m_copySize = _indexBufferView.m_size,
-                    .m_bufferSrc = stagingBuffer,
+                    .m_bufferSrc = _stagingBuffer,
                     .m_bufferDst = _indexBuffer,
                     .m_offsetSrc = _vertexBufferView.m_size,
                 });
 
             _graphicsContext.EndGraphicsCommandList(commandList);
         }
-
-        // Free staging buffer once everything is done.
-        _graphicsContext.DestroyBuffer(stagingBuffer);
     }
 }
 
@@ -270,17 +268,25 @@ int main()
     ShaderModuleHandle vsModule, psModule;
     PipelineLayoutHandle trianglePipelineLayout;
     GraphicsPipelineHandle trianglePso;
-    BufferHandle vertexBuffer, indexBuffer;
+    BufferHandle stagingBuffer, vertexBuffer, indexBuffer;
     BufferSpan vertexBufferView, indexBufferView;
 
     // Prepare resources
     PrepareRenderPasses(*graphicsContext, renderPassHandles);
     PreparePso(*graphicsContext, vsBytecode, psBytecode, vsModule, psModule, trianglePipelineLayout, trianglePso, renderPassHandles[0]);
-    PrepareBuffers(*graphicsContext, vertexBuffer, indexBuffer, vertexBufferView, indexBufferView);
+    PrepareBuffers(*graphicsContext, stagingBuffer, vertexBuffer, indexBuffer, vertexBufferView, indexBufferView);
+
+    const u64 stagingFrame = graphicsContext->GetFrameId();
 
     do
     {
         KE_ZoneScoped("Main loop");
+
+        if (graphicsContext->IsFrameExecuted(stagingFrame))
+        {
+            // Free staging buffer once everything is done.
+            graphicsContext->DestroyBuffer(stagingBuffer);
+        }
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
 
