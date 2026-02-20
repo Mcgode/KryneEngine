@@ -9,6 +9,7 @@
 #include <KryneEngine/Core/Graphics/Buffer.hpp>
 #include <KryneEngine/Core/Graphics/Drawing.hpp>
 #include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
+#include <KryneEngine/Core/Graphics/MemoryBarriers.hpp>
 #include <KryneEngine/Core/Graphics/RenderPass.hpp>
 #include <KryneEngine/Core/Graphics/ShaderPipeline.hpp>
 #include <KryneEngine/Core/Memory/DynamicArray.hpp>
@@ -219,9 +220,34 @@ void PrepareBuffers(
         {
             // We create a single use command buffer, just for this operation, then discard it.
             // This is used here only for demonstration purposes. In a real-time scenario, you should avoid creating
-            // command buffers for each trivial operations, and group them into one single buffer.
+            // command buffers for each trivial operation, and group them into one single buffer.
 
             CommandListHandle commandList = _graphicsContext.BeginGraphicsCommandList();
+
+            const BufferMemoryBarrier beforeBarriers[3] = {
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::None,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferSrc,
+                    .m_buffer = _stagingBuffer,
+                },
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::None,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_buffer = _vertexBuffer,
+                },
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::None,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_buffer = _indexBuffer,
+                }
+            };
+            _graphicsContext.PlaceMemoryBarriers(commandList, {}, beforeBarriers, {});
 
             _graphicsContext.CopyBuffer(
                 commandList,
@@ -238,6 +264,24 @@ void PrepareBuffers(
                     .m_bufferDst = _indexBuffer,
                     .m_offsetSrc = _vertexBufferView.m_size,
                 });
+
+            const BufferMemoryBarrier postCopyBarriers[2] = {
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                    .m_stagesDst = BarrierSyncStageFlags::VertexInputAssembly,
+                    .m_accessSrc = BarrierAccessFlags::TransferSrc,
+                    .m_accessDst = BarrierAccessFlags::VertexBuffer,
+                    .m_buffer = _vertexBuffer,
+                },
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                    .m_stagesDst = BarrierSyncStageFlags::IndexInputAssembly,
+                    .m_accessSrc = BarrierAccessFlags::TransferSrc,
+                    .m_accessDst = BarrierAccessFlags::IndexBuffer,
+                    .m_buffer = _indexBuffer,
+                }
+            };
+            _graphicsContext.PlaceMemoryBarriers(commandList, {}, postCopyBarriers, {});
 
             _graphicsContext.EndGraphicsCommandList(commandList);
         }
