@@ -56,7 +56,6 @@ namespace KryneEngine
     }
 
     void Dx12FrameContext::ResolveTimestamps(
-        CommandList _commandList,
         ID3D12QueryHeap* _heap,
         const double _timestampPeriod,
         const u64 _timestampSyncOffset)
@@ -66,13 +65,22 @@ namespace KryneEngine
         VERIFY_OR_RETURN_VOID(m_timestampBufferAllocation != nullptr);
 
         const u32 count = m_timestampIndex.load(std::memory_order_acquire);
-        _commandList->ResolveQueryData(
+
+        if (count == 0)
+        {
+            m_timestamps.clear();
+            return;
+        }
+
+        CommandList commandList = m_directCommandAllocationSet.BeginCommandList(m_device.Get(), D3D12_COMMAND_LIST_TYPE_DIRECT);
+        commandList->ResolveQueryData(
             _heap,
             D3D12_QUERY_TYPE_TIMESTAMP,
             m_timestampOffset,
             count,
             m_resolvedTimestampBuffer,
             0);
+        m_directCommandAllocationSet.EndCommandList(commandList);
 
         const D3D12_RANGE readRange { 0, sizeof(u64) * count };
         u64* buffer;

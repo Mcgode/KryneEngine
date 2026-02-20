@@ -221,10 +221,9 @@ namespace KryneEngine
             executeCommands(m_directQueue.Get(), frameContext.m_directCommandAllocationSet);
         }
 
-        if (m_timestampQueryHeap != nullptr && !frameContext.m_directCommandAllocationSet.m_usedCommandLists.empty())
+        if (m_timestampQueryHeap != nullptr)
         {
             frameContext.ResolveTimestamps(
-                frameContext.m_directCommandAllocationSet.m_usedCommandLists.back(),
                 m_timestampQueryHeap.Get(),
                 m_directQueueTimestampPeriod,
                 m_directQueueTimestampOffset);

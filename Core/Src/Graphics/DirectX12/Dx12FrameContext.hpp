@@ -60,7 +60,6 @@ namespace KryneEngine
         u32 PutTimestamp(CommandList _commandList, ID3D12QueryHeap* _heap);
 
         void ResolveTimestamps(
-            CommandList _commandList,
             ID3D12QueryHeap* _heap,
             double _timestampPeriod,
             u64 _timestampSyncOffset);
