@@ -141,7 +141,7 @@ namespace KryneEngine
         bool m_isActive;
     };
 
-#define GpuZoneNamed( varname, graphicsContext, profilerContext, commandList, name, color, active ) static constexpr tracy::SourceLocationData TracyConcat(__tracy_source_location,TracyLine) { name, TracyFunction,  TracyFile, (uint32_t)TracyLine, color }; KryneEngine::TracyGpuScope varname( graphicsContext, profilerContext, commandList, &TracyConcat(__tracy_source_location,TracyLine), active )
+#define GpuZoneNamed( varname, graphicsContext, profilerContext, commandList, name, color, active ) static constexpr tracy::SourceLocationData TracyConcat(__tracy_source_location,TracyLine) { name, TracyFunction,  TracyFile, static_cast<uint32_t>(TracyLine), color }; KryneEngine::TracyGpuScope varname( graphicsContext, profilerContext, commandList, &TracyConcat(__tracy_source_location,TracyLine), active )
 #define GpuZoneTransient( varname, graphicsContext, profilerContext, commandList, color, active, nameFmt,... ) KryneEngine::TracyGpuScope varname( graphicsContext, profilerContext, commandList, TracyLine, TracyFile, TracyFunction, color, active, nameFmt, __VA_ARGS__ )
 
 #define KE_GpuZoneScoped( graphicsContext, profilerContext, commandList, name ) GpuZoneNamed( TracyConcat(___tracy_gpu_scoped_zone,TracyLine) , graphicsContext, profilerContext, commandList, name, KE_TRACY_COLOR, true )
