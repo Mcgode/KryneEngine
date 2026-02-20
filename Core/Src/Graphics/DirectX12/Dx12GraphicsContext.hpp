@@ -73,7 +73,7 @@ namespace KryneEngine
         bool m_enhancedBarriersEnabled = false;
 
         ComPtr<ID3D12QueryHeap> m_timestampQueryHeap { nullptr };
-        u64 m_directQueueTimestampPeriod = 0;
+        double m_directQueueTimestampPeriod = 0;
         u64 m_directQueueTimestampOffset = 0;
 
         void _CreateDevice(IDXGIFactory4* _factory4);
