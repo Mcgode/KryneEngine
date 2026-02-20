@@ -16,6 +16,8 @@
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
 
+#include "KryneEngine/Core/Profiling/TracyGpuScope.hpp"
+
 using namespace KryneEngine;
 
 void PrepareRenderPasses(GraphicsContext& _graphicsContext, DynamicArray<RenderPassHandle>& _handles)
@@ -224,64 +226,68 @@ void PrepareBuffers(
 
             CommandListHandle commandList = _graphicsContext.BeginGraphicsCommandList();
 
-            const BufferMemoryBarrier beforeBarriers[3] = {
-                {
-                    .m_stagesSrc = BarrierSyncStageFlags::None,
-                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                    .m_accessSrc = BarrierAccessFlags::None,
-                    .m_accessDst = BarrierAccessFlags::TransferSrc,
-                    .m_buffer = _stagingBuffer,
-                },
-                {
-                    .m_stagesSrc = BarrierSyncStageFlags::None,
-                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                    .m_accessSrc = BarrierAccessFlags::None,
-                    .m_accessDst = BarrierAccessFlags::TransferDst,
-                    .m_buffer = _vertexBuffer,
-                },
-                {
-                    .m_stagesSrc = BarrierSyncStageFlags::None,
-                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                    .m_accessSrc = BarrierAccessFlags::None,
-                    .m_accessDst = BarrierAccessFlags::TransferDst,
-                    .m_buffer = _indexBuffer,
-                }
-            };
-            _graphicsContext.PlaceMemoryBarriers(commandList, {}, beforeBarriers, {});
+            {
+                KE_GpuZoneScoped(&_graphicsContext, _graphicsContext.GetProfilerContext(), commandList, "PrepareBuffers");
 
-            _graphicsContext.CopyBuffer(
-                commandList,
-                {
-                    .m_copySize = _vertexBufferView.m_size,
-                    .m_bufferSrc = _stagingBuffer,
-                    .m_bufferDst = _vertexBuffer,
-                });
-            _graphicsContext.CopyBuffer(
-                commandList,
-                {
-                    .m_copySize = _indexBufferView.m_size,
-                    .m_bufferSrc = _stagingBuffer,
-                    .m_bufferDst = _indexBuffer,
-                    .m_offsetSrc = _vertexBufferView.m_size,
-                });
+                const BufferMemoryBarrier beforeBarriers[3] = {
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::None,
+                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                        .m_accessSrc = BarrierAccessFlags::None,
+                        .m_accessDst = BarrierAccessFlags::TransferSrc,
+                        .m_buffer = _stagingBuffer,
+                    },
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::None,
+                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                        .m_accessSrc = BarrierAccessFlags::None,
+                        .m_accessDst = BarrierAccessFlags::TransferDst,
+                        .m_buffer = _vertexBuffer,
+                    },
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::None,
+                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                        .m_accessSrc = BarrierAccessFlags::None,
+                        .m_accessDst = BarrierAccessFlags::TransferDst,
+                        .m_buffer = _indexBuffer,
+                    }
+                };
+                _graphicsContext.PlaceMemoryBarriers(commandList, {}, beforeBarriers, {});
 
-            const BufferMemoryBarrier postCopyBarriers[2] = {
-                {
-                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
-                    .m_stagesDst = BarrierSyncStageFlags::VertexInputAssembly,
-                    .m_accessSrc = BarrierAccessFlags::TransferSrc,
-                    .m_accessDst = BarrierAccessFlags::VertexBuffer,
-                    .m_buffer = _vertexBuffer,
-                },
-                {
-                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
-                    .m_stagesDst = BarrierSyncStageFlags::IndexInputAssembly,
-                    .m_accessSrc = BarrierAccessFlags::TransferSrc,
-                    .m_accessDst = BarrierAccessFlags::IndexBuffer,
-                    .m_buffer = _indexBuffer,
-                }
-            };
-            _graphicsContext.PlaceMemoryBarriers(commandList, {}, postCopyBarriers, {});
+                _graphicsContext.CopyBuffer(
+                    commandList,
+                    {
+                        .m_copySize = _vertexBufferView.m_size,
+                        .m_bufferSrc = _stagingBuffer,
+                        .m_bufferDst = _vertexBuffer,
+                    });
+                _graphicsContext.CopyBuffer(
+                    commandList,
+                    {
+                        .m_copySize = _indexBufferView.m_size,
+                        .m_bufferSrc = _stagingBuffer,
+                        .m_bufferDst = _indexBuffer,
+                        .m_offsetSrc = _vertexBufferView.m_size,
+                    });
+
+                const BufferMemoryBarrier postCopyBarriers[2] = {
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                        .m_stagesDst = BarrierSyncStageFlags::VertexInputAssembly,
+                        .m_accessSrc = BarrierAccessFlags::TransferSrc,
+                        .m_accessDst = BarrierAccessFlags::VertexBuffer,
+                        .m_buffer = _vertexBuffer,
+                    },
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                        .m_stagesDst = BarrierSyncStageFlags::IndexInputAssembly,
+                        .m_accessSrc = BarrierAccessFlags::TransferSrc,
+                        .m_accessDst = BarrierAccessFlags::IndexBuffer,
+                        .m_buffer = _indexBuffer,
+                    }
+                };
+                _graphicsContext.PlaceMemoryBarriers(commandList, {}, postCopyBarriers, {});
+            }
 
             _graphicsContext.EndGraphicsCommandList(commandList);
         }
@@ -334,33 +340,37 @@ int main()
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
 
-        const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-        graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
+        {
+            KE_GpuZoneScoped(graphicsContext, graphicsContext->GetProfilerContext(), commandList, "Main loop");
 
-        graphicsContext->SetVertexBuffers(commandList, { &vertexBufferView, 1 });
-        graphicsContext->SetIndexBuffer(commandList, indexBufferView, false);
-        graphicsContext->SetGraphicsPipeline(commandList, trianglePso);
-        graphicsContext->SetViewport(
-            commandList,
-            {
-                .m_width = appInfo.m_displayOptions.m_width,
-                .m_height = appInfo.m_displayOptions.m_height,
-            });
-        graphicsContext->SetScissorsRect(
-            commandList,
-            {
-                .m_left = 0,
-                .m_top = 0,
-                .m_right = appInfo.m_displayOptions.m_width,
-                .m_bottom = appInfo.m_displayOptions.m_height,
-            });
-        graphicsContext->DrawIndexedInstanced(
-            commandList,
-            {
-                .m_elementCount = 3
-            });
+            const u8 index = graphicsContext->GetCurrentPresentImageIndex();
+            graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
 
-        graphicsContext->EndRenderPass(commandList);
+            graphicsContext->SetVertexBuffers(commandList, { &vertexBufferView, 1 });
+            graphicsContext->SetIndexBuffer(commandList, indexBufferView, false);
+            graphicsContext->SetGraphicsPipeline(commandList, trianglePso);
+            graphicsContext->SetViewport(
+                commandList,
+                {
+                    .m_width = appInfo.m_displayOptions.m_width,
+                    .m_height = appInfo.m_displayOptions.m_height,
+                });
+            graphicsContext->SetScissorsRect(
+                commandList,
+                {
+                    .m_left = 0,
+                    .m_top = 0,
+                    .m_right = appInfo.m_displayOptions.m_width,
+                    .m_bottom = appInfo.m_displayOptions.m_height,
+                });
+            graphicsContext->DrawIndexedInstanced(
+                commandList,
+                {
+                    .m_elementCount = 3
+                });
+
+            graphicsContext->EndRenderPass(commandList);
+        }
 
         graphicsContext->EndGraphicsCommandList(commandList);
     }
