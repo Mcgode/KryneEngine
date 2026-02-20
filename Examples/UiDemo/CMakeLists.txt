@@ -11,3 +11,4 @@ target_compile_shaders(UiDemo Shaders Examples/UiDemo)
 
 target_shaders_dir_symlink(UiDemo)
 target_symlink_raw_resources(UiDemo KryneEngine_Modules_TextRendering)
+CopyDLLs(UiDemo)

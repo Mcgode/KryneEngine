@@ -40,3 +40,5 @@ target_compile_shaders(RenderGraphDemo Shaders Examples/RenderGraphDemo)
 
 # Symlink compiled shaders directory
 target_shaders_dir_symlink(RenderGraphDemo)
+
+CopyDLLs(RenderGraphDemo)

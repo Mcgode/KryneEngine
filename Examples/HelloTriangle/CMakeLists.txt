@@ -14,3 +14,6 @@ target_compile_shaders(HelloTriangle Shaders Examples/HelloTriangle)
 
 # Add shader dir symlink for easy working dir access to shaders.
 target_shaders_dir_symlink(HelloTriangle)
+
+# Make sure DLLs are copied properly
+CopyDLLs(HelloTriangle)

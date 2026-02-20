@@ -39,3 +39,13 @@ function(AddCoverage TargetName)
         target_compile_options(${TargetName} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
     endif()
 endfunction()
+
+function(CopyDLLs TargetName)
+    message(STATUS "Sym-linking DLLs for '${TargetName}'")
+    add_custom_command(TARGET ${TargetName} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:${TargetName}>
+            $<TARGET_FILE_DIR:${TargetName}>
+            COMMAND_EXPAND_LISTS
+    )
+endfunction()

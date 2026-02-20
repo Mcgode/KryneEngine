@@ -129,9 +129,7 @@ int main()
         const auto syncCounter = fibersManager.InitAndBatchJobs(Job1, nullptr);
 
 #if !defined(__APPLE__)
-        FiberJob mainJob;
         const auto mainCounter = fibersManager.InitAndBatchJobs(
-            &mainJob,
             MainFunc,
             &allocator,
             1,
