@@ -568,7 +568,7 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::BeginRenderPass");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_commandList);
 
         const auto* desc = m_resources.m_renderPasses.Get(_renderPass.m_handle);
         VERIFY_OR_RETURN_VOID(desc != nullptr);
@@ -603,23 +603,81 @@ namespace KryneEngine
             return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
         };
 
-        eastl::fixed_vector<D3D12_RESOURCE_BARRIER, RenderPassDesc::kMaxSupportedColorAttachments + 1, false> barriers;
-        const auto addBarrier = [&barriers](const RenderPassDesc::Attachment& _desc, ID3D12Resource* _resource, bool _isDepthTarget = false)
+        eastl::fixed_vector<TextureMemoryBarrier, RenderPassDesc::kMaxSupportedColorAttachments + 1, false> barriers;
+        const auto addBarrier = [&barriers](
+            const RenderPassDesc::Attachment& _desc,
+            const TextureHandle _texture,
+            const bool _isDepthTarget = false,
+            const bool _isReadOnlyDepth = false)
         {
-            const auto oldState = Dx12Converters::ToDx12ResourceState(_desc.m_initialLayout);
-            const auto newState = _isDepthTarget ? D3D12_RESOURCE_STATE_DEPTH_WRITE : D3D12_RESOURCE_STATE_RENDER_TARGET;
+            const TextureLayout newLayout = _isDepthTarget ? TextureLayout::DepthStencilAttachment : TextureLayout::ColorAttachment;
 
-            if (newState != oldState)
+            if (newLayout != _desc.m_initialLayout)
             {
-                barriers.push_back(D3D12_RESOURCE_BARRIER{
-                        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-                        .Transition = D3D12_RESOURCE_TRANSITION_BARRIER{
-                                .pResource = _resource,
-                                .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-                                .StateBefore = oldState,
-                                .StateAfter = newState,
-                        }
-                });
+                TextureMemoryBarrier barrier {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::All,
+                    .m_texture = _texture,
+                    .m_layoutSrc = _desc.m_initialLayout,
+                    .m_layoutDst = newLayout,
+                };
+
+                if (_isDepthTarget)
+                {
+                    barrier.m_accessDst = _isReadOnlyDepth ? BarrierAccessFlags::DepthStencilRead : BarrierAccessFlags::DepthStencilWrite;
+                }
+                else
+                {
+                    barrier.m_accessDst = BarrierAccessFlags::ColorAttachment;
+                }
+
+                switch (_desc.m_initialLayout)
+                {
+                    case TextureLayout::Unknown:
+                        barrier.m_accessSrc = BarrierAccessFlags::None;
+                        break;
+                    case TextureLayout::Common:
+                        barrier.m_accessSrc = BarrierAccessFlags::All;
+                        break;
+                    case TextureLayout::Present:
+                        barrier.m_accessSrc = BarrierAccessFlags::AllRead;
+                        break;
+                    case TextureLayout::GenericRead:
+                        barrier.m_accessSrc = BarrierAccessFlags::AllRead;
+                        break;
+                    case TextureLayout::ColorAttachment:
+                        barrier.m_accessSrc = BarrierAccessFlags::ColorAttachment;
+                        break;
+                    case TextureLayout::DepthStencilAttachment:
+                        barrier.m_accessSrc = BarrierAccessFlags::DepthStencilWrite;
+                        break;
+                    case TextureLayout::DepthStencilReadOnly:
+                        barrier.m_accessSrc = BarrierAccessFlags::DepthStencilRead;
+                        break;
+                    case TextureLayout::UnorderedAccess:
+                        barrier.m_accessSrc = BarrierAccessFlags::UnorderedAccess;
+                        break;
+                    case TextureLayout::ShaderResource:
+                        barrier.m_accessSrc = BarrierAccessFlags::ShaderResource;
+                        break;
+                    case TextureLayout::TransferSrc:
+                        barrier.m_accessSrc = BarrierAccessFlags::TransferSrc;
+                        break;
+                    case TextureLayout::TransferDst:
+                        barrier.m_accessSrc = BarrierAccessFlags::TransferDst;
+                        break;
+                    case TextureLayout::ResolveSrc:
+                        barrier.m_accessSrc = BarrierAccessFlags::ResolveSrc;
+                        break;
+                    case TextureLayout::ResolveDst:
+                        barrier.m_accessSrc = BarrierAccessFlags::ResolveDst;
+                        break;
+                    case TextureLayout::ShadingRate:
+                        barrier.m_accessSrc = BarrierAccessFlags::ShadingRate;
+                        break;
+                }
+
+                barriers.push_back(barrier);
             }
         };
 
@@ -644,7 +702,7 @@ namespace KryneEngine
 
             colorAttachments.push_back(D3D12_RENDER_PASS_RENDER_TARGET_DESC { rtvData->m_cpuHandle, beginningAccess, endingAccess });
 
-            addBarrier(attachment, *m_resources.m_textures.Get(rtvData->m_resource.m_handle));
+            addBarrier(attachment, rtvData->m_resource);
         }
 
         D3D12_RENDER_PASS_DEPTH_STENCIL_DESC depthStencilDesc;
@@ -684,10 +742,10 @@ namespace KryneEngine
                     stencilEndingAccess
             };
 
-            addBarrier(attachment, *m_resources.m_textures.Get(rtvData->m_resource.m_handle), true);
+            addBarrier(attachment, rtvData->m_resource, true, attachment.m_readOnly);
         }
 
-        commandList->ResourceBarrier(barriers.size(), barriers.data());
+        PlaceMemoryBarriers(_commandList, {}, {}, barriers);
 
         commandList->BeginRenderPass(
                 colorAttachments.size(),
@@ -710,7 +768,11 @@ namespace KryneEngine
         commandList->EndRenderPass();
 
         eastl::fixed_vector<TextureMemoryBarrier, RenderPassDesc::kMaxSupportedColorAttachments + 1, false> barriers;
-        const auto addBarrier = [&barriers](const RenderPassDesc::Attachment& _desc, TextureHandle _texture, bool _isDepthTarget = false)
+        const auto addBarrier = [&barriers](
+            const RenderPassDesc::Attachment& _desc,
+            const TextureHandle _texture,
+            const bool _isDepthTarget = false,
+            const bool _isReadOnlyDepth = false)
         {
             const auto oldLayout = _isDepthTarget ? TextureLayout::DepthStencilAttachment : TextureLayout::ColorAttachment;
             if (oldLayout != _desc.m_finalLayout)
@@ -718,11 +780,21 @@ namespace KryneEngine
                 TextureMemoryBarrier barrier {
                     .m_stagesSrc = BarrierSyncStageFlags::All,
                     .m_stagesDst = BarrierSyncStageFlags::All,
-                    .m_accessSrc = BarrierAccessFlags::ColorAttachment,
                     .m_texture = _texture,
                     .m_layoutSrc = oldLayout,
                     .m_layoutDst = _desc.m_finalLayout,
                 };
+
+                if (_isDepthTarget)
+                {
+                    barrier.m_accessSrc = _isReadOnlyDepth
+                        ? BarrierAccessFlags::DepthStencilRead
+                        : BarrierAccessFlags::DepthStencilWrite;
+                }
+                else
+                {
+                    barrier.m_accessSrc = BarrierAccessFlags::ColorAttachment;
+                }
 
                 switch (_desc.m_finalLayout)
                 {
