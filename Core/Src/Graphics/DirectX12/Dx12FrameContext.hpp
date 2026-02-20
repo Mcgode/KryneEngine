@@ -34,7 +34,7 @@ namespace KryneEngine
 
         void EndDirectCommandList(CommandList _commandList)
         {
-            m_directCommandAllocationSet.EndCommandList(nullptr);
+            m_directCommandAllocationSet.EndCommandList(_commandList);
         }
 
         ID3D12GraphicsCommandList7* BeginComputeCommandList()

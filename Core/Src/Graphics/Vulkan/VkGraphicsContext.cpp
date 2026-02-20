@@ -23,6 +23,9 @@
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
 #include "KryneEngine/Core/Profiling/TracyGpuProfilerContext.hpp"
 #include "KryneEngine/Core/Window/Window.hpp"
+#if defined(WIN32)
+#   include "KryneEngine/Core/Platform/Windows.h"
+#endif
 
 #if !VK_KHR_portability_subset
 #   define VK_KHR_portability_subset 1
