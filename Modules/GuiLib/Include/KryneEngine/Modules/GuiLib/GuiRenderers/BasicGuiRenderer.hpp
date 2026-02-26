@@ -25,7 +25,7 @@ namespace KryneEngine::Modules::GuiLib
     public:
         BasicGuiRenderer(
             AllocatorInstance _allocator,
-            GraphicsContext& _graphicsContext,
+            GraphicsContext* _graphicsContext,
             RenderPassHandle _renderPass,
             SamplerHandle _defaultSampler = { GenPool::kInvalidHandle });
 

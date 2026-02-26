@@ -158,7 +158,7 @@ namespace KryneEngine::Modules::GuiLib
 {
     BasicGuiRenderer::BasicGuiRenderer(
         AllocatorInstance _allocator,
-        GraphicsContext& _graphicsContext,
+        GraphicsContext* _graphicsContext,
         RenderPassHandle _renderPass,
         SamplerHandle _defaultSampler)
         : m_instanceDataBuffer(_allocator)
@@ -169,11 +169,11 @@ namespace KryneEngine::Modules::GuiLib
     {
         KE_ZoneScoped("BasicGuiRenderer initialization");
 
-        const u8 frameContextCount = _graphicsContext.GetFrameContextCount();
+        const u8 frameContextCount = _graphicsContext->GetFrameContextCount();
 
         {
             m_instanceDataBuffer.Init(
-               &_graphicsContext,
+               _graphicsContext,
                BufferCreateDesc {
                    .m_desc = {
                        .m_size = 256,
@@ -188,7 +188,7 @@ namespace KryneEngine::Modules::GuiLib
 
         {
             m_commonConstantBuffer.Init(
-                &_graphicsContext,
+                _graphicsContext,
                 BufferCreateDesc {
                     .m_desc = {
                         .m_size = sizeof(ViewportConstants),
@@ -203,7 +203,7 @@ namespace KryneEngine::Modules::GuiLib
             m_commonConstantBufferViews.Resize(frameContextCount);
             for (auto i = 0u; i < frameContextCount; ++i)
             {
-                m_commonConstantBufferViews[i] = _graphicsContext.CreateBufferView(
+                m_commonConstantBufferViews[i] = _graphicsContext->CreateBufferView(
                     BufferViewDesc {
                         .m_buffer = m_commonConstantBuffer.GetBuffer(i),
                         .m_size = sizeof(ViewportConstants),
@@ -219,10 +219,10 @@ namespace KryneEngine::Modules::GuiLib
 
         if (m_defaultSampler == GenPool::kInvalidHandle)
         {
-            m_defaultSampler = _graphicsContext.CreateSampler({});
+            m_defaultSampler = _graphicsContext->CreateSampler({});
         }
 
-        m_textSampler = _graphicsContext.CreateSampler({});
+        m_textSampler = _graphicsContext->CreateSampler({});
 
         DescriptorSetLayoutHandle commonDescriptorSetLayout;
         {
@@ -232,7 +232,7 @@ namespace KryneEngine::Modules::GuiLib
                     .m_visibility = ShaderVisibility::Vertex | ShaderVisibility::Fragment
                 }
             };
-            commonDescriptorSetLayout = _graphicsContext.CreateDescriptorSetLayout(
+            commonDescriptorSetLayout = _graphicsContext->CreateDescriptorSetLayout(
                 { .m_bindings = descriptorSet0Bindings },
                 m_commonDescriptorSetIndices.data());
 
@@ -248,17 +248,17 @@ namespace KryneEngine::Modules::GuiLib
                     .m_count = kMaxSamplerSlots,
                 }
             };
-            m_texturesDescriptorSetLayout = _graphicsContext.CreateDescriptorSetLayout(
+            m_texturesDescriptorSetLayout = _graphicsContext->CreateDescriptorSetLayout(
                 { .m_bindings = descriptorSet1Bindings },
                 m_texturesDescriptorSetIndices.data());
 
             const DescriptorSetLayoutHandle descriptorSetLayouts[] = { commonDescriptorSetLayout, m_texturesDescriptorSetLayout };
-            m_commonPipelineLayout = _graphicsContext.CreatePipelineLayout({
+            m_commonPipelineLayout = _graphicsContext->CreatePipelineLayout({
                 .m_descriptorSets = descriptorSetLayouts,
             });
 
-            m_commonDescriptorSet = _graphicsContext.CreateDescriptorSet(commonDescriptorSetLayout);
-            m_texturesDescriptorSets.push_back(_graphicsContext.CreateDescriptorSet(m_texturesDescriptorSetLayout));
+            m_commonDescriptorSet = _graphicsContext->CreateDescriptorSet(commonDescriptorSetLayout);
+            m_texturesDescriptorSets.push_back(_graphicsContext->CreateDescriptorSet(m_texturesDescriptorSetLayout));
         }
 
         constexpr VertexLayoutElement commonVertexElements[] = {
@@ -338,8 +338,8 @@ namespace KryneEngine::Modules::GuiLib
             const eastl::span<char> fragmentShaderSource = readShaderFile(
                 eastl::string("Shaders/BasicGuiRenderer/Rectangle_RectangleFs.", _allocator) + GraphicsContext::GetShaderFileExtension());
 
-            const ShaderModuleHandle vertexShaderModule = _graphicsContext.RegisterShaderModule(vertexShaderSource.data(), vertexShaderSource.size());
-            const ShaderModuleHandle fragmentShaderModule = _graphicsContext.RegisterShaderModule(fragmentShaderSource.data(), fragmentShaderSource.size());
+            const ShaderModuleHandle vertexShaderModule = _graphicsContext->RegisterShaderModule(vertexShaderSource.data(), vertexShaderSource.size());
+            const ShaderModuleHandle fragmentShaderModule = _graphicsContext->RegisterShaderModule(fragmentShaderSource.data(), fragmentShaderSource.size());
 
             const ShaderStage stages[] = {
                 {
@@ -355,10 +355,10 @@ namespace KryneEngine::Modules::GuiLib
             };
 
             pipelineDesc.m_stages = stages;
-            m_rectanglePipeline = _graphicsContext.CreateGraphicsPipeline(pipelineDesc);
+            m_rectanglePipeline = _graphicsContext->CreateGraphicsPipeline(pipelineDesc);
 
-            _graphicsContext.FreeShaderModule(fragmentShaderModule);
-            _graphicsContext.FreeShaderModule(vertexShaderModule);
+            _graphicsContext->FreeShaderModule(fragmentShaderModule);
+            _graphicsContext->FreeShaderModule(vertexShaderModule);
             _allocator.deallocate(fragmentShaderSource.data(), fragmentShaderSource.size());
             _allocator.deallocate(vertexShaderSource.data(), vertexShaderSource.size());
         }
@@ -370,8 +370,8 @@ namespace KryneEngine::Modules::GuiLib
             const eastl::span<char> fragmentShaderSource = readShaderFile(
                 eastl::string("Shaders/BasicGuiRenderer/Border_BorderFs.", _allocator) + GraphicsContext::GetShaderFileExtension());
 
-            const ShaderModuleHandle vertexShaderModule = _graphicsContext.RegisterShaderModule(vertexShaderSource.data(), vertexShaderSource.size());
-            const ShaderModuleHandle fragmentShaderModule = _graphicsContext.RegisterShaderModule(fragmentShaderSource.data(), fragmentShaderSource.size());
+            const ShaderModuleHandle vertexShaderModule = _graphicsContext->RegisterShaderModule(vertexShaderSource.data(), vertexShaderSource.size());
+            const ShaderModuleHandle fragmentShaderModule = _graphicsContext->RegisterShaderModule(fragmentShaderSource.data(), fragmentShaderSource.size());
 
             const ShaderStage stages[] = {
                 {
@@ -387,10 +387,10 @@ namespace KryneEngine::Modules::GuiLib
             };
 
             pipelineDesc.m_stages = stages;
-            m_borderPipeline = _graphicsContext.CreateGraphicsPipeline(pipelineDesc);
+            m_borderPipeline = _graphicsContext->CreateGraphicsPipeline(pipelineDesc);
 
-            _graphicsContext.FreeShaderModule(fragmentShaderModule);
-            _graphicsContext.FreeShaderModule(vertexShaderModule);
+            _graphicsContext->FreeShaderModule(fragmentShaderModule);
+            _graphicsContext->FreeShaderModule(vertexShaderModule);
             _allocator.deallocate(fragmentShaderSource.data(), fragmentShaderSource.size());
             _allocator.deallocate(vertexShaderSource.data(), vertexShaderSource.size());
         }
@@ -402,8 +402,8 @@ namespace KryneEngine::Modules::GuiLib
             const eastl::span<char> fragmentShaderSource = readShaderFile(
                 eastl::string("Shaders/BasicGuiRenderer/Image_ImageFs.", _allocator) + GraphicsContext::GetShaderFileExtension());
 
-            const ShaderModuleHandle vertexShaderModule = _graphicsContext.RegisterShaderModule(vertexShaderSource.data(), vertexShaderSource.size());
-            const ShaderModuleHandle fragmentShaderModule = _graphicsContext.RegisterShaderModule(fragmentShaderSource.data(), fragmentShaderSource.size());
+            const ShaderModuleHandle vertexShaderModule = _graphicsContext->RegisterShaderModule(vertexShaderSource.data(), vertexShaderSource.size());
+            const ShaderModuleHandle fragmentShaderModule = _graphicsContext->RegisterShaderModule(fragmentShaderSource.data(), fragmentShaderSource.size());
 
             const ShaderStage stages[] = {
                 {
@@ -419,10 +419,10 @@ namespace KryneEngine::Modules::GuiLib
             };
 
             pipelineDesc.m_stages = stages;
-            m_imagePipeline = _graphicsContext.CreateGraphicsPipeline(pipelineDesc);
+            m_imagePipeline = _graphicsContext->CreateGraphicsPipeline(pipelineDesc);
 
-            _graphicsContext.FreeShaderModule(fragmentShaderModule);
-            _graphicsContext.FreeShaderModule(vertexShaderModule);
+            _graphicsContext->FreeShaderModule(fragmentShaderModule);
+            _graphicsContext->FreeShaderModule(vertexShaderModule);
             _allocator.deallocate(fragmentShaderSource.data(), fragmentShaderSource.size());
             _allocator.deallocate(vertexShaderSource.data(), vertexShaderSource.size());
         }
@@ -434,8 +434,8 @@ namespace KryneEngine::Modules::GuiLib
             const eastl::span<char> fragmentShaderSource = readShaderFile(
                 eastl::string("Shaders/BasicGuiRenderer/Text_TextFs.", _allocator) + GraphicsContext::GetShaderFileExtension());
 
-            const ShaderModuleHandle vertexShaderModule = _graphicsContext.RegisterShaderModule(vertexShaderSource.data(), vertexShaderSource.size());
-            const ShaderModuleHandle fragmentShaderModule = _graphicsContext.RegisterShaderModule(fragmentShaderSource.data(), fragmentShaderSource.size());
+            const ShaderModuleHandle vertexShaderModule = _graphicsContext->RegisterShaderModule(vertexShaderSource.data(), vertexShaderSource.size());
+            const ShaderModuleHandle fragmentShaderModule = _graphicsContext->RegisterShaderModule(fragmentShaderSource.data(), fragmentShaderSource.size());
 
             const ShaderStage stages[] = {
                 {
@@ -451,15 +451,15 @@ namespace KryneEngine::Modules::GuiLib
             };
 
             pipelineDesc.m_stages = stages;
-            m_textPipeline = _graphicsContext.CreateGraphicsPipeline(pipelineDesc);
+            m_textPipeline = _graphicsContext->CreateGraphicsPipeline(pipelineDesc);
 
-            _graphicsContext.FreeShaderModule(fragmentShaderModule);
-            _graphicsContext.FreeShaderModule(vertexShaderModule);
+            _graphicsContext->FreeShaderModule(fragmentShaderModule);
+            _graphicsContext->FreeShaderModule(vertexShaderModule);
             _allocator.deallocate(fragmentShaderSource.data(), fragmentShaderSource.size());
             _allocator.deallocate(vertexShaderSource.data(), vertexShaderSource.size());
         }
 
-        _graphicsContext.DestroyDescriptorSetLayout(commonDescriptorSetLayout);
+        _graphicsContext->DestroyDescriptorSetLayout(commonDescriptorSetLayout);
     }
 
     void BasicGuiRenderer::BeginLayout(const float4x4& _viewportTransform, const uint2& _viewportSize)
