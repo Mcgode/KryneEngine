@@ -27,9 +27,9 @@ namespace KryneEngine
     private:
         std::atomic<bool> m_lock = false;
 
+    public:
         using LockGuardT = Threads::SyncLockGuard<SpinLock, &SpinLock::Lock, &SpinLock::Unlock>;
 
-    public:
         [[nodiscard]] LockGuardT AutoLock() noexcept
         {
             return LockGuardT(this);
