@@ -51,7 +51,7 @@ namespace KryneEngine
         IntrusiveUniquePtr& operator=(IntrusiveUniquePtr&& _other) noexcept { Reset(_other.m_ptr); _other.m_ptr = nullptr; return *this; }
 
         void Reset(T* _ptr = nullptr)
-        { m_ptr = _ptr;
+        {
             if (m_ptr != nullptr)
             {
                 if constexpr (IsAllocatorVarIntrusible<T>)
