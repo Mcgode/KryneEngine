@@ -39,7 +39,9 @@ namespace KryneEngine
     class IntrusiveUniquePtr
     {
     public:
-        explicit IntrusiveUniquePtr(T* _ptr = nullptr) : m_ptr(_ptr) {}
+        IntrusiveUniquePtr() = default;
+        explicit IntrusiveUniquePtr(std::nullptr_t) noexcept {}
+        explicit IntrusiveUniquePtr(T* _ptr) : m_ptr(_ptr) {}
         ~IntrusiveUniquePtr() { Reset(); }
 
         IntrusiveUniquePtr(const IntrusiveUniquePtr& _other) = delete;
@@ -63,6 +65,9 @@ namespace KryneEngine
             }
             m_ptr = _ptr;
         }
+
+        IntrusiveUniquePtr& operator=(std::nullptr_t) noexcept { Reset(); return *this; }
+        IntrusiveUniquePtr& operator=(T* _ptr) { Reset(_ptr); return *this; }
 
         T* Get() const { return m_ptr; }
         T& operator*() const { return *m_ptr; }
