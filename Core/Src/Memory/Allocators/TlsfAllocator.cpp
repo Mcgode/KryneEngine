@@ -87,6 +87,7 @@ namespace KryneEngine
                 return nullptr;
         }
 
+        TLSF_ASSERT(block != &GetControlBlock()->m_nullBlock);
         TLSF_ASSERT(block->GetSize() >= _size);
         RemoveBlock(block, fl, sl);
 
