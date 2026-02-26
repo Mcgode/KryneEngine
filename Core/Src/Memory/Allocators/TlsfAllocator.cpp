@@ -42,8 +42,7 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("TlsfAllocator::Allocate");
 
-        if (m_threadSafe)
-            m_lock.Lock();
+        SpinLock::LockGuardT autoLock = m_threadSafe ? m_lock.AutoLock() : SpinLock::LockGuardT(nullptr);
 
         TlsfHeap::BlockHeader* block = nullptr;
 
@@ -122,8 +121,6 @@ namespace KryneEngine
         }
 
         void* ptr =  PrepareBlockUsed(block, alignedSize);
-        if (m_threadSafe)
-            m_lock.Unlock();
         return ptr;
     }
 
@@ -132,8 +129,7 @@ namespace KryneEngine
         KE_ZoneScopedFunction("TlsfAllocator::Free");
 
         TlsfHeap::ControlBlock* control = GetControlBlock();
-        if (m_threadSafe)
-            m_lock.Lock();
+        SpinLock::LockGuardT autoLock = m_threadSafe ? m_lock.AutoLock() : SpinLock::LockGuardT(nullptr);
 
         if (_ptr == nullptr)
             return;
@@ -144,9 +140,6 @@ namespace KryneEngine
         block = MergePreviousBlock(block);
         block = MergeNextBlock(block);
         InsertBlock(block);
-
-        if (m_threadSafe)
-            m_lock.Unlock();
     }
 
     TlsfAllocator* TlsfAllocator::Create(AllocatorInstance _parentAllocator, size_t _heapSize, const char* _name)
