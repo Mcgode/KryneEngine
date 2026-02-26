@@ -43,6 +43,12 @@ namespace KryneEngine
         u32 m_bottom;
     };
 
+    template <class T>
+    concept IsComplete = requires (T) { sizeof(T); };
+
+    template <class T>
+    concept IsIncomplete = !IsComplete<T> && !std::is_void_v<T> && ! std::is_unbounded_array_v<T>;
+
 #if __cpp_if_consteval >= 202106L
 #   define IF_CONSTEVAL if consteval
 #else

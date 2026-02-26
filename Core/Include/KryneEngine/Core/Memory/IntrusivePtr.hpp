@@ -35,7 +35,7 @@ namespace KryneEngine
     template <class T>
     concept HasReleaseNotifier = requires(T _t) { _t.OnRelease(); };
 
-    template <class T> requires IsAllocatorIntrusible<T>
+    template <class T> requires IsAllocatorIntrusible<T> || IsIncomplete<T>
     class IntrusiveUniquePtr
     {
     public:
@@ -72,7 +72,7 @@ namespace KryneEngine
         T* m_ptr = nullptr;
     };
 
-    template <class T> requires IsAllocatorIntrusible<T> && IsRefCountIntrusible<T>
+    template <class T> requires (IsAllocatorIntrusible<T> && IsRefCountIntrusible<T>) || IsIncomplete<T>
     class IntrusiveSharedPtr
     {
     public:
