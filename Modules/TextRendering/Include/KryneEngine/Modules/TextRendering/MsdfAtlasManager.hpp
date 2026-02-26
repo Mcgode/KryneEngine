@@ -54,6 +54,8 @@ namespace KryneEngine::Modules::TextRendering
 
         static u16 GetPxRange(u32 _fontSize);
 
+        [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
+
     private:
         struct StagingBuffer
         {
