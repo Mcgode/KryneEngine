@@ -19,14 +19,14 @@ namespace KryneEngine::Modules::TextRendering
 {
     MsdfAtlasManager::MsdfAtlasManager(
         AllocatorInstance _allocator,
-        GraphicsContext& _graphicsContext,
+        GraphicsContext* _graphicsContext,
         FontManager* _fontManager,
         u32 _atlasSize,
         u32 _glyphBaseSize)
             : m_allocator(_allocator)
             , m_fontManager(_fontManager)
             , m_atlasAllocator(_allocator, {.m_atlasSize = {_atlasSize, _atlasSize}})
-            , m_stagingBuffers(_allocator, _graphicsContext.GetFrameContextCount(), {})
+            , m_stagingBuffers(_allocator, _graphicsContext->GetFrameContextCount(), {})
             , m_atlasSize(_atlasSize)
             , m_glyphSlotMap(_allocator)
     {
@@ -38,8 +38,8 @@ namespace KryneEngine::Modules::TextRendering
 #endif
         };
 
-        m_atlasFootprint = _graphicsContext.FetchTextureSubResourcesMemoryFootprints(atlasTextureDesc).front();
-        m_atlasTexture = _graphicsContext.CreateTexture({
+        m_atlasFootprint = _graphicsContext->FetchTextureSubResourcesMemoryFootprints(atlasTextureDesc).front();
+        m_atlasTexture = _graphicsContext->CreateTexture({
             .m_desc = atlasTextureDesc,
             .m_footprintPerSubResource = { &m_atlasFootprint, 1 },
             .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::TransferDstImage,
@@ -47,7 +47,7 @@ namespace KryneEngine::Modules::TextRendering
 
         m_atlasTextureSubresourceIndex = SubResourceIndexing(atlasTextureDesc, 0);
 
-        m_atlasView = _graphicsContext.CreateTextureView({
+        m_atlasView = _graphicsContext->CreateTextureView({
             .m_texture = m_atlasTexture,
             .m_format = TextureFormat::RGBA8_UNorm,
         });

@@ -25,7 +25,7 @@ namespace KryneEngine::Modules::TextRendering
     public:
         MsdfAtlasManager(
             AllocatorInstance _allocator,
-            GraphicsContext& _graphicsContext,
+            GraphicsContext* _graphicsContext,
             FontManager* _fontManager,
             u32 _atlasSize,
             u32 _glyphBaseSize);
