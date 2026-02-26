@@ -47,6 +47,8 @@ namespace KryneEngine::Modules::GuiLib
 
         ~Context();
 
+        [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
+
     private:
         AllocatorInstance m_allocator;
         TextRendering::FontManager* m_fontManager;

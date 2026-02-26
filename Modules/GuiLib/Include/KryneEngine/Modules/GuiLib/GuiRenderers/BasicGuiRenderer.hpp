@@ -40,6 +40,8 @@ namespace KryneEngine::Modules::GuiLib
         static constexpr u32 kMaxTextureSlots = 32;
         static constexpr u32 kMaxSamplerSlots = 8;
 
+        [[nodiscard]] AllocatorInstance GetAllocator() const { return m_commonConstantBufferViews.GetAllocator(); }
+
     private:
         TextRendering::MsdfAtlasManager* m_atlasManager = nullptr;
 
