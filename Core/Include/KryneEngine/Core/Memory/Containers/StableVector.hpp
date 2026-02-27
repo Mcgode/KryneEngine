@@ -26,6 +26,15 @@ namespace KryneEngine
         template<class... Args>
         T& EmplaceBack(Args... _args);
 
+        /**
+         * @brief Allocates a contiguous block of memory for multiple elements without constructing them.
+         *
+         * @details
+         * If the current block doesn't have enough space for the requested count, it is padded so that a new block is
+         * allocated.
+         */
+        T* BulkAllocate(size_t _count);
+
         void Clear();
         ~StableVector();
 

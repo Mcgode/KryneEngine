@@ -36,6 +36,27 @@ namespace KryneEngine
     }
 
     template <class T, size_t BlockSize, class Allocator>
+    T* StableVector<T, BlockSize, Allocator>::BulkAllocate(size_t _count)
+    {
+        KE_ASSERT_MSG(_count <= BlockSize, "Cannot allocate more than %u elements in a single block!", BlockSize);
+
+        if (_count == 0)
+            return nullptr;
+
+        const size_t leftOver = m_size % BlockSize;
+
+        if (leftOver < _count)
+        {
+            m_size += leftOver;
+        }
+
+        T* begin = &NextEntry();
+        m_size += _count - 1;
+
+        return begin;
+    }
+
+    template <class T, size_t BlockSize, class Allocator>
     void StableVector<T, BlockSize, Allocator>::Clear()
     {
         if (m_firstBlock == nullptr)
@@ -48,6 +69,8 @@ namespace KryneEngine
             m_allocator.deallocate(block, BlockSize);
             block = nextBlock;
         }
+        m_firstBlock = nullptr;
+        m_lastBlock = nullptr;
         m_size = 0;
     }
 
