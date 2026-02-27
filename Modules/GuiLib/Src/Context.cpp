@@ -89,7 +89,7 @@ namespace KryneEngine::Modules::GuiLib
 
     Clay_Dimensions Context::MeasureText(Clay_StringSlice _slice, Clay_TextElementConfig* _config, void* _userData)
     {
-        if (_config->userData == nullptr)
+        if (_userData == nullptr)
             return Clay_Dimensions { .width = 0.f, .height = 0.f };
 
         const TextRendering::FontManager* fontManager = static_cast<Context*>(_userData)->m_fontManager;
