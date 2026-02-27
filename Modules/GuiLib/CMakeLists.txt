@@ -6,6 +6,7 @@ add_library(KryneEngine_Modules_GuiLib STATIC
         Include/KryneEngine/Modules/GuiLib/TextureRegion.hpp
         Src/GuiRenderers/BasicGuiRenderer.cpp
         Include/KryneEngine/Modules/GuiLib/GuiRenderers/BasicGuiRenderer.hpp
+        Include/KryneEngine/Modules/GuiLib/ClayHelper.hpp
 )
 
 target_include_directories(KryneEngine_Modules_GuiLib PUBLIC Include Extern/Clay)
