@@ -62,6 +62,11 @@ namespace KryneEngine::Math
         Vector2Base operator*(const Vector2Base& _other) const;
         Vector2Base operator/(const Vector2Base& _other) const;
 
+        template <class U> requires std::is_constructible_v<T, U> Vector2Base operator+(U _v) { return Vector2Base(x + _v, y + _v); }
+        template <class U> requires std::is_constructible_v<T, U> Vector2Base operator-(U _v) { return Vector2Base(x - _v, y - _v); }
+        template <class U> requires std::is_constructible_v<T, U> Vector2Base operator*(U _v) { return Vector2Base(x * _v, y * _v); }
+        template <class U> requires std::is_constructible_v<T, U> Vector2Base operator/(U _v) { return Vector2Base(x / _v, y / _v); }
+
         bool operator==(const Vector2Base& _other) const;
 
         T* GetPtr() { return &x; }
