@@ -25,6 +25,10 @@
 #   define TLSF_ASSERT_MSG(cond, ...)
 #endif
 
+#if defined(HAS_ASAN)
+  #include <sanitizer/asan_interface.h>
+#endif
+
 namespace KryneEngine
 {
     TlsfAllocator::~TlsfAllocator()
@@ -120,8 +124,10 @@ namespace KryneEngine
                 block = remaining;
             }
         }
-
         void* ptr =  PrepareBlockUsed(block, alignedSize);
+#if HAS_ASAN
+        __asan_unpoison_memory_region(ptr, block->GetSize());
+#endif
         return ptr;
     }
 
@@ -137,9 +143,15 @@ namespace KryneEngine
 
         TlsfHeap::BlockHeader* block = TlsfHeap::UserPtrToBlockHeader(_ptr);
         TLSF_ASSERT_MSG(!block->IsFree(), "Block must not be free");
+
         MarkAsFree(block);
         block = MergePreviousBlock(block);
         block = MergeNextBlock(block);
+
+#if HAS_ASAN
+        __asan_poison_memory_region(block + 1, block->GetSize() - sizeof(TlsfHeap::BlockHeader) + 8);
+#endif
+
         InsertBlock(block);
     }
 
@@ -161,6 +173,13 @@ namespace KryneEngine
 
         TlsfHeap::ControlBlock* control = allocator->GetControlBlock();
         memset(control, 0, offsetof(TlsfHeap::ControlBlock, m_headerMap));
+
+#if HAS_ASAN
+        __asan_poison_memory_region(&control->m_redZone0, sizeof(size_t));
+        __asan_poison_memory_region(&control->m_redZone1, sizeof(size_t));
+        __asan_poison_memory_region(&control->m_redZone2, sizeof(size_t));
+#endif
+
         for (auto& headerList : control->m_headerMap)
         {
             for (auto& header : headerList)
@@ -235,6 +254,10 @@ namespace KryneEngine
         block->SetPrevUsed();
         InsertBlock(block);
 
+#if HAS_ASAN
+        __asan_poison_memory_region(block + 1, block->GetSize() - sizeof(TlsfHeap::BlockHeader) + 8);
+#endif
+
         BlockHeader* next = LinkNext(block);
         next->SetSize(0);
         next->SetUsed();
@@ -259,8 +282,8 @@ namespace KryneEngine
             "Block not aligned properly");
 
         control->m_headerMap[fl][sl] = _block;
-        control->m_flBitmap |= (1 << fl);
-        control->m_slBitmaps[fl] |= (1 << sl);
+        control->m_slBitmaps[fl] |= (1u << sl);
+        control->m_flBitmap |= (1u << fl);
     }
 
     void TlsfAllocator::RemoveBlock(TlsfHeap::BlockHeader* _block, u8 _fl, u8 _sl)
@@ -279,10 +302,10 @@ namespace KryneEngine
             control->m_headerMap[_fl][_sl] = next;
             if (next == &control->m_nullBlock)
             {
-                control->m_slBitmaps[_fl] &= ~(1 << _sl);
+                control->m_slBitmaps[_fl] &= ~(1u << _sl);
                 if (control->m_slBitmaps[_fl] == 0)
                 {
-                    control->m_flBitmap &= ~(1 << _fl);
+                    control->m_flBitmap &= ~(1u << _fl);
                 }
             }
         }
@@ -313,6 +336,10 @@ namespace KryneEngine
     {
         auto* remaining = reinterpret_cast<TlsfHeap::BlockHeader*>(
             reinterpret_cast<uintptr_t>(_block) + _size + TlsfHeap::kBlockHeaderOverhead);
+#if HAS_ASAN
+        __asan_unpoison_memory_region(remaining, sizeof(TlsfHeap::BlockHeader));
+#endif
+
         const size_t remainingSize = _block->GetSize() - (_size + TlsfHeap::kBlockHeaderOverhead);
 
         TLSF_ASSERT_MSG(

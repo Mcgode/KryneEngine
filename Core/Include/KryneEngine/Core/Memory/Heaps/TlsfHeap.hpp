@@ -8,6 +8,10 @@
 
 #include "KryneEngine/Core/Common/Types.hpp"
 
+#if defined(__SANITIZE_ADDRESS__) || __has_feature(address_sanitizer)
+#   define HAS_ASAN 1
+#endif
+
 namespace KryneEngine::TlsfHeap
 {
     static constexpr u8 kSlCountPot = 5; // 32 sub-ranges
@@ -51,8 +55,17 @@ namespace KryneEngine::TlsfHeap
     struct alignas(kAlignment) ControlBlock
     {
         BlockHeader m_nullBlock;
+#if HAS_ASAN
+        size_t m_redZone0;
+#endif
         u32 m_flBitmap;
+#if HAS_ASAN
+        size_t m_redZone1;
+#endif
         u32 m_slBitmaps[kFlIndexCount];
+#if HAS_ASAN
+        size_t m_redZone2;
+#endif
         BlockHeader* m_headerMap[kFlIndexCount][kSlCount];
 
         static_assert(sizeof(m_flBitmap) * 8 >= kFlIndexMaxPot, "m_flBitmap integer type inadequate");
