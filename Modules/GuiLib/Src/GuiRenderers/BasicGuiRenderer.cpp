@@ -875,10 +875,10 @@ namespace KryneEngine::Modules::GuiLib
                     if (KE_VERIFY(scissors.size() < scissors.capacity())) [[likely]]
                     {
                         scissors.push_back({
-                            .m_left = static_cast<u32>(renderCommand.boundingBox.x),
-                            .m_top = static_cast<u32>(renderCommand.boundingBox.y),
-                            .m_right = static_cast<u32>(renderCommand.boundingBox.x + renderCommand.boundingBox.width),
-                            .m_bottom = static_cast<u32>(renderCommand.boundingBox.y + renderCommand.boundingBox.height),
+                            .m_left = static_cast<u32>(eastl::clamp(renderCommand.boundingBox.x, 0.f, m_viewportConstants.viewportSize.x)),
+                            .m_top = static_cast<u32>(eastl::clamp(renderCommand.boundingBox.y, 0.f, m_viewportConstants.viewportSize.y)),
+                            .m_right = static_cast<u32>(eastl::clamp(renderCommand.boundingBox.x + renderCommand.boundingBox.width, 0.f, m_viewportConstants.viewportSize.x)),
+                            .m_bottom = static_cast<u32>(eastl::clamp(renderCommand.boundingBox.y + renderCommand.boundingBox.height, 0.f, m_viewportConstants.viewportSize.y)),
                         });
                         _graphicsContext.SetScissorsRect(_renderCommandList, scissors.back());
                     }
