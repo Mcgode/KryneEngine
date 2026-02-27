@@ -28,3 +28,14 @@
     className& operator=(const className& _other) = copyKeyword;              \
     className(className&& _other) noexcept = moveKeyword;                     \
     className& operator=(className&& _other) noexcept = moveKeyword
+
+#if !defined(KE_FORCEINLINE)
+#  if defined(_MSC_VER)
+#    define KE_FORCEINLINE __forceinline
+#  elif defined(__GNUC__) && __GNUC__ > 3
+     // Clang also defines __GNUC__ (as 4)
+#    define KE_FORCEINLINE inline __attribute__ ((__always_inline__))
+#  else
+#    define KE_FORCEINLINE inline
+#  endif
+#endif
