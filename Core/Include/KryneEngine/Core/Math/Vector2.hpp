@@ -10,9 +10,17 @@
 #include <type_traits>
 
 #include "KryneEngine/Core/Common/Utils/Alignment.hpp"
+#include "KryneEngine/Core/Window/Input/Enums.hpp"
 
 namespace KryneEngine::Math
 {
+    template <class T, class U>
+    concept IsVector2Compatible = requires(U _u)
+    {
+        { _u.x } -> std::convertible_to<T>;
+        { _u.y } -> std::convertible_to<T>;
+    };
+
     template <typename T, bool SimdOptimal = false>
     struct Vector2Base
     {
@@ -56,6 +64,9 @@ namespace KryneEngine::Math
         requires std::is_constructible_v<T, U>
         explicit Vector2Base(const Vector2Base<U, OtherSimdOptimal> &_other) : Vector2Base(_other.x, _other.y)
         {}
+
+        template <class U> requires IsVector2Compatible<T, U>
+        explicit Vector2Base(const U& _other) : Vector2Base(_other.x, _other.y) {}
 
         Vector2Base operator+(const Vector2Base& _other) const;
         Vector2Base operator-(const Vector2Base& _other) const;

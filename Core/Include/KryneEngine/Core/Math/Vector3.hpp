@@ -14,6 +14,14 @@
 
 namespace KryneEngine::Math
 {
+    template <class T, class U>
+    concept IsVector3Compatible = requires(U _u)
+    {
+        { _u.x } -> std::convertible_to<T>;
+        { _u.y } -> std::convertible_to<T>;
+        { _u.z } -> std::convertible_to<T>;
+    };
+
     template <typename T, bool SimdOptimal = false>
     struct Vector3Base
     {
@@ -56,6 +64,9 @@ namespace KryneEngine::Math
         template <typename U0, typename U1, bool S>
             requires std::is_constructible_v<T, U0> && std::is_constructible_v<T, U1>
         explicit Vector3Base(const Vector2Base<U0, S>& _vec2, U1 _z = 0): Vector3Base(_vec2.x, _vec2.y, _z) {}
+
+        template <class U> requires IsVector3Compatible<T, U>
+        explicit Vector3Base(const U& _other) : Vector3Base(_other.x, _other.y, _other.z) {}
 
         Vector3Base operator+(const Vector3Base& _other) const;
         Vector3Base operator-(const Vector3Base& _other) const;
