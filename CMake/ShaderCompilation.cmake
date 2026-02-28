@@ -53,14 +53,16 @@ if (NeedSpirVCross)
 endif ()
 
 # Global variables set
-set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/Shaders")
-set(SHADER_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}/ShaderBuild")
-set(GENERATE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderListParser.py")
-set(BUILD_COMMAND_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderBuildCommand.py")
+set_property(GLOBAL PROPERTY KE_SHADER_TOOLS "${ShaderTools}")
+set_property(GLOBAL PROPERTY KE_SHADER_GENERATE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderListParser.py")
+set_property(GLOBAL PROPERTY KE_SHADER_BUILD_COMMAND_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderBuildCommand.py")
 find_package(Python3 REQUIRED)
 
 # target_compile_shaders implementation
 function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
+    set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/Shaders")
+    set(SHADER_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}/ShaderBuild")
+
     set(SHADER_INPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${LOCAL_SHADERS_DIR}")
     set(BUILD_OUTPUT_DIR "${SHADER_BUILD_OUTPUT_DIR}/${OUTPUT_DIR_NAME}")
 
@@ -91,6 +93,10 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
 
     set(COMMANDS_FILE "${BUILD_OUTPUT_DIR}/build.ninja")
     set(WORKING_DIR ${BUILD_OUTPUT_DIR})
+
+    get_property(ShaderTools GLOBAL PROPERTY KE_SHADER_TOOLS)
+    get_property(GENERATE_SCRIPT GLOBAL PROPERTY KE_SHADER_GENERATE_SCRIPT)
+    get_property(BUILD_COMMAND_SCRIPT GLOBAL PROPERTY KE_SHADER_BUILD_COMMAND_SCRIPT)
 
     add_custom_command(
             OUTPUT "${COMMANDS_FILE}"
