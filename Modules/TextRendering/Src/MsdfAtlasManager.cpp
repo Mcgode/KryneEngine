@@ -158,6 +158,9 @@ namespace KryneEngine::Modules::TextRendering
                 const size_t offset = requests.size();
                 requests.resize(requests.size() + kMaxRequestsPerFlush);
                 flushCount = m_loadQueue.try_dequeue_bulk(requests.begin() + offset, kMaxRequestsPerFlush);
+
+                if (flushCount == 0)
+                    requests.resize(offset);
             }
             else
             {
