@@ -94,7 +94,7 @@ def main():
         if format_is_metal:
             writer.newline()
             writer.rule("spirv_to_metal",
-                        f"${spirv_cross_path_name} $in --msl --msl-version 30100 --msl-argument-buffers --output $out")
+                        f"${spirv_cross_path_name} $in --msl --msl-version 30100 --msl-argument-buffers --force-temporary --output $out")
 
             writer.newline()
             writer.rule("metal_to_air",
