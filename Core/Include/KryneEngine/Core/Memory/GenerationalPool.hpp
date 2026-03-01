@@ -28,6 +28,11 @@ namespace KryneEngine
                 return static_cast<u32>(*this) == static_cast<u32>(rhs);
             }
 
+            bool operator<(const Handle &rhs) const
+            {
+                return static_cast<u32>(*this) < static_cast<u32>(rhs);
+            }
+
             explicit operator u32() const
             {
                 static_assert(sizeof(Handle) == sizeof(u32));
@@ -68,6 +73,7 @@ namespace KryneEngine
         HandleName& operator=(GenPool::Handle _other) { m_handle = _other; return *this; }      \
         bool operator==(GenPool::Handle _other) const { return m_handle == _other; }            \
         bool operator==(HandleName _other) const { return m_handle == _other.m_handle; }        \
+        bool operator<(HandleName _other) const { return m_handle < _other.m_handle; }          \
     }
 
     /**
