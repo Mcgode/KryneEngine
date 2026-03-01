@@ -80,6 +80,9 @@ void MainFunc(void* _pAllocator)
 
     KEModules::ImGui::Context imGuiContext { &mainWindow, renderPassHandles[0], allocator };
 
+    // You can set up ImGui specific config after the context has been created.
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
     do
     {
         KE_ZoneScoped("Main loop");
