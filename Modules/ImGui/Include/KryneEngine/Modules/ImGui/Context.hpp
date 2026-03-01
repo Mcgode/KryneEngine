@@ -38,8 +38,15 @@ namespace KryneEngine::Modules::ImGui
          * @param _window The Window object associated with the Context.
          * @param _renderPass The RenderPassHandle object used for building the ImGui PSO.
          * @param _allocator The memory allocator instance for this context
+         * @param _vsBytecode An optional argument to use if you load the vertex shader bytecode externally
+         * @param _fsBytecode An optional argument to use if you load the fragment shader bytecode externally
          */
-        Context(Window* _window, RenderPassHandle _renderPass, AllocatorInstance _allocator);
+        Context(
+            Window* _window,
+            RenderPassHandle _renderPass,
+            AllocatorInstance _allocator,
+            eastl::span<char> _vsBytecode = {},
+            eastl::span<char> _fsBytecode = {});
 
         ~Context();
 
@@ -88,7 +95,7 @@ namespace KryneEngine::Modules::ImGui
             u64 m_stagingFrame = 0;
         };
 
-        TextureMemoryFootprint m_fontsMemoryFootprint;
+        TextureMemoryFootprint m_fontsMemoryFootprint {};
 
         ImGuiContext* m_context;
         StagingData* m_stagingData = nullptr;
@@ -100,10 +107,6 @@ namespace KryneEngine::Modules::ImGui
         DescriptorSetLayoutHandle m_fontDescriptorSetLayout { GenPool::kInvalidHandle };
         DescriptorSetHandle m_fontDescriptorSet { GenPool::kInvalidHandle };
 
-        eastl::vector<char> m_vsBytecode {};
-        eastl::vector<char> m_fsBytecode {};
-        ShaderModuleHandle m_vsModule { GenPool::kInvalidHandle };
-        ShaderModuleHandle m_fsModule { GenPool::kInvalidHandle };
         eastl::vector<u32> m_setIndices;
         PipelineLayoutHandle m_pipelineLayout { GenPool::kInvalidHandle };
         GraphicsPipelineHandle m_pso { GenPool::kInvalidHandle };
@@ -116,6 +119,10 @@ namespace KryneEngine::Modules::ImGui
 
         Input* m_input;
 
-        void _InitPso(GraphicsContext* _graphicsContext, RenderPassHandle _renderPass);
+        void InitPso(
+            GraphicsContext* _graphicsContext,
+            RenderPassHandle _renderPass,
+            eastl::span<char> _externalVsBytecode,
+            eastl::span<char> _externalFsBytecode);
     };
 }// namespace KryneEngine

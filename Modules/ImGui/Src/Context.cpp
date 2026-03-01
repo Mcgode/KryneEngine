@@ -12,7 +12,6 @@
 #include <KryneEngine/Core/Common/Utils/Alignment.hpp>
 #include <KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
-#include <KryneEngine/Core/Window/Input/InputManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
 #include <fstream>
 #include <imgui_internal.h>
@@ -34,12 +33,15 @@ namespace KryneEngine::Modules::ImGui
         float2 m_translate;
     };
 
-    Context::Context(Window* _window, RenderPassHandle _renderPass, AllocatorInstance _allocator)
-        : m_vsBytecode(_allocator)
-        , m_fsBytecode(_allocator)
-        , m_setIndices(_allocator)
-        , m_dynamicVertexBuffer(_allocator)
-        , m_dynamicIndexBuffer(_allocator)
+    Context::Context(
+        Window* _window,
+        const RenderPassHandle _renderPass,
+        AllocatorInstance _allocator,
+        const eastl::span<char> _vsBytecode,
+        const eastl::span<char> _fsBytecode)
+            : m_setIndices(_allocator)
+            , m_dynamicVertexBuffer(_allocator)
+            , m_dynamicIndexBuffer(_allocator)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextContext");
 
@@ -90,7 +92,7 @@ namespace KryneEngine::Modules::ImGui
 
         m_input = _allocator.New<Input>(_window);
 
-        _InitPso(graphicsContext, _renderPass);
+        InitPso(graphicsContext, _renderPass, _vsBytecode, _fsBytecode);
 
         m_timePoint = eastl::chrono::steady_clock::now();
     }
@@ -134,13 +136,11 @@ namespace KryneEngine::Modules::ImGui
             graphicsContext->DestroyPipelineLayout(m_pipelineLayout);
             graphicsContext->DestroyDescriptorSet(m_fontDescriptorSet);
             graphicsContext->DestroyDescriptorSetLayout(m_fontDescriptorSetLayout);
-            graphicsContext->FreeShaderModule(m_fsModule);
-            graphicsContext->FreeShaderModule(m_vsModule);
         }
 
         // Unregister input callbacks.
         m_input->Shutdown(_window);
-        m_vsBytecode.get_allocator().Delete(m_input);
+        m_setIndices.get_allocator().Delete(m_input);
 
         ::ImGui::DestroyContext(m_context);
         m_context = nullptr;
@@ -196,7 +196,7 @@ namespace KryneEngine::Modules::ImGui
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferDstImage | MemoryUsage::SampledImage,
             };
 
-            m_stagingData = m_vsBytecode.get_allocator().New<StagingData>(data, textureCreateDesc, graphicsContext->GetFrameId());
+            m_stagingData = m_setIndices.get_allocator().New<StagingData>(data, textureCreateDesc, graphicsContext->GetFrameId());
 
             m_fontsStagingHandle = graphicsContext->CreateStagingBuffer(
                 fontsTextureDesc,
@@ -261,7 +261,7 @@ namespace KryneEngine::Modules::ImGui
             graphicsContext->DestroyBuffer(m_fontsStagingHandle);
             m_fontsStagingHandle = GenPool::kInvalidHandle;
 
-            m_vsBytecode.get_allocator().Delete(m_stagingData);
+            m_setIndices.get_allocator().Delete(m_stagingData);
             m_stagingData = nullptr;
         }
 
@@ -526,35 +526,55 @@ namespace KryneEngine::Modules::ImGui
         }
     }
 
-    void Context::_InitPso(GraphicsContext* _graphicsContext, RenderPassHandle _renderPass)
+    void Context::InitPso(
+        GraphicsContext* _graphicsContext,
+        RenderPassHandle _renderPass,
+        eastl::span<char> _externalVsBytecode,
+        eastl::span<char> _externalFsBytecode)
     {
         KE_ZoneScopedFunction("Modules::ImGui::Context_InitPso");
 
+        eastl::span<char> vsBytecode = _externalVsBytecode;
+        eastl::span<char> fsBytecode = _externalFsBytecode;
+
+        ShaderModuleHandle vsModule;
+        ShaderModuleHandle fsModule;
+
         // Read shader files
         {
-            constexpr auto readShaderFile = [](const auto& _path, auto& _vec)
+            constexpr auto readShaderFile = [](const auto& _path, eastl::span<char>& _span, const AllocatorInstance _allocator)
             {
                 std::ifstream file(_path.c_str(), std::ios::binary);
                 VERIFY_OR_RETURN_VOID(file);
 
                 file.seekg(0, std::ios::end);
-                _vec.resize(file.tellg());
+                const auto size = static_cast<size_t>(file.tellg());
+                char* data = _allocator.Allocate<char>(size);
                 file.seekg(0, std::ios::beg);
 
-                KE_VERIFY(file.read(_vec.data(), _vec.size()));
+                KE_VERIFY(file.read(data, size));
+                _span = { data, size };
             };
 
-            AllocatorInstance allocator = m_vsBytecode.get_allocator();
+            AllocatorInstance allocator = m_setIndices.get_allocator();
 
-            readShaderFile(
-                eastl::string("Shaders/ImGui/ImGui_vs_MainVS.", allocator) + GraphicsContext::GetShaderFileExtension(),
-                m_vsBytecode);
-            readShaderFile(
-                eastl::string("Shaders/ImGui/ImGui_ps_MainPS.", allocator) + GraphicsContext::GetShaderFileExtension(),
-                m_fsBytecode);
+            if (_externalVsBytecode.empty())
+            {
+                readShaderFile(
+                   eastl::string("Shaders/ImGui/ImGui_vs_MainVS.", allocator) + GraphicsContext::GetShaderFileExtension(),
+                   vsBytecode,
+                   allocator);
+            }
+            if (_externalFsBytecode.empty())
+            {
+                readShaderFile(
+                   eastl::string("Shaders/ImGui/ImGui_ps_MainPS.", allocator) + GraphicsContext::GetShaderFileExtension(),
+                   fsBytecode,
+                   allocator);
+            }
 
-            m_vsModule = _graphicsContext->RegisterShaderModule(m_vsBytecode.data(), m_vsBytecode.size());
-            m_fsModule = _graphicsContext->RegisterShaderModule(m_fsBytecode.data(), m_fsBytecode.size());
+            vsModule = _graphicsContext->RegisterShaderModule(vsBytecode.data(), vsBytecode.size());
+            fsModule = _graphicsContext->RegisterShaderModule(fsBytecode.data(), fsBytecode.size());
         }
 
         // Set up descriptor set layout
@@ -624,12 +644,12 @@ namespace KryneEngine::Modules::ImGui
 
             const ShaderStage stages[] {
                 {
-                    .m_shaderModule = m_vsModule,
+                    .m_shaderModule = vsModule,
                     .m_stage = ShaderStage::Stage::Vertex,
                     .m_entryPoint = "MainVS",
                 },
                 {
-                    .m_shaderModule = m_fsModule,
+                    .m_shaderModule = fsModule,
                     .m_stage = ShaderStage::Stage::Fragment,
                     .m_entryPoint = "MainPS",
                 }
@@ -674,6 +694,16 @@ namespace KryneEngine::Modules::ImGui
             };
 
             m_pso = _graphicsContext->CreateGraphicsPipeline(desc);
+        }
+
+        // Cleanup
+        {
+            _graphicsContext->FreeShaderModule(fsModule);
+            _graphicsContext->FreeShaderModule(vsModule);
+            if (_externalFsBytecode.empty())
+                m_setIndices.get_allocator().deallocate(fsBytecode.data(), fsBytecode.size());
+            if (_externalVsBytecode.empty())
+                m_setIndices.get_allocator().deallocate(vsBytecode.data(), vsBytecode.size());
         }
     }
 } // namespace KryneEngine
