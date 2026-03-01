@@ -89,16 +89,16 @@ namespace KryneEngine::Modules::ImGui
         ImGuiIO& io = ::ImGui::GetIO();
 
         io.AddKeyEvent(
-            ImGuiKey_ModShift,
+            ImGuiKey_LeftShift,
             BitUtils::EnumHasAny(_modifiers, KeyInputModifiers::Shift));
         io.AddKeyEvent(
-            ImGuiKey_ModCtrl,
+            ImGuiKey_LeftCtrl,
             BitUtils::EnumHasAny(_modifiers, KeyInputModifiers::Ctrl));
         io.AddKeyEvent(
-            ImGuiKey_ModAlt,
+            ImGuiKey_LeftAlt,
             BitUtils::EnumHasAny(_modifiers, KeyInputModifiers::Alt));
         io.AddKeyEvent(
-            ImGuiKey_ModSuper,
+            ImGuiKey_LeftSuper,
             BitUtils::EnumHasAny(_modifiers, KeyInputModifiers::Super));
     }
 
