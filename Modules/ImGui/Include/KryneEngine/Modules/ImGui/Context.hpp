@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include <EASTL/chrono.h>
-#include <EASTL/unique_ptr.h>
+#include <EASTL/vector_map.h>
+#include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
 #include <KryneEngine/Modules/GraphicsUtils/DynamicBuffer.hpp>
 #include <imgui.h>
 
@@ -66,7 +66,6 @@ namespace KryneEngine::Modules::ImGui
          * Updates input and window data.
          *
          * @param _window The Window object.
-         * @param _commandList The command list.
          */
         void NewFrame(Window* _window);
 
@@ -74,7 +73,7 @@ namespace KryneEngine::Modules::ImGui
          * @brief Prepares the rendering context for a new frame by updating the vertex and index buffers.
          *
          * @param _graphicsContext The graphics context used for rendering.
-         * @param _commandList The command list used for uploading the buffers.
+         * @param _commandList The command list used for uploading the buffers and texture regions.
          */
         void PrepareToRenderFrame(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
 
@@ -88,24 +87,42 @@ namespace KryneEngine::Modules::ImGui
          */
         void RenderFrame(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
 
+        /**
+         * @brief A helper function to convert a texture view / sampler set into an ImTextureID.
+         *
+         * @param _texture The texture view handle to save
+         * @param _sampler The optional sampler handle. If not provided, a default sampler will be used.
+         */
+        static ImTextureID ToImTextureID(TextureViewHandle _texture, SamplerHandle _sampler = {});
+
+        /**
+         * @brief A function to convert back an ImTextureID to a texture view and sampler pair.
+         *
+         * @param _textureId The ImTextureID to convert back to a texture view and sampler pair.
+         */
+        static eastl::pair<TextureViewHandle, SamplerHandle> FromImTextureID(ImTextureID _textureId);
+
     private:
-        struct StagingData {
-            u8* m_data = nullptr;
-            TextureCreateDesc m_fontsTextureDesc {};
-            u64 m_stagingFrame = 0;
+        struct SystemTexture
+        {
+            TextureHandle m_texture {};
+            TextureMemoryFootprint m_footprint {};
         };
 
-        TextureMemoryFootprint m_fontsMemoryFootprint {};
+        struct SystemTextureStagingBuffer
+        {
+            BufferHandle m_buffer {};
+            size_t m_size = 0;
+        };
 
         ImGuiContext* m_context;
-        StagingData* m_stagingData = nullptr;
-        BufferHandle m_fontsStagingHandle { GenPool::kInvalidHandle };
-        TextureHandle m_fontsTextureHandle { GenPool::kInvalidHandle };
-        TextureViewHandle m_fontTextureViewHandle{ GenPool::kInvalidHandle };
-        SamplerHandle m_fontSamplerHandle { GenPool::kInvalidHandle };
 
-        DescriptorSetLayoutHandle m_fontDescriptorSetLayout { GenPool::kInvalidHandle };
-        DescriptorSetHandle m_fontDescriptorSet { GenPool::kInvalidHandle };
+        DynamicArray<SystemTextureStagingBuffer> m_systemsTexturesStagingBuffers;
+        eastl::vector_map<TextureViewHandle, SystemTexture> m_systemTextures;
+        SamplerHandle m_defaultSampler { GenPool::kInvalidHandle };
+
+        DescriptorSetLayoutHandle m_descriptorSetLayout { GenPool::kInvalidHandle };
+        eastl::vector<DescriptorSetHandle> m_descriptorSets;
 
         eastl::vector<u32> m_setIndices;
         PipelineLayoutHandle m_pipelineLayout { GenPool::kInvalidHandle };

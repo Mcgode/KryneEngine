@@ -39,7 +39,9 @@ namespace KryneEngine::Modules::ImGui
         AllocatorInstance _allocator,
         const eastl::span<char> _vsBytecode,
         const eastl::span<char> _fsBytecode)
-            : m_setIndices(_allocator)
+            : m_systemsTexturesStagingBuffers(_allocator)
+            , m_systemTextures(_allocator)
+            , m_setIndices(_allocator)
             , m_dynamicVertexBuffer(_allocator)
             , m_dynamicIndexBuffer(_allocator)
     {
@@ -53,6 +55,7 @@ namespace KryneEngine::Modules::ImGui
         io.BackendRendererUserData = nullptr;
         io.BackendRendererName = "KryneEngineGraphics";
         io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+        io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
 
         {
             const BufferCreateDesc bufferCreateDesc{
@@ -95,6 +98,15 @@ namespace KryneEngine::Modules::ImGui
         InitPso(graphicsContext, _renderPass, _vsBytecode, _fsBytecode);
 
         m_timePoint = eastl::chrono::steady_clock::now();
+
+        m_systemsTexturesStagingBuffers.Resize(graphicsContext->GetFrameContextCount());
+        m_systemsTexturesStagingBuffers.InitAll(SystemTextureStagingBuffer {});
+
+        m_defaultSampler = graphicsContext->CreateSampler({
+#if !defined(KE_FINAL)
+            .m_debugName = eastl::string { "ImGui Default Sampler", _allocator },
+#endif
+        });
     }
 
     Context::~Context()
@@ -108,34 +120,44 @@ namespace KryneEngine::Modules::ImGui
 
         GraphicsContext* graphicsContext = _window->GetGraphicsContext();
 
+        for (const auto& stagingBuffer: m_systemsTexturesStagingBuffers)
+        {
+            if (stagingBuffer.m_buffer != GenPool::kInvalidHandle)
+            {
+                graphicsContext->DestroyBuffer(stagingBuffer.m_buffer);
+            }
+        }
+
         m_dynamicIndexBuffer.Destroy(graphicsContext);
         m_dynamicVertexBuffer.Destroy(graphicsContext);
 
-        if (m_fontSamplerHandle != GenPool::kInvalidHandle)
+        if (m_defaultSampler != GenPool::kInvalidHandle)
         {
-            graphicsContext->DestroySampler(m_fontSamplerHandle);
+            graphicsContext->DestroySampler(m_defaultSampler);
         }
 
-        if (m_fontTextureViewHandle != GenPool::kInvalidHandle)
+        for (const auto* texture: ::ImGui::GetPlatformIO().Textures)
         {
-            graphicsContext->DestroyTextureView(m_fontTextureViewHandle);
-        }
+            if (texture->Status == ImTextureStatus_Destroyed)
+                continue;
 
-        if (m_fontsTextureHandle != GenPool::kInvalidHandle)
-        {
-            graphicsContext->DestroyTexture(m_fontsTextureHandle);
-        }
+            const TextureViewHandle textureView = FromImTextureID(texture->GetTexID()).first;
 
-        if (m_fontsStagingHandle != GenPool::kInvalidHandle)
-        {
-            graphicsContext->DestroyBuffer(m_fontsStagingHandle);
+            const auto it = m_systemTextures.find(textureView);
+            KE_ASSERT(it != m_systemTextures.end());
+
+            graphicsContext->DestroyTextureView(it->first);
+            graphicsContext->DestroyTexture(it->second.m_texture);
+            m_systemTextures.erase(it);
         }
+        KE_ASSERT(m_systemTextures.empty());
 
         {
             graphicsContext->DestroyGraphicsPipeline(m_pso);
             graphicsContext->DestroyPipelineLayout(m_pipelineLayout);
-            graphicsContext->DestroyDescriptorSet(m_fontDescriptorSet);
-            graphicsContext->DestroyDescriptorSetLayout(m_fontDescriptorSetLayout);
+            for (auto descriptorSet : m_descriptorSets)
+                graphicsContext->DestroyDescriptorSet(descriptorSet);
+            graphicsContext->DestroyDescriptorSetLayout(m_descriptorSetLayout);
         }
 
         // Unregister input callbacks.
@@ -170,101 +192,6 @@ namespace KryneEngine::Modules::ImGui
             }
         }
 
-        GraphicsContext* graphicsContext = _window->GetGraphicsContext();
-
-        if (m_fontsTextureHandle == GenPool::kInvalidHandle)
-        {
-            u8* data;
-            s32 w, h;
-            io.Fonts->GetTexDataAsAlpha8(&data, &w, &h);
-
-            TextureDesc fontsTextureDesc {
-                .m_dimensions = {w, h, 1},
-                .m_format = TextureFormat::R8_UNorm,
-                .m_arraySize = 1,
-                .m_type = TextureTypes::Single2D,
-                .m_mipCount = 1,
-#if !defined(KE_FINAL)
-                .m_debugName = "ImGui/FontTexture"
-#endif
-            };
-
-            m_fontsMemoryFootprint = graphicsContext->FetchTextureSubResourcesMemoryFootprints(fontsTextureDesc).front();
-            const TextureCreateDesc textureCreateDesc {
-                .m_desc = fontsTextureDesc,
-                .m_footprintPerSubResource = { &m_fontsMemoryFootprint, 1 },
-                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferDstImage | MemoryUsage::SampledImage,
-            };
-
-            m_stagingData = m_setIndices.get_allocator().New<StagingData>(data, textureCreateDesc, graphicsContext->GetFrameId());
-
-            m_fontsStagingHandle = graphicsContext->CreateStagingBuffer(
-                fontsTextureDesc,
-                textureCreateDesc.m_footprintPerSubResource);
-            m_fontsTextureHandle = graphicsContext->CreateTexture(textureCreateDesc);
-
-            {
-                // Set up font srv
-                const TextureViewDesc srvDesc {
-                    .m_texture = m_fontsTextureHandle,
-                    .m_componentsMapping = {
-                        TextureComponentMapping::Red,
-                        TextureComponentMapping::Red,
-                        TextureComponentMapping::Red,
-                        TextureComponentMapping::Red,
-                    },
-                    .m_format = textureCreateDesc.m_desc.m_format,
-#if !defined(KE_FINAL)
-                    .m_debugName = textureCreateDesc.m_desc.m_debugName + "View",
-#endif
-                };
-                m_fontTextureViewHandle = graphicsContext->CreateTextureView(srvDesc);
-
-                // Set up font sampler
-                const SamplerDesc samplerDesc { // Default sampler works great for us
-#if !defined(KE_FINAL)
-                    .m_debugName = textureCreateDesc.m_desc.m_debugName + "Sampler",
-#endif
-                };
-                m_fontSamplerHandle = graphicsContext->CreateSampler(samplerDesc);
-
-                // Set font descriptor set values
-                const DescriptorSetWriteInfo::DescriptorData fontTextureData[] = {
-                    {
-                        .m_textureLayout = TextureLayout::ShaderResource,
-                        .m_handle = m_fontTextureViewHandle.m_handle
-                    }
-                };
-                const DescriptorSetWriteInfo::DescriptorData fontSamplerData[] = {
-                    {
-                        .m_handle = m_fontSamplerHandle.m_handle
-                    }
-                };
-                DescriptorSetWriteInfo writeInfo[2] = {
-                    {
-                        .m_index = m_setIndices[0],
-                        .m_descriptorData = fontTextureData,
-                    },
-                    {
-                        .m_index = m_setIndices[1],
-                        .m_descriptorData = fontSamplerData,
-                    }
-                };
-                graphicsContext->UpdateDescriptorSet(m_fontDescriptorSet, writeInfo, false);
-            }
-
-            io.Fonts->SetTexID(reinterpret_cast<void*>(static_cast<u32>(m_fontTextureViewHandle.m_handle)));
-        }
-
-        if (m_stagingData != nullptr && graphicsContext->IsFrameExecuted(m_stagingData->m_stagingFrame))
-        {
-            graphicsContext->DestroyBuffer(m_fontsStagingHandle);
-            m_fontsStagingHandle = GenPool::kInvalidHandle;
-
-            m_setIndices.get_allocator().Delete(m_stagingData);
-            m_stagingData = nullptr;
-        }
-
         const auto currentTimePoint =  eastl::chrono::steady_clock::now();
         const eastl::chrono::duration<double> interval = currentTimePoint - m_timePoint;
         m_timePoint = currentTimePoint;
@@ -280,66 +207,256 @@ namespace KryneEngine::Modules::ImGui
 
         ::ImGui::Render();
 
-        if (m_stagingData != nullptr && m_stagingData->m_stagingFrame == _graphicsContext->GetFrameId())
-        {
-            {
-                BufferMemoryBarrier stagingBufferBarrier {
-                    .m_stagesSrc = BarrierSyncStageFlags::None,
-                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                    .m_accessSrc = BarrierAccessFlags::None,
-                    .m_accessDst = BarrierAccessFlags::TransferSrc,
-                    .m_offset = 0,
-                    .m_size = eastl::numeric_limits<u64>::max(),
-                    .m_buffer = m_fontsStagingHandle,
-                };
+        ImDrawData* drawData = ::ImGui::GetDrawData();
 
-                TextureMemoryBarrier textureMemoryBarrier {
-                    .m_stagesSrc = BarrierSyncStageFlags::None,
+        eastl::vector<TextureMemoryBarrier> textureMemoryBarriers(m_setIndices.get_allocator());
+        size_t stagingBufferSizeRequired = 0;
+        for (auto* texture: *drawData->Textures)
+        {
+            switch (texture->Status)
+            {
+            case ImTextureStatus_OK:
+            case ImTextureStatus_Destroyed:
+                break;
+            case ImTextureStatus_WantCreate:
+            {
+                const TextureDesc textureDesc {
+                    .m_dimensions = { texture->Width, texture->Height, 1 },
+                    .m_format = texture->Format == ImTextureFormat_Alpha8 ? TextureFormat::R8_UNorm : TextureFormat::RGBA8_UNorm,
+#if !defined(KE_FINAL)
+                    .m_debugName = eastl::string { m_setIndices.get_allocator() }.sprintf("ImGuiSystemTexture [%8X]", texture->UniqueID)
+#endif
+                };
+                auto footprints = _graphicsContext->FetchTextureSubResourcesMemoryFootprints(textureDesc);
+
+                TextureHandle textureHandle = _graphicsContext->CreateTexture({
+                    .m_desc = textureDesc,
+                    .m_footprintPerSubResource = footprints,
+                    .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::TransferDstImage,
+                });
+
+                TextureViewDesc textureViewDesc {
+                    .m_texture = textureHandle,
+                    .m_format = textureDesc.m_format,
+                };
+                if (textureDesc.m_format == TextureFormat::R8_UNorm)
+                {
+                    textureViewDesc.m_componentsMapping[0] = TextureComponentMapping::Red;
+                    textureViewDesc.m_componentsMapping[1] = TextureComponentMapping::Red;
+                    textureViewDesc.m_componentsMapping[2] = TextureComponentMapping::Red;
+                    textureViewDesc.m_componentsMapping[3] = TextureComponentMapping::Red;
+                }
+                TextureViewHandle textureView = _graphicsContext->CreateTextureView(textureViewDesc);
+
+                textureMemoryBarriers.push_back({
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
                     .m_stagesDst = BarrierSyncStageFlags::Transfer,
                     .m_accessSrc = BarrierAccessFlags::None,
                     .m_accessDst = BarrierAccessFlags::TransferDst,
-                    .m_texture = m_fontsTextureHandle,
+                    .m_texture = textureHandle,
                     .m_layoutSrc = TextureLayout::Unknown,
                     .m_layoutDst = TextureLayout::TransferDst,
-                };
+                });
 
+                KE_ASSERT(texture->Updates.empty());
+                stagingBufferSizeRequired +=
+                    Alignment::AlignUp<u32>(texture->Width * texture->BytesPerPixel, footprints.front().m_rowPitchAlignment) *
+                        texture->Height;
+
+                m_systemTextures.emplace(textureView, SystemTexture { textureHandle, footprints.front() });
+                texture->SetTexID(ToImTextureID(textureView));
+                break;
+            }
+            case ImTextureStatus_WantUpdates:
+            {
+                const auto it = m_systemTextures.find(FromImTextureID(texture->GetTexID()).first);
+                KE_ASSERT(it != m_systemTextures.end());
+                const TextureMemoryFootprint& footprint = it->second.m_footprint;
+                textureMemoryBarriers.push_back({
+                    .m_stagesSrc = BarrierSyncStageFlags::FragmentShading,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::ShaderResource,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_texture = it->second.m_texture,
+                    .m_layoutSrc = TextureLayout::ShaderResource,
+                    .m_layoutDst = TextureLayout::TransferDst,
+                });
+                for (const auto& update: texture->Updates)
+                {
+                    stagingBufferSizeRequired += Alignment::AlignUp<u32>(update.w * texture->BytesPerPixel, footprint.m_rowPitchAlignment) * update.h;
+                }
+                break;
+            }
+            case ImTextureStatus_WantDestroy:
+                if (texture->UnusedFrames >= _graphicsContext->GetFrameContextCount())
+                {
+                    const TextureViewHandle textureView = FromImTextureID(texture->GetTexID()).first;
+                    const auto it = m_systemTextures.find(textureView);
+                    KE_ASSERT(it != m_systemTextures.end());
+                    _graphicsContext->DestroyTextureView(it->first);
+                    _graphicsContext->DestroyTexture(it->second.m_texture);
+                    m_systemTextures.erase(it);
+                    texture->SetTexID(ImTextureID_Invalid);
+                    texture->SetStatus(ImTextureStatus_Destroyed);
+                }
+                break;
+            }
+        }
+
+        if (GraphicsContext::SupportsNonGlobalBarriers())
+        {
+            _graphicsContext->PlaceMemoryBarriers(
+                _commandList,
+                {},
+                {},
+                textureMemoryBarriers);
+        }
+
+        SystemTextureStagingBuffer& stagingBuffer = m_systemsTexturesStagingBuffers[_graphicsContext->GetCurrentFrameContextIndex()];
+        if (stagingBufferSizeRequired > stagingBuffer.m_size)
+        {
+            if (stagingBuffer.m_buffer != GenPool::kInvalidHandle)
+            {
+                _graphicsContext->DestroyBuffer(stagingBuffer.m_buffer);
+            }
+
+            const BufferCreateDesc stagingBufferDesc {
+                .m_desc = {
+                    .m_size = stagingBufferSizeRequired,
+                },
+                .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferSrcBuffer,
+            };
+
+            stagingBuffer.m_buffer = _graphicsContext->CreateBuffer(stagingBufferDesc);
+            stagingBuffer.m_size = stagingBufferSizeRequired;
+
+            if (GraphicsContext::SupportsNonGlobalBarriers())
+            {
+                const BufferMemoryBarrier stagingBufferBarrier[1] = {
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::All,
+                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                        .m_accessSrc = BarrierAccessFlags::None,
+                        .m_accessDst = BarrierAccessFlags::TransferSrc,
+                        .m_offset = 0,
+                        .m_size = stagingBufferSizeRequired,
+                        .m_buffer = stagingBuffer.m_buffer,
+                    }
+                };
                 _graphicsContext->PlaceMemoryBarriers(
                     _commandList,
                     {},
-                    { &stagingBufferBarrier, 1 },
-                    { &textureMemoryBarrier, 1 });
+                    stagingBufferBarrier,
+                    {});
+            }
+        }
+
+        if (stagingBufferSizeRequired > 0)
+        {
+            BufferMapping mapping { stagingBuffer.m_buffer, stagingBufferSizeRequired };
+            _graphicsContext->MapBuffer(mapping);
+
+            std::byte* stagingBufferPtr = mapping.m_ptr;
+
+            for (auto* texture: *drawData->Textures)
+            {
+                if (texture->Status != ImTextureStatus_WantCreate && texture->Status != ImTextureStatus_WantUpdates)
+                    continue;
+
+                const auto it = m_systemTextures.find(FromImTextureID(texture->GetTexID()).first);
+                KE_ASSERT(it != m_systemTextures.end());
+                const TextureMemoryFootprint& footprint = it->second.m_footprint;
+
+                if (texture->Status == ImTextureStatus_WantCreate)
+                {
+                    const size_t rowSize = Alignment::AlignUp<u32>(texture->Width * texture->BytesPerPixel, footprint.m_rowPitchAlignment);
+                    for (auto y = 0; y < texture->Height; y++)
+                    {
+                        memcpy(stagingBufferPtr + y * rowSize, texture->GetPixelsAt(0, y), texture->Width * texture->BytesPerPixel);
+                        memset(
+                            stagingBufferPtr + y * rowSize + texture->Width * texture->BytesPerPixel,
+                            0,
+                            rowSize - texture->Width * texture->BytesPerPixel);
+                    }
+                    _graphicsContext->SetTextureRegionData(
+                        _commandList,
+                        BufferSpan {
+                            .m_size = rowSize * texture->Height,
+                            .m_offset = static_cast<u64>(eastl::distance(mapping.m_ptr, stagingBufferPtr)),
+                            .m_buffer = stagingBuffer.m_buffer,
+                        },
+                        it->second.m_texture,
+                        footprint,
+                        {},
+                        {0, 0, 0},
+                        {texture->Width, texture->Height, 1}
+                    );
+                    stagingBufferPtr += rowSize * texture->Height;
+                }
+                else
+                {
+                    for (const auto& update: texture->Updates)
+                    {
+                        const size_t rowSize = Alignment::AlignUp<u32>(update.w * texture->BytesPerPixel, footprint.m_rowPitchAlignment);
+                        for (auto y = 0; y < update.h; y++)
+                        {
+                            memcpy(
+                                stagingBufferPtr + y * rowSize,
+                                texture->GetPixelsAt(update.x, y + update.y),
+                                update.w * texture->BytesPerPixel);
+                            memset(stagingBufferPtr + y * rowSize + update.w * texture->BytesPerPixel, 0, rowSize - update.w * texture->BytesPerPixel);
+                        }
+
+                        TextureMemoryFootprint regionFootprint = footprint;
+                        regionFootprint.m_lineByteAlignedSize = rowSize;
+                        regionFootprint.m_width = update.w,
+                        regionFootprint.m_height = update.h;
+                        _graphicsContext->SetTextureRegionData(
+                            _commandList,
+                            BufferSpan {
+                                .m_size = rowSize * update.h,
+                                .m_offset = static_cast<u64>(eastl::distance(mapping.m_ptr, stagingBufferPtr)),
+                                .m_buffer = stagingBuffer.m_buffer,
+                            },
+                            it->second.m_texture,
+                            regionFootprint,
+                            {},
+                            { update.x, update.y, 0 },
+                            { update.w, update.h, 1 });
+
+                        stagingBufferPtr += rowSize * update.h;
+                    }
+                }
             }
 
-            _graphicsContext->SetTextureData(
-                _commandList,
-                m_fontsStagingHandle,
-                m_fontsTextureHandle,
-                m_fontsMemoryFootprint,
-                { m_stagingData->m_fontsTextureDesc.m_desc, 0 },
-                m_stagingData->m_data);
+            _graphicsContext->UnmapBuffer(mapping);
+        }
 
-            {
-                // Don't care about staging buffer state any more, they've outlived their usefulness
+        textureMemoryBarriers.clear();
+        for (auto* texture: *drawData->Textures)
+        {
+            if (texture->Status != ImTextureStatus_WantCreate && texture->Status != ImTextureStatus_WantUpdates)
+                continue;
 
-                TextureMemoryBarrier textureMemoryBarrier {
+            const auto it = m_systemTextures.find(FromImTextureID(texture->GetTexID()).first);
+            KE_ASSERT(it != m_systemTextures.end());
+
+            textureMemoryBarriers.push_back({
                     .m_stagesSrc = BarrierSyncStageFlags::Transfer,
                     .m_stagesDst = BarrierSyncStageFlags::FragmentShading,
                     .m_accessSrc = BarrierAccessFlags::TransferDst,
                     .m_accessDst = BarrierAccessFlags::ShaderResource,
-                    .m_texture = m_fontsTextureHandle,
+                    .m_texture = it->second.m_texture,
                     .m_layoutSrc = TextureLayout::TransferDst,
                     .m_layoutDst = TextureLayout::ShaderResource,
-                };
+                });
 
-                _graphicsContext->PlaceMemoryBarriers(
-                    _commandList,
-                    {},
-                    {},
-                    { &textureMemoryBarrier, 1 });
-            }
+            texture->SetStatus(ImTextureStatus_OK);
         }
-
-        ImDrawData* drawData = ::ImGui::GetDrawData();
+        if (GraphicsContext::SupportsNonGlobalBarriers())
+        {
+            _graphicsContext->PlaceMemoryBarriers(_commandList, {}, {}, textureMemoryBarriers);
+        }
 
         const u8 frameIndex = _graphicsContext->GetCurrentFrameContextIndex();
 
@@ -448,13 +565,7 @@ namespace KryneEngine::Modules::ImGui
             _graphicsContext->SetVertexBuffers(_commandList, {&bufferView,1});
         }
 
-        // Declare texture usage
-        {
-            _graphicsContext->DeclarePassTextureViewUsage(
-                _commandList,
-                {&m_fontTextureViewHandle, 1},
-                TextureViewAccessType::Read);
-        }
+        eastl::vector_map<ImTextureID, DescriptorSetHandle> textureDescriptorSets(m_setIndices.get_allocator());
 
         u64 vertexOffset = 0;
         u64 indexOffset = 0;
@@ -470,6 +581,56 @@ namespace KryneEngine::Modules::ImGui
                 {
                     drawCmd.UserCallback(drawList, &drawCmd);
                     continue;
+                }
+
+                // Handle descriptor set caching and selection
+                DescriptorSetHandle descriptorSet;
+                {
+                    auto it = textureDescriptorSets.find(drawCmd.GetTexID());
+
+                    if (it != textureDescriptorSets.end())
+                    {
+                        descriptorSet = it->second;
+                    }
+                    else
+                    {
+                        const size_t index = textureDescriptorSets.size();
+                        KE_ASSERT(index <= m_descriptorSets.size());
+                        if (index == m_descriptorSets.size())
+                        {
+                            m_descriptorSets.push_back(_graphicsContext->CreateDescriptorSet(m_descriptorSetLayout));
+                        }
+                        descriptorSet = m_descriptorSets[index];
+                        textureDescriptorSets[drawCmd.GetTexID()] = descriptorSet;
+
+                        const auto pair = FromImTextureID(drawCmd.GetTexID());
+
+                        const DescriptorSetWriteInfo::DescriptorData textureData[1] = {
+                            {
+                                .m_textureLayout = TextureLayout::ShaderResource,
+                                .m_handle = pair.first.m_handle,
+                            }
+                        };
+                        const DescriptorSetWriteInfo::DescriptorData samplerData[1] = {
+                            {
+                                .m_handle = pair.second == GenPool::kInvalidHandle ? m_defaultSampler.m_handle : pair.second.m_handle,
+                            }
+                        };
+                        const DescriptorSetWriteInfo writeInfo[2] = {
+                            {
+                                .m_index = m_setIndices[0],
+                                .m_descriptorData = textureData,
+                            },
+                            {
+                                .m_index = m_setIndices[1],
+                                .m_descriptorData = samplerData,
+                            }
+                        };
+
+                        _graphicsContext->UpdateDescriptorSet(descriptorSet, writeInfo, true);
+
+                        _graphicsContext->DeclarePassTextureViewUsage(_commandList, { &pair.first, 1 }, TextureViewAccessType::Read);
+                    }
                 }
 
                 // Set up scissor rect
@@ -494,7 +655,7 @@ namespace KryneEngine::Modules::ImGui
                     _graphicsContext->SetGraphicsDescriptorSets(
                         _commandList,
                         m_pipelineLayout,
-                        { &m_fontDescriptorSet, 1 });
+                        { &descriptorSet, 1 });
 
                     PushConstants pushConstants {};
                     pushConstants.m_scale = {
@@ -524,6 +685,21 @@ namespace KryneEngine::Modules::ImGui
             vertexOffset += drawList->VtxBuffer.Size;
             indexOffset += drawList->IdxBuffer.Size;
         }
+    }
+
+    ImTextureID Context::ToImTextureID(TextureViewHandle _texture, SamplerHandle _sampler)
+    {
+        const u64 id = static_cast<u64>(static_cast<u32>(_texture.m_handle))
+        | static_cast<u64>(static_cast<u32>(_sampler.m_handle)) << 32;
+        return id;
+    }
+
+    eastl::pair<TextureViewHandle, SamplerHandle> Context::FromImTextureID(ImTextureID _textureId)
+    {
+        return {
+            TextureViewHandle(GenPool::Handle::FromU32(static_cast<u32>(_textureId))),
+            SamplerHandle(GenPool::Handle::FromU32(static_cast<u32>(_textureId >> 32)))
+        };
     }
 
     void Context::InitPso(
@@ -593,14 +769,9 @@ namespace KryneEngine::Modules::ImGui
                 .m_bindings = descriptorSetBindings
             };
             m_setIndices.resize(descriptorSetDesc.m_bindings.size());
-            m_fontDescriptorSetLayout = _graphicsContext->CreateDescriptorSetLayout(
+            m_descriptorSetLayout = _graphicsContext->CreateDescriptorSetLayout(
                 descriptorSetDesc,
                 m_setIndices.data());
-        }
-
-        // Set up descriptor set
-        {
-            m_fontDescriptorSet = _graphicsContext->CreateDescriptorSet(m_fontDescriptorSetLayout);
         }
 
         // Pipeline layout creation
@@ -614,7 +785,7 @@ namespace KryneEngine::Modules::ImGui
             };
 
             PipelineLayoutDesc pipelineLayoutDesc {
-                .m_descriptorSets = { &m_fontDescriptorSetLayout, 1 },
+                .m_descriptorSets = { &m_descriptorSetLayout, 1 },
                 .m_pushConstants = pushConstantDesc,
             };
 
