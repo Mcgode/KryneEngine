@@ -82,6 +82,7 @@ void MainFunc(void* _pAllocator)
 
     // You can set up ImGui specific config after the context has been created.
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::GetIO().Fonts->AddFontDefaultVector();
 
     do
     {
