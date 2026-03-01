@@ -162,6 +162,7 @@ function(target_link_shader_libraries TARGET_NAME)
 endfunction()
 
 function(target_shaders_dir_symlink TARGET_NAME)
+    set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/Shaders")
     add_custom_command(
             TARGET ${TARGET_NAME}
             POST_BUILD
