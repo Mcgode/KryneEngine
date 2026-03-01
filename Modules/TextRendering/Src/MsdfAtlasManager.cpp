@@ -92,6 +92,7 @@ namespace KryneEngine::Modules::TextRendering
         }
 
         float* buffer = _font->GenerateMsdf(_unicodeCodepoint, static_cast<float>(_fontSize), pxRange, m_allocator);
+        KE_ASSERT(buffer != nullptr);
 
         Rect slotRect {};
         GlyphSlot glyphSlot {};
