@@ -46,6 +46,33 @@ namespace KryneEngine::Platform
         char name[256] = {};
         SetupName(name, _connectionName);
 
+        // Check if the pipe name is used
+        {
+            HANDLE pipe = CreateFileA(
+                name,
+                GENERIC_READ,
+                0,
+                NULL,
+                OPEN_EXISTING,
+                0,
+                NULL);
+
+            if (pipe != INVALID_HANDLE_VALUE)
+            {
+                CloseHandle(pipe);
+                return { OpaqueHandle { OpaqueHandle::Error::NameInUse } };
+            }
+
+            DWORD error = GetLastError();
+            if (error == ERROR_PIPE_BUSY)
+                return { OpaqueHandle { OpaqueHandle::Error::NameInUse } };
+            else if (error != ERROR_FILE_NOT_FOUND)
+            {
+                KE_ERROR("Unhandled error: %d", error);
+                return { OpaqueHandle { OpaqueHandle::Error::Unknown } };
+            }
+        }
+
         // Create the Named Pipe
         for (auto i = 0u; i < _maxConnections; i++)
         {
@@ -62,7 +89,7 @@ namespace KryneEngine::Platform
             KE_ASSERT_MSG(connection->GetPipeHandle(i) != INVALID_HANDLE_VALUE, "Failed to create named pipe");
         }
 
-        return {.m_handle = connection};
+        return { OpaqueHandle { connection } };
     }
 
     void AcceptConnectionLocalIpc(const LocalIpcHost _connection, const u32 _clientIdx)
@@ -149,10 +176,10 @@ namespace KryneEngine::Platform
         if (clientConnection->m_pipeHandle == INVALID_HANDLE_VALUE)
         {
             _allocator.Delete(clientConnection);
-            return {};
+            return { OpaqueHandle { OpaqueHandle::Error::NoHost } };
         }
 
-        return {.m_handle = clientConnection};
+        return { OpaqueHandle { clientConnection } };
     }
 
     size_t ReceiveLocalIpc(const LocalIpcClient _connection, const eastl::span<char> _buffer)

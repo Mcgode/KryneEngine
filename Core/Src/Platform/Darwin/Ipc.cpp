@@ -55,8 +55,8 @@ namespace KryneEngine::Platform
         const AllocatorInstance _allocator,
         const u32 _maxConnections)
     {
-        void* buffer = _allocator.allocate(sizeof(DarwinHostLocalIpcConnection) +
-            _maxConnections * sizeof(DarwinHostLocalIpcConnection::Client), sizeof(size_t));
+        const size_t allocSize = sizeof(DarwinHostLocalIpcConnection) + _maxConnections * sizeof(DarwinHostLocalIpcConnection::Client);
+        void* buffer = _allocator.allocate(allocSize, sizeof(size_t));
         new (buffer) DarwinHostLocalIpcConnection;
         auto* ipcConnection = static_cast<DarwinHostLocalIpcConnection*>(buffer);
 
@@ -67,6 +67,23 @@ namespace KryneEngine::Platform
 
         SetupName(ipcConnection->m_address, _connectionName);
 
+        // If there is an existing socket file, assume it is stale and try to remove it
+        if (access(ipcConnection->m_address.sun_path, F_OK) == 0)
+        {
+            if (unlink(ipcConnection->m_address.sun_path) == -1)
+            {
+                _allocator.deallocate(buffer, allocSize);
+                switch (errno)
+                {
+                case EBUSY:
+                    return { OpaqueHandle { OpaqueHandle::Error::NameInUse } };
+                default:
+                    KE_ERROR("Unhandled error: %d", errno);
+                    return { OpaqueHandle { OpaqueHandle::Error::Unknown } };
+                }
+            }
+        }
+
         KE_VERIFY(bind(
             ipcConnection->m_socketId,
             reinterpret_cast<sockaddr*>(&ipcConnection->m_address),
@@ -74,7 +91,7 @@ namespace KryneEngine::Platform
 
         KE_VERIFY(listen(ipcConnection->m_socketId, static_cast<s32>(_maxConnections)) != -1);
 
-        return { .m_handle = ipcConnection };
+        return { OpaqueHandle { ipcConnection } };
     }
 
     void AcceptConnectionLocalIpc(const LocalIpcHost _connection, const u32 _clientIdx)
@@ -153,10 +170,10 @@ namespace KryneEngine::Platform
         if (clientConnection->m_serverId == -1)
         {
             _allocator.Delete(clientConnection);
-            return {};
+            return { OpaqueHandle { OpaqueHandle::Error::NoHost } };
         }
 
-        return { .m_handle = clientConnection };
+        return { OpaqueHandle { clientConnection } };
     }
 
     size_t ReceiveLocalIpc(const LocalIpcClient _connection, const eastl::span<char> _buffer)
