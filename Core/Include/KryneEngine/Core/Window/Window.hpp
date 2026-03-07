@@ -6,13 +6,15 @@
 
 #pragma once
 
-#include <EASTL/vector_map.h>
 #include <EASTL/unique_ptr.h>
-#include <GLFW/glfw3.h>
+#include <EASTL/vector_map.h>
 
 #include "KryneEngine/Core/Common/Types.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
+#include "KryneEngine/Core/Math/Vector.hpp"
 #include "KryneEngine/Core/Threads/LightweightMutex.hpp"
+
+struct GLFWwindow;
 
 namespace KryneEngine
 {
@@ -32,8 +34,14 @@ namespace KryneEngine
         [[nodiscard]] GraphicsContext* GetGraphicsContext() const { return m_graphicsContext; }
         [[nodiscard]] InputManager* GetInputManager() const { return m_inputManager; }
 
+        uint2 GetFramebufferSize() const;
+        float2 GetDpiScale() const;
+
         [[nodiscard]] u32 RegisterWindowFocusEventCallback(eastl::function<void(bool)>&& _callback);
         void UnregisterWindowFocusEventCallback(u32 _id);
+
+        [[nodiscard]] u32 RegisterDpiChangeEventCallback(eastl::function<void(const float2&)>&& _callback);
+        void UnregisterDpiChangeEventCallback(u32 _id);
 
     private:
         AllocatorInstance m_allocator;
@@ -47,6 +55,10 @@ namespace KryneEngine
         static void WindowFocusCallback(GLFWwindow* _window, s32 _focused);
         eastl::vector_map<u32, eastl::function<void(bool)>> m_windowFocusEventListeners;
         u32 m_windowFocusEventCounter = 0;
+
+        static void DpiChangeCallback(GLFWwindow* _window, float _xScale, float _yScale);
+        eastl::vector_map<u32, eastl::function<void(const float2&)>> m_dpiChangeEventListeners;
+        u32 m_dpiChangeEventCounter = 0;
     };
 }
 

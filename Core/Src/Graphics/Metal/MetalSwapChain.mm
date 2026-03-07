@@ -47,6 +47,8 @@ namespace KryneEngine
                 ? 2
                 : 3;
 
+        metalLayer.contentsScale = metalWindow.backingScaleFactor;
+
         m_textures.SetAllocator(_allocator);
         m_rtvs.SetAllocator(_allocator);
 

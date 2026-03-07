@@ -51,8 +51,8 @@ namespace KryneEngine
 
         DXGI_SWAP_CHAIN_DESC1 swapChainDesc {};
         swapChainDesc.BufferCount = imageCount;
-        swapChainDesc.Width = displayInfo.m_width;
-        swapChainDesc.Height = displayInfo.m_height;
+        swapChainDesc.Width = displayInfo.m_width * _processWindow->GetDpiScale().x;
+        swapChainDesc.Height = displayInfo.m_height * _processWindow->GetDpiScale().x;
         swapChainDesc.Format = format;
         swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;

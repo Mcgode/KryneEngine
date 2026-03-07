@@ -6,9 +6,11 @@
 
 #include "KryneEngine/Core/Window/Input/InputManager.hpp"
 
+#include <GLFW/glfw3.h>
+
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
-#include "KryneEngine/Core/Window/GLFW/Input/KeyInputEvent.hpp"
 #include "KryneEngine/Core/Window/Window.hpp"
+#include "KryneEngine/Core/Window/GLFW/Input/KeyInputEvent.hpp"
 
 namespace KryneEngine
 {
