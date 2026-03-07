@@ -498,6 +498,11 @@ namespace KryneEngine
                 m_debugMarkers = true;
             }
         }
+
+        if (_appInfo.m_api == GraphicsCommon::Api::Vulkan_1_0 && find(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
+        {
+            _currentList.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+        }
     }
 
     VkDebugUtilsMessengerCreateInfoEXT VkGraphicsContext::_PopulateDebugCreateInfo(void *_userData)
@@ -776,6 +781,7 @@ namespace KryneEngine
         auto requiredExtensions = StringHelpers::RetrieveStringPointerContainer(requiredExtensionsStrings);
 
         void* next = nullptr;
+        void** last = &next;
 
         VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features{};
         VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilitySubsetFeatures{};
@@ -803,10 +809,11 @@ namespace KryneEngine
 
                 synchronization2Features = {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
-                    .pNext = next,
+                    .pNext = nullptr,
                     .synchronization2 = true,
                 };
-                next = &synchronization2Features;
+                *last = &synchronization2Features;
+                last = &synchronization2Features.pNext;
             }
 
             if (m_appInfo.m_features.m_gpuTimestamps != GraphicsCommon::SoftEnable::Disabled)
@@ -828,10 +835,16 @@ namespace KryneEngine
 
                 portabilitySubsetFeatures = {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR,
-                    .pNext = next,
+                    .pNext = nullptr,
                     .imageViewFormatSwizzle = true,
                 };
-                next = &portabilitySubsetFeatures;
+                *last = &portabilitySubsetFeatures;
+                last = &portabilitySubsetFeatures.pNext;
+            }
+
+            if (m_appInfo.m_api == GraphicsCommon::Api::Vulkan_1_0 && find(VK_KHR_MAINTENANCE1_EXTENSION_NAME))
+            {
+                requiredExtensions.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
             }
         }
 
@@ -919,8 +932,6 @@ namespace KryneEngine
         {
             result.insert(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         }
-
-        result.insert(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
 
         return result;
     }
