@@ -72,6 +72,12 @@ namespace KryneEngine::Modules::ImGui
                 ImGuiIO& io = ::ImGui::GetIO();
                 io.AddFocusEvent(_focused);
             });
+
+        m_dpiChangeCallbackId = _window->RegisterDpiChangeEventCallback([](const float2& _dpiScale)
+        {
+            ImGuiIO& io = ::ImGui::GetIO();
+            io.DisplayFramebufferScale = { _dpiScale.x, _dpiScale.y };
+        });
     }
 
     void Input::Shutdown(Window* _window) const

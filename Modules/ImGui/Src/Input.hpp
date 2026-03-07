@@ -30,6 +30,7 @@ namespace KryneEngine::Modules::ImGui
         u32 m_mouseBtnCallbackId;
         u32 m_scrollEventCallbackId;
         u32 m_windowFocusCallbackId;
+        u32 m_dpiChangeCallbackId;
 
         static void ApplyModifiers(KeyInputModifiers _modifiers);
 

@@ -6,17 +6,19 @@
 
 #include "KryneEngine/Modules/ImGui/Context.hpp"
 
-#include "KryneEngine/Core/Graphics/Drawing.hpp"
-#include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
-#include "KryneEngine/Core/Graphics/Texture.hpp"
+#include <fstream>
+#include <imgui_internal.h>
+#include <GLFW/glfw3.h>
 #include <KryneEngine/Core/Common/Utils/Alignment.hpp>
 #include <KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
-#include <fstream>
-#include <imgui_internal.h>
+#include "KryneEngine/Core/Graphics/Drawing.hpp"
+#include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
+#include "KryneEngine/Core/Graphics/Texture.hpp"
 
 #include "Input.hpp"
+
 
 namespace KryneEngine::Modules::ImGui
 {
@@ -56,6 +58,8 @@ namespace KryneEngine::Modules::ImGui
         io.BackendRendererName = "KryneEngineGraphics";
         io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
         io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
+        const float2 dpiScale = _window->GetDpiScale();
+        io.DisplayFramebufferScale = { dpiScale.x, dpiScale.y };
 
         {
             const BufferCreateDesc bufferCreateDesc{
@@ -538,8 +542,10 @@ namespace KryneEngine::Modules::ImGui
         // Set viewport
         {
             const Viewport viewport {
-                .m_width = static_cast<s32>(drawData->DisplaySize.x),
-                .m_height = static_cast<s32>(drawData->DisplaySize.y),
+                .m_topLeftX = static_cast<s32>(drawData->DisplayPos.x * drawData->FramebufferScale.x),
+                .m_topLeftY = static_cast<s32>(drawData->DisplayPos.y * drawData->FramebufferScale.y),
+                .m_width = static_cast<s32>(drawData->DisplaySize.x * drawData->FramebufferScale.x),
+                .m_height = static_cast<s32>(drawData->DisplaySize.y * drawData->FramebufferScale.y),
             };
             _graphicsContext->SetViewport(_commandList, viewport);
         }
@@ -640,10 +646,10 @@ namespace KryneEngine::Modules::ImGui
                     const ImVec2 clipMax{drawCmd.ClipRect.z - clipOffset.x, drawCmd.ClipRect.w - clipOffset.y};
 
                     const Rect rect{
-                        .m_left = static_cast<u32>(clipMin.x),
-                        .m_top = static_cast<u32>(clipMin.y),
-                        .m_right = static_cast<u32>(clipMax.x),
-                        .m_bottom = static_cast<u32>(clipMax.y),
+                        .m_left = static_cast<u32>(clipMin.x * drawData->FramebufferScale.x),
+                        .m_top = static_cast<u32>(clipMin.y * drawData->FramebufferScale.y),
+                        .m_right = static_cast<u32>(clipMax.x * drawData->FramebufferScale.x),
+                        .m_bottom = static_cast<u32>(clipMax.y * drawData->FramebufferScale.y),
                     };
                     _graphicsContext->SetScissorsRect(_commandList, rect);
                 }
