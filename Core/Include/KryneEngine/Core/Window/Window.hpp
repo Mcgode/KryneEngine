@@ -29,7 +29,7 @@ namespace KryneEngine
 
         virtual ~Window();
 
-        [[nodiscard]] bool WaitForEvents() const;
+        [[nodiscard]] bool WaitForEvents();
         [[nodiscard]] GLFWwindow* GetGlfwWindow() const { return m_glfwWindow; }
         [[nodiscard]] GraphicsContext* GetGraphicsContext() const { return m_graphicsContext; }
         [[nodiscard]] InputManager* GetInputManager() const { return m_inputManager; }
@@ -43,12 +43,20 @@ namespace KryneEngine
         [[nodiscard]] u32 RegisterDpiChangeEventCallback(eastl::function<void(const float2&)>&& _callback);
         void UnregisterDpiChangeEventCallback(u32 _id);
 
+        [[nodiscard]] bool WasResizedThisFrame() const { return m_resizedThisFrame; }
+        [[nodiscard]] bool ShouldResizeSwapChain() const { return m_resizedSwapChain; }
+        void NotifySwapChainResized() { m_resizedSwapChain = true; }
+
     private:
         AllocatorInstance m_allocator;
         GLFWwindow* m_glfwWindow;
 
         GraphicsContext* m_graphicsContext;
         InputManager* m_inputManager;
+
+        uint2 m_previousFramebufferSize;
+        bool m_resizedThisFrame = false;
+        bool m_resizedSwapChain = true;
 
         LightweightMutex m_callbackMutex;
 
@@ -59,6 +67,8 @@ namespace KryneEngine
         static void DpiChangeCallback(GLFWwindow* _window, float _xScale, float _yScale);
         eastl::vector_map<u32, eastl::function<void(const float2&)>> m_dpiChangeEventListeners;
         u32 m_dpiChangeEventCounter = 0;
+
+        static void ResizeCallback(GLFWwindow* _window, int _width, int _height);
     };
 }
 

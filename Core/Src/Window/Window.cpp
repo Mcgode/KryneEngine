@@ -52,7 +52,10 @@ namespace KryneEngine
 
             glfwSetWindowFocusCallback(m_glfwWindow, WindowFocusCallback);
             glfwSetWindowContentScaleCallback(m_glfwWindow, DpiChangeCallback);
+            glfwSetFramebufferSizeCallback(m_glfwWindow, ResizeCallback);
         }
+
+        m_previousFramebufferSize = GetFramebufferSize();
     }
 
     Window::~Window()
@@ -64,10 +67,11 @@ namespace KryneEngine
         glfwTerminate();
     }
 
-    bool Window::WaitForEvents() const
+    bool Window::WaitForEvents()
     {
         KE_ZoneScopedFunction("Window::WaitForEvents");
 
+        m_resizedThisFrame = false;
         glfwPollEvents();
 
         return !glfwWindowShouldClose(m_glfwWindow);
@@ -137,6 +141,18 @@ namespace KryneEngine
         {
             pair.second({ _xScale, _yScale });
         }
+    }
+
+    void Window::ResizeCallback(GLFWwindow* _window, int _width, int _height)
+    {
+        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
+        const uint2 currentFramebufferSize = { _width, _height };
+        if (window->m_previousFramebufferSize != currentFramebufferSize)
+        {
+            window->m_resizedSwapChain = false;
+            window->m_resizedThisFrame = true;
+        }
+        window->m_previousFramebufferSize = currentFramebufferSize;
     }
 }
 
