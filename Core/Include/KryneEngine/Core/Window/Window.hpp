@@ -44,7 +44,7 @@ namespace KryneEngine
         void UnregisterDpiChangeEventCallback(u32 _id);
 
         [[nodiscard]] bool WasResizedThisFrame() const { return m_resizedThisFrame; }
-        [[nodiscard]] bool ShouldResizeSwapChain() const { return m_resizedSwapChain; }
+        [[nodiscard]] bool ShouldResizeSwapChain() const { return !m_resizedSwapChain; }
         void NotifySwapChainResized() { m_resizedSwapChain = true; }
 
     private:
