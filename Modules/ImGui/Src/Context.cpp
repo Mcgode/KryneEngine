@@ -181,19 +181,11 @@ namespace KryneEngine::Modules::ImGui
         ImGuiIO& io = ::ImGui::GetIO();
 
         {
-            auto* window = _window->GetGlfwWindow();
+            const float2 dpiScale { _window->GetDpiScale() };
+            io.DisplayFramebufferScale = { dpiScale.x, dpiScale.y };
 
-            int x, y;
-            glfwGetWindowSize(window, &x, &y);
-            io.DisplaySize = ImVec2(float(x), float(y));
-
-            if (x > 0 && y > 0)
-            {
-                int displayW, displayH;
-                glfwGetFramebufferSize(window, &displayW, &displayH);
-                io.DisplayFramebufferScale =
-                    ImVec2(float(displayW) / io.DisplaySize.x, float(displayH) / io.DisplaySize.y);
-            }
+            const float2 framebufferSize { _window->GetGraphicsContext()->GetPresentFrameBufferSize() };
+            io.DisplaySize = { framebufferSize.x / dpiScale.x, framebufferSize.y / dpiScale.y };
         }
 
         const auto currentTimePoint =  eastl::chrono::steady_clock::now();
