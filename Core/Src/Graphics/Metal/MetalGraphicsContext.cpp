@@ -150,6 +150,12 @@ namespace KryneEngine
         }
     }
 
+    bool MetalGraphicsContext::ResizeSwapChain(Window* _window)
+    {
+        m_swapChain.Resize(_window);
+        return true;
+    }
+
     BufferHandle MetalGraphicsContext::CreateBuffer(const BufferCreateDesc& _desc)
     {
         return m_resources.CreateBuffer(*m_device, _desc);
@@ -302,6 +308,13 @@ namespace KryneEngine
     {
         VERIFY_OR_RETURN(m_appInfo.m_features.m_present, 0);
         return GetCurrentFrameContextIndex();
+    }
+
+    uint2 MetalGraphicsContext::GetPresentFrameBufferSize()
+    {
+        return m_appInfo.m_features.m_present
+            ? m_swapChain.GetDrawableSize()
+            : uint2(1);
     }
 
     RenderPassHandle MetalGraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)

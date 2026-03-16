@@ -415,7 +415,7 @@ namespace KryneEngine
 
     RenderTargetViewHandle VkResources::CreateRenderTargetView(
             const RenderTargetViewDesc &_desc,
-            VkDevice &_device)
+            const VkDevice _device)
     {
         KE_ZoneScopedFunction("VkResources::CreateRenderTargetView");
 

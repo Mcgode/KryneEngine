@@ -133,7 +133,7 @@ namespace KryneEngine
         [[nodiscard]] BufferViewHandle CreateBufferView(const BufferViewDesc& _viewDesc, VkDevice _device);
         bool DestroyBufferView(BufferViewHandle _handle, VkDevice _device);
 
-        [[nodiscard]] RenderTargetViewHandle CreateRenderTargetView(const RenderTargetViewDesc& _desc, VkDevice& _device);
+        [[nodiscard]] RenderTargetViewHandle CreateRenderTargetView(const RenderTargetViewDesc& _desc, VkDevice _device);
         bool FreeRenderTargetView(RenderTargetViewHandle _rtv, VkDevice _device);
 
         [[nodiscard]] RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc, VkDevice _device);

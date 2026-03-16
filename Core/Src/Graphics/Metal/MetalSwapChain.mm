@@ -82,6 +82,14 @@ namespace KryneEngine
         m_index = _initialFrameIndex;
     }
 
+    void MetalSwapChain::Resize(Window* _window)
+    {
+        const uint2 framebufferSize = _window->GetFramebufferSize();
+        const CGSize windowSize = CGSizeMake(framebufferSize.x, framebufferSize.y);
+
+        m_metalLayer->setDrawableSize(windowSize);
+    }
+
     void MetalSwapChain::Present(CommandList _commandList, u8 _frameIndex)
     {
         _commandList->m_commandBuffer->presentDrawable(m_drawable.get());

@@ -84,7 +84,7 @@ namespace KryneEngine
     GraphicsContext::GraphicsContext(
         AllocatorInstance _allocator,
         const GraphicsCommon::ApplicationInfo& _appInfo,
-        const Window* _window)
+        Window* _window)
         : m_appInfo(_appInfo)
         , m_window(_window)
         , m_allocator(_allocator)

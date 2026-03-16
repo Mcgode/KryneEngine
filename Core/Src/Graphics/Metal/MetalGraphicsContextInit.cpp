@@ -14,9 +14,9 @@
 namespace KryneEngine
 {
     MetalGraphicsContext::MetalGraphicsContext(
-        AllocatorInstance _allocator,
+        const AllocatorInstance _allocator,
         const GraphicsCommon::ApplicationInfo& _appInfo,
-        const Window* _window)
+        Window* _window)
         : GraphicsContext(_allocator, _appInfo, _window)
         , m_frameContexts(_allocator)
         , m_resources(_allocator)

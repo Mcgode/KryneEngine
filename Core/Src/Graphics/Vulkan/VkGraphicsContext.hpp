@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <EASTL/unique_ptr.h>
 #include <EASTL/vector_set.h>
 
 #include "Graphics/Vulkan/CommonStructures.hpp"
@@ -18,9 +17,9 @@
 #include "Graphics/Vulkan/VkTypes.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/MemoryBarriers.hpp"
+#include "KryneEngine/Core/Graphics/Texture.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
-#include "KryneEngine/Core/Graphics/Texture.hpp"
 
 namespace KryneEngine
 {
@@ -68,10 +67,10 @@ namespace KryneEngine
         VkSwapChain m_swapChain;
 
         VkCommonStructures::QueueIndices m_queueIndices {};
-        VkQueue m_graphicsQueue;
-        VkQueue m_transferQueue;
-        VkQueue m_computeQueue;
-        VkQueue m_presentQueue;
+        VkQueue m_graphicsQueue {};
+        VkQueue m_transferQueue {};
+        VkQueue m_computeQueue {};
+        VkQueue m_presentQueue {};
 
         u32 m_optimalRowPitchAlignment;
 
@@ -123,7 +122,7 @@ namespace KryneEngine
         void _RetrieveQueues(const VkCommonStructures::QueueIndices &_queueIndices);
 
     public:
-
+        bool ResizeSwapChain(Window* _window) override;
 
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
         [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;
@@ -152,6 +151,7 @@ namespace KryneEngine
         [[nodiscard]] RenderTargetViewHandle GetPresentRenderTargetView(u8 _index) override;
         [[nodiscard]] TextureHandle GetPresentTexture(u8 _swapChainIndex) override;
         [[nodiscard]] u32 GetCurrentPresentImageIndex() const override;
+        [[nodiscard]] uint2 GetPresentFrameBufferSize() override;
 
         [[nodiscard]] RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc) override;
         bool DestroyRenderPass(RenderPassHandle _handle) override;

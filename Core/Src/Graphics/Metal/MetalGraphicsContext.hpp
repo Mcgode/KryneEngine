@@ -44,7 +44,7 @@ namespace KryneEngine
         MetalGraphicsContext(
             AllocatorInstance _allocator,
             const GraphicsCommon::ApplicationInfo& _appInfo,
-            const Window* _window);
+            Window* _window);
 
         ~MetalGraphicsContext();
 
@@ -78,6 +78,7 @@ namespace KryneEngine
         void WaitForFrame(u64 _frameId) const override;
 
     public:
+        bool ResizeSwapChain(Window* _window) override;
 
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
         [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;
@@ -106,6 +107,7 @@ namespace KryneEngine
         [[nodiscard]] RenderTargetViewHandle GetPresentRenderTargetView(u8 _swapChainIndex) override;
         [[nodiscard]] TextureHandle GetPresentTexture(u8 _swapChainIndex) override;
         [[nodiscard]] u32 GetCurrentPresentImageIndex() const override;
+        [[nodiscard]] uint2 GetPresentFrameBufferSize() override;
 
         [[nodiscard]] RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc) override;
         bool DestroyRenderPass(RenderPassHandle _handle) override;

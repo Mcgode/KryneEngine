@@ -74,18 +74,18 @@ namespace KryneEngine
         [[nodiscard]] virtual bool HasDedicatedTransferQueue() const = 0;
         [[nodiscard]] virtual bool HasDedicatedComputeQueue() const = 0;
 
-        [[nodiscard]] TracyGpuProfilerContext* GetProfilerContext() { return m_profilerContext; }
+        [[nodiscard]] TracyGpuProfilerContext* GetProfilerContext() const { return m_profilerContext; }
 
     protected:
 
         GraphicsContext(
             AllocatorInstance _allocator,
             const GraphicsCommon::ApplicationInfo& _appInfo,
-            const Window* _window);
+            Window* _window);
 
         GraphicsCommon::ApplicationInfo m_appInfo;
         AllocatorInstance m_allocator;
-        const Window* m_window;
+        Window* m_window;
 
         static constexpr u64 kInitialFrameId = 1;
         u64 m_frameId;
@@ -96,6 +96,21 @@ namespace KryneEngine
         virtual void WaitForFrame(u64 _frameId) const = 0;
 
     public:
+        /**
+         * @brief Tries to resize the swap chain associated with the specified window.
+         *
+         * @details
+         * This method adjusts the swap chain's dimensions to match the updated size of the provided window.
+         * It is typically called in response to a window resize event or similar scenarios where the
+         * rendering surface needs to accommodate a new size.
+         *
+         * The process may fail to resize the swap chain because there is another resizing ongoing.
+         *
+         * @param _window A pointer to the window associated with the swap chain to be resized.
+         *
+         * @return Returns true if the swap chain was successfully resized; otherwise, false.
+         */
+        virtual bool ResizeSwapChain(Window* _window) = 0;
 
         [[nodiscard]] virtual BufferHandle CreateBuffer(const BufferCreateDesc& _desc) = 0;
         [[nodiscard]] virtual bool NeedsStagingBuffer(BufferHandle _buffer) = 0;
@@ -124,6 +139,7 @@ namespace KryneEngine
         [[nodiscard]] virtual RenderTargetViewHandle GetPresentRenderTargetView(u8 _swapChainIndex) = 0;
         [[nodiscard]] virtual TextureHandle GetPresentTexture(u8 _swapChainIndex) = 0;
         [[nodiscard]] virtual u32 GetCurrentPresentImageIndex() const = 0;
+        [[nodiscard]] virtual uint2 GetPresentFrameBufferSize() = 0;
 
         [[nodiscard]] virtual RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc) = 0;
         virtual bool DestroyRenderPass(RenderPassHandle _handle) = 0;

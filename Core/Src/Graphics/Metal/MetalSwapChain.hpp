@@ -8,10 +8,10 @@
 
 #include <QuartzCore/QuartzCore.hpp>
 
-#include "Graphics/Metal/MetalHeaders.hpp"
 #include "Graphics/Metal/MetalTypes.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
 #include "KryneEngine/Core/Graphics/Handles.hpp"
+#include "KryneEngine/Core/Math/Vector.hpp"
 #include "KryneEngine/Core/Memory/DynamicArray.hpp"
 
 namespace KryneEngine
@@ -33,9 +33,16 @@ namespace KryneEngine
             MetalResources& _resources,
             u8 _initialFrameIndex);
 
+        void Resize(Window* _window);
+
         void Present(CommandList _commandList, u8 _frameIndex);
 
         void UpdateNextDrawable(u8 _frameIndex, MetalResources& _resources);
+
+        [[nodiscard]] uint2 GetDrawableSize() const
+        {
+            return {  m_metalLayer->drawableSize().width, m_metalLayer->drawableSize().height };
+        }
 
     private:
         CA::MetalLayer* m_metalLayer;

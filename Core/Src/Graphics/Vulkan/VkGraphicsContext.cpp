@@ -197,6 +197,19 @@ namespace KryneEngine
         m_debugHandler = eastl::make_shared<VkDebugHandler>();
         *m_debugHandler = VkDebugHandler::Initialize(m_device, m_debugUtils, m_debugMarkers);
         m_resources.m_debugHandler = m_debugHandler;
+
+        if (m_graphicsQueue != VK_NULL_HANDLE)
+        {
+            m_debugHandler->SetName(m_device, VK_OBJECT_TYPE_QUEUE, reinterpret_cast<u64>(m_graphicsQueue), "Graphics queue");
+        }
+        if (m_computeQueue != VK_NULL_HANDLE)
+        {
+            m_debugHandler->SetName(m_device, VK_OBJECT_TYPE_QUEUE, reinterpret_cast<u64>(m_computeQueue), "Compute queue");
+        }
+        if (m_transferQueue != VK_NULL_HANDLE)
+        {
+            m_debugHandler->SetName(m_device, VK_OBJECT_TYPE_QUEUE, reinterpret_cast<u64>(m_transferQueue), "Transfer queue");
+        }
 #endif
 
         if (m_appInfo.m_features.m_present)
@@ -208,14 +221,13 @@ namespace KryneEngine
                     m_resources,
                     _window->GetGlfwWindow(),
                     m_queueIndices,
-                    m_frameId,
-                    nullptr);
+                    m_frameId);
 
 #if !defined(KE_FINAL)
             m_swapChain.SetDebugHandler(m_debugHandler, m_device);
 #endif
 
-            m_frameContextCount = m_swapChain.m_renderTargetViews.Size();
+            m_frameContextCount = m_swapChain.m_currentSwapChain->m_renderTargetViews.Size();
         }
         else
         {
@@ -322,7 +334,7 @@ namespace KryneEngine
         VkSemaphore imageAvailableSemaphore;
         if (m_appInfo.m_features.m_present)
         {
-            imageAvailableSemaphore = m_swapChain.m_imageAvailableSemaphores[frameIndex];
+            imageAvailableSemaphore = m_swapChain.GetSwapChain(m_frameId)->m_imageAvailableSemaphores[frameIndex];
         }
 
         // Submit command buffers
@@ -367,7 +379,7 @@ namespace KryneEngine
 
         // Present image
         if (m_appInfo.m_features.m_present) {
-            m_swapChain.Present(m_presentQueue, queueSemaphores);
+            m_swapChain.Present(m_presentQueue, queueSemaphores, m_frameId);
         }
 
         if (m_profilerContext != nullptr)
@@ -404,6 +416,7 @@ namespace KryneEngine
         // Acquire next image
         if (m_appInfo.m_features.m_present)
         {
+            m_swapChain.Update(m_device, m_resources, m_frameId);
             m_swapChain.AcquireNextImage(m_device, nextFrameContextIndex);
         }
     }
@@ -924,6 +937,18 @@ namespace KryneEngine
         RetrieveQueue(_queueIndices.m_presentQueueIndex, m_presentQueue);
     }
 
+    bool VkGraphicsContext::ResizeSwapChain(Window* _window)
+    {
+        m_surface.UpdateCapabilities(m_physicalDevice);
+        return m_swapChain.RecreateSwapChain(
+            m_device,
+            m_surface,
+            m_resources,
+            _window->GetGlfwWindow(),
+            m_queueIndices,
+            m_frameId);
+    }
+
     eastl::vector_set<eastl::string> VkGraphicsContext::_GetRequiredDeviceExtensions() const
     {
         eastl::vector_set<eastl::string> result(m_allocator);
@@ -1064,14 +1089,14 @@ namespace KryneEngine
     RenderTargetViewHandle VkGraphicsContext::GetPresentRenderTargetView(u8 _index)
     {
         return (m_appInfo.m_features.m_present)
-                ? m_swapChain.m_renderTargetViews[_index]
+                ? m_swapChain.GetSwapChain(m_frameId)->m_renderTargetViews[_index]
                 : RenderTargetViewHandle { GenPool::kInvalidHandle };
     }
 
     TextureHandle VkGraphicsContext::GetPresentTexture(u8 _swapChainIndex)
     {
         return (m_appInfo.m_features.m_present)
-            ? m_swapChain.m_renderTargetTextures[_swapChainIndex]
+            ? m_swapChain.GetSwapChain(m_frameId)->m_renderTargetTextures[_swapChainIndex]
             : TextureHandle { GenPool::kInvalidHandle };
     }
 
@@ -1081,6 +1106,14 @@ namespace KryneEngine
                 ? m_swapChain.m_imageIndex
                 : 0;
     }
+
+    uint2 VkGraphicsContext::GetPresentFrameBufferSize()
+    {
+        return m_appInfo.m_features.m_present
+            ? m_swapChain.GetSwapChain(m_frameId)->m_framebufferSize
+            : uint2 { 1 };
+    }
+
     RenderPassHandle VkGraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)
     {
         return m_resources.CreateRenderPass(_desc, m_device);
