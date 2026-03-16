@@ -3,6 +3,8 @@ add_library(KryneEngine_Modules_GraphicsUtils
         Src/DynamicBuffer.cpp
         Src/Allocators/AtlasShelfAllocator.cpp
         Include/KryneEngine/Modules/GraphicsUtils/Allocators/AtlasShelfAllocator.hpp
+        Src/DeferredGraphicResourcesDestructor.cpp
+        Include/KryneEngine/Modules/GraphicsUtils/DeferredGraphicResourcesDestructor.hpp
 )
 
 target_link_libraries(KryneEngine_Modules_GraphicsUtils KryneEngine_Core)
