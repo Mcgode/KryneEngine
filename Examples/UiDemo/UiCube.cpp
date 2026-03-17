@@ -223,7 +223,7 @@ UiCube::UiCube(
     for (u32 i = 0; i < 6; ++i)
     {
         m_guiContexts.Init(i, _allocator, _fontManager);
-        new (m_guiRenderers.Data() + i) Modules::GuiLib::BasicGuiRenderer(_allocator, _graphicsContext, _renderPass);
+        new (m_guiRenderers.Data() + i) Modules::GuiLib::BasicGuiRenderer(_allocator, &_graphicsContext, _renderPass);
         m_guiContexts[i].Initialize(&m_guiRenderers[i], m_uiViewportSize);
         m_guiRenderers[i].SetAtlasManager(_atlasManager);
     }

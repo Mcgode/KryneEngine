@@ -93,7 +93,7 @@ s32 main(s32 argc, const char** argv)
     Modules::TextRendering::FontManager fontManager(allocatorInstance);
     resourceSystem.RegisterResourceManager<Modules::TextRendering::Font>(&fontManager);
 
-    Modules::TextRendering::MsdfAtlasManager msdfAtlasManager(allocatorInstance, *graphicsContext, &fontManager, 1024, 32);
+    Modules::TextRendering::MsdfAtlasManager msdfAtlasManager(allocatorInstance, graphicsContext, &fontManager, 1024, 32);
 
     const StringHash notoFontPath { "Resources/Modules/TextRendering/NotoSerif-Regular.ttf" };
     Modules::Resources::ResourceEntry* notFontEntry = resourceSystem.GetResourceEntry<Modules::TextRendering::Font>(notoFontPath);
@@ -103,7 +103,7 @@ s32 main(s32 argc, const char** argv)
     Modules::GuiLib::Context clayContext { allocatorInstance, &fontManager };
     Modules::GuiLib::BasicGuiRenderer guiRenderer {
         allocatorInstance,
-        *graphicsContext,
+        graphicsContext,
         renderPassHandles[0],
         sampler
     };
