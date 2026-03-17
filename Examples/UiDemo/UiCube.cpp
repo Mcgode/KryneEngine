@@ -268,11 +268,12 @@ void UiCube::Render(
 
     const GraphicsCommon::ApplicationInfo& appInfo = _graphicsContext.GetApplicationInfo();
     constexpr u32 viewportSize = 332u;
+    const uint2 frameBufferSize = _graphicsContext.GetPresentFrameBufferSize();
     const Rect cubeViewport {
         .m_left = 0,
-        .m_top = appInfo.m_displayOptions.m_height - viewportSize,
+        .m_top = frameBufferSize.y - viewportSize,
         .m_right = viewportSize,
-        .m_bottom = appInfo.m_displayOptions.m_height,
+        .m_bottom = frameBufferSize.y,
     };
 
     const float4x4 projection = Math::PerspectiveProjection(60.f * M_PI / 180.f, 1, 0.1f, 100.f, false);

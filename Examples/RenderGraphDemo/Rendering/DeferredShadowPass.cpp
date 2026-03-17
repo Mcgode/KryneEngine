@@ -139,11 +139,13 @@ namespace KryneEngine::Samples::RenderGraphDemo
             _passExecutionData.m_commandList,
             m_pipelineLayout,
             { &m_sceneConstantsDescriptorSet, 2 });
+
+        const uint2 viewportSize = _passExecutionData.m_graphicsContext->GetPresentFrameBufferSize();
         _passExecutionData.m_graphicsContext->Dispatch(
             _passExecutionData.m_commandList,
             uint3 {
-                (appInfo.m_displayOptions.m_width + 7) / 8,
-                (appInfo.m_displayOptions.m_height + 7) / 8,
+                (viewportSize.x + 7) / 8,
+                (viewportSize.y + 7) / 8,
                 1
             },
             uint3 { 8, 8, 1 });

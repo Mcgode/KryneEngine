@@ -349,19 +349,21 @@ int main()
             graphicsContext->SetVertexBuffers(commandList, { &vertexBufferView, 1 });
             graphicsContext->SetIndexBuffer(commandList, indexBufferView, false);
             graphicsContext->SetGraphicsPipeline(commandList, trianglePso);
+
+            const uint2 viewportSize = graphicsContext->GetPresentFrameBufferSize();
             graphicsContext->SetViewport(
                 commandList,
                 {
-                    .m_width = appInfo.m_displayOptions.m_width,
-                    .m_height = appInfo.m_displayOptions.m_height,
+                    .m_width = static_cast<s32>(viewportSize.x),
+                    .m_height = static_cast<s32>(viewportSize.y),
                 });
             graphicsContext->SetScissorsRect(
                 commandList,
                 {
                     .m_left = 0,
                     .m_top = 0,
-                    .m_right = appInfo.m_displayOptions.m_width,
-                    .m_bottom = appInfo.m_displayOptions.m_height,
+                    .m_right = viewportSize.x,
+                    .m_bottom = viewportSize.y,
                 });
             graphicsContext->DrawIndexedInstanced(
                 commandList,

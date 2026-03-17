@@ -89,7 +89,7 @@ int main()
     {
         KE_ZoneScoped("Registration");
 
-        const uint3 dimensions(appInfo.m_displayOptions.m_width, appInfo.m_displayOptions.m_height, 1);
+        const uint3 dimensions(graphicsContext->GetPresentFrameBufferSize(), 1);
 
         for (auto i = 0u; i < graphicsContext->GetFrameContextCount(); i++)
         {

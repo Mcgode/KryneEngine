@@ -110,10 +110,7 @@ s32 main(s32 argc, const char** argv)
     guiRenderer.SetAtlasManager(&msdfAtlasManager);
     clayContext.Initialize(
         &guiRenderer,
-        {
-            graphicsContext->GetApplicationInfo().m_displayOptions.m_width,
-            graphicsContext->GetApplicationInfo().m_displayOptions.m_height
-        });
+        graphicsContext->GetPresentFrameBufferSize());
 
     UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, renderPassHandles[0], &msdfAtlasManager };
 
@@ -129,10 +126,7 @@ s32 main(s32 argc, const char** argv)
             textureGenerator.HandleUpload(*graphicsContext, transferCommandList);
         }
 
-        clayContext.BeginLayout({
-            graphicsContext->GetApplicationInfo().m_displayOptions.m_width,
-            graphicsContext->GetApplicationInfo().m_displayOptions.m_height
-        });
+        clayContext.BeginLayout(graphicsContext->GetPresentFrameBufferSize());
 
         // An example of laying out a UI with a fixed width sidebar and flexible width main content
         CLAY({ .id = CLAY_ID("OuterContainer"), .layout = { .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)}, .padding = CLAY_PADDING_ALL(16), .childGap = 16 }, .backgroundColor = {250,250,255,255}, .cornerRadius = { 10, 20, 40, 0 } }) {

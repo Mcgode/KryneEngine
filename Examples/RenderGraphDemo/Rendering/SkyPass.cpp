@@ -37,11 +37,12 @@ namespace KryneEngine::Samples::RenderGraphDemo
     {
         KE_ASSERT_MSG(m_pso != GenPool::kInvalidHandle, "PSO not created");
 
+        const uint2 viewportSize = _passExecutionData.m_graphicsContext->GetPresentFrameBufferSize();
         FullscreenPassCommon::Render(
             _passExecutionData.m_graphicsContext,
             _passExecutionData.m_commandList,
-            _passExecutionData.m_graphicsContext->GetApplicationInfo().m_displayOptions.m_width,
-            _passExecutionData.m_graphicsContext->GetApplicationInfo().m_displayOptions.m_height,
+            viewportSize.x,
+            viewportSize.y,
             0.f,
             m_pso,
             m_pipelineLayout,

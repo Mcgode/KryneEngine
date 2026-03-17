@@ -68,10 +68,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         m_torusKnot.reset(m_allocator.New<TorusKnot>(m_allocator));
 
         GraphicsContext* graphicsContext = _window.GetGraphicsContext();
-        m_windowSize = {
-            graphicsContext->GetApplicationInfo().m_displayOptions.m_width,
-            graphicsContext->GetApplicationInfo().m_displayOptions.m_height
-        };
+        m_windowSize = graphicsContext->GetPresentFrameBufferSize();
         const float aspectRatio = static_cast<float>(m_windowSize.x) / static_cast<float>(m_windowSize.y);
         m_orbitCamera.reset(m_allocator.New<OrbitCamera>(_window.GetInputManager(), aspectRatio));
 
