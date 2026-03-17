@@ -118,6 +118,9 @@ s32 main(s32 argc, const char** argv)
     {
         KE_ZoneScoped("Render loop");
 
+        const float2 dpiScale = mainWindow.GetDpiScale();
+        const float contentScale = (dpiScale.x + dpiScale.y) / 2.f;
+
         CommandListHandle transferCommandList = graphicsContext->BeginGraphicsCommandList();
         CommandListHandle renderCommandList = graphicsContext->BeginGraphicsCommandList();
 
@@ -129,28 +132,56 @@ s32 main(s32 argc, const char** argv)
         clayContext.BeginLayout(graphicsContext->GetPresentFrameBufferSize());
 
         // An example of laying out a UI with a fixed width sidebar and flexible width main content
-        CLAY({ .id = CLAY_ID("OuterContainer"), .layout = { .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)}, .padding = CLAY_PADDING_ALL(16), .childGap = 16 }, .backgroundColor = {250,250,255,255}, .cornerRadius = { 10, 20, 40, 0 } }) {
+        CLAY({
+            .id = CLAY_ID("OuterContainer"),
+            .layout = {
+                .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
+                .padding = CLAY_PADDING_ALL(static_cast<u16>(16.f * contentScale)),
+                .childGap = static_cast<u16>(16.f * contentScale) },
+            .backgroundColor = {250,250,255,255},
+            .cornerRadius = { 10 * contentScale, 20 * contentScale, 40 * contentScale, 0 } })
+        {
             CLAY({
                 .id = CLAY_ID("SideBar"),
-                .layout = { .sizing = { .width = CLAY_SIZING_FIXED(300), .height = CLAY_SIZING_GROW(0) }, .padding = CLAY_PADDING_ALL(16), .childGap = 16, .layoutDirection = CLAY_TOP_TO_BOTTOM },
+                .layout = {
+                    .sizing = { .width = CLAY_SIZING_FIXED(300 * contentScale), .height = CLAY_SIZING_GROW(0) },
+                    .padding = CLAY_PADDING_ALL(static_cast<u16>(16.f * contentScale)),
+                    .childGap = static_cast<u16>(16.f * contentScale),
+                    .layoutDirection = CLAY_TOP_TO_BOTTOM
+                },
                 .backgroundColor = COLOR_LIGHT,
                 .cornerRadius = {
-                    .topLeft = 10,
-                    .topRight = 20,
-                    .bottomLeft = 40,
+                    .topLeft = 10 * contentScale,
+                    .topRight = 20 * contentScale,
+                    .bottomLeft = 40 * contentScale,
                     .bottomRight = 0
                 }
-            }) {
-                CLAY({ .id = CLAY_ID("ProfilePictureOuter"), .layout = { .sizing = { .width = CLAY_SIZING_GROW(0) }, .padding = CLAY_PADDING_ALL(16), .childGap = 16, .childAlignment = { .y = CLAY_ALIGN_Y_CENTER } }, .backgroundColor = COLOR_RED }) {
+            })
+            {
+                CLAY({
+                    .id = CLAY_ID("ProfilePictureOuter"),
+                    .layout = {
+                        .sizing = { .width = CLAY_SIZING_GROW(0) },
+                        .padding = CLAY_PADDING_ALL(static_cast<u16>(16.f * contentScale)),
+                        .childGap = static_cast<u16>(16.f * contentScale),
+                        .childAlignment = { .y = CLAY_ALIGN_Y_CENTER }
+                    },
+                    .backgroundColor = COLOR_RED })
+                {
                     CLAY({
                         .id = CLAY_ID("ProfilePicture"),
-                        .layout = { .sizing = { .width = CLAY_SIZING_FIXED(64), .height = CLAY_SIZING_FIXED(64) }},
+                        .layout = { .sizing = { .width = CLAY_SIZING_FIXED(64 * contentScale), .height = CLAY_SIZING_FIXED(64 * contentScale) }},
                         .image = { .imageData = clayContext.RegisterTextureRegion({
                             .m_textureView = textureGenerator.GetTextureView(32),
                         })}
                     })
                     {}
-                    CLAY_TEXT(CLAY_STRING("Clay - UI Library"), CLAY_TEXT_CONFIG({  .textColor = {255, 255, 255, 255}, .fontId = font->GetId(), .fontSize = 20 }));
+                    CLAY_TEXT(
+                        CLAY_STRING("Clay - UI Library"),
+                        CLAY_TEXT_CONFIG({
+                            .textColor = {255, 255, 255, 255},
+                            .fontId = font->GetId(),
+                            .fontSize = static_cast<u16>(20.f * contentScale)}));
                 }
 
                 // Standard C code like loops etc work inside components
@@ -163,24 +194,24 @@ s32 main(s32 argc, const char** argv)
                 .id = CLAY_ID("MainContent"),
                 .layout = {
                     .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) },
-                    .padding = { 16, 16, 16, 16 },
-                    .childGap = 16,
+                    .padding = CLAY_PADDING_ALL(static_cast<u16>(16.f * contentScale)),
+                    .childGap = static_cast<u16>(16.f * contentScale),
                     .layoutDirection = CLAY_TOP_TO_BOTTOM,
                 },
                 .backgroundColor = COLOR_LIGHT,
                 .cornerRadius = {
-                    .topLeft = 10,
-                    .topRight = 20,
-                    .bottomLeft = 40,
+                    .topLeft = 10 * contentScale,
+                    .topRight = 20 * contentScale,
+                    .bottomLeft = 40 * contentScale,
                     .bottomRight = 0
                 },
                 .border = {
                     .color = Clay_Color { 10, 0, 0, 255 },
                     .width = {
-                        .left = 1,
-                        .right = 1,
-                        .top = 1,
-                        .bottom = 10,
+                        .left = static_cast<u16>(1 * contentScale),
+                        .right = static_cast<u16>(1.f * contentScale),
+                        .top = static_cast<u16>(1.f * contentScale),
+                        .bottom = static_cast<u16>(10.f * contentScale),
                     }
                 },
             })
@@ -190,15 +221,15 @@ s32 main(s32 argc, const char** argv)
                     CLAY_TEXT(CLAY_STRING("Un peu de français à afficher, bébé!"), CLAY_TEXT_CONFIG({
                         .textColor = { 255, 80, 80, 255 },
                         .fontId = font->GetId(),
-                        .fontSize = 50,
-                        .letterSpacing = 2,
+                        .fontSize = static_cast<u16>(50.f * contentScale),
+                        .letterSpacing = static_cast<u16>(2.f * contentScale),
                         .textAlignment = CLAY_TEXT_ALIGN_CENTER,
                     }));
                 }
 
                 for (auto i = 0; i < 4; i++)
                 {
-                    CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW() }, .childGap = 16, .layoutDirection = CLAY_LEFT_TO_RIGHT } })
+                    CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW() }, .childGap = static_cast<u16>(16.f * contentScale), .layoutDirection = CLAY_LEFT_TO_RIGHT } })
                     {
                         CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW() } } }) {}
                         for (auto j = 0; j < 8; j++)
@@ -221,7 +252,9 @@ s32 main(s32 argc, const char** argv)
                             }
 
                             CLAY({
-                                .layout = { .sizing = { .width = CLAY_SIZING_FIXED(64), .height = CLAY_SIZING_FIXED(64) } },
+                                .layout = { .sizing = {
+                                    .width = CLAY_SIZING_FIXED(64.f * contentScale),
+                                    .height = CLAY_SIZING_FIXED(64.f * contentScale) } },
                                 .backgroundColor = Clay_Color( 180, 180, 180, 255 ),
                                 .cornerRadius = cornerRadius,
                                 .image = {
@@ -239,8 +272,8 @@ s32 main(s32 argc, const char** argv)
                     CLAY_TEXT(CLAY_STRING("日本語のグリフも表示できます!"), CLAY_TEXT_CONFIG({
                         .textColor = { 255, 80, 80, 255 },
                         .fontId = font->GetId(),
-                        .fontSize = 60,
-                        .letterSpacing = 2,
+                        .fontSize = static_cast<u16>(60.f * contentScale),
+                        .letterSpacing = static_cast<u16>(2.f * contentScale),
                         .textAlignment = CLAY_TEXT_ALIGN_CENTER,
                     }));
                 }
@@ -251,7 +284,7 @@ s32 main(s32 argc, const char** argv)
         graphicsContext->BeginRenderPass(renderCommandList, currentPass);
         clayContext.EndLayout(*graphicsContext, transferCommandList, renderCommandList);
 
-        uiCube.Render(*graphicsContext, transferCommandList, renderCommandList);
+        uiCube.Render(*graphicsContext, transferCommandList, renderCommandList, contentScale);
         graphicsContext->EndRenderPass(renderCommandList);
 
         msdfAtlasManager.FlushLoads(*graphicsContext, transferCommandList);

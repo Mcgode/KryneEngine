@@ -26,7 +26,11 @@ public:
         RenderPassHandle _renderPass,
         Modules::TextRendering::MsdfAtlasManager* _atlasManager);
 
-    void Render(GraphicsContext& _graphicsContext, CommandListHandle _transferCommandList, CommandListHandle _renderCommandList);
+    void Render(
+        GraphicsContext& _graphicsContext,
+        CommandListHandle _transferCommandList,
+        CommandListHandle _renderCommandList,
+        float _contentScale);
 
 private:
     AllocatorInstance m_allocator;

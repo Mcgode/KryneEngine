@@ -233,7 +233,8 @@ UiCube::UiCube(
 void UiCube::Render(
     GraphicsContext& _graphicsContext,
     CommandListHandle _transferCommandList,
-    CommandListHandle _renderCommandList)
+    CommandListHandle _renderCommandList,
+    const float _contentScale)
 {
     if (m_transferBuffer != GenPool::kInvalidHandle)
     {
@@ -267,7 +268,7 @@ void UiCube::Render(
     const u8 frameIndex = _graphicsContext.GetCurrentFrameContextIndex();
 
     const GraphicsCommon::ApplicationInfo& appInfo = _graphicsContext.GetApplicationInfo();
-    constexpr u32 viewportSize = 332u;
+    const u32 viewportSize = static_cast<u32>(332.f * _contentScale);
     const uint2 frameBufferSize = _graphicsContext.GetPresentFrameBufferSize();
     const Rect cubeViewport {
         .m_left = 0,
