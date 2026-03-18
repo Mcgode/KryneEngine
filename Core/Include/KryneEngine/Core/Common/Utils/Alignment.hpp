@@ -7,6 +7,7 @@
 #pragma once
 
 #include "KryneEngine/Core/Common/BitUtils.hpp"
+#include "KryneEngine/Core/Common/Utils/Macros.hpp"
 
 namespace KryneEngine::Alignment
 {
@@ -50,5 +51,10 @@ namespace KryneEngine::Alignment
         _value |= _value >> 16;
         _value |= _value >> 32;
         return ++_value;
+    }
+
+    constexpr KE_FORCEINLINE bool IsPowerOfTwo(u64 _value)
+    {
+        return _value && !(_value & (_value - 1));
     }
 }
