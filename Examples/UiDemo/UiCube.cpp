@@ -376,7 +376,14 @@ void UiCube::Render(
         }
         const float4x4 uiProjection = projection * model * localTransform;
 
-        m_guiContexts[i].BeginLayout(m_uiViewportSize, uiProjection);
+        m_guiContexts[i].BeginLayout(
+            m_uiViewportSize,
+            false,
+            {},
+            false,
+            {},
+            {},
+            uiProjection);
         CLAY({
             .layout = {
                 .sizing =  { .width = CLAY_SIZING_GROW(), .height = CLAY_SIZING_GROW() },

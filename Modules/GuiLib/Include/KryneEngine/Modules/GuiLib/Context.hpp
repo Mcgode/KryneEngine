@@ -37,7 +37,14 @@ namespace KryneEngine::Modules::GuiLib
 
         void Destroy();
 
-        void BeginLayout(const uint2& _viewportSize, const float4x4& _projectionMatrix = float4x4());
+        void BeginLayout(
+            const uint2& _viewportSize,
+            bool _isClicking = false,
+            const float2& _cursorPosition = float2(),
+            bool _allowDragging = false,
+            float _deltaTime = 0.0f,
+            const float2& _deltaScroll = float2(),
+            const float4x4& _projectionMatrix = float4x4());
         void EndLayout(
             GraphicsContext& _graphicsContext,
             CommandListHandle _transferCommandList,

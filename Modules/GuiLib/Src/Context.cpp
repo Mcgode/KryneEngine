@@ -57,7 +57,14 @@ namespace KryneEngine::Modules::GuiLib
         m_allocator.deallocate(m_arenaMemory);
     }
 
-    void Context::BeginLayout(const uint2& _viewportSize, const float4x4& _projectionMatrix)
+    void Context::BeginLayout(
+        const uint2& _viewportSize,
+        const bool _isClicking,
+        const float2& _cursorPosition,
+        const bool _allowDragging,
+        const float _deltaTime,
+        const float2& _deltaScroll,
+        const float4x4& _projectionMatrix)
     {
         KE_ASSERT_MSG(Clay_GetCurrentContext() == nullptr, "Clay context is already set, either it was not reset properly, or there is a race condition.");
         Clay_SetCurrentContext(m_clayContext);
@@ -65,6 +72,8 @@ namespace KryneEngine::Modules::GuiLib
             .width = static_cast<float>(_viewportSize.x),
             .height = static_cast<float>(_viewportSize.y),
         });
+        Clay_SetPointerState({ _cursorPosition.x, _cursorPosition.y }, _isClicking);
+        Clay_UpdateScrollContainers(_allowDragging, { _deltaScroll.x, _deltaScroll.y }, _deltaTime);
         m_renderer->BeginLayout(_projectionMatrix, _viewportSize);
     }
 
