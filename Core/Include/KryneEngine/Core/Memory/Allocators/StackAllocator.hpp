@@ -51,6 +51,26 @@ namespace KryneEngine
          */
         void Reset();
 
+        struct Scope
+        {
+            friend class StackAllocator;
+        private:
+            StackAllocator* m_allocator;
+            size_t m_stackIndex;
+
+            explicit Scope(StackAllocator* _allocator)
+                : m_allocator(_allocator)
+                , m_stackIndex(_allocator->GetStackIndex())
+            {}
+
+        public:
+            ~Scope() { m_allocator->Pop(m_stackIndex); }
+
+            [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
+        };
+
+        [[nodiscard]] Scope Scoped() { return Scope(this); }
+
     private:
         AllocatorInstance m_parentAllocator;
         size_t m_stackIndex = 0;
