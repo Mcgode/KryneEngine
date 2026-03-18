@@ -27,6 +27,7 @@ namespace KryneEngine
 
     void* StackAllocator::Allocate(size_t _size, size_t _alignment)
     {
+        const size_t alignment = eastl::max(1ul, _alignment);
         const size_t initialIndex = m_stackIndex;
         size_t heapIndex = 0;
         size_t heapOffset = m_stackIndex;
@@ -42,7 +43,7 @@ namespace KryneEngine
 
         auto heapStart = reinterpret_cast<size_t>(m_heaps[heapIndex]);
         size_t position = heapStart + heapOffset;
-        size_t alignedPosition = Alignment::AlignUp(position, _alignment);
+        size_t alignedPosition = Alignment::AlignUp(position, alignment);
         m_stackIndex += alignedPosition - position;
 
         while (alignedPosition + _size > heapSize + heapStart)
@@ -62,7 +63,7 @@ namespace KryneEngine
             heapStart = reinterpret_cast<size_t>(m_heaps[heapIndex]);
             heapOffset = 0;
             position = heapStart + heapOffset;
-            alignedPosition = Alignment::AlignUp(position, _alignment);
+            alignedPosition = Alignment::AlignUp(position, alignment);
             m_stackIndex += alignedPosition - position;
         }
 
