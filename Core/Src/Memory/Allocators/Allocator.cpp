@@ -12,14 +12,15 @@
 
 namespace KryneEngine
 {
-    void* AllocatorInstance::allocate(size_t _size, int _flags) const
+    void* AllocatorInstance::allocate(const size_t _size, const int _flags) const
     {
         void* ptr = nullptr;
         if (m_allocator)
         {
             ptr =  m_allocator->Allocate(_size, 0);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
-            TracyAllocN(ptr, _size, m_allocator->GetName());
+            if (!m_allocator->IsCustomProfiling())
+                TracyAllocN(ptr, _size, m_allocator->GetName());
 #endif
         }
         else
@@ -29,20 +30,21 @@ namespace KryneEngine
             DefaultHeapHeapAllocationTracker::GetInstance().RegisterAllocation(ptr, _size, 0);
 #endif
 #if KE_PROFILE_MEMORY_ALLOCATIONS
-            TracyAlloc(ptr, _size);
+           TracyAlloc(ptr, _size);
 #endif
         }
         return ptr;
     }
 
-    void* AllocatorInstance::allocate(size_t _size, size_t _alignment, size_t _alignmentOffset, int _flags) const
+    void* AllocatorInstance::allocate(const size_t _size, const size_t _alignment, const size_t _alignmentOffset, const int _flags) const
     {
         void* ptr;
         if (m_allocator)
         {
             ptr = m_allocator->Allocate(_size, _alignment);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
-            TracyAllocN(ptr, _size, m_allocator->GetName());
+            if (!m_allocator->IsCustomProfiling())
+                TracyAllocN(ptr, _size, m_allocator->GetName());
 #endif
         }
         else
@@ -58,13 +60,14 @@ namespace KryneEngine
         return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + _alignmentOffset);
     }
 
-    void AllocatorInstance::deallocate(void* _ptr, size_t _size) const
+    void AllocatorInstance::deallocate(void* _ptr, const size_t _size) const
     {
         if (m_allocator)
         {
             m_allocator->Free(_ptr, _size);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
-            TracyFreeN(_ptr, m_allocator->GetName());
+            if (!m_allocator->IsCustomProfiling())
+                TracyFreeN(_ptr, m_allocator->GetName());
 #endif
         }
         else

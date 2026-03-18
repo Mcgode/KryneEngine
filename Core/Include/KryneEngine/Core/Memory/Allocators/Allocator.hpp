@@ -14,7 +14,8 @@ namespace KryneEngine
     class IAllocator
     {
     public:
-        explicit IAllocator(const char* _name)
+        explicit IAllocator(const char* _name, const bool _customProfiling = false)
+            : m_customProfiling(_customProfiling)
         {
             strcpy(m_name, _name);
         }
@@ -24,9 +25,11 @@ namespace KryneEngine
         virtual void Free(void* _ptr, size_t _alignment) = 0;
 
         [[nodiscard]] const char* GetName() const { return m_name; }
+        [[nodiscard]] bool IsCustomProfiling() const { return m_customProfiling; }
 
     private:
-        char m_name[256] {};
+        char m_name[255] {};
+        bool m_customProfiling;
     };
 
     struct AllocatorInstance final
