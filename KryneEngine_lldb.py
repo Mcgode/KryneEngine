@@ -28,6 +28,13 @@ def __lldb_init_module(debugger, internal_dict):
             add_summary(f"KryneEngine::{type}{count}", vector_base_summary.__name__)
             add_summary(f"KryneEngine::{type}{count}_simd", vector_base_summary.__name__)
 
+    add_synthetic_children_provider("KryneEngine::FlatHashMap<.*>", FlatHashMapChildrenProvider.__name__)
+    add_summary("KryneEngine::FlatHashMap<.*>::kvp", flat_hash_map_kvp_summary.__name__)
+    add_synthetic_children_provider("KryneEngine::FlatHashMap<.*>::kvp", FlatHashMapKvpChildrenProvider.__name__)
+
+    add_summary("KryneEngine::StringHash", string_hash_summary.__name__)
+    add_summary("KryneEngine::StringViewHash", string_view_hash_summary.__name__)
+
     debugger.HandleCommand("type category enable KryneEngine")
 
 def dynamic_array_summary(value_object, internal_dict):
@@ -81,3 +88,90 @@ def vector_base_summary(value_object, internal_dict):
             return f'({x}, {y}, {z}, {w})'
         return f'({x}, {y}, {z})'
     return f'({x}, {y})'
+
+class FlatHashMapChildrenProvider:
+    def __init__(self, value_object, internal_dict):
+        self.value_object = value_object
+        self.capacity = 0
+        self.count = 0
+        self.capacity_obj = None
+        self.count_obj = None
+        self.occupied_slots = []
+        self.update()
+
+    def num_children(self):
+        return self.count + 2 # [count], [capacity] and elements
+
+    def get_child_index(self, name: str):
+        try:
+            index = int(name.lstrip('[').rstrip(']'))
+            for i in range(len(self.occupied_slots)):
+                v_index, _ = self.occupied_slots[i]
+                if v_index == index:
+                    return i + 2
+            return -1
+        except:
+            return 0 if name == "[count]" else (1 if name == "[capacity]" else -1)
+
+    def get_child_at_index(self, index):
+        if index == 0:
+            return self.count_obj.Clone("[count]")
+        elif index == 1:
+            return self.capacity_obj.Clone("[capacity]")
+        elif index - 2 < self.capacity:
+            i, value = self.occupied_slots[index - 2]
+            return value.Clone(f'[{i}]')
+        return None
+
+    def update(self):
+        self.count_obj = self.value_object.GetChildMemberWithName("m_count")
+        self.count = self.count_obj.GetValueAsUnsigned()
+
+        self.capacity_obj = self.value_object.GetChildMemberWithName("m_capacity")
+        self.capacity = self.capacity_obj.GetValueAsUnsigned()
+
+        self.occupied_slots = []
+        control_buffer = self.value_object.GetChildMemberWithName("m_controlBuffer")
+        kvp_buffer = self.value_object.GetChildMemberWithName("m_kvpBuffer")
+        for i in range(self.capacity):
+            control = control_buffer.GetValueForExpressionPath(f'[{i}]').GetValueAsUnsigned()
+            if (control & (1 << 7)) == 0:
+                self.occupied_slots.append((i, kvp_buffer.GetValueForExpressionPath(f'[{i}]')))
+
+    def has_children(self):
+        return self.count > 0
+
+def flat_hash_map_kvp_summary(value_object, internal_dict):
+    key_summary = value_object.GetChildMemberWithName("[key]").GetSummary()
+    if key_summary is None:
+        return None
+    value_summary = value_object.GetChildMemberWithName("[value]").GetSummary()
+    if value_summary is None:
+        return f'{key_summary}'
+    return f'{key_summary}={value_summary}'
+
+class FlatHashMapKvpChildrenProvider:
+    def __init__(self, value_object, internal_dict):
+        self.value_object = value_object
+
+    def get_child_index(self, name: str):
+        return 0 if name == "[key]" else (1 if name == "[value]" else -1)
+
+    def get_child_at_index(self, index):
+        if index == 0:
+            return self.value_object.GetChildMemberWithName("first").Clone("[key]")
+        elif index == 1:
+            return self.value_object.GetChildMemberWithName("second").Clone("[value]")
+        return None
+
+    def update(self):
+        pass
+
+    def num_children(self):
+        return 2
+
+def string_hash_summary(value_object, internal_dict):
+    return value_object.GetChildMemberWithName("m_string").GetSummary()
+
+def string_view_hash_summary(value_object, internal_dict):
+    return value_object.GetChildMemberWithName("m_stringView").GetSummary()
