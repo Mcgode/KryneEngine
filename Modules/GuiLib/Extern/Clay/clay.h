@@ -221,7 +221,7 @@ typedef struct Clay_Vector2 {
 
 // Internally clay conventionally represents colors as 0-255, but interpretation is up to the renderer.
 typedef struct Clay_Color {
-    float r, g, b, a;
+    unsigned char r, g, b, a;
 } Clay_Color;
 
 typedef struct Clay_BoundingBox {
@@ -341,7 +341,7 @@ CLAY__WRAPPER_STRUCT(Clay_Padding);
 typedef struct Clay_LayoutConfig {
     Clay_Sizing sizing; // Controls the sizing of this element inside it's parent container, including FIT, GROW, PERCENT and FIXED sizing.
     Clay_Padding padding; // Controls "padding" in pixels, which is a gap between the bounding box of this element and where its children will be placed.
-    uint16_t childGap; // Controls the gap in pixels between child elements along the layout axis (horizontal gap for LEFT_TO_RIGHT, vertical gap for TOP_TO_BOTTOM).
+    float childGap; // Controls the gap in pixels between child elements along the layout axis (horizontal gap for LEFT_TO_RIGHT, vertical gap for TOP_TO_BOTTOM).
     Clay_ChildAlignment childAlignment; // Controls how child elements are aligned on each axis.
     Clay_LayoutDirection layoutDirection; // Controls the direction in which child elements will be automatically laid out.
 } Clay_LayoutConfig;
@@ -380,11 +380,11 @@ typedef struct Clay_TextElementConfig {
     // The debug view will pass fontId = 0 for its internal text.
     uint16_t fontId;
     // Controls the size of the font. Handled by the function provided to Clay_MeasureText.
-    uint16_t fontSize;
+    float fontSize;
     // Controls extra horizontal spacing between characters. Handled by the function provided to Clay_MeasureText.
-    uint16_t letterSpacing;
+    float letterSpacing;
     // Controls additional vertical space between wrapped lines of text.
-    uint16_t lineHeight;
+    float lineHeight;
     // Controls how text "wraps", that is how it is broken into multiple lines when there is insufficient horizontal space.
     // CLAY_TEXT_WRAP_WORDS (default) breaks on whitespace characters.
     // CLAY_TEXT_WRAP_NEWLINES doesn't break on space characters, only on newlines.
@@ -560,11 +560,11 @@ typedef struct Clay_TextRenderData {
     Clay_Color textColor;
     // An integer representing the font to use to render this text, transparently passed through from the text declaration.
     uint16_t fontId;
-    uint16_t fontSize;
+    float fontSize;
     // Specifies the extra whitespace gap in pixels between each character.
-    uint16_t letterSpacing;
+    float letterSpacing;
     // The height of the bounding box for this line of text.
-    uint16_t lineHeight;
+    float lineHeight;
 } Clay_TextRenderData;
 
 // Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_RECTANGLE
@@ -1522,11 +1522,11 @@ uint32_t Clay__HashStringContentsWithConfig(Clay_String *text, Clay_TextElementC
     hash += (hash << 10);
     hash ^= (hash >> 6);
 
-    hash += config->fontSize;
+    hash += *(uint32_t*)&config->fontSize;
     hash += (hash << 10);
     hash ^= (hash >> 6);
 
-    hash += config->letterSpacing;
+    hash += *(uint32_t*)&config->letterSpacing;
     hash += (hash << 10);
     hash ^= (hash >> 6);
 
