@@ -8,6 +8,7 @@
 
 #include "KryneEngine/Core/Common/Assert.hpp"
 #include "KryneEngine/Core/Common/Utils/Alignment.hpp"
+#include "tracy/Tracy.hpp"
 
 namespace KryneEngine
 {
@@ -16,13 +17,17 @@ namespace KryneEngine
         const size_t _initialSize,
         const size_t _maxExtraHeapCount,
         const char* _name)
-            : IAllocator(_name)
+            : IAllocator(_name, true)
             , m_parentAllocator(_parentAllocator)
             , m_baseHeapSize(_initialSize)
             , m_heaps(_parentAllocator, 1 + _maxExtraHeapCount, nullptr)
     {
         KE_ASSERT_MSG(Alignment::IsPowerOfTwo(_initialSize), "Initial size must be a power of two");
         m_heaps[0] = static_cast<std::byte*>(_parentAllocator.allocate(_initialSize, alignof(size_t)));
+
+#if KE_PROFILE_MEMORY_ALLOCATIONS
+        TracyPlotConfig(GetName(), tracy::PlotFormatType::Memory, true, true, 0);
+#endif
     }
 
     void* StackAllocator::Allocate(size_t _size, size_t _alignment)
@@ -68,17 +73,23 @@ namespace KryneEngine
         }
 
         m_stackIndex += _size;
+#if KE_PROFILE_MEMORY_ALLOCATIONS
+        TracyPlot(GetName(), static_cast<s64>(m_stackIndex));
+#endif
         return reinterpret_cast<void*>(alignedPosition);
     }
 
     void StackAllocator::Pop(const size_t _toIndex)
     {
         m_stackIndex = _toIndex;
+#if KE_PROFILE_MEMORY_ALLOCATIONS
+        TracyPlot(GetName(), static_cast<s64>(m_stackIndex));
+#endif
     }
 
     void StackAllocator::Reset()
     {
-        m_stackIndex = 0;
+        Clear();
         for (size_t i = 1; i < m_heaps.Size(); i++)
         {
             m_parentAllocator.deallocate(m_heaps[i]);
