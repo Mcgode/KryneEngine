@@ -80,4 +80,78 @@ namespace KryneEngine
                 | (BitUtils::BitMask<u32>(6) & byte3);
         }
     }
+
+    Utf16Iterator::Utf16Iterator(const eastl::wstring_view _string)
+        : m_currentPtr(_string.data())
+    {}
+
+    Utf16Iterator& Utf16Iterator::operator++()
+    {
+        if (m_charCount == 0)
+            ReadUtf16Char();
+        m_currentPtr += m_charCount;
+        m_charCount = 0;
+        m_currentChar = 0;
+        return *this;
+    }
+
+    bool Utf16Iterator::operator==(const wchar_t* iterator) const
+    {
+        return m_currentPtr == iterator;
+    }
+
+    u32 Utf16Iterator::operator*()
+    {
+        if (m_charCount == 0)
+            ReadUtf16Char();
+        return m_currentChar;
+    }
+
+    void Utf16Iterator::ReadUtf16Char()
+    {
+        const u32 firstShort = static_cast<u16>(m_currentPtr[0]);
+
+        if (firstShort >= 0xd800 && firstShort <= 0xdbff)
+        {
+            m_charCount = 2;
+            const u32 secondShort = static_cast<u16>(m_currentPtr[1]);
+            KE_ASSERT(secondShort >= 0xDC00u && secondShort <= 0xDFFFu);
+            m_currentChar = 0x10000u
+                + ((firstShort - 0xD800u) << 10)
+                + (secondShort - 0xDC00u);
+        }
+        else
+        {
+            m_charCount = 1;
+            m_currentChar = firstShort;
+        }
+    }
+
+    void UnicodeWriters::WriteUtf8Char(eastl::string& _string, u32 _unicodeChar)
+    {
+        if (_unicodeChar < 1 << 7)
+        {
+            _string.push_back(static_cast<char>(_unicodeChar));
+        }
+        else if (_unicodeChar < (1 << 11))
+        {
+            _string.push_back(static_cast<char>(0b1100'0000) | (_unicodeChar >> 6));
+            _string.push_back(static_cast<char>(0b1000'0000) | (_unicodeChar & 0b0011'1111));
+        }
+        else if (_unicodeChar < (1 << 16))
+        {
+            _string.push_back(static_cast<char>(0b1110'0000) | (_unicodeChar >> 12));
+            _string.push_back(static_cast<char>(0b1000'0000) | ((_unicodeChar >> 6) & 0b0011'1111));
+            _string.push_back(static_cast<char>(0b1000'0000) | (_unicodeChar & 0b0011'1111));
+        }
+        else
+        {
+            _string.push_back(static_cast<char>(0b1111'0000) | (_unicodeChar >> 18));
+            _string.push_back(static_cast<char>(0b1000'0000) | ((_unicodeChar >> 12) & 0b0011'1111));
+            _string.push_back(static_cast<char>(0b1000'0000) | ((_unicodeChar >> 6) & 0b0011'1111));
+            _string.push_back(static_cast<char>(0b1000'0000) | (_unicodeChar & 0b0011'1111));
+        }
+    }
+
+    void UnicodeWriters::WriteUtf16Char(eastl::wstring& _string, u32 _unicodeChar) {}
 } // namespace KryneEngine

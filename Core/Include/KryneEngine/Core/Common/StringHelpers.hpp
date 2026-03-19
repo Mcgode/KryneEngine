@@ -89,6 +89,28 @@ namespace KryneEngine
         const char* m_currentPtr = nullptr;
     };
 
+    struct Utf16Iterator
+    {
+        explicit Utf16Iterator(eastl::wstring_view _string);
+
+        Utf16Iterator& operator++();
+        bool operator==(const wchar_t* iterator) const;
+        u32 operator*();
+
+    private:
+        void ReadUtf16Char();
+
+        u32 m_currentChar = 0;
+        u32 m_charCount = 0;
+        const wchar_t* m_currentPtr = nullptr;
+    };
+
+    namespace UnicodeWriters
+    {
+        void WriteUtf8Char(eastl::string& _string, u32 _unicodeChar);
+        void WriteUtf16Char(eastl::wstring& _string, u32 _unicodeChar);
+    }
+
     namespace StringHelpers
     {
         template <class Container, bool Reserve = true>
