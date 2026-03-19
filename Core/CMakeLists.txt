@@ -117,6 +117,7 @@ set(PlatformSrc
         Src/Platform/StdAlloc.cpp
         Include/KryneEngine/Core/Platform/StdAlloc.hpp
         Include/KryneEngine/Core/Platform/Platform.hpp
+        Include/KryneEngine/Core/Platform/FileSystem.hpp
         Include/KryneEngine/Core/Platform/Helpers.hpp
         ${KE_PLATFORM_IMPLEMENTATION_FILES}
 )

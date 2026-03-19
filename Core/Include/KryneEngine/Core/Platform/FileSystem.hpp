@@ -1,0 +1,34 @@
+/**
+ * @file
+ * @author Max Godefroy
+ * @date 19/03/2026.
+ */
+
+#pragma once
+
+#include <EASTL/span.h>
+#include <EASTL/string_view.h>
+
+#include "KryneEngine/Core/Platform/Helpers.hpp"
+
+namespace KryneEngine::Platform
+{
+    struct DirectoryMonitorHandle: OpaqueHandle {};
+
+    struct DirectoryMonitorCreateInfo
+    {
+        eastl::span<eastl::string_view> m_directories;
+        eastl::string_view m_threadName;
+
+        eastl::function<void(eastl::string_view)> m_fileCreatedCallback;
+        eastl::function<void(eastl::string_view)> m_fileModifiedCallback;
+        eastl::function<void(eastl::string_view, eastl::string_view)> m_fileRenamedCallback;
+        eastl::function<void(eastl::string_view)> m_fileDeletedCallback;
+    };
+
+    [[nodiscard]] DirectoryMonitorHandle CreateDirectoryMonitor(
+        const DirectoryMonitorCreateInfo& _info,
+        AllocatorInstance _allocator);
+
+    void DestroyDirectoryMonitor(DirectoryMonitorHandle _handle, AllocatorInstance _allocator);
+}
