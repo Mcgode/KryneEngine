@@ -143,6 +143,7 @@ namespace KryneEngine::Platform
         auto* monitor = _allocator.New<DarwinDirectoryMonitor>(_allocator);
         monitor->m_fileCreatedCallback = _info.m_fileCreatedCallback;
         monitor->m_fileModifiedCallback = _info.m_fileModifiedCallback;
+        monitor->m_fileRenamedCallback = _info.m_fileRenamedCallback;
         monitor->m_fileDeletedCallback = _info.m_fileDeletedCallback;
 
         FSEventStreamContext context = {
