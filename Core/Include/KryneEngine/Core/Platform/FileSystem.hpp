@@ -6,9 +6,11 @@
 
 #pragma once
 
+#include <filesystem>
 #include <EASTL/span.h>
 #include <EASTL/string_view.h>
 
+#include "EASTL/string.h"
 #include "KryneEngine/Core/Platform/Helpers.hpp"
 
 namespace KryneEngine::Platform
@@ -31,4 +33,8 @@ namespace KryneEngine::Platform
         AllocatorInstance _allocator);
 
     void DestroyDirectoryMonitor(DirectoryMonitorHandle _handle, AllocatorInstance _allocator);
+
+    std::filesystem::path GetDefaultConfigDirectory(
+        eastl::string_view _appName,
+        bool _systemConfig = false);
 }

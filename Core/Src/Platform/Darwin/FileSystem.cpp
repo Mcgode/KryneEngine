@@ -190,7 +190,7 @@ namespace KryneEngine::Platform
 
     void DestroyDirectoryMonitor(const DirectoryMonitorHandle _handle, const AllocatorInstance _allocator)
     {
-        KE_ASSERT(_handle.IsValid() && _handle.m_handle == nullptr);
+        KE_ASSERT(_handle.IsValid() && _handle.m_handle != nullptr);
 
         auto* monitor = static_cast<DarwinDirectoryMonitor*>(_handle.m_handle);
 
@@ -201,5 +201,17 @@ namespace KryneEngine::Platform
         dispatch_release(monitor->m_queue);
 
         _allocator.Delete(monitor);
+    }
+
+    std::filesystem::path GetDefaultConfigDirectory(
+        const eastl::string_view _appName,
+        bool _systemConfig)
+    {
+        const char* home = _systemConfig ? "" : getenv("HOME");
+
+        if (home == nullptr)
+            return  std::filesystem::path("/tmp") / _appName.data();
+
+        return std::filesystem::path(home) / "Library/Application Support" / _appName.data();
     }
 }

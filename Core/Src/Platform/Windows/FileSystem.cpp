@@ -233,4 +233,16 @@ namespace KryneEngine::Platform
         auto* monitor = static_cast<WindowsDirectoryMonitor*>(_handle.m_handle);
         _allocator.Delete(monitor);
     }
+
+    std::filesystem::path GetDefaultConfigDirectory(
+        const eastl::string_view _appName,
+        bool _systemConfig)
+    {
+        const char* appData = _systemConfig ? getenv("PROGRAMDATA") : getenv("APPDATA");
+
+        if (appData == nullptr)
+            return  std::filesystem::path("C:/Users/Default/AppData/Roaming") / _appName.data();
+
+        return std::filesystem::path(appData) / _appName.data();
+    }
 }
