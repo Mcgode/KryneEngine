@@ -36,8 +36,9 @@ namespace KryneEngine::Platform
             {
                 auto event = static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(events, static_cast<CFIndex>(i)));
 
+                auto rawFilePath = static_cast<CFStringRef>(CFDictionaryGetValue(event, kFSEventStreamEventExtendedDataPathKey));
                 const eastl::string_view filePath {
-                    static_cast<const char*>(CFDictionaryGetValue(event, kFSEventStreamEventExtendedDataPathKey))
+                    CFStringGetCStringPtr(rawFilePath, kCFStringEncodingUTF8)
                 };
                 const FSEventStreamEventFlags flags = _eventFlags[i];
 
@@ -129,7 +130,9 @@ namespace KryneEngine::Platform
     {
         CFArrayRef directories;
         {
-            DynamicArray<CFArrayRef> rawDirectories(_allocator, _info.m_directories.size());
+            DynamicArray<CFStringRef> rawDirectories(_allocator, _info.m_directories.size());
+            for (auto i = 0u; i < _info.m_directories.size(); ++i)
+                rawDirectories[i] = CFStringCreateWithCString(kCFAllocatorDefault, _info.m_directories[i].data(), kCFStringEncodingUTF8);
             directories = CFArrayCreate(
                 kCFAllocatorDefault,
                 reinterpret_cast<const void**>(rawDirectories.Data()),
