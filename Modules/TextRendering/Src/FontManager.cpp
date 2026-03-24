@@ -18,9 +18,7 @@
 
 namespace KryneEngine::Modules::TextRendering
 {
-
-
-    FontManager::FontManager(AllocatorInstance _allocator)
+    FontManager::FontManager(const AllocatorInstance _allocator)
         : m_allocator(_allocator)
         , m_systemFont(_allocator)
         , m_fonts(_allocator)
@@ -42,16 +40,16 @@ namespace KryneEngine::Modules::TextRendering
         KE_ASSERT_MSG(error == FT_Err_Ok, FT_Error_String(error));
     }
 
-    void FontManager::LoadResource(
+    void FontManager::FinalizeResourceLoading(
         Resources::ResourceEntry* _entry,
-        const eastl::span<std::byte> _resourceRawData,
+        const eastl::span<std::byte> _loadedResourceData,
         const eastl::string_view _path)
     {
         FT_Face face;
         const FT_Error error = FT_New_Memory_Face(
             m_ftLibrary,
-            reinterpret_cast<FT_Byte*>(_resourceRawData.data()),
-            static_cast<FT_Long>(_resourceRawData.size()),
+            reinterpret_cast<FT_Byte*>(_loadedResourceData.data()),
+            static_cast<FT_Long>(_loadedResourceData.size()),
             0,
             &face);
 
@@ -108,7 +106,7 @@ namespace KryneEngine::Modules::TextRendering
 
         size_t plannedVersion = _entry->m_version.load(std::memory_order_acquire) + 1;
         auto* newFont = new (m_allocator.Allocate<Font>()) Font(m_allocator, this, plannedVersion);
-        new (&newFont->m_freetypeFile) FreetypeFontFile(face, _resourceRawData.data(), m_allocator);
+        new (&newFont->m_freetypeFile) FreetypeFontFile(face, _loadedResourceData.data(), m_allocator);
         newFont->m_fileBufferAllocator = m_allocator;
 
         // Parse all glyphs

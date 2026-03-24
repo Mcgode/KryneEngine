@@ -27,9 +27,9 @@ namespace KryneEngine::Modules::TextRendering
 
         ~FontManager() override;
 
-        void LoadResource(
+        void FinalizeResourceLoading(
             Resources::ResourceEntry* _entry,
-            eastl::span<std::byte> _resourceRawData,
+            eastl::span<std::byte> _loadedResourceData,
             eastl::string_view _path) override;
 
         void ReportFailedLoad(Resources::ResourceEntry* _entry, eastl::string_view _path) override;

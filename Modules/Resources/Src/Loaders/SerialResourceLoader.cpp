@@ -32,25 +32,14 @@ namespace KryneEngine::Modules::Resources
         }
 
         {
-            std::ifstream file(_path.m_string.c_str(), std::ios::binary);
-
-            if (!file)
+            const eastl::span loadedResourceData = _resourceManager->LoadResource(_entry, _path.m_string);
+            if (loadedResourceData.empty())
             {
                 _resourceManager->ReportFailedLoad(_entry, _path.m_string);
             }
             else
             {
-                file.seekg(0, std::ios::end);
-                const std::streampos size = file.tellg();
-                file.seekg(0, std::ios::beg);
-
-                void* buffer = _resourceManager->GetAllocator().allocate(size);
-                file.read(static_cast<char*>(buffer), size);
-
-                _resourceManager->LoadResource(
-                    _entry,
-                    {static_cast<std::byte*>(buffer), static_cast<size_t>(size)},
-                    _path.m_string);
+                _resourceManager->FinalizeResourceLoading(_entry, loadedResourceData, _path.m_string);
             }
         }
 
