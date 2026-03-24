@@ -16,8 +16,8 @@ add_library(KryneEngine_Modules_TextRendering STATIC
         Src/SystemFont.cpp
         Include/KryneEngine/Modules/TextRendering/SystemFont.hpp
         Include/KryneEngine/Modules/TextRendering/FontCommon.hpp
-        Src/PreBakedFontFile.cpp
-        Include/KryneEngine/Modules/TextRendering/PreBakedFontFile.hpp)
+        Src/FontFiles/PreBakedFontFile.cpp
+        Include/KryneEngine/Modules/TextRendering/FontFiles/PreBakedFontFile.hpp)
 
 find_package(Freetype REQUIRED)
 

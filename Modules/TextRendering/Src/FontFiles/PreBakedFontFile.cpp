@@ -4,7 +4,7 @@
  * @date 23/03/2026.
  */
 
-#include "KryneEngine/Modules/TextRendering/PreBakedFontFile.hpp"
+#include "../../Include/KryneEngine/Modules/TextRendering/FontFiles/PreBakedFontFile.hpp"
 
 #include <zdict.h>
 #include <zstd.h>
