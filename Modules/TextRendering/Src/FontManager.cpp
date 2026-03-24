@@ -108,8 +108,7 @@ namespace KryneEngine::Modules::TextRendering
 
         size_t plannedVersion = _entry->m_version.load(std::memory_order_acquire) + 1;
         auto* newFont = new (m_allocator.Allocate<Font>()) Font(m_allocator, this, plannedVersion);
-        newFont->m_face = face;
-        newFont->m_fileBuffer = _resourceRawData.data();
+        new (&newFont->m_freetypeFile) FreetypeFontFile(face, _resourceRawData.data(), m_allocator);
         newFont->m_fileBufferAllocator = m_allocator;
 
         // Parse all glyphs
@@ -125,12 +124,12 @@ namespace KryneEngine::Modules::TextRendering
                 return;
             }
 
-            auto& pair = newFont->m_glyphs.emplace_back_unsorted(unicodeCodepoint, Font::GlyphEntry {});
+            auto& pair = newFont->m_freetypeFile.m_glyphs.emplace_back_unsorted(unicodeCodepoint, FreetypeFontFile::GlyphEntry {});
             pair.second.m_glyphIndex = glyphIndex;
 
             if (const bool preload = unicodeCodepoint < 128) // Preload all ASCII chars
             {
-                newFont->LoadGlyph(newFont->m_glyphs.size() - 1);
+                newFont->m_freetypeFile.LoadGlyph(newFont->m_freetypeFile.m_glyphs.size() - 1);
 
                 // Can store non-atomically here, since we are in a non-concurrent context.
                 pair.second.m_loaded = true;
@@ -141,8 +140,8 @@ namespace KryneEngine::Modules::TextRendering
 
         // Sort vector map
         eastl::sort(
-            newFont->m_glyphs.begin(),
-            newFont->m_glyphs.end(),
+            newFont->m_freetypeFile.m_glyphs.begin(),
+            newFont->m_freetypeFile.m_glyphs.end(),
             [](const auto& a, const auto& b) { return a.first < b.first; });
 
         newFont->m_fontId = m_fonts.size();

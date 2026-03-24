@@ -6,7 +6,9 @@
 
 #pragma once
 
+#include <EASTL/span.h>
 #include <KryneEngine/Core/Common/Types.hpp>
+#include <KryneEngine/Core/Math/Vector.hpp>
 
 namespace KryneEngine::Modules::TextRendering
 {
@@ -25,5 +27,11 @@ namespace KryneEngine::Modules::TextRendering
         float m_width;
         float m_bearingY;
         float m_height;
+    };
+
+    struct GlyphShape
+    {
+        float2* m_points = nullptr;
+        eastl::span<OutlineTag> m_tags {};
     };
 }

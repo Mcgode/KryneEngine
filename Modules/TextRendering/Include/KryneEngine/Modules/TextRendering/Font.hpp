@@ -7,14 +7,14 @@
 #pragma once
 
 #include <EASTL/vector_map.h>
-#include <KryneEngine/Core/Math/Vector.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
-#include <KryneEngine/Core/Threads/SpinLock.hpp>
 #include <KryneEngine/Modules/Resources/ResourceBase.hpp>
 #include <KryneEngine/Modules/Resources/ResourceTypeId.hpp>
 
 #include "KryneEngine/Modules/TextRendering/FontCommon.hpp"
 #include "KryneEngine/Modules/TextRendering/FontManager.hpp"
+#include "KryneEngine/Modules/TextRendering/FontFiles/FreetypeFontFile.hpp"
+#include "KryneEngine/Modules/TextRendering/FontFiles/PreBakedFontFile.hpp"
 
 struct FT_FaceRec_;
 
@@ -51,41 +51,21 @@ namespace KryneEngine::Modules::TextRendering
     private:
         explicit Font(AllocatorInstance _allocator, FontManager* _fontManager, size_t _version);
 
-        struct GlyphEntry
+        enum class FontFileType: u8
         {
-            u32 m_glyphIndex;
-            // Should be accessed as atomic ref in concurrent contexts. We don't store it as a std::atomic to allow for
-            // vector map sorting
-            bool m_loaded = false;
-
-            u32 m_baseAdvanceX;
-
-            u32 m_baseBearingX;
-            u32 m_baseWidth;
-
-            u32 m_baseBearingY;
-            u32 m_baseHeight;
-
-            u32 m_outlineStartPoint;
-            u32 m_outlineFirstTag;
-            u32 m_outlineTagCount;
+            Freetype,
         };
 
         static constexpr u32 kSystemFontFallback = 0x10000;
         static constexpr u32 kNoFallback = 0x20000;
 
         u16 m_fontId = 0;
-        FT_FaceRec_* m_face = nullptr;
-        std::byte* m_fileBuffer = nullptr;
+        FontFileType m_fileType = FontFileType::Freetype;
+        union
+        {
+            FreetypeFontFile m_freetypeFile;
+        };
         AllocatorInstance m_fileBufferAllocator {};
-        eastl::vector<int2> m_points;
-        eastl::vector<OutlineTag> m_tags;
-        eastl::vector_map<u32, GlyphEntry> m_glyphs;
-        SpinLock m_loadLock {};
-        SpinLock m_outlinesLock {};
         u32 m_fallbackFontId = kSystemFontFallback;
-
-        void LoadGlyph(size_t _vectorMapIndex);
-        void LoadGlyphSafe(size_t _vectorMapIndex);
     };
 }

@@ -17,89 +17,100 @@ namespace KryneEngine::Modules::TextRendering
 {
     Font::~Font()
     {
-        FT_Done_Face(m_face);
-        m_fileBufferAllocator.deallocate(m_fileBuffer);
+        switch (m_fileType)
+        {
+        case FontFileType::Freetype:
+            m_freetypeFile.Destroy(m_fileBufferAllocator);
+            break;
+        default:
+            KE_ERROR("Unreachable code (unsupported font type: %d)", static_cast<int>(m_fileType));
+        }
     }
 
-    float Font::GetAscender(float _fontSize) const
+    float Font::GetAscender(const float _fontSize) const
     {
-        return _fontSize * static_cast<float>(m_face->ascender) / static_cast<float>(m_face->units_per_EM);
+        switch (m_fileType)
+        {
+        case FontFileType::Freetype:
+            return m_freetypeFile.GetAscender(_fontSize);
+        default:
+            KE_ERROR("Unreachable code (unsupported font type: %d)", static_cast<int>(m_fileType));
+            return 0;
+        }
     }
 
-    float Font::GetDescender(float _fontSize) const
+    float Font::GetDescender(const float _fontSize) const
     {
-        return _fontSize * static_cast<float>(m_face->descender) / static_cast<float>(m_face->units_per_EM);
+        switch (m_fileType)
+        {
+        case FontFileType::Freetype:
+            return m_freetypeFile.GetDescender(_fontSize);
+        default:
+            KE_ERROR("Unreachable code (unsupported font type: %d)", static_cast<int>(m_fileType));
+            return 0;
+        }
     }
 
-    float Font::GetLineHeight(float _fontSize) const
+    float Font::GetLineHeight(const float _fontSize) const
     {
-        return _fontSize * static_cast<float>(m_face->height) / static_cast<float>(m_face->units_per_EM);
+        switch (m_fileType)
+        {
+        case FontFileType::Freetype:
+            return m_freetypeFile.GetLineHeight(_fontSize);
+        default:
+            KE_ERROR("Unreachable code (unsupported font type: %d)", static_cast<int>(m_fileType));
+            return 0;
+        }
     }
 
     float Font::GetHorizontalAdvance(const u32 _unicodeCodepoint, const float _fontSize)
     {
-        auto it = m_glyphs.find(_unicodeCodepoint);
-        if (it != m_glyphs.end())
+        eastl::optional<float> advance;
+        switch (m_fileType)
         {
-            if (it == m_glyphs.end())
-                it = m_glyphs.begin();
-            GlyphEntry& entry = it->second;
-
-            // Atomic relaxed load to check if loaded. If not, cache it.
-            if (std::atomic_ref(entry.m_loaded).load(std::memory_order_relaxed) == false) [[unlikely]]
-                LoadGlyphSafe(eastl::distance(m_glyphs.begin(), it));
-
-            return _fontSize * static_cast<float>(entry.m_baseAdvanceX) / static_cast<float>(m_face->units_per_EM);
+        case FontFileType::Freetype:
+            advance = m_freetypeFile.GetHorizontalAdvance(_unicodeCodepoint, _fontSize);
+            break;
         }
+
+        if (advance.has_value())
+            return advance.value();
+
         if (IsNoFallback())
             return 0;
-        else if (IsSystemFontFallback())
+        if (IsSystemFontFallback())
         {
             return m_resourceManager->GetSystemFont().GetHorizontalAdvance(_unicodeCodepoint, _fontSize);
         }
-        else
-        {
-            Font* font = m_resourceManager->GetFont(m_fallbackFontId);
-            return font != nullptr ? font->GetHorizontalAdvance(_unicodeCodepoint, _fontSize) : 0;
-        }
+
+        Font* font = m_resourceManager->GetFont(m_fallbackFontId);
+        return font != nullptr ? font->GetHorizontalAdvance(_unicodeCodepoint, _fontSize) : 0;
     }
 
     GlyphLayoutMetrics Font::GetGlyphLayoutMetrics(u32 _unicodeCodepoint, float _fontSize)
     {
-        auto it = m_glyphs.find(_unicodeCodepoint);
-        if (it != m_glyphs.end())
+        eastl::optional<GlyphLayoutMetrics> metrics;
+        switch (m_fileType)
         {
-            if (it == m_glyphs.end())
-                it = m_glyphs.begin();
-            GlyphEntry& entry = it->second;
-
-            // Atomic relaxed load to check if loaded. If not, cache it.
-            if (std::atomic_ref(entry.m_loaded).load(std::memory_order_relaxed) == false) [[unlikely]]
-                LoadGlyphSafe(eastl::distance(m_glyphs.begin(), it));
-
-            const float emScale = 1.f / static_cast<float>(m_face->units_per_EM);
-            return {
-                _fontSize * emScale * static_cast<float>(entry.m_baseAdvanceX),
-                _fontSize * emScale * static_cast<float>(entry.m_baseBearingX),
-                _fontSize * emScale * static_cast<float>(entry.m_baseWidth),
-                _fontSize * emScale * static_cast<float>(entry.m_baseBearingY),
-                _fontSize * emScale * static_cast<float>(entry.m_baseHeight)
-            };
+        case FontFileType::Freetype:
+            metrics = m_freetypeFile.GetGlyphLayoutMetrics(_unicodeCodepoint, _fontSize);
+            break;
         }
+
+        if (metrics.has_value())
+            return metrics.value();
 
         if (IsNoFallback())
             return { 0, 0, 0, 0, 0 };
-        else if (IsSystemFontFallback())
+        if (IsSystemFontFallback())
         {
             return m_resourceManager->GetSystemFont().GetGlyphLayoutMetrics(_unicodeCodepoint, _fontSize);
         }
-        else
-        {
-            Font* font = m_resourceManager->GetFont(m_fallbackFontId);
-            return font != nullptr
+
+        Font* font = m_resourceManager->GetFont(m_fallbackFontId);
+        return font != nullptr
             ? font->GetGlyphLayoutMetrics(_unicodeCodepoint, _fontSize)
             : GlyphLayoutMetrics { 0, 0, 0, 0, 0 };
-        }
     }
 
     float* Font::GenerateMsdf(
@@ -108,62 +119,71 @@ namespace KryneEngine::Modules::TextRendering
         const u16 _pxRange,
         AllocatorInstance _allocator)
     {
+        bool hasOutline = false;
+        switch (m_fileType)
+        {
+        case FontFileType::Freetype:
+            hasOutline = m_freetypeFile.HasOutline(_unicodeCodepoint);
+            break;
+        }
 
-        const auto it = m_glyphs.find(_unicodeCodepoint);
-        if (it == m_glyphs.end())
+        if (!hasOutline)
         {
             if (IsNoFallback())
                 return nullptr;
-            else if (IsSystemFontFallback())
+
+            if (IsSystemFontFallback())
                 return m_resourceManager->GetSystemFont().GenerateMsdf(_unicodeCodepoint, _fontSize, _pxRange, _allocator);
-            else
-            {
-                Font* font = m_resourceManager->GetFont(m_fallbackFontId);
-                return font != nullptr
-                    ? font->GenerateMsdf(_unicodeCodepoint, _fontSize, _pxRange, _allocator)
-                    : nullptr;
-            }
+
+            Font* font = m_resourceManager->GetFont(m_fallbackFontId);
+            return font != nullptr
+                ? font->GenerateMsdf(_unicodeCodepoint, _fontSize, _pxRange, _allocator)
+                : nullptr;
+
         }
 
         KE_ZoneScopedF("Generate MSDF for U+%x", _unicodeCodepoint);
 
-        GlyphEntry& entry = it->second;
-        if (std::atomic_ref(entry.m_loaded).load(std::memory_order_relaxed) == false) [[unlikely]]
-            LoadGlyphSafe(eastl::distance(m_glyphs.begin(), it));
+        GlyphLayoutMetrics metrics = GetGlyphLayoutMetrics(_unicodeCodepoint, _fontSize);
 
-        const double fontScale = _fontSize / static_cast<double>(m_face->units_per_EM);
 
         msdfgen::Vector2 scale = 1;
         msdfgen::Vector2 translate = 0;
 
         const auto pxRange = static_cast<double>(_pxRange);
-        const auto glyphWidth = fontScale * static_cast<double>(entry.m_baseWidth);
-        const auto glyphXMin = fontScale * static_cast<double>(entry.m_baseBearingX);
-        const auto glyphHeight = fontScale * static_cast<double>(entry.m_baseHeight);
-        const auto glyphYBearing = fontScale * static_cast<double>(entry.m_baseBearingY);
+        const auto glyphWidth = metrics.m_width;
+        const auto glyphXMin = metrics.m_bearingX;
+        const auto glyphHeight = metrics.m_height;
+        const auto glyphYBearing = metrics.m_bearingY;
 
         const double baseLineYOffset = std::ceil(glyphHeight - glyphYBearing);
 
         const uint2 finalGlyphDims {
-            std::ceil(glyphWidth) + _pxRange,
+            std::ceil(glyphWidth) + static_cast<float>(_pxRange),
             baseLineYOffset + std::ceil(glyphYBearing) + _pxRange
         };
 
-        scale = fontScale;
+        scale = _fontSize;
         translate.set(
-            -static_cast<double>(entry.m_baseBearingX),
-            baseLineYOffset / fontScale);
+            -static_cast<double>(glyphXMin / _fontSize),
+            baseLineYOffset / _fontSize);
         translate += (pxRange * 0.5) / scale;
 
         msdfgen::Shape shape;
         {
             KE_ZoneScoped("Retrieve shape");
 
-            const auto lock = m_outlinesLock.AutoLock();
+            GlyphShape glyphShape;
+            switch (m_fileType)
+            {
+            case FontFileType::Freetype:
+                glyphShape = m_freetypeFile.AcquireGlyphShape(_unicodeCodepoint);
+                break;
+            }
 
-            const int2* pPoints = m_points.data() + entry.m_outlineStartPoint;
-            const OutlineTag* pTags = m_tags.data() + entry.m_outlineFirstTag;
-            const OutlineTag* pTagsEnd = pTags + entry.m_outlineTagCount;
+            const float2* pPoints = glyphShape.m_points;
+            const OutlineTag* pTags = glyphShape.m_tags.begin();
+            const OutlineTag* pTagsEnd = glyphShape.m_tags.end();
 
             msdfgen::Vector2 currentPoint;
 
@@ -205,6 +225,13 @@ namespace KryneEngine::Modules::TextRendering
                 }
                 }
             }
+
+            switch (m_fileType)
+            {
+            case FontFileType::Freetype:
+                m_freetypeFile.ReleaseGlyphShape(_unicodeCodepoint, glyphShape);
+                break;
+            }
         }
 
         KE_ASSERT(shape.validate());
@@ -237,194 +264,6 @@ namespace KryneEngine::Modules::TextRendering
 
     Font::Font(AllocatorInstance _allocator, FontManager* _fontManager, size_t _version)
         : ResourceBase(_allocator, _fontManager, _version)
-        , m_points(_allocator)
-        , m_tags(_allocator)
-        , m_glyphs(_allocator)
     {
-    }
-
-    void Font::LoadGlyph(size_t _vectorMapIndex)
-    {
-        GlyphEntry& glyphEntry = (m_glyphs.begin() + _vectorMapIndex)->second;
-
-        if (m_face->glyph == nullptr || m_face->glyph->glyph_index != glyphEntry.m_glyphIndex)
-        {
-            {
-                const FT_Error error = FT_Load_Glyph(m_face, glyphEntry.m_glyphIndex, FT_LOAD_NO_BITMAP);
-                KE_ASSERT_MSG(error == FT_Err_Ok, FT_Error_String(error));
-            }
-        }
-
-        const FT_GlyphSlot glyph = m_face->glyph;
-        const FT_Outline outline = glyph->outline;
-
-        glyphEntry.m_baseAdvanceX = glyph->metrics.horiAdvance;
-
-        glyphEntry.m_baseBearingX = glyph->metrics.horiBearingX;
-        glyphEntry.m_baseWidth = glyph->metrics.width;
-
-        glyphEntry.m_baseBearingY = glyph->metrics.horiBearingY;
-        glyphEntry.m_baseHeight = glyph->metrics.height;
-
-        m_outlinesLock.Lock();
-
-        glyphEntry.m_outlineFirstTag = m_tags.size();
-        glyphEntry.m_outlineStartPoint = m_points.size();
-
-        // Based on `FT_Outline_Decompose()` implementation
-        for (u32 i = 0; i < outline.n_contours; i++)
-        {
-            u32 start = i > 0 ? outline.contours[i - 1] + 1 : 0;
-            u32 last = outline.contours[i];
-
-            u8 tag = FT_CURVE_TAG(outline.tags[start]);
-
-            int2_simd vStart { outline.points[start].x, outline.points[start].y };
-            int2_simd vLast { outline.points[last].x, outline.points[last].y };
-            int2_simd vControl = vStart;
-
-            FT_Vector* pPoints = outline.points + start;
-            u8* pTags = outline.tags + start;
-            FT_Vector* end = outline.points + last;
-
-            KE_ASSERT(tag != FT_CURVE_TAG_CUBIC);
-
-            if (tag == FT_CURVE_TAG_CONIC)
-            {
-                if (FT_CURVE_TAG(outline.tags[last]) == FT_CURVE_TAG_ON)
-                {
-                    vStart = vLast;
-                    end--;
-                }
-                else
-                {
-                    vStart = (vStart + vLast) / int2_simd(2);
-                }
-                pPoints--;
-                pTags--;
-            }
-
-            // First point of the contour
-            {
-                m_tags.push_back(OutlineTag::NewContour);
-                m_points.emplace_back(vStart);
-            }
-
-            while (pPoints < end)
-            {
-                pPoints++;
-                pTags++;
-
-                tag = FT_CURVE_TAG(*pTags);
-                switch (tag)
-                {
-                case FT_CURVE_TAG_ON:
-                    m_tags.push_back(OutlineTag::Line);
-                    m_points.emplace_back(pPoints->x, pPoints->y);
-
-                    // Close contour
-                    if (pPoints == end)
-                    {
-                        m_tags.push_back(OutlineTag::Line);
-                        m_points.emplace_back(vStart);
-                    }
-                    break;
-                case FT_CURVE_TAG_CONIC:
-                {
-                    m_tags.push_back(OutlineTag::Conic);
-
-                    vControl = { pPoints->x, pPoints->y };
-                    m_points.emplace_back(vControl);
-
-                    if (pPoints < end)
-                    {
-                        tag = FT_CURVE_TAG(pTags[1]);
-                        int2_simd vec { pPoints[1].x, pPoints[1].y };
-
-                        if (tag == FT_CURVE_TAG_ON)
-                        {
-                            m_points.emplace_back(vec);
-
-                            // We consumed a point, advance.
-                            pPoints++;
-                            pTags++;
-                        }
-                        // We are chaining conic arcs, so we take the median point of the two consecutive control points
-                        else if (tag == FT_CURVE_TAG_CONIC)
-                        {
-                            m_points.emplace_back((vControl + vec) / int2_simd(2));
-                            // The control point hasn't been consumed yet (we created a median point instead),
-                            // so we don't need to advance
-                        }
-                        else
-                        {
-                            KE_ERROR("Invalid tag");
-                        }
-                    }
-                    // If there is no more point available, it means we have closed the contour loop, and the last
-                    // point is the start point
-                    else
-                    {
-                        m_points.emplace_back(vStart);
-                    }
-
-                    break;
-                }
-                default: // case FT_CURVE_TAG_CUBIC:
-                {
-                    KE_ASSERT_FATAL(pPoints + 1 <= end && FT_CURVE_TAG(pTags[1]) == FT_CURVE_TAG_CUBIC);
-
-                    m_tags.push_back(OutlineTag::Cubic);
-
-                    int2_simd v1 = { pPoints->x, pPoints->y };
-                    pPoints++;
-                    int2_simd v2 = { pPoints->x, pPoints->y };
-                    pPoints++;
-
-                    m_points.emplace_back(v1);
-                    m_points.emplace_back(v2);
-
-                    if (pPoints <= end)
-                    {
-                        m_points.emplace_back(pPoints->x, pPoints->y);
-                    }
-                    // Close contour
-                    else
-                    {
-                        m_points.emplace_back(vStart);
-                    }
-
-                    break;
-                }
-                }
-            }
-
-            if (vStart != vLast)
-            {
-                m_tags.push_back(OutlineTag::Line);
-                m_points.emplace_back(vStart);
-            }
-        }
-
-        glyphEntry.m_outlineTagCount = m_tags.size() - glyphEntry.m_outlineFirstTag;
-
-        m_outlinesLock.Unlock();
-    }
-
-    void Font::LoadGlyphSafe(size_t _vectorMapIndex)
-    {
-        const auto lock = m_loadLock.AutoLock();
-
-        // Check that load hasn't been performed while waiting for spinlock.
-        GlyphEntry& glyphEntry = (m_glyphs.begin() + _vectorMapIndex)->second;
-        if (std::atomic_ref(glyphEntry.m_loaded).load(std::memory_order_acquire))
-        {
-            return;
-        }
-
-        LoadGlyph(_vectorMapIndex);
-
-        // Load was performed, update status.
-        std::atomic_ref(glyphEntry.m_loaded).store(true, std::memory_order_release);
     }
 } // namespace KryneEngine::Modules::TextRendering
