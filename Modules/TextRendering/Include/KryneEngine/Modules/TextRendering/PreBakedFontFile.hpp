@@ -34,6 +34,7 @@ namespace KryneEngine::Modules::TextRendering
      * - indexing tables
      *   - MSDF entries table (if applicable)
      *   - outline entries table (if applicable)
+     * - zstd dictionary (if compressed)
      * - streamable data blobs
      *   - per glyph MSDF bitmaps (if applicable)
      *   - per glyph outline data (if applicable)
@@ -91,6 +92,14 @@ namespace KryneEngine::Modules::TextRendering
             eastl::span<OutlineTag> _outlineTags,
             AllocatorInstance _allocator);
 
+        static eastl::span<std::byte> BakeCompressed(
+            BakedRenderInfo _renderInfo,
+            FontMetrics _fontMetrics,
+            eastl::span<const GlyphBakeInfo> _glyphs,
+            eastl::span<float2> _outlinePoints,
+            eastl::span<OutlineTag> _outlineTags,
+            AllocatorInstance _allocator);
+
     private:
         eastl::span<std::byte> m_data;
 
@@ -98,7 +107,11 @@ namespace KryneEngine::Modules::TextRendering
         {
             u64 m_magicNumber;
             FontMetrics m_fontMetrics;
-            BakedRenderInfo m_renderInfo;
+            struct
+            {
+                bool m_compressed: 1;
+                BakedRenderInfo m_renderInfo : 31;
+            } m_options;
             u32 m_glyphCount;
         };
 
