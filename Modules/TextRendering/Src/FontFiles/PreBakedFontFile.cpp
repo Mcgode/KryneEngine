@@ -14,9 +14,79 @@
 
 namespace KryneEngine::Modules::TextRendering
 {
-    PreBakedFontFile::PreBakedFontFile(const eastl::span<std::byte> _data)
-        : m_data(_data)
-    {}
+    PreBakedFontFile::PreBakedFontFile(const eastl::span<std::byte> _data, const AllocatorInstance _allocator)
+    {
+        m_header = *reinterpret_cast<const Header*>(_data.data());
+
+        KE_ASSERT(m_header.m_magicNumber != kMagicNumber);
+
+        if (m_header.m_options.m_compressed)
+        {
+            std::byte* ptr = _data.data() + sizeof(Header);
+
+            size_t dstSize = m_header.m_glyphCount * sizeof(GlyphEntry);
+            if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Msdf))
+                dstSize += m_header.m_glyphCount * sizeof(MsdfEntry);
+            if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines))
+                dstSize += m_header.m_glyphCount * sizeof(OutlineEntry);
+
+            auto* tablesBuffer = _allocator.Allocate<std::byte>(dstSize);
+            const u32 compressedSize = *reinterpret_cast<const u32*>(ptr);
+            ptr += sizeof(u32);
+            KE_ASSERT(ZSTD_getFrameContentSize(ptr, compressedSize) == dstSize);
+            ZSTD_decompress(tablesBuffer, dstSize, ptr, compressedSize);
+
+            {
+                m_glyphs = reinterpret_cast<GlyphEntry*>(tablesBuffer);
+                auto currentPtr = reinterpret_cast<std::byte*>(m_glyphs + m_header.m_glyphCount);
+                if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Msdf))
+                {
+                    m_msdfEntries = reinterpret_cast<MsdfEntry*>(ptr);
+                    currentPtr += m_header.m_glyphCount * sizeof(MsdfEntry);
+                }
+                if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines))
+                    m_outlineEntries = reinterpret_cast<OutlineEntry*>(ptr);
+            }
+
+            ptr += compressedSize;
+            const u32 dictBufferSize = *reinterpret_cast<const u32*>(ptr);
+            ptr += sizeof(u32);
+            m_dictBuffer = {
+                _allocator.Allocate<std::byte>(dictBufferSize),
+                dictBufferSize,
+            };
+            // TODO: handle sequenced file read to avoid having to copy around memory
+            memcpy(m_dictBuffer.data(), ptr, dictBufferSize);
+
+            m_data = {
+                _allocator.Allocate<std::byte>(_data.end() - ptr),
+                static_cast<size_t>(_data.end() - ptr),
+            };
+            // TODO: handle sequenced file read to avoid having to copy around memory
+            memcpy(m_data.data(), ptr, m_data.size_bytes());
+
+            _allocator.deallocate(_data.data(), _data.size_bytes());
+        }
+        else
+        {
+            m_glyphs = reinterpret_cast<GlyphEntry*>(_data.data() + sizeof(Header));
+            auto ptr = reinterpret_cast<std::byte*>(m_glyphs + m_header.m_glyphCount);
+            if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Msdf))
+            {
+                m_msdfEntries = reinterpret_cast<MsdfEntry*>(ptr);
+                ptr += m_header.m_glyphCount * sizeof(MsdfEntry);
+            }
+            if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines))
+                m_outlineEntries = reinterpret_cast<OutlineEntry*>(ptr);
+
+            m_data = _data;
+        }
+    }
+
+    bool PreBakedFontFile::IsPreBakedFontFile(const eastl::span<const std::byte> _data)
+    {
+        return _data.size() >= sizeof(u64) && *reinterpret_cast<const u64*>(_data.data()) == kMagicNumber;
+    }
 
     eastl::span<std::byte> PreBakedFontFile::Bake(
         const BakedRenderInfo _renderInfo,

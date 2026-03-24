@@ -16,6 +16,8 @@
 
 namespace KryneEngine::Modules::TextRendering
 {
+    struct ZSTD_DDict;
+
     /**
      * @brief A representation of a binary pre-baked font file. This file has data type modularity and is
      * streaming-ready.
@@ -44,7 +46,7 @@ namespace KryneEngine::Modules::TextRendering
     class PreBakedFontFile
     {
     public:
-        explicit PreBakedFontFile(eastl::span<std::byte> _data);
+        PreBakedFontFile(eastl::span<std::byte> _data, AllocatorInstance _allocator);
 
         enum class BakedRenderInfo
         {
@@ -84,6 +86,8 @@ namespace KryneEngine::Modules::TextRendering
             u32 m_outlineTagCount;
         };
 
+        static bool IsPreBakedFontFile(eastl::span<const std::byte> _data);
+
         static eastl::span<std::byte> Bake(
             BakedRenderInfo _renderInfo,
             FontMetrics _fontMetrics,
@@ -101,8 +105,6 @@ namespace KryneEngine::Modules::TextRendering
             AllocatorInstance _allocator);
 
     private:
-        eastl::span<std::byte> m_data;
-
         struct Header
         {
             u64 m_magicNumber;
@@ -131,6 +133,14 @@ namespace KryneEngine::Modules::TextRendering
         };
 
         static constexpr u64 kMagicNumber = Hashing::Hash64Static("PreBakedFontFile");
+
+        Header m_header {};
+        GlyphEntry* m_glyphs = nullptr;
+        MsdfEntry* m_msdfEntries = nullptr;
+        OutlineEntry* m_outlineEntries = nullptr;
+        eastl::span<std::byte> m_data {};
+        eastl::span<std::byte> m_dictBuffer {};
+        ZSTD_DDict* m_dict = nullptr;
     };
 
     KE_ENUM_IMPLEMENT_BITWISE_OPERATORS(PreBakedFontFile::BakedRenderInfo);
