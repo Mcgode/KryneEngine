@@ -116,6 +116,12 @@ namespace KryneEngine::Hashing
         return Hash64(_data, N - 1);
     }
 
+    template <size_t N>
+    constexpr u64 Hash64Static(const char (&_data)[N])
+    {
+        return Hash64(_data, N - 1);
+    }
+
     template<typename T>
     u64 Hash64(const T* _value)
     {
