@@ -4,7 +4,7 @@
  * @date 23/03/2026.
  */
 
-#include "../../Include/KryneEngine/Modules/TextRendering/FontFiles/PreBakedFontFile.hpp"
+#include "KryneEngine/Modules/TextRendering/FontFiles/PreBakedFontFile.hpp"
 
 #include <zdict.h>
 #include <zstd.h>
@@ -14,62 +14,76 @@
 
 namespace KryneEngine::Modules::TextRendering
 {
-    PreBakedFontFile::PreBakedFontFile(const eastl::span<std::byte> _data, const AllocatorInstance _allocator)
+    PreBakedFontFile::PreBakedFontFile(std::ifstream& _file, const size_t _fileSize, const AllocatorInstance _allocator)
     {
-        m_header = *reinterpret_cast<const Header*>(_data.data());
+        _file.read(reinterpret_cast<char*>(&m_header), sizeof(Header));
 
         KE_ASSERT(m_header.m_magicNumber != kMagicNumber);
 
         if (m_header.m_options.m_compressed)
         {
-            std::byte* ptr = _data.data() + sizeof(Header);
-
-            size_t dstSize = m_header.m_glyphCount * sizeof(GlyphEntry);
-            if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Msdf))
-                dstSize += m_header.m_glyphCount * sizeof(MsdfEntry);
-            if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines))
-                dstSize += m_header.m_glyphCount * sizeof(OutlineEntry);
-
-            auto* tablesBuffer = _allocator.Allocate<std::byte>(dstSize);
-            const u32 compressedSize = *reinterpret_cast<const u32*>(ptr);
-            ptr += sizeof(u32);
-            KE_ASSERT(ZSTD_getFrameContentSize(ptr, compressedSize) == dstSize);
-            ZSTD_decompress(tablesBuffer, dstSize, ptr, compressedSize);
-
+            // Decompress and retrieve tables
             {
+                size_t dstSize = m_header.m_glyphCount * sizeof(GlyphEntry);
+                if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Msdf))
+                    dstSize += m_header.m_glyphCount * sizeof(MsdfEntry);
+                if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines))
+                    dstSize += m_header.m_glyphCount * sizeof(OutlineEntry);
+
+                auto* tablesBuffer = _allocator.Allocate<std::byte>(dstSize);
+
+                u32 compressedTablesSize;
+                _file.read(reinterpret_cast<char*>(&compressedTablesSize), sizeof(u32));
+
+                auto* compressedTables = _allocator.Allocate<std::byte>(compressedTablesSize);
+                _file.read(reinterpret_cast<char*>(compressedTables), compressedTablesSize);
+
+                KE_ASSERT(ZSTD_getFrameContentSize(compressedTables, compressedTablesSize) == dstSize);
+                ZSTD_decompress(tablesBuffer, dstSize, compressedTables, compressedTablesSize);
+
+                _allocator.deallocate(compressedTables, compressedTablesSize);
+
                 m_glyphs = reinterpret_cast<GlyphEntry*>(tablesBuffer);
                 auto currentPtr = reinterpret_cast<std::byte*>(m_glyphs + m_header.m_glyphCount);
                 if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Msdf))
                 {
-                    m_msdfEntries = reinterpret_cast<MsdfEntry*>(ptr);
+                    m_msdfEntries = reinterpret_cast<MsdfEntry*>(currentPtr);
                     currentPtr += m_header.m_glyphCount * sizeof(MsdfEntry);
                 }
                 if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines))
-                    m_outlineEntries = reinterpret_cast<OutlineEntry*>(ptr);
+                    m_outlineEntries = reinterpret_cast<OutlineEntry*>(currentPtr);
             }
 
-            ptr += compressedSize;
-            const u32 dictBufferSize = *reinterpret_cast<const u32*>(ptr);
-            ptr += sizeof(u32);
-            m_dictBuffer = {
-                _allocator.Allocate<std::byte>(dictBufferSize),
-                dictBufferSize,
-            };
-            // TODO: handle sequenced file read to avoid having to copy around memory
-            memcpy(m_dictBuffer.data(), ptr, dictBufferSize);
+            // Retrieve render data compression dictionary
+            {
+                u32 dictBufferSize;
+                _file.read(reinterpret_cast<char*>(&dictBufferSize), sizeof(u32));
 
-            m_data = {
-                _allocator.Allocate<std::byte>(_data.end() - ptr),
-                static_cast<size_t>(_data.end() - ptr),
-            };
-            // TODO: handle sequenced file read to avoid having to copy around memory
-            memcpy(m_data.data(), ptr, m_data.size_bytes());
+                m_dictBuffer = {
+                    _allocator.Allocate<std::byte>(dictBufferSize),
+                    dictBufferSize,
+                };
 
-            _allocator.deallocate(_data.data(), _data.size_bytes());
+                _file.read(reinterpret_cast<char*>(m_dictBuffer.data()), dictBufferSize);
+            }
+
+            // Retrieve render data payload
+            {
+                const size_t payloadSize = _fileSize - _file.tellg();
+
+                m_data = { _allocator.Allocate<std::byte>(payloadSize), payloadSize };
+                _file.read(reinterpret_cast<char*>(m_data.data()), static_cast<std::streamsize>(payloadSize));
+            }
         }
         else
         {
-            m_glyphs = reinterpret_cast<GlyphEntry*>(_data.data() + sizeof(Header));
+            const size_t payloadSize = _fileSize - sizeof(Header);
+
+            _file.seekg(0, std::ios::beg);
+            m_data = { _allocator.Allocate<std::byte>(payloadSize), payloadSize };
+            _file.read(reinterpret_cast<char*>(m_data.data()), static_cast<std::streamsize>(payloadSize));
+
+            m_glyphs = reinterpret_cast<GlyphEntry*>(m_data.data());
             auto ptr = reinterpret_cast<std::byte*>(m_glyphs + m_header.m_glyphCount);
             if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Msdf))
             {
@@ -78,8 +92,6 @@ namespace KryneEngine::Modules::TextRendering
             }
             if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines))
                 m_outlineEntries = reinterpret_cast<OutlineEntry*>(ptr);
-
-            m_data = _data;
         }
     }
 

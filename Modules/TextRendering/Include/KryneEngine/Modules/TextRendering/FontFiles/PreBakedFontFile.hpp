@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <fstream>
 #include <EASTL/span.h>
 #include <KryneEngine/Core/Common/BitUtils.hpp>
 #include <KryneEngine/Core/Common/Types.hpp>
@@ -45,8 +46,10 @@ namespace KryneEngine::Modules::TextRendering
      */
     class PreBakedFontFile
     {
+        friend class FontManager;
+
     public:
-        PreBakedFontFile(eastl::span<std::byte> _data, AllocatorInstance _allocator);
+        PreBakedFontFile(std::ifstream& _file, size_t _fileSize, AllocatorInstance _allocator);
 
         enum class BakedRenderInfo
         {
