@@ -94,7 +94,7 @@ namespace KryneEngine::Modules::TextRendering
         {
             GlyphSlot m_slot {};
             Rect m_dstRegion {};
-            float* m_buffer = nullptr;
+            std::byte* m_buffer = nullptr;
         };
 
         AllocatorInstance m_allocator;

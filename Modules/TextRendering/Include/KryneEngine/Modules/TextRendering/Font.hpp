@@ -36,7 +36,7 @@ namespace KryneEngine::Modules::TextRendering
         float GetHorizontalAdvance(u32 _unicodeCodepoint, float _fontSize);
         GlyphLayoutMetrics GetGlyphLayoutMetrics(u32 _unicodeCodepoint, float _fontSize);
 
-        float* GenerateMsdf(u32 _unicodeCodepoint, float _fontSize, u16 _pxRange, AllocatorInstance _allocator);
+        GlyphMsdfBitmap GenerateMsdf(u32 _unicodeCodepoint, u16 _fontSize, u16 _pxRange, AllocatorInstance _allocator);
 
         void SetFallbackFont(const Font* _fallbackFont) { m_fallbackFontId = _fallbackFont->GetId(); }
         void SetFallbackSystemFont() { m_fallbackFontId = kSystemFontFallback; }

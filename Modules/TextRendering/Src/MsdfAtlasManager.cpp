@@ -53,8 +53,7 @@ namespace KryneEngine::Modules::TextRendering
         });
     }
 
-    MsdfAtlasManager::~MsdfAtlasManager()
-    {}
+    MsdfAtlasManager::~MsdfAtlasManager() = default;
 
     MsdfAtlasManager::GlyphRegion MsdfAtlasManager::GetGlyphRegion(
         Font* _font,
@@ -91,8 +90,8 @@ namespace KryneEngine::Modules::TextRendering
             return {};
         }
 
-        float* buffer = _font->GenerateMsdf(_unicodeCodepoint, static_cast<float>(_fontSize), pxRange, m_allocator);
-        KE_ASSERT(buffer != nullptr);
+        const GlyphMsdfBitmap bitmap = eastl::move(_font->GenerateMsdf(_unicodeCodepoint, _fontSize, pxRange, m_allocator));
+        KE_ASSERT(!bitmap.m_bitmap.empty());
 
         Rect slotRect {};
         GlyphSlot glyphSlot {};
@@ -103,8 +102,8 @@ namespace KryneEngine::Modules::TextRendering
             const auto lock = m_lock.AutoLock();
 
             const uint2 glyphSize {
-                static_cast<u32>(std::ceil(glyphMetrics.m_width)) + pxRange + padding,
-                static_cast<u32>(std::ceil(glyphMetrics.m_bearingY) + std::ceil(glyphMetrics.m_height - glyphMetrics.m_bearingY)) + pxRange + padding,
+                bitmap.m_width + padding,
+                bitmap.m_height + padding,
             };
 
             const u32 slot = m_atlasAllocator.Allocate(glyphSize);
@@ -112,17 +111,17 @@ namespace KryneEngine::Modules::TextRendering
             glyphSlot = {
                 .m_offsetX = static_cast<u16>(slotRect.m_left + padding / 2),
                 .m_offsetY = static_cast<u16>(slotRect.m_top + padding / 2),
-                .m_width = static_cast<u16>(glyphSize.x - padding),
-                .m_height = static_cast<u16>(glyphSize.y - padding),
-                .m_baseline = static_cast<u16>(std::ceil(glyphMetrics.m_bearingY) + static_cast<float>(pxRange) * 0.5f),
-                .m_fontSize = static_cast<u16>(_fontSize),
+                .m_width = bitmap.m_width,
+                .m_height = bitmap.m_height,
+                .m_baseline = bitmap.m_baseLine,
+                .m_fontSize = bitmap.m_fontSize,
                 .m_allocatorSlot = slot,
             };
 
             m_glyphSlotMap.emplace(GlyphKey { _font, _unicodeCodepoint }, glyphSlot);
         }
 
-        m_loadQueue.enqueue({ glyphSlot, slotRect, buffer });
+        m_loadQueue.enqueue({ glyphSlot, slotRect, bitmap.m_bitmap.data() });
 
         return {};
     }
@@ -260,10 +259,10 @@ namespace KryneEngine::Modules::TextRendering
                     else
                     {
                         const Color pixelColor {
-                            eastl::clamp(request.m_buffer[ry * slot.m_width * 3 + 3 * rx + 0], 0.f, 1.f),
-                            eastl::clamp(request.m_buffer[ry * slot.m_width * 3 + 3 * rx + 1], 0.f, 1.f),
-                            eastl::clamp(request.m_buffer[ry * slot.m_width * 3 + 3 * rx + 2], 0.f, 1.f),
-                            1.f,
+                            static_cast<u8>(request.m_buffer[ry * slot.m_width * 3 + 3 * rx + 0]),
+                            static_cast<u8>(request.m_buffer[ry * slot.m_width * 3 + 3 * rx + 1]),
+                            static_cast<u8>(request.m_buffer[ry * slot.m_width * 3 + 3 * rx + 2]),
+                            255u,
                         };
                         *pixels = pixelColor.ToRgba8();
                     }

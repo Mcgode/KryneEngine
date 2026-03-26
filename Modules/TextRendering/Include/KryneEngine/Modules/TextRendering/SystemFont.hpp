@@ -24,7 +24,11 @@ namespace KryneEngine::Modules::TextRendering
 
         GlyphLayoutMetrics GetGlyphLayoutMetrics(u32 _unicodeCodePoint, float _fontSize);
 
-        [[nodiscard]] float* GenerateMsdf(u32 _unicodeCodepoint, float _fontSize, u16 _pxRange, AllocatorInstance _allocator);
+        [[nodiscard]] GlyphMsdfBitmap GenerateMsdf(
+            u32 _unicodeCodepoint,
+            u16 _fontSize,
+            u16 _pxRange,
+            AllocatorInstance _allocator);
 
     private:
         explicit SystemFont(AllocatorInstance _allocator);
@@ -49,7 +53,7 @@ namespace KryneEngine::Modules::TextRendering
 
         eastl::vector_map<u32, GlyphEntry> m_glyphs;
         eastl::vector<OutlineTag> m_tags;
-        eastl::vector<int2> m_glyphPositions;
+        eastl::vector<float2> m_glyphPositions;
         SpinLock m_lock {};
 
         const GlyphEntry& RetrieveGlyph(u32 _unicodeCodePoint);

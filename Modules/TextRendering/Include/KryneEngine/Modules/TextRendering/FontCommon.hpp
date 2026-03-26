@@ -34,4 +34,14 @@ namespace KryneEngine::Modules::TextRendering
         float2* m_points = nullptr;
         eastl::span<OutlineTag> m_tags {};
     };
+
+    struct GlyphMsdfBitmap
+    {
+        eastl::span<std::byte> m_bitmap {};
+        u16 m_pxRange = 0;
+        u16 m_width = 0;
+        u16 m_height = 0;
+        u16 m_fontSize = 0;
+        u16 m_baseLine = 0;
+    };
 }
