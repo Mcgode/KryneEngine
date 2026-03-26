@@ -12,7 +12,7 @@ namespace KryneEngine::Modules::Resources
 {
     eastl::span<std::byte> IResourceManager::LoadResource(ResourceEntry* _entry, eastl::string_view _path)
     {
-        std::ifstream file(_path.data(), std::ios::ate | std::ios::binary);
+        std::ifstream file(_path.data(), std::ios::in | std::ios::binary | std::ios::ate);
         if (!file.is_open())
         {
             return {};
