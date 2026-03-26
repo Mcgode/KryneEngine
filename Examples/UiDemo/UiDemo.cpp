@@ -137,7 +137,7 @@ s32 main(s32 argc, const char** argv)
             .layout = {
                 .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
                 .padding = CLAY_PADDING_ALL(static_cast<u16>(16.f * contentScale)),
-                .childGap = static_cast<u16>(16.f * contentScale) },
+                .childGap = 16.f * contentScale },
             .backgroundColor = {250,250,255,255},
             .cornerRadius = { 10 * contentScale, 20 * contentScale, 40 * contentScale, 0 } })
         {
@@ -146,7 +146,7 @@ s32 main(s32 argc, const char** argv)
                 .layout = {
                     .sizing = { .width = CLAY_SIZING_FIXED(300 * contentScale), .height = CLAY_SIZING_GROW(0) },
                     .padding = CLAY_PADDING_ALL(static_cast<u16>(16.f * contentScale)),
-                    .childGap = static_cast<u16>(16.f * contentScale),
+                    .childGap = 16.f * contentScale,
                     .layoutDirection = CLAY_TOP_TO_BOTTOM
                 },
                 .backgroundColor = COLOR_LIGHT,
@@ -163,7 +163,7 @@ s32 main(s32 argc, const char** argv)
                     .layout = {
                         .sizing = { .width = CLAY_SIZING_GROW(0) },
                         .padding = CLAY_PADDING_ALL(static_cast<u16>(16.f * contentScale)),
-                        .childGap = static_cast<u16>(16.f * contentScale),
+                        .childGap = 16.f * contentScale,
                         .childAlignment = { .y = CLAY_ALIGN_Y_CENTER }
                     },
                     .backgroundColor = COLOR_RED })
@@ -181,7 +181,7 @@ s32 main(s32 argc, const char** argv)
                         CLAY_TEXT_CONFIG({
                             .textColor = {255, 255, 255, 255},
                             .fontId = font->GetId(),
-                            .fontSize = static_cast<u16>(20.f * contentScale)}));
+                            .fontSize = 20.f * contentScale}));
                 }
 
                 // Standard C code like loops etc work inside components
@@ -195,7 +195,7 @@ s32 main(s32 argc, const char** argv)
                 .layout = {
                     .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) },
                     .padding = CLAY_PADDING_ALL(static_cast<u16>(16.f * contentScale)),
-                    .childGap = static_cast<u16>(16.f * contentScale),
+                    .childGap = 16.f * contentScale,
                     .layoutDirection = CLAY_TOP_TO_BOTTOM,
                 },
                 .backgroundColor = COLOR_LIGHT,
@@ -221,15 +221,15 @@ s32 main(s32 argc, const char** argv)
                     CLAY_TEXT(CLAY_STRING("Un peu de français à afficher, bébé!"), CLAY_TEXT_CONFIG({
                         .textColor = { 255, 80, 80, 255 },
                         .fontId = font->GetId(),
-                        .fontSize = static_cast<u16>(50.f * contentScale),
-                        .letterSpacing = static_cast<u16>(2.f * contentScale),
+                        .fontSize = 50.f * contentScale,
+                        .letterSpacing = 2.f * contentScale,
                         .textAlignment = CLAY_TEXT_ALIGN_CENTER,
                     }));
                 }
 
                 for (auto i = 0; i < 4; i++)
                 {
-                    CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW() }, .childGap = static_cast<u16>(16.f * contentScale), .layoutDirection = CLAY_LEFT_TO_RIGHT } })
+                    CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW() }, .childGap = 16.f * contentScale, .layoutDirection = CLAY_LEFT_TO_RIGHT } })
                     {
                         CLAY({ .layout = { .sizing = { .width = CLAY_SIZING_GROW() } } }) {}
                         for (auto j = 0; j < 8; j++)
@@ -272,8 +272,8 @@ s32 main(s32 argc, const char** argv)
                     CLAY_TEXT(CLAY_STRING("日本語のグリフも表示できます!"), CLAY_TEXT_CONFIG({
                         .textColor = { 255, 80, 80, 255 },
                         .fontId = font->GetId(),
-                        .fontSize = static_cast<u16>(60.f * contentScale),
-                        .letterSpacing = static_cast<u16>(2.f * contentScale),
+                        .fontSize = 60.f * contentScale,
+                        .letterSpacing = 2.f * contentScale,
                         .textAlignment = CLAY_TEXT_ALIGN_CENTER,
                     }));
                 }
