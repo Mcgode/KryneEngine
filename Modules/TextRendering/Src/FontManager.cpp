@@ -40,11 +40,42 @@ namespace KryneEngine::Modules::TextRendering
         KE_ASSERT_MSG(error == FT_Err_Ok, FT_Error_String(error));
     }
 
+    eastl::span<std::byte> FontManager::LoadResource(Resources::ResourceEntry* _entry, eastl::string_view _path)
+    {
+        std::ifstream file(_path.data(), std::ios::in | std::ios::binary | std::ios::ate);
+        if (!file.is_open())
+        {
+            return {};
+        }
+
+        const size_t fileSize = file.tellg();
+        file.seekg(0, std::ios::beg);
+        std::byte magicNumber[sizeof(u64)];
+        file.read(reinterpret_cast<char*>(&magicNumber), sizeof(magicNumber));
+        file.seekg(0, std::ios::beg);
+
+        if (PreBakedFontFile::IsPreBakedFontFile(magicNumber))
+        {
+            auto* fontFile = m_allocator.New<PreBakedFontFile>(file, fileSize, m_allocator);
+            return { reinterpret_cast<std::byte*>(fontFile), sizeof(PreBakedFontFile) };
+        }
+        else
+        {
+            auto* buffer = m_allocator.Allocate<std::byte>(fileSize);
+            file.read(reinterpret_cast<char*>(buffer), static_cast<std::streamsize>(fileSize));
+            return { buffer, fileSize };
+        }
+    }
+
     void FontManager::FinalizeResourceLoading(
         Resources::ResourceEntry* _entry,
         const eastl::span<std::byte> _loadedResourceData,
         const eastl::string_view _path)
     {
+        static_assert(offsetof(PreBakedFontFile, m_header) == 0, "The header field must be at the beginning of the class for type check");
+
+        KE_ASSERT_MSG(!PreBakedFontFile::IsPreBakedFontFile(_loadedResourceData), "Not supported yet");
+
         FT_Face face;
         const FT_Error error = FT_New_Memory_Face(
             m_ftLibrary,
