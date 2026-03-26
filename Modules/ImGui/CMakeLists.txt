@@ -3,6 +3,8 @@ add_library(KryneEngine_Modules_ImGui STATIC
         Src/Context.cpp
         Src/Input.cpp
         Src/Input.hpp
+        Src/Helpers.cpp
+        Include/KryneEngine/Modules/ImGui/Helpers.hpp
 )
 set_target_properties(KryneEngine_Modules_ImGui PROPERTIES FOLDER "EngineModules")
 
