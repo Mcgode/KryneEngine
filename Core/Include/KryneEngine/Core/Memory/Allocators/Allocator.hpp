@@ -57,7 +57,7 @@ namespace KryneEngine
         }
 
         template <class T, class... Args>
-        inline T* New(Args... _args) const
+        inline T* New(Args&&... _args) const
         {
             return new (Allocate<T>()) T(_args...);
         }
