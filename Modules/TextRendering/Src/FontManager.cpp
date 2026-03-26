@@ -15,6 +15,7 @@
 #include <KryneEngine/Core/Common/Assert.hpp>
 
 #include "KryneEngine/Modules/TextRendering/Font.hpp"
+#include "KryneEngine/Modules/TextRendering/Utils/FreetypeFunctionHelpers.hpp"
 
 namespace KryneEngine::Modules::TextRendering
 {
@@ -95,32 +96,7 @@ namespace KryneEngine::Modules::TextRendering
 
         // Select best charmap
         {
-            s32 bestCharMap = -1;
-            s32 bestPriority = eastl::numeric_limits<s32>::max();
-            for (s32 charMapIndex = 0; charMapIndex < face->num_charmaps; ++charMapIndex)
-            {
-                FT_CharMap const charMap = face->charmaps[charMapIndex];
-                if (charMap->encoding != FT_ENCODING_UNICODE)
-                {
-                    continue;
-                }
-
-                s32 priority;
-                if (charMap->platform_id == 3 && charMap->encoding_id == 10) // Microsoft UTF-32
-                    priority = 0;
-                else if (charMap->platform_id == 3) // Apple
-                    priority = 10;
-                else if (charMap->platform_id == 1 && charMap->encoding_id == 1) // Microsoft UTF-16
-                    priority = 20;
-                else
-                    priority = 50 + charMapIndex; // Tie-breaker
-
-                if (priority < bestPriority)
-                {
-                    bestPriority = priority;
-                    bestCharMap = charMapIndex;
-                }
-            }
+            const s32 bestCharMap = Freetype::SelectBestUnicodeCharmap(face);
 
             if (!KE_VERIFY_MSG(bestCharMap >= 0, "No available unicode char map")) [[unlikely]]
             {

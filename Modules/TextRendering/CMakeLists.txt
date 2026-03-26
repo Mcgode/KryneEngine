@@ -19,7 +19,8 @@ add_library(KryneEngine_Modules_TextRendering STATIC
         Src/FontFiles/PreBakedFontFile.cpp
         Include/KryneEngine/Modules/TextRendering/FontFiles/PreBakedFontFile.hpp
         Src/FontFiles/FreetypeFontFile.cpp
-        Include/KryneEngine/Modules/TextRendering/FontFiles/FreetypeFontFile.hpp)
+        Include/KryneEngine/Modules/TextRendering/FontFiles/FreetypeFontFile.hpp
+        Include/KryneEngine/Modules/TextRendering/Utils/FreetypeFunctionHelpers.hpp)
 
 find_package(Freetype REQUIRED)
 
