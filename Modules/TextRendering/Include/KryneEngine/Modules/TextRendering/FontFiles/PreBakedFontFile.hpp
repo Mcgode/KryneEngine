@@ -43,6 +43,8 @@ namespace KryneEngine::Modules::TextRendering
      *   - per glyph outline data (if applicable)
      *     - points array
      *     - outline tags array
+     *
+     * Recommended file extension is '.ke_pbf'
      */
     class PreBakedFontFile
     {
