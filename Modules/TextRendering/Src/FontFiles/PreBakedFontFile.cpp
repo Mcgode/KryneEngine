@@ -177,9 +177,10 @@ namespace KryneEngine::Modules::TextRendering
             {
                 msdfEntries[i] = {
                     .m_offset = 0,
+                    .m_pxRange = _glyphs[i].m_msdfPxRange,
                     .m_glyphWidth = _glyphs[i].m_msdfWidth,
                     .m_glyphHeight = _glyphs[i].m_msdfHeight,
-                    .m_baseline = _glyphs[i].m_msdfBaseline,
+                    .m_bakedFontSize = _glyphs[i].m_msdfBakedFontSize,
                 };
             }
             bytes += _glyphs.size() * sizeof(MsdfEntry);
@@ -424,9 +425,10 @@ namespace KryneEngine::Modules::TextRendering
                 {
                     const auto& glyph = _glyphs[i];
                     auto& entry = msdfEntries[i];
+                    entry.m_pxRange = glyph.m_msdfPxRange;
                     entry.m_glyphHeight = glyph.m_msdfHeight;
                     entry.m_glyphWidth = glyph.m_msdfWidth;
-                    entry.m_baseline = glyph.m_msdfBaseline;
+                    entry.m_bakedFontSize = glyph.m_msdfBakedFontSize;
 
                     entry.m_offset = compressBlob(glyph.m_msdfBitmap, growingTail, dict);
                 }
