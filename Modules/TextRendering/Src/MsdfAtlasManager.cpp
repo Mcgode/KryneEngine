@@ -90,7 +90,7 @@ namespace KryneEngine::Modules::TextRendering
             return {};
         }
 
-        const GlyphMsdfBitmap bitmap = eastl::move(_font->GenerateMsdf(_unicodeCodepoint, _fontSize, pxRange, m_allocator));
+        const GlyphMsdfBitmap bitmap = eastl::move(_font->GetMsdf(_unicodeCodepoint, _fontSize, m_allocator));
         KE_ASSERT(!bitmap.m_bitmap.empty());
 
         Rect slotRect {};

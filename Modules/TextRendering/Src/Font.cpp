@@ -11,6 +11,7 @@
 #include FT_FREETYPE_H
 
 #include "KryneEngine/Modules/TextRendering/FontManager.hpp"
+#include "KryneEngine/Modules/TextRendering/MsdfAtlasManager.hpp"
 #include "KryneEngine/Modules/TextRendering/Utils/MsdfGenFunctionHelpers.hpp"
 
 namespace KryneEngine::Modules::TextRendering
@@ -21,6 +22,9 @@ namespace KryneEngine::Modules::TextRendering
         {
         case FontFileType::Freetype:
             m_freetypeFile.Destroy(m_fileBufferAllocator);
+            break;
+        case FontFileType::PreBaked:
+            m_preBakedFile.Destroy(m_fileBufferAllocator);
             break;
         default:
             KE_ERROR("Unreachable code (unsupported font type: %d)", static_cast<int>(m_fileType));
@@ -33,6 +37,8 @@ namespace KryneEngine::Modules::TextRendering
         {
         case FontFileType::Freetype:
             return m_freetypeFile.GetAscender(_fontSize);
+        case FontFileType::PreBaked:
+            return m_preBakedFile.GetAscender(_fontSize);
         default:
             KE_ERROR("Unreachable code (unsupported font type: %d)", static_cast<int>(m_fileType));
             return 0;
@@ -45,6 +51,8 @@ namespace KryneEngine::Modules::TextRendering
         {
         case FontFileType::Freetype:
             return m_freetypeFile.GetDescender(_fontSize);
+        case FontFileType::PreBaked:
+            return m_preBakedFile.GetDescender(_fontSize);
         default:
             KE_ERROR("Unreachable code (unsupported font type: %d)", static_cast<int>(m_fileType));
             return 0;
@@ -57,6 +65,8 @@ namespace KryneEngine::Modules::TextRendering
         {
         case FontFileType::Freetype:
             return m_freetypeFile.GetLineHeight(_fontSize);
+        case FontFileType::PreBaked:
+            return m_preBakedFile.GetLineHeight(_fontSize);
         default:
             KE_ERROR("Unreachable code (unsupported font type: %d)", static_cast<int>(m_fileType));
             return 0;
@@ -71,6 +81,8 @@ namespace KryneEngine::Modules::TextRendering
         case FontFileType::Freetype:
             advance = m_freetypeFile.GetHorizontalAdvance(_unicodeCodepoint, _fontSize);
             break;
+        case FontFileType::PreBaked:
+            advance = m_preBakedFile.GetHorizontalAdvance(_unicodeCodepoint, _fontSize);
         }
 
         if (advance.has_value())
@@ -95,6 +107,9 @@ namespace KryneEngine::Modules::TextRendering
         case FontFileType::Freetype:
             metrics = m_freetypeFile.GetGlyphLayoutMetrics(_unicodeCodepoint, _fontSize);
             break;
+        case FontFileType::PreBaked:
+            metrics = m_preBakedFile.GetGlyphLayoutMetrics(_unicodeCodepoint, _fontSize);
+            break;
         }
 
         if (metrics.has_value())
@@ -113,10 +128,9 @@ namespace KryneEngine::Modules::TextRendering
             : GlyphLayoutMetrics { 0, 0, 0, 0, 0 };
     }
 
-    GlyphMsdfBitmap Font::GenerateMsdf(
+    GlyphMsdfBitmap Font::GetMsdf(
         const u32 _unicodeCodepoint,
         const u16 _fontSize,
-        const u16 _pxRange,
         AllocatorInstance _allocator)
     {
         bool hasOutline = false;
@@ -125,6 +139,15 @@ namespace KryneEngine::Modules::TextRendering
         case FontFileType::Freetype:
             hasOutline = m_freetypeFile.HasOutline(_unicodeCodepoint);
             break;
+        case FontFileType::PreBaked:
+            {
+                const eastl::optional<u32> glyphIndex = m_preBakedFile.GetGlyphIndex(_unicodeCodepoint);
+                if (glyphIndex.has_value() && m_preBakedFile.HasMsdfBitmaps())
+                {
+                    return m_preBakedFile.GetMsdfBitmap(*glyphIndex, _allocator);
+                }
+                hasOutline = glyphIndex.has_value() && m_preBakedFile.HasOutlines();
+            }
         }
 
         if (!hasOutline)
@@ -133,13 +156,15 @@ namespace KryneEngine::Modules::TextRendering
                 return {};
 
             if (IsSystemFontFallback())
-                return m_resourceManager->GetSystemFont().GenerateMsdf(_unicodeCodepoint, _fontSize, _pxRange, _allocator);
+            {
+                const u16 pxRange = MsdfAtlasManager::GetPxRange(_fontSize);
+                return m_resourceManager->GetSystemFont().GenerateMsdf(_unicodeCodepoint, _fontSize, pxRange, _allocator);
+            }
 
             Font* font = m_resourceManager->GetFont(m_fallbackFontId);
             return font != nullptr
-                ? font->GenerateMsdf(_unicodeCodepoint, _fontSize, _pxRange, _allocator)
+                ? font->GetMsdf(_unicodeCodepoint, _fontSize, _allocator)
                 : GlyphMsdfBitmap {};
-
         }
 
         KE_ZoneScopedF("Generate MSDF for U+%x", _unicodeCodepoint);
@@ -154,6 +179,9 @@ namespace KryneEngine::Modules::TextRendering
             case FontFileType::Freetype:
                 glyphShape = m_freetypeFile.AcquireGlyphShape(_unicodeCodepoint);
                 break;
+            case FontFileType::PreBaked:
+                glyphShape = eastl::move(m_preBakedFile.GetGlyphShape(_unicodeCodepoint, _allocator));
+                break;
             }
 
             MsdfGen::LoadShape(shape, glyphShape);
@@ -163,11 +191,19 @@ namespace KryneEngine::Modules::TextRendering
             case FontFileType::Freetype:
                 m_freetypeFile.ReleaseGlyphShape(_unicodeCodepoint, glyphShape);
                 break;
+            case FontFileType::PreBaked:
+                m_preBakedFile.ReleaseGlyphShape(glyphShape, _allocator);
+                break;
             }
         }
 
         const GlyphLayoutMetrics metrics = GetGlyphLayoutMetrics(_unicodeCodepoint, _fontSize);
-        return MsdfGen::GenerateMsdf(shape, metrics, _fontSize, _pxRange, _allocator);
+        return MsdfGen::GenerateMsdf(
+            shape,
+            metrics,
+            _fontSize,
+            MsdfAtlasManager::GetPxRange(_fontSize),
+            _allocator);
     }
 
     Font::Font(AllocatorInstance _allocator, FontManager* _fontManager, size_t _version)

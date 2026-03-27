@@ -7,6 +7,7 @@
 #pragma once
 
 #include <fstream>
+#include <EASTL/optional.h>
 #include <EASTL/span.h>
 #include <KryneEngine/Core/Common/BitUtils.hpp>
 #include <KryneEngine/Core/Common/Types.hpp>
@@ -15,9 +16,11 @@
 
 #include "KryneEngine/Modules/TextRendering/FontCommon.hpp"
 
+struct ZSTD_DCtx_s;
+struct ZSTD_DDict_s;
+
 namespace KryneEngine::Modules::TextRendering
 {
-    struct ZSTD_DDict;
 
     /**
      * @brief A representation of a binary pre-baked font file. This file has data type modularity and is
@@ -90,6 +93,26 @@ namespace KryneEngine::Modules::TextRendering
             u32 m_outlineTagCount;
         };
 
+        void Destroy(AllocatorInstance _allocator) const;
+
+        [[nodiscard]] float GetAscender(float _fontSize) const;
+        [[nodiscard]] float GetDescender(float _fontSize) const;
+        [[nodiscard]] float GetLineHeight(float _fontSize) const;
+
+        [[nodiscard]] eastl::optional<float> GetHorizontalAdvance(u32 _unicodeCodepoint, float _fontSize) const;
+
+        [[nodiscard]] eastl::optional<GlyphLayoutMetrics> GetGlyphLayoutMetrics(u32 _unicodeCodepoint, float _fontSize) const;
+
+        [[nodiscard]] eastl::optional<u32> GetGlyphIndex(u32 _unicodeCodepoint) const;
+
+        [[nodiscard]] bool HasMsdfBitmaps() const;
+        [[nodiscard]] bool HasOutlines() const;
+
+        [[nodiscard]] GlyphMsdfBitmap GetMsdfBitmap(u32 _glyphIndex, AllocatorInstance _allocatorInstance);
+
+        [[nodiscard]] GlyphShape GetGlyphShape(u32 _codepoint, AllocatorInstance _allocatorInstance) const;
+        void ReleaseGlyphShape(const GlyphShape& _glyphShape, AllocatorInstance _allocator) const;
+
         static bool IsPreBakedFontFile(eastl::span<const std::byte> _data);
 
         static eastl::span<std::byte> Bake(
@@ -144,7 +167,10 @@ namespace KryneEngine::Modules::TextRendering
         OutlineEntry* m_outlineEntries = nullptr;
         eastl::span<std::byte> m_data {};
         eastl::span<std::byte> m_dictBuffer {};
-        ZSTD_DDict* m_dict = nullptr;
+        ZSTD_DCtx_s* m_ctx = nullptr;
+        ZSTD_DDict_s* m_dict = nullptr;
+
+        [[nodiscard]] GlyphEntry* FindGlyphEntry(u32 _codePoint) const;
     };
 
     KE_ENUM_IMPLEMENT_BITWISE_OPERATORS(PreBakedFontFile::BakedRenderInfo);

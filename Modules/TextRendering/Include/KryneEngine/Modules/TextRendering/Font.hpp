@@ -36,7 +36,7 @@ namespace KryneEngine::Modules::TextRendering
         float GetHorizontalAdvance(u32 _unicodeCodepoint, float _fontSize);
         GlyphLayoutMetrics GetGlyphLayoutMetrics(u32 _unicodeCodepoint, float _fontSize);
 
-        GlyphMsdfBitmap GenerateMsdf(u32 _unicodeCodepoint, u16 _fontSize, u16 _pxRange, AllocatorInstance _allocator);
+        GlyphMsdfBitmap GetMsdf(u32 _unicodeCodepoint, u16 _fontSize, AllocatorInstance _allocator);
 
         void SetFallbackFont(const Font* _fallbackFont) { m_fallbackFontId = _fallbackFont->GetId(); }
         void SetFallbackSystemFont() { m_fallbackFontId = kSystemFontFallback; }
@@ -54,6 +54,7 @@ namespace KryneEngine::Modules::TextRendering
         enum class FontFileType: u8
         {
             Freetype,
+            PreBaked,
         };
 
         static constexpr u32 kSystemFontFallback = 0x10000;
@@ -64,6 +65,7 @@ namespace KryneEngine::Modules::TextRendering
         union
         {
             FreetypeFontFile m_freetypeFile;
+            PreBakedFontFile m_preBakedFile;
         };
         AllocatorInstance m_fileBufferAllocator {};
         u32 m_fallbackFontId = kSystemFontFallback;

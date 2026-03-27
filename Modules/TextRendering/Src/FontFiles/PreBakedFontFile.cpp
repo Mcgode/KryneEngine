@@ -12,6 +12,8 @@
 #include <KryneEngine/Core/Memory/DynamicArray.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 
+#include "KryneEngine/Modules/TextRendering/MsdfAtlasManager.hpp"
+
 namespace KryneEngine::Modules::TextRendering
 {
     PreBakedFontFile::PreBakedFontFile(std::ifstream& _file, const size_t _fileSize, const AllocatorInstance _allocator)
@@ -40,8 +42,10 @@ namespace KryneEngine::Modules::TextRendering
                 _file.read(reinterpret_cast<char*>(compressedTables), compressedTablesSize);
                 _file.seekg(alignedCompressedTablesSize - compressedTablesSize, std::ios::cur);
 
+                m_ctx = ZSTD_createDCtx();
+
                 KE_ASSERT(ZSTD_getFrameContentSize(compressedTables, compressedTablesSize) == dstSize);
-                ZSTD_decompress(tablesBuffer, dstSize, compressedTables, compressedTablesSize);
+                ZSTD_decompressDCtx(m_ctx, tablesBuffer, dstSize, compressedTables, compressedTablesSize);
 
                 _allocator.deallocate(compressedTables, compressedTablesSize);
 
@@ -56,27 +60,32 @@ namespace KryneEngine::Modules::TextRendering
                     m_outlineEntries = reinterpret_cast<OutlineEntry*>(currentPtr);
             }
 
-            // Retrieve render data compression dictionary
+            if (static_cast<u32>(m_header.m_options.m_renderInfo) != 0)
             {
-                u32 dictBufferSize;
-                _file.read(reinterpret_cast<char*>(&dictBufferSize), sizeof(u32));
-                const u32 alignedDictBufferSize = Alignment::AlignUp<u32>(dictBufferSize, 4u);
+                // Retrieve render data compression dictionary
+                {
+                    u32 dictBufferSize;
+                    _file.read(reinterpret_cast<char*>(&dictBufferSize), sizeof(u32));
+                    const u32 alignedDictBufferSize = Alignment::AlignUp<u32>(dictBufferSize, 4u);
 
-                m_dictBuffer = {
-                    _allocator.Allocate<std::byte>(dictBufferSize),
-                    dictBufferSize,
-                };
+                    m_dictBuffer = {
+                        _allocator.Allocate<std::byte>(dictBufferSize),
+                        dictBufferSize,
+                    };
 
-                _file.read(reinterpret_cast<char*>(m_dictBuffer.data()), dictBufferSize);
-                _file.seekg(alignedDictBufferSize- dictBufferSize, std::ios::cur);
-            }
+                    _file.read(reinterpret_cast<char*>(m_dictBuffer.data()), dictBufferSize);
+                    _file.seekg(alignedDictBufferSize- dictBufferSize, std::ios::cur);
 
-            // Retrieve render data payload
-            {
-                const size_t payloadSize = _fileSize - _file.tellg();
+                    m_dict = ZSTD_createDDict(m_dictBuffer.data(), dictBufferSize);
+                }
 
-                m_data = { _allocator.Allocate<std::byte>(payloadSize), payloadSize };
-                _file.read(reinterpret_cast<char*>(m_data.data()), static_cast<std::streamsize>(payloadSize));
+                // Retrieve render data payload
+                {
+                    const size_t payloadSize = _fileSize - _file.tellg();
+
+                    m_data = { _allocator.Allocate<std::byte>(payloadSize), payloadSize };
+                    _file.read(reinterpret_cast<char*>(m_data.data()), static_cast<std::streamsize>(payloadSize));
+                }
             }
         }
         else
@@ -96,6 +105,179 @@ namespace KryneEngine::Modules::TextRendering
             }
             if (BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines))
                 m_outlineEntries = reinterpret_cast<OutlineEntry*>(ptr);
+        }
+    }
+
+    void PreBakedFontFile::Destroy(const AllocatorInstance _allocator) const
+    {
+        if (m_data.data() != nullptr)
+            _allocator.deallocate(m_data.data(), m_data.size());
+
+        if (m_header.m_options.m_compressed)
+        {
+            if (m_dict != nullptr)
+                ZSTD_freeDDict(m_dict);
+            if (m_ctx != nullptr)
+                ZSTD_freeDCtx(m_ctx);
+
+            if (m_dictBuffer.data() != nullptr)
+                _allocator.deallocate(m_dictBuffer.data(), m_dictBuffer.size());
+            _allocator.deallocate(m_glyphs);
+        }
+    }
+
+    float PreBakedFontFile::GetAscender(const float _fontSize) const
+    {
+        return m_header.m_fontMetrics.m_ascender * _fontSize;
+    }
+
+    float PreBakedFontFile::GetDescender(const float _fontSize) const
+    {
+        return m_header.m_fontMetrics.m_descender * _fontSize;
+    }
+
+    float PreBakedFontFile::GetLineHeight(const float _fontSize) const
+    {
+        return m_header.m_fontMetrics.m_lineHeight * _fontSize;
+    }
+
+    eastl::optional<float> PreBakedFontFile::GetHorizontalAdvance(
+        const u32 _unicodeCodepoint,
+        const float _fontSize) const
+    {
+        const GlyphEntry* entry = FindGlyphEntry(_unicodeCodepoint);
+        return entry == nullptr ? eastl::nullopt : eastl::make_optional(entry->m_advanceX * _fontSize);
+    }
+
+    eastl::optional<GlyphLayoutMetrics> PreBakedFontFile::GetGlyphLayoutMetrics(
+        const u32 _unicodeCodepoint,
+        const float _fontSize) const
+    {
+        const GlyphEntry* entry = FindGlyphEntry(_unicodeCodepoint);
+        if (entry == nullptr)
+            return eastl::nullopt;
+        return GlyphLayoutMetrics {
+            .m_advanceX = entry->m_advanceX * _fontSize,
+            .m_bearingX = entry->m_bearingX * _fontSize,
+            .m_width = entry->m_width * _fontSize,
+            .m_bearingY = entry->m_bearingY * _fontSize,
+            .m_height = entry->m_height * _fontSize,
+        };
+    }
+
+    eastl::optional<u32> PreBakedFontFile::GetGlyphIndex(const u32 _unicodeCodepoint) const
+    {
+        GlyphEntry* entry = FindGlyphEntry(_unicodeCodepoint);
+        return entry == nullptr
+            ? eastl::nullopt
+            : eastl::make_optional(static_cast<u32>(eastl::distance(m_glyphs, entry)));
+    }
+
+    bool PreBakedFontFile::HasMsdfBitmaps() const
+    {
+        return BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Msdf);
+    }
+
+    bool PreBakedFontFile::HasOutlines() const
+    {
+        return BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines);
+    }
+
+    GlyphMsdfBitmap PreBakedFontFile::GetMsdfBitmap(const u32 _glyphIndex, const AllocatorInstance _allocator)
+    {
+        KE_ASSERT(HasMsdfBitmaps());
+
+        const MsdfEntry& entry = m_msdfEntries[_glyphIndex];
+        const GlyphEntry& glyphEntry = m_glyphs[_glyphIndex];
+
+        const u16 pxRange = MsdfAtlasManager::GetPxRange(entry.m_bakedFontSize);
+        const u16 baseline = static_cast<u16>(std::ceil(glyphEntry.m_bearingY)) + pxRange / 2;
+
+        eastl::span<std::byte> bitmap;
+        const size_t bitmapSize = 3 * entry.m_glyphWidth * entry.m_glyphHeight;
+
+        if (m_header.m_options.m_compressed)
+        {
+            const u32 compressedSize = *reinterpret_cast<u32*>(m_data.data() + entry.m_offset);
+            bitmap = {
+                _allocator.Allocate<std::byte>(bitmapSize),
+                bitmapSize
+            };
+            const size_t decompressedSize = ZSTD_decompress_usingDDict(
+                m_ctx,
+                bitmap.data(), bitmapSize,
+                m_data.data() + entry.m_offset + sizeof(u32), compressedSize,
+                m_dict);
+            KE_ASSERT(decompressedSize == bitmapSize);
+        }
+        else
+        {
+            bitmap = { m_data.data() + entry.m_offset, bitmapSize };
+        }
+
+        return {
+            .m_bitmap = bitmap,
+            .m_pxRange = pxRange,
+            .m_width = entry.m_glyphWidth,
+            .m_height = entry.m_glyphHeight,
+            .m_fontSize = entry.m_bakedFontSize,
+            .m_baseLine = baseline,
+            .m_allocated = m_header.m_options.m_compressed,
+        };
+    }
+
+    GlyphShape PreBakedFontFile::GetGlyphShape(const u32 _codepoint, const AllocatorInstance _allocatorInstance) const
+    {
+        const GlyphEntry* entry = FindGlyphEntry(_codepoint);
+        if (entry == nullptr)
+            return {};
+
+        KE_ASSERT(m_outlineEntries != nullptr);
+
+        const size_t index = m_glyphs - entry;
+
+        const OutlineEntry& outlineEntry = m_outlineEntries[index];
+
+        if (m_header.m_options.m_compressed)
+        {
+            const u32 compressedSize = *reinterpret_cast<u32*>(m_data.data() + outlineEntry.m_pointsOffset);
+            const size_t finalSize = outlineEntry.m_tagsOffset + sizeof(OutlineTag) * outlineEntry.m_tagsCount;
+
+            auto* buffer = _allocatorInstance.Allocate<std::byte>(finalSize);
+
+            const size_t decompressedSize = ZSTD_decompress_usingDDict(
+                m_ctx,
+                buffer, finalSize,
+                m_data.data() + outlineEntry.m_pointsOffset + sizeof(u32), compressedSize,
+                m_dict);
+            KE_ASSERT(decompressedSize == finalSize);
+
+            return {
+                .m_points = reinterpret_cast<float2*>(buffer),
+                .m_tags = {
+                    reinterpret_cast<OutlineTag*>(buffer + outlineEntry.m_tagsOffset),
+                    outlineEntry.m_tagsCount
+                }
+            };
+        }
+        else
+        {
+            return {
+                .m_points = reinterpret_cast<float2*>(m_data.data() + outlineEntry.m_pointsOffset),
+                .m_tags = {
+                    reinterpret_cast<OutlineTag*>(m_data.data() + outlineEntry.m_tagsOffset),
+                    outlineEntry.m_tagsCount
+                }
+            };
+        }
+    }
+
+    void PreBakedFontFile::ReleaseGlyphShape(const GlyphShape& _glyphShape, const AllocatorInstance _allocator) const
+    {
+        if (m_header.m_options.m_compressed)
+        {
+            const size_t size = reinterpret_cast<std::byte*>(_glyphShape.m_tags.end()) - reinterpret_cast<std::byte*>(_glyphShape.m_points);
+            _allocator.deallocate(_glyphShape.m_points, size);
         }
     }
 
@@ -498,5 +680,18 @@ namespace KryneEngine::Modules::TextRendering
 
             return { bytes, finalSize };
         }
+    }
+
+    PreBakedFontFile::GlyphEntry* PreBakedFontFile::FindGlyphEntry(u32 _codePoint) const
+    {
+        GlyphEntry* end = m_glyphs + m_header.m_glyphCount;
+        GlyphEntry* it = eastl::lower_bound(m_glyphs, end, _codePoint,
+            [](const GlyphEntry& _glyph, const u32 _codepoint)
+            {
+                return _glyph.m_codePoint < _codepoint;
+            });
+        if (it == end || it->m_codePoint != _codePoint)
+            return nullptr;
+        return it;
     }
 }

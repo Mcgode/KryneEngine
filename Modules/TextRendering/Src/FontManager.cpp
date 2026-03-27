@@ -75,79 +75,96 @@ namespace KryneEngine::Modules::TextRendering
     {
         static_assert(offsetof(PreBakedFontFile, m_header) == 0, "The header field must be at the beginning of the class for type check");
 
-        KE_ASSERT_MSG(!PreBakedFontFile::IsPreBakedFontFile(_loadedResourceData), "Not supported yet");
-
-        FT_Face face;
-        const FT_Error error = FT_New_Memory_Face(
-            m_ftLibrary,
-            reinterpret_cast<FT_Byte*>(_loadedResourceData.data()),
-            static_cast<FT_Long>(_loadedResourceData.size()),
-            0,
-            &face);
-
-        if (!KE_VERIFY_MSG(error == FT_Err_Ok, "Failed to load font '%s': %s", _path.data(), FT_Error_String(error))) [[unlikely]]
-            return;
-
-        if (!KE_VERIFY_MSG(face->face_flags & FT_FACE_FLAG_SCALABLE, "The API only supports scalable/vector fonts"))
+        Font* newFont;
+        size_t plannedVersion;
+        if (!PreBakedFontFile::IsPreBakedFontFile(_loadedResourceData))
         {
-            KE_VERIFY(FT_Done_Face(face) == FT_Err_Ok);
-            return;
-        }
+            FT_Face face;
+            {
+                const FT_Error error = FT_New_Memory_Face(
+                   m_ftLibrary,
+                   reinterpret_cast<FT_Byte*>(_loadedResourceData.data()),
+                   static_cast<FT_Long>(_loadedResourceData.size()),
+                   0,
+                   &face);
 
-        // Select best charmap
-        {
-            const s32 bestCharMap = Freetype::SelectBestUnicodeCharmap(face);
+                if (!KE_VERIFY_MSG(error == FT_Err_Ok, "Failed to load font '%s': %s", _path.data(), FT_Error_String(error))) [[unlikely]]
+                    return;
+            }
 
-            if (!KE_VERIFY_MSG(bestCharMap >= 0, "No available unicode char map")) [[unlikely]]
+            if (!KE_VERIFY_MSG(face->face_flags & FT_FACE_FLAG_SCALABLE, "The API only supports scalable/vector fonts"))
             {
                 KE_VERIFY(FT_Done_Face(face) == FT_Err_Ok);
                 return;
             }
-            const FT_Error error = FT_Set_Charmap(face, face->charmaps[bestCharMap]);
-            if (!KE_VERIFY_MSG(error == FT_Err_Ok, FT_Error_String(error))) [[unlikely]]
+
+            // Select best charmap
             {
-                KE_VERIFY(FT_Done_Face(face) == FT_Err_Ok);
-                return;
+                const s32 bestCharMap = Freetype::SelectBestUnicodeCharmap(face);
+
+                if (!KE_VERIFY_MSG(bestCharMap >= 0, "No available unicode char map")) [[unlikely]]
+                {
+                    KE_VERIFY(FT_Done_Face(face) == FT_Err_Ok);
+                    return;
+                }
+                const FT_Error error = FT_Set_Charmap(face, face->charmaps[bestCharMap]);
+                if (!KE_VERIFY_MSG(error == FT_Err_Ok, FT_Error_String(error))) [[unlikely]]
+                {
+                    KE_VERIFY(FT_Done_Face(face) == FT_Err_Ok);
+                    return;
+                }
             }
+
+            plannedVersion = _entry->m_version.load(std::memory_order_acquire) + 1;
+            newFont = new (m_allocator.Allocate<Font>()) Font(m_allocator, this, plannedVersion);
+            new (&newFont->m_freetypeFile) FreetypeFontFile(face, _loadedResourceData.data(), m_allocator);
+            newFont->m_fileBufferAllocator = m_allocator;
+
+            // Parse all glyphs
+            u32 glyphIndex;
+            u32 unicodeCodepoint = FT_Get_First_Char(face, &glyphIndex);
+            while (glyphIndex != 0)
+            {
+                const FT_Error error = FT_Load_Glyph(face, glyphIndex, FT_LOAD_NO_BITMAP);
+                if (!KE_VERIFY_MSG(error == FT_Err_Ok, FT_Error_String(error))) [[unlikely]]
+                {
+                    m_allocator.Delete(newFont);
+                    KE_VERIFY(FT_Done_Face(face) == FT_Err_Ok);
+                    return;
+                }
+
+                auto& pair = newFont->m_freetypeFile.m_glyphs.emplace_back_unsorted(unicodeCodepoint, FreetypeFontFile::GlyphEntry {});
+                pair.second.m_glyphIndex = glyphIndex;
+
+                if (unicodeCodepoint < 128) // Preload all ASCII chars
+                {
+                    newFont->m_freetypeFile.LoadGlyph(newFont->m_freetypeFile.m_glyphs.size() - 1);
+
+                    // Can store non-atomically here, since we are in a non-concurrent context.
+                    pair.second.m_loaded = true;
+                }
+
+                unicodeCodepoint = FT_Get_Next_Char(face, unicodeCodepoint, &glyphIndex);
+            }
+
+            // Sort vector map
+            eastl::sort(
+                newFont->m_freetypeFile.m_glyphs.begin(),
+                newFont->m_freetypeFile.m_glyphs.end(),
+                [](const auto& a, const auto& b) { return a.first < b.first; });
+
+            newFont->m_fileType = Font::FontFileType::Freetype;
         }
-
-        size_t plannedVersion = _entry->m_version.load(std::memory_order_acquire) + 1;
-        auto* newFont = new (m_allocator.Allocate<Font>()) Font(m_allocator, this, plannedVersion);
-        new (&newFont->m_freetypeFile) FreetypeFontFile(face, _loadedResourceData.data(), m_allocator);
-        newFont->m_fileBufferAllocator = m_allocator;
-
-        // Parse all glyphs
-        u32 glyphIndex;
-        u32 unicodeCodepoint = FT_Get_First_Char(face, &glyphIndex);
-        while (glyphIndex != 0)
+        else
         {
-            const FT_Error error = FT_Load_Glyph(face, glyphIndex, FT_LOAD_NO_BITMAP);
-            if (!KE_VERIFY_MSG(error == FT_Err_Ok, FT_Error_String(error))) [[unlikely]]
-            {
-                m_allocator.Delete(newFont);
-                KE_VERIFY(FT_Done_Face(face) == FT_Err_Ok);
-                return;
-            }
+            plannedVersion = _entry->m_version.load(std::memory_order_acquire) + 1;
+            newFont = new (m_allocator.Allocate<Font>()) Font(m_allocator, this, plannedVersion);
 
-            auto& pair = newFont->m_freetypeFile.m_glyphs.emplace_back_unsorted(unicodeCodepoint, FreetypeFontFile::GlyphEntry {});
-            pair.second.m_glyphIndex = glyphIndex;
+            const auto* fontFile = reinterpret_cast<PreBakedFontFile*>(_loadedResourceData.data());
+            new (&newFont->m_preBakedFile) PreBakedFontFile(*fontFile);
 
-            if (const bool preload = unicodeCodepoint < 128) // Preload all ASCII chars
-            {
-                newFont->m_freetypeFile.LoadGlyph(newFont->m_freetypeFile.m_glyphs.size() - 1);
-
-                // Can store non-atomically here, since we are in a non-concurrent context.
-                pair.second.m_loaded = true;
-            }
-
-            unicodeCodepoint = FT_Get_Next_Char(face, unicodeCodepoint, &glyphIndex);
+            newFont->m_fileType = Font::FontFileType::PreBaked;
         }
-
-        // Sort vector map
-        eastl::sort(
-            newFont->m_freetypeFile.m_glyphs.begin(),
-            newFont->m_freetypeFile.m_glyphs.end(),
-            [](const auto& a, const auto& b) { return a.first < b.first; });
 
         newFont->m_fontId = m_fonts.size();
         m_fonts.push_back(newFont);
