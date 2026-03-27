@@ -177,7 +177,6 @@ namespace KryneEngine::Modules::TextRendering
             {
                 msdfEntries[i] = {
                     .m_offset = 0,
-                    .m_pxRange = _glyphs[i].m_msdfPxRange,
                     .m_glyphWidth = _glyphs[i].m_msdfWidth,
                     .m_glyphHeight = _glyphs[i].m_msdfHeight,
                     .m_bakedFontSize = _glyphs[i].m_msdfBakedFontSize,
@@ -425,7 +424,6 @@ namespace KryneEngine::Modules::TextRendering
                 {
                     const auto& glyph = _glyphs[i];
                     auto& entry = msdfEntries[i];
-                    entry.m_pxRange = glyph.m_msdfPxRange;
                     entry.m_glyphHeight = glyph.m_msdfHeight;
                     entry.m_glyphWidth = glyph.m_msdfWidth;
                     entry.m_bakedFontSize = glyph.m_msdfBakedFontSize;

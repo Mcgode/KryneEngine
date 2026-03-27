@@ -81,7 +81,6 @@ namespace KryneEngine::Modules::TextRendering
             GlyphEntry m_glyph;
 
             eastl::span<std::byte> m_msdfBitmap;
-            u16 m_msdfPxRange;
             u16 m_msdfWidth;
             u16 m_msdfHeight;
             u16 m_msdfBakedFontSize;
@@ -125,7 +124,6 @@ namespace KryneEngine::Modules::TextRendering
         struct MsdfEntry
         {
             u32 m_offset;
-            u16 m_pxRange;
             u16 m_glyphWidth;
             u16 m_glyphHeight;
             u16 m_bakedFontSize;
