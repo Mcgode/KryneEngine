@@ -182,7 +182,7 @@ namespace KryneEngine::Modules::TextRendering
         return BitUtils::EnumHasAny(m_header.m_options.m_renderInfo, BakedRenderInfo::Outlines);
     }
 
-    GlyphMsdfBitmap PreBakedFontFile::GetMsdfBitmap(const u32 _glyphIndex, const AllocatorInstance _allocator)
+    GlyphMsdfBitmap PreBakedFontFile::GetMsdfBitmap(const u32 _glyphIndex, const AllocatorInstance _allocator) const
     {
         KE_ASSERT(HasMsdfBitmaps());
 

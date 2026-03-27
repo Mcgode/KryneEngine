@@ -108,7 +108,7 @@ namespace KryneEngine::Modules::TextRendering
         [[nodiscard]] bool HasMsdfBitmaps() const;
         [[nodiscard]] bool HasOutlines() const;
 
-        [[nodiscard]] GlyphMsdfBitmap GetMsdfBitmap(u32 _glyphIndex, AllocatorInstance _allocatorInstance);
+        [[nodiscard]] GlyphMsdfBitmap GetMsdfBitmap(u32 _glyphIndex, AllocatorInstance _allocator) const;
 
         [[nodiscard]] GlyphShape GetGlyphShape(u32 _codepoint, AllocatorInstance _allocatorInstance) const;
         void ReleaseGlyphShape(const GlyphShape& _glyphShape, AllocatorInstance _allocator) const;
