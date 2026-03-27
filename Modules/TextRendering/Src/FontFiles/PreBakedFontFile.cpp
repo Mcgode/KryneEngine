@@ -92,7 +92,6 @@ namespace KryneEngine::Modules::TextRendering
         {
             const size_t payloadSize = _fileSize - sizeof(Header);
 
-            _file.seekg(0, std::ios::beg);
             m_data = { _allocator.Allocate<std::byte>(payloadSize), payloadSize };
             _file.read(reinterpret_cast<char*>(m_data.data()), static_cast<std::streamsize>(payloadSize));
 
@@ -212,8 +211,10 @@ namespace KryneEngine::Modules::TextRendering
         }
         else
         {
-            bitmap = { m_data.data() + entry.m_offset, bitmapSize };
+            bitmap = { m_data.data() + entry.m_offset - sizeof(Header), bitmapSize };
         }
+
+        KE_ASSERT(bitmap.size() == bitmapSize && !bitmap.empty());
 
         return {
             .m_bitmap = bitmap,
@@ -263,9 +264,9 @@ namespace KryneEngine::Modules::TextRendering
         else
         {
             return {
-                .m_points = reinterpret_cast<float2*>(m_data.data() + outlineEntry.m_pointsOffset),
+                .m_points = reinterpret_cast<float2*>(m_data.data() + outlineEntry.m_pointsOffset - sizeof(Header)),
                 .m_tags = {
-                    reinterpret_cast<OutlineTag*>(m_data.data() + outlineEntry.m_tagsOffset),
+                    reinterpret_cast<OutlineTag*>(m_data.data() + outlineEntry.m_tagsOffset - sizeof(Header)),
                     outlineEntry.m_tagsCount
                 }
             };
