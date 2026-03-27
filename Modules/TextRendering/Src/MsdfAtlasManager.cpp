@@ -121,7 +121,7 @@ namespace KryneEngine::Modules::TextRendering
             m_glyphSlotMap.emplace(GlyphKey { _font, _unicodeCodepoint }, glyphSlot);
         }
 
-        m_loadQueue.enqueue({ glyphSlot, slotRect, bitmap.m_bitmap.data() });
+        m_loadQueue.enqueue({ glyphSlot, slotRect, bitmap.m_bitmap.data(), bitmap.m_allocated });
 
         return {};
     }
@@ -275,7 +275,8 @@ namespace KryneEngine::Modules::TextRendering
                 }
                 localProgress += footprint.m_lineByteAlignedSize;
             }
-            m_allocator.deallocate(request.m_buffer);
+            if (request.m_shouldDeallocate)
+                m_allocator.deallocate(request.m_buffer);
 
             const uint3 offset ;
             _graphicsContext.SetTextureRegionData(

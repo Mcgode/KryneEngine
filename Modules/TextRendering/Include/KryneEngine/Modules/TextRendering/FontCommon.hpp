@@ -43,5 +43,6 @@ namespace KryneEngine::Modules::TextRendering
         u16 m_height = 0;
         u16 m_fontSize = 0;
         u16 m_baseLine = 0;
+        bool m_allocated = true;
     };
 }
