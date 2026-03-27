@@ -18,7 +18,7 @@ namespace KryneEngine::Modules::TextRendering
     {
         _file.read(reinterpret_cast<char*>(&m_header), sizeof(Header));
 
-        KE_ASSERT(m_header.m_magicNumber != kMagicNumber);
+        KE_ASSERT(m_header.m_magicNumber == kMagicNumber);
 
         if (m_header.m_options.m_compressed)
         {
