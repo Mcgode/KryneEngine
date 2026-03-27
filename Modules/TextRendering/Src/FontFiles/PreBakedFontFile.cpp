@@ -446,8 +446,11 @@ namespace KryneEngine::Modules::TextRendering
                     entry.m_tagsCount = glyph.m_outlineTagCount;
                     entry.m_pointsOffset = compressBlob(outlineBlobs[i].m_blob, growingTail, dict);
                     entry.m_tagsOffset = outlineBlobs[i].m_pointCount * sizeof(float2);
+                    _allocator.deallocate(outlineBlobs[i].m_blob.data(), outlineBlobs[i].m_blob.size_bytes());
                 }
             }
+
+            ZSTD_freeCDict(dict);
         }
 
         eastl::vector<std::byte> growingHead(_allocator);
@@ -468,7 +471,10 @@ namespace KryneEngine::Modules::TextRendering
         {
             KE_ZoneScoped("Compress tables");
             compressBlob(tables, growingHead, nullptr);
+            _allocator.deallocate(tables.data(), tables.size_bytes());
         }
+
+        ZSTD_freeCCtx(ctx);
 
         {
             KE_ZoneScoped("Export to final binary blob");
@@ -486,6 +492,9 @@ namespace KryneEngine::Modules::TextRendering
             memset(bytes + offset + dictSize, 0, alignedDictSize - dictSize);
             offset += alignedDictSize;
             memcpy(bytes + offset, growingTail.data(), growingTail.size());
+
+            // Dictionary memory cleanup
+            _allocator.deallocate(dictBuffer, dictCapacity);
 
             return { bytes, finalSize };
         }
