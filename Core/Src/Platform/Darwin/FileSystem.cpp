@@ -108,6 +108,24 @@ namespace KryneEngine::Platform
                     }
                 }
             }
+
+            // If there are still lone rename events in the event batch, convert them into creation / deletion
+            // notifications.
+            // This handles cases where a file is renamed to or from an "external" directory (one that isn't being
+            // monitored). For instance, this happens when sending a file to the trash.
+            // Two matching events can technically happen in different batches, but this is unlikely, and it is more
+            // sustainable to handle things this way.
+            //
+            // This also has the added benefit of avoiding ref leaks, making the map grow over time.
+            for (auto& pair: monitor->m_inodeToPathMap)
+            {
+                const bool exists = std::filesystem::exists(pair.second.m_path.data());
+                if (monitor->m_fileCreatedCallback != nullptr && exists)
+                    monitor->m_fileCreatedCallback(pair.second.m_path);
+                else if (monitor->m_fileDeletedCallback != nullptr && !exists)
+                    monitor->m_fileDeletedCallback(pair.second.m_path);
+            }
+            monitor->m_inodeToPathMap.clear();
         }
 
         FSEventStreamRef m_stream = nullptr;
