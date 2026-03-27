@@ -190,7 +190,7 @@ namespace KryneEngine::Modules::TextRendering
         const GlyphEntry& glyphEntry = m_glyphs[_glyphIndex];
 
         const u16 pxRange = MsdfAtlasManager::GetPxRange(entry.m_bakedFontSize);
-        const u16 baseline = static_cast<u16>(std::ceil(glyphEntry.m_bearingY)) + pxRange / 2;
+        const u16 baseline = static_cast<u16>(std::ceil(glyphEntry.m_bearingY * entry.m_bakedFontSize)) + pxRange / 2;
 
         eastl::span<std::byte> bitmap;
         const size_t bitmapSize = 3 * entry.m_glyphWidth * entry.m_glyphHeight;
