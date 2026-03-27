@@ -34,9 +34,11 @@ namespace KryneEngine::Modules::TextRendering
 
                 u32 compressedTablesSize;
                 _file.read(reinterpret_cast<char*>(&compressedTablesSize), sizeof(u32));
+                const u32 alignedCompressedTablesSize = Alignment::AlignUp<u32>(compressedTablesSize, 4u);
 
                 auto* compressedTables = _allocator.Allocate<std::byte>(compressedTablesSize);
                 _file.read(reinterpret_cast<char*>(compressedTables), compressedTablesSize);
+                _file.seekg(alignedCompressedTablesSize - compressedTablesSize, std::ios::cur);
 
                 KE_ASSERT(ZSTD_getFrameContentSize(compressedTables, compressedTablesSize) == dstSize);
                 ZSTD_decompress(tablesBuffer, dstSize, compressedTables, compressedTablesSize);
@@ -58,6 +60,7 @@ namespace KryneEngine::Modules::TextRendering
             {
                 u32 dictBufferSize;
                 _file.read(reinterpret_cast<char*>(&dictBufferSize), sizeof(u32));
+                const u32 alignedDictBufferSize = Alignment::AlignUp<u32>(dictBufferSize, 4u);
 
                 m_dictBuffer = {
                     _allocator.Allocate<std::byte>(dictBufferSize),
@@ -65,6 +68,7 @@ namespace KryneEngine::Modules::TextRendering
                 };
 
                 _file.read(reinterpret_cast<char*>(m_dictBuffer.data()), dictBufferSize);
+                _file.seekg(alignedDictBufferSize- dictBufferSize, std::ios::cur);
             }
 
             // Retrieve render data payload
