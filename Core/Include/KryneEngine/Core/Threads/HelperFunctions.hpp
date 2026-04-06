@@ -52,12 +52,18 @@ namespace KryneEngine::Threads
             _other.m_syncPrimitive = nullptr;
         }
 
-        ~SyncLockGuard()
+        void Unlock()
         {
             if (m_syncPrimitive != nullptr)
             {
                 (m_syncPrimitive->*UnlockMethod)();
+                m_syncPrimitive = nullptr;
             }
+        }
+
+        ~SyncLockGuard()
+        {
+            Unlock();
         }
 
     private:
