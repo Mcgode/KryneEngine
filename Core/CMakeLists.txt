@@ -104,6 +104,8 @@ set(MemorySrc
         Include/KryneEngine/Core/Memory/Containers/FlatHashMap.inl
         Src/Memory/Allocators/StackAllocator.cpp
         Include/KryneEngine/Core/Memory/Allocators/StackAllocator.hpp
+        Include/KryneEngine/Core/Memory/Containers/LruCache.inl
+        Include/KryneEngine/Core/Memory/Containers/LruCache.hpp
 )
 
 message(STATUS "Loading implementation for platform '${CMAKE_SYSTEM_NAME}'")
