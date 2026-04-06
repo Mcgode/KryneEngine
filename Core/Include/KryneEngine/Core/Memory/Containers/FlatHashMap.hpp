@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "KryneEngine/Core/Memory/Allocators/Allocator.hpp"
 #include "KryneEngine/Core/Math/XSimdUtils.hpp"
+#include "KryneEngine/Core/Memory/Allocators/Allocator.hpp"
 
 namespace KryneEngine
 {
@@ -28,7 +28,11 @@ namespace KryneEngine
      * grows and rehashes when the load factor exceeds a certain threshold, though the operation isn't cheap.
      * It should be noted that removing elements replaces the slot with a tombstone, which, while they can be recycled,
      * means that, over time, there can be a fragmentation buildup, which can negatively impact performance. When the
-     * map grows, it will automatically defragment itself
+     * map grows, it will automatically defragment itself.
+     *
+     * The hash map can be set to be fixed-size, which means that it will not grow and will not defragment.
+     * This can be useful in scenarios where the size of the map is known in advance and will not change, as it can
+     * allow for persistent references to entries.
      */
     template <class Key, class Value>
     concept FlatHashMapValidKvp = requires (Key _k, Value _v)
@@ -37,7 +41,7 @@ namespace KryneEngine
     }
         && (std::is_copy_constructible_v<eastl::pair<Key, Value>> || std::is_move_constructible_v<eastl::pair<Key, Value>>);
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed = false>
     requires FlatHashMapValidKvp<Key, Value>
     class FlatHashMap
     {
@@ -118,12 +122,17 @@ namespace KryneEngine
             return result.first;
         }
 
-        bool Remove(const Key& _key);
+        bool Erase(iterator _it);
+
+        bool Remove(const Key& _key)
+        {
+            return Erase(Find(_key));
+        }
 
         /**
          * @brief Defragments the map by removing all tombstones.
          */
-        void Defragment();
+        void Defragment() requires (!Fixed);
 
     private:
         static constexpr bool kUseSimd =
@@ -154,4 +163,7 @@ namespace KryneEngine
         template <bool Fast>
         eastl::pair<iterator, bool> FindAndAllocateSlot(const Key& _key);
     };
+
+    template <class Key, class Value>
+    using FixedFlatHashMap = FlatHashMap<Key, Value, true>;
 }

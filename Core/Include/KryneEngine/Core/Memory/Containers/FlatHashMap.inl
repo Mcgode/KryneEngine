@@ -10,20 +10,21 @@
 
 namespace KryneEngine
 {
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>::FlatHashMap(
+    FlatHashMap<Key, Value, Fixed>::FlatHashMap(
         const AllocatorInstance _allocator,
         const size_t _initialCapacity)
             : m_allocator(_allocator)
     {
         if (_initialCapacity > 0)
             Grow(_initialCapacity);
+        KE_ASSERT(!Fixed || _initialCapacity > 0);
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>::~FlatHashMap()
+    FlatHashMap<Key, Value, Fixed>::~FlatHashMap()
     {
         if (m_kvpBuffer != nullptr)
             m_allocator.deallocate(m_kvpBuffer, sizeof(*m_kvpBuffer) * m_capacity);
@@ -31,9 +32,9 @@ namespace KryneEngine
             m_allocator.deallocate(m_controlBuffer, sizeof(*m_controlBuffer) * m_capacity);
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
         requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>::FlatHashMap(FlatHashMap&& _other) noexcept
+    FlatHashMap<Key, Value, Fixed>::FlatHashMap(FlatHashMap&& _other) noexcept
         : m_allocator(_other.m_allocator)
         , m_capacity(_other.m_capacity)
         , m_kvpBuffer(_other.m_kvpBuffer)
@@ -46,9 +47,9 @@ namespace KryneEngine
         _other.m_count = 0;
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
         requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>& FlatHashMap<Key, Value>::operator=(FlatHashMap&& _other) noexcept
+    FlatHashMap<Key, Value, Fixed>& FlatHashMap<Key, Value, Fixed>::operator=(FlatHashMap&& _other) noexcept
     {
         if (m_kvpBuffer != nullptr)
             m_allocator.deallocate(m_kvpBuffer, sizeof(*m_kvpBuffer) * m_capacity);
@@ -68,43 +69,43 @@ namespace KryneEngine
         return *this;
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>::iterator FlatHashMap<Key, Value>::begin()
+    FlatHashMap<Key, Value, Fixed>::iterator FlatHashMap<Key, Value, Fixed>::begin()
     {
         return m_kvpBuffer;
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>::iterator FlatHashMap<Key, Value>::end()
+    FlatHashMap<Key, Value, Fixed>::iterator FlatHashMap<Key, Value, Fixed>::end()
     {
         return m_kvpBuffer == nullptr ? nullptr :m_kvpBuffer + m_capacity;
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>::const_iterator FlatHashMap<Key, Value>::begin() const
+    FlatHashMap<Key, Value, Fixed>::const_iterator FlatHashMap<Key, Value, Fixed>::begin() const
     {
         return m_kvpBuffer;
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>::const_iterator FlatHashMap<Key, Value>::end() const
+    FlatHashMap<Key, Value, Fixed>::const_iterator FlatHashMap<Key, Value, Fixed>::end() const
     {
         return m_kvpBuffer == nullptr ? nullptr : m_kvpBuffer + m_capacity;
     }
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
         requires FlatHashMapValidKvp<Key, Value>
-    bool FlatHashMap<Key, Value>::IsValidEntry(const_iterator _it) const
+    bool FlatHashMap<Key, Value, Fixed>::IsValidEntry(const_iterator _it) const
     {
         return (m_controlBuffer[eastl::distance(begin(), _it)] & kAvailableSlotFlag) == 0;
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value>::iterator FlatHashMap<Key, Value>::Find(const Key& _key)
+    FlatHashMap<Key, Value, Fixed>::iterator FlatHashMap<Key, Value, Fixed>::Find(const Key& _key)
     {
         const size_t hash = Hashing::HashKey<Key>(_key);
         const u8 expectedControl = hash >> (sizeof(size_t) == 8 ? 57 : 25);
@@ -172,22 +173,22 @@ namespace KryneEngine
 
         return end();
     }
-    template <class Key, class Value>
-        requires FlatHashMapValidKvp<Key, Value>
-    bool FlatHashMap<Key, Value>::Remove(const Key& _key)
+
+    template <class Key, class Value, bool Fixed> requires FlatHashMapValidKvp<Key, Value>
+    bool FlatHashMap<Key, Value, Fixed>::Erase(iterator _it)
     {
-        auto it = Find(_key);
-        if (it != end())
+        if (_it != end())
         {
             --m_count;
-            m_controlBuffer[eastl::distance(begin(), it)] = kTombstone;
+            m_controlBuffer[eastl::distance(begin(), _it)] = kTombstone;
             return true;
         }
         return false;
     }
-    template <class Key, class Value>
+
+    template <class Key, class Value, bool Fixed>
         requires FlatHashMapValidKvp<Key, Value>
-    void FlatHashMap<Key, Value>::Defragment()
+    void FlatHashMap<Key, Value, Fixed>::Defragment() requires (!Fixed)
     {
         if (m_capacity == 0)
             return;
@@ -207,9 +208,9 @@ namespace KryneEngine
         *this = std::move(temp);
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    void FlatHashMap<Key, Value>::Grow(size_t _newCapacity)
+    void FlatHashMap<Key, Value, Fixed>::Grow(size_t _newCapacity)
     {
         if (m_capacity == 0)
         {
@@ -223,7 +224,7 @@ namespace KryneEngine
             m_count = 0;
             m_capacity = newCapacity;
         }
-        else
+        else if constexpr (!Fixed)
         {
             // There is negligible
             FlatHashMap temp(m_allocator, _newCapacity);
@@ -248,16 +249,16 @@ namespace KryneEngine
         }
     }
 
-    template <class Key, class Value>
+    template <class Key, class Value, bool Fixed>
         requires FlatHashMapValidKvp<Key, Value>
     template <bool Fast>
-    eastl::pair<typename FlatHashMap<Key, Value>::iterator, bool> FlatHashMap<Key, Value>::FindAndAllocateSlot(const Key& _key)
+    eastl::pair<typename FlatHashMap<Key, Value, Fixed>::iterator, bool> FlatHashMap<Key, Value, Fixed>::FindAndAllocateSlot(const Key& _key)
     {
         if (m_capacity == 0)
         {
             Grow(32);
         }
-        else
+        else if constexpr (!Fixed)
         {
             const auto loadFactor = static_cast<double>(m_count + 1) / static_cast<double>(m_capacity);
             if (loadFactor > kMaxLoadFactor)
@@ -396,7 +397,8 @@ namespace KryneEngine
                 probeIndex = (probeIndex + 1) % m_capacity;
             }
         }
-        KE_ERROR("Unreachable code");
+        if constexpr (!Fixed)
+            KE_ERROR("Unreachable code");
         return { end(), false };
     }
 } // namespace KryneEngine
