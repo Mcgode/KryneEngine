@@ -123,7 +123,14 @@ namespace KryneEngine::Modules::TextRendering
 
         m_loadQueue.enqueue({ glyphSlot, slotRect, bitmap.m_bitmap.data(), bitmap.m_allocated });
 
-        return {};
+        return {
+            .m_x = glyphSlot.m_offsetX,
+            .m_y = glyphSlot.m_offsetY,
+            .m_width = glyphSlot.m_width,
+            .m_height = glyphSlot.m_height,
+            .m_baseline = glyphSlot.m_baseline,
+            .m_pxRange = glyphSlot.m_fontSize == 0 ? static_cast<u16>(0u) : pxRange,
+        };
     }
 
     void MsdfAtlasManager::FlushLoads(GraphicsContext& _graphicsContext, CommandListHandle _transfer)
