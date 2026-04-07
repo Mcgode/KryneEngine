@@ -100,7 +100,7 @@ namespace KryneEngine
                     m_hashMap.Erase(m_hashMap.begin() + entry.m_keyIdx);
                     std::atomic_ref(entry.m_keyIdx).store(kInvalidIndex, std::memory_order::release);
                     entry.m_counter = 1;
-                    const auto pair = m_hashMap.Insert(_key, HashMapEntry{ index });
+                    const auto pair = m_hashMap.Insert({ _key, HashMapEntry{ index } });
                     KE_ASSERT(pair.second);
                     MoveFront(index);
 
@@ -127,7 +127,7 @@ namespace KryneEngine
 
             ptr = reinterpret_cast<Value*>(&entry.m_value);
 
-            const auto pair = m_hashMap.Insert(_key, HashMapEntry{ index });
+            const auto pair = m_hashMap.Insert({ _key, HashMapEntry{ index } });
             KE_ASSERT(pair.second);
             std::atomic_ref(entry.m_keyIdx).store(kInvalidIndex, std::memory_order::release);
 
