@@ -2,15 +2,14 @@
  * @file
  * @author Max Godefroy
  * @date 24/11/2025.
- */
+*/
 
-#include "TextureGenerator.hpp"
-#include "UiCube.hpp"
 #include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
 #include <KryneEngine/Core/Graphics/RenderPass.hpp>
 #include <KryneEngine/Core/Memory/Allocators/TlsfAllocator.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Modules/FileSystem/VirtualFileSystem.hpp>
 #include <KryneEngine/Modules/GuiLib/Context.hpp>
 #include <KryneEngine/Modules/GuiLib/GuiRenderers/BasicGuiRenderer.hpp>
 #include <KryneEngine/Modules/Resources/Loaders/SerialResourceLoader.hpp>
@@ -18,6 +17,9 @@
 #include <KryneEngine/Modules/TextRendering/Font.hpp>
 #include <KryneEngine/Modules/TextRendering/FontManager.hpp>
 #include <KryneEngine/Modules/TextRendering/MsdfAtlasManager.hpp>
+
+#include "TextureGenerator.hpp"
+#include "UiCube.hpp"
 
 using KryneEngine::s32;
 
@@ -87,7 +89,8 @@ s32 main(s32 argc, const char** argv)
         });
     }
 
-    Modules::Resources::SerialResourceLoader resourceLoader { allocatorInstance };
+    Modules::FileSystem::VirtualFileSystem virtualFileSystem { allocatorInstance };
+    Modules::Resources::SerialResourceLoader resourceLoader { allocatorInstance, &virtualFileSystem };
     Modules::Resources::RuntimeResourceSystem resourceSystem { allocatorInstance, &resourceLoader };
 
     Modules::TextRendering::FontManager fontManager(allocatorInstance);
