@@ -24,7 +24,7 @@ namespace KryneEngine::Modules::FileSystem
 
         const StringHash hash { path.lexically_normal().c_str() };
         Platform::ReadOnlyFileDescriptor* fileDescriptor = m_openFiles.Acquire(hash,
-            [this](const bool _mustReclaim, const StringHash& _key, Platform::ReadOnlyFileDescriptor* _fileDescriptor)
+            [this, &hash](const bool _mustReclaim, Platform::ReadOnlyFileDescriptor* _fileDescriptor)
             {
                 if (_mustReclaim)
                 {
@@ -32,7 +32,7 @@ namespace KryneEngine::Modules::FileSystem
                     Platform::CloseReadOnlyFile(*_fileDescriptor, m_allocator);
                 }
 
-                *_fileDescriptor = Platform::OpenReadOnlyFile(_key.m_string, m_allocator);
+                *_fileDescriptor = Platform::OpenReadOnlyFile(hash.m_string, m_allocator);
             });
 
         if (fileDescriptor == nullptr)
