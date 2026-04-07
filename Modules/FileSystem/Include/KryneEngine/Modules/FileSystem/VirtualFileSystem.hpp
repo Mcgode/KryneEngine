@@ -22,6 +22,8 @@ namespace KryneEngine::Modules::FileSystem
     public:
         explicit VirtualFileSystem(AllocatorInstance _allocator, u32 _maxOpenFiles = 512);
 
+        ~VirtualFileSystem();
+
         ReadOnlyFile OpenReadOnlyFile(eastl::string_view _filePath);
 
     private:

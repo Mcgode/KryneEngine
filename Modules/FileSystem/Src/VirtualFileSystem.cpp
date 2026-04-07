@@ -6,12 +6,16 @@
 
 #include "KryneEngine/Modules/FileSystem/VirtualFileSystem.hpp"
 
+#include <KryneEngine/Core/Memory/Containers/LruCache.inl>
+
 namespace KryneEngine::Modules::FileSystem
 {
     VirtualFileSystem::VirtualFileSystem(const AllocatorInstance _allocator, const u32 _maxOpenFiles)
         : m_allocator(_allocator)
         , m_openFiles(_allocator, _maxOpenFiles)
     {}
+
+    VirtualFileSystem::~VirtualFileSystem() = default;
 
     ReadOnlyFile VirtualFileSystem::OpenReadOnlyFile(const eastl::string_view _filePath)
     {
