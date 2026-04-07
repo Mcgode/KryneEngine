@@ -14,6 +14,7 @@
 
 #include <KryneEngine/Core/Common/Assert.hpp>
 
+#include "KryneEngine/Modules/FileSystem/ReadOnlyFile.hpp"
 #include "KryneEngine/Modules/TextRendering/Font.hpp"
 #include "KryneEngine/Modules/TextRendering/Utils/FreetypeFunctionHelpers.hpp"
 
@@ -41,30 +42,29 @@ namespace KryneEngine::Modules::TextRendering
         KE_ASSERT_MSG(error == FT_Err_Ok, FT_Error_String(error));
     }
 
-    eastl::span<std::byte> FontManager::LoadResource(Resources::ResourceEntry* _entry, eastl::string_view _path)
+    eastl::span<std::byte> FontManager::LoadResource(Resources::ResourceEntry* _entry, const FileSystem::ReadOnlyFile& _file)
     {
-        std::ifstream file(_path.data(), std::ios::in | std::ios::binary | std::ios::ate);
-        if (!file.is_open())
+        std::byte magicNumber[sizeof(u64)];
+        if (_file.Read(0, magicNumber) != sizeof(magicNumber))
         {
             return {};
         }
 
-        const size_t fileSize = file.tellg();
-        file.seekg(0, std::ios::beg);
-        std::byte magicNumber[sizeof(u64)];
-        file.read(reinterpret_cast<char*>(&magicNumber), sizeof(magicNumber));
-        file.seekg(0, std::ios::beg);
-
         if (PreBakedFontFile::IsPreBakedFontFile(magicNumber))
         {
-            auto* fontFile = m_allocator.New<PreBakedFontFile>(file, fileSize, m_allocator);
+            auto* fontFile = m_allocator.New<PreBakedFontFile>(_file, m_allocator);
             return { reinterpret_cast<std::byte*>(fontFile), sizeof(PreBakedFontFile) };
         }
         else
         {
-            auto* buffer = m_allocator.Allocate<std::byte>(fileSize);
-            file.read(reinterpret_cast<char*>(buffer), static_cast<std::streamsize>(fileSize));
-            return { buffer, fileSize };
+            const size_t expectedSize = _file.GetSize();
+            auto* buffer = m_allocator.Allocate<std::byte>(expectedSize);
+            if (_file.ReadT(0, buffer, expectedSize) != expectedSize)
+            {
+                m_allocator.deallocate(buffer, expectedSize);
+                return {};
+            }
+            return { buffer, expectedSize };
         }
     }
 

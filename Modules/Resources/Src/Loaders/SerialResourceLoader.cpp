@@ -6,15 +6,17 @@
 
 #include "KryneEngine/Modules/Resources/Loaders/SerialResourceLoader.hpp"
 
-#include "KryneEngine/Core/Common/Assert.hpp"
+#include <KryneEngine/Core/Common/Assert.hpp>
+#include <KryneEngine/Modules/FileSystem/VirtualFileSystem.hpp>
+
 #include "KryneEngine/Modules/Resources/IResourceManager.hpp"
 
-#include <fstream>
 
 namespace KryneEngine::Modules::Resources
 {
-    SerialResourceLoader::SerialResourceLoader(AllocatorInstance _allocator)
-        : m_pendingRequests(_allocator)
+    SerialResourceLoader::SerialResourceLoader(const AllocatorInstance _allocator, FileSystem::VirtualFileSystem* _vfs)
+        : IResourceLoader(_vfs)
+        , m_pendingRequests(_allocator)
     {}
 
     void SerialResourceLoader::RequestLoad(
@@ -32,7 +34,16 @@ namespace KryneEngine::Modules::Resources
         }
 
         {
-            const eastl::span loadedResourceData = _resourceManager->LoadResource(_entry, _path.m_string);
+            eastl::span<std::byte> loadedResourceData {};
+            {
+                const FileSystem::ReadOnlyFile file = m_vfs->OpenReadOnlyFile(_path.m_string);
+
+                if (file.IsValid())
+                {
+                    loadedResourceData = _resourceManager->LoadResource(_entry, file);
+                }
+            }
+
             if (loadedResourceData.empty())
             {
                 _resourceManager->ReportFailedLoad(_entry, _path.m_string);

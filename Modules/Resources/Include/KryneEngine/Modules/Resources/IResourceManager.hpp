@@ -10,6 +10,11 @@
 #include <EASTL/string_view.h>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 
+namespace KryneEngine::Modules::FileSystem
+{
+    class ReadOnlyFile;
+}
+
 namespace KryneEngine::Modules::Resources
 {
     struct ResourceEntry;
@@ -19,7 +24,7 @@ namespace KryneEngine::Modules::Resources
     public:
         virtual ~IResourceManager() = default;
 
-        virtual eastl::span<std::byte> LoadResource(ResourceEntry* _entry, eastl::string_view _path);
+        virtual eastl::span<std::byte> LoadResource(ResourceEntry* _entry, const FileSystem::ReadOnlyFile& _file);
         virtual void FinalizeResourceLoading(ResourceEntry* _entry, eastl::span<std::byte> _loadedResourceData, eastl::string_view _path) = 0;
         virtual void ReportFailedLoad(ResourceEntry* _entry, eastl::string_view _path) = 0;
 

@@ -12,13 +12,15 @@
 #include <KryneEngine/Core/Memory/DynamicArray.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 
+#include "KryneEngine/Modules/FileSystem/ReadOnlyFile.hpp"
 #include "KryneEngine/Modules/TextRendering/MsdfAtlasManager.hpp"
 
 namespace KryneEngine::Modules::TextRendering
 {
-    PreBakedFontFile::PreBakedFontFile(std::ifstream& _file, const size_t _fileSize, const AllocatorInstance _allocator)
+    PreBakedFontFile::PreBakedFontFile(const FileSystem::ReadOnlyFile& _file, const AllocatorInstance _allocator)
     {
-        _file.read(reinterpret_cast<char*>(&m_header), sizeof(Header));
+        size_t offset = 0;
+        offset += _file.ReadT(offset, &m_header);
 
         KE_ASSERT(m_header.m_magicNumber == kMagicNumber);
 
@@ -35,12 +37,12 @@ namespace KryneEngine::Modules::TextRendering
                 auto* tablesBuffer = _allocator.Allocate<std::byte>(dstSize);
 
                 u32 compressedTablesSize;
-                _file.read(reinterpret_cast<char*>(&compressedTablesSize), sizeof(u32));
+                offset += _file.ReadT(offset, &compressedTablesSize);
                 const u32 alignedCompressedTablesSize = Alignment::AlignUp<u32>(compressedTablesSize, 4u);
 
                 auto* compressedTables = _allocator.Allocate<std::byte>(compressedTablesSize);
-                _file.read(reinterpret_cast<char*>(compressedTables), compressedTablesSize);
-                _file.seekg(alignedCompressedTablesSize - compressedTablesSize, std::ios::cur);
+                offset += _file.ReadT(offset, compressedTables, compressedTablesSize);
+                offset += alignedCompressedTablesSize - compressedTablesSize;
 
                 m_ctx = ZSTD_createDCtx();
 
@@ -65,7 +67,7 @@ namespace KryneEngine::Modules::TextRendering
                 // Retrieve render data compression dictionary
                 {
                     u32 dictBufferSize;
-                    _file.read(reinterpret_cast<char*>(&dictBufferSize), sizeof(u32));
+                    offset += _file.ReadT(offset, &dictBufferSize);
                     const u32 alignedDictBufferSize = Alignment::AlignUp<u32>(dictBufferSize, 4u);
 
                     m_dictBuffer = {
@@ -73,27 +75,27 @@ namespace KryneEngine::Modules::TextRendering
                         dictBufferSize,
                     };
 
-                    _file.read(reinterpret_cast<char*>(m_dictBuffer.data()), dictBufferSize);
-                    _file.seekg(alignedDictBufferSize- dictBufferSize, std::ios::cur);
+                    offset += _file.Read(offset, m_dictBuffer);
+                    offset += alignedDictBufferSize- dictBufferSize;
 
                     m_dict = ZSTD_createDDict(m_dictBuffer.data(), dictBufferSize);
                 }
 
                 // Retrieve render data payload
                 {
-                    const size_t payloadSize = _fileSize - _file.tellg();
+                    const size_t payloadSize = _file.GetSize() - offset;
 
                     m_data = { _allocator.Allocate<std::byte>(payloadSize), payloadSize };
-                    _file.read(reinterpret_cast<char*>(m_data.data()), static_cast<std::streamsize>(payloadSize));
+                    _file.Read(offset, m_data);
                 }
             }
         }
         else
         {
-            const size_t payloadSize = _fileSize - sizeof(Header);
+            const size_t payloadSize = _file.GetSize() - offset;
 
             m_data = { _allocator.Allocate<std::byte>(payloadSize), payloadSize };
-            _file.read(reinterpret_cast<char*>(m_data.data()), static_cast<std::streamsize>(payloadSize));
+            _file.Read(offset, m_data);
 
             m_glyphs = reinterpret_cast<GlyphEntry*>(m_data.data());
             auto ptr = reinterpret_cast<std::byte*>(m_glyphs + m_header.m_glyphCount);

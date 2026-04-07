@@ -7,22 +7,20 @@
 #include "KryneEngine/Modules/Resources/IResourceManager.hpp"
 
 #include <fstream>
+#include <KryneEngine/Modules/FileSystem/ReadOnlyFile.hpp>
 
 namespace KryneEngine::Modules::Resources
 {
-    eastl::span<std::byte> IResourceManager::LoadResource(ResourceEntry* _entry, eastl::string_view _path)
+    eastl::span<std::byte> IResourceManager::LoadResource(ResourceEntry* _entry, const FileSystem::ReadOnlyFile& _file)
     {
-        std::ifstream file(_path.data(), std::ios::in | std::ios::binary | std::ios::ate);
-        if (!file.is_open())
+        const size_t expectedSize = _file.GetSize();
+        auto* data = GetAllocator().Allocate<std::byte>(expectedSize);
+        const size_t size = _file.Read(0, { data, expectedSize });
+        if (!KE_VERIFY(size == expectedSize))
         {
+            GetAllocator().deallocate(data, expectedSize);
             return {};
         }
-
-        const size_t size = file.tellg();
-        file.seekg(0, std::ios::beg);
-        char* data = GetAllocator().Allocate<char>(size);
-        file.read(data, size);
-        file.close();
-        return { reinterpret_cast<std::byte*>(data), size };
+        return { data, size };
     }
 }

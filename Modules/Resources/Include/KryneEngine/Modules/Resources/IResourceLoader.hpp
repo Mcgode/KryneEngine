@@ -8,6 +8,11 @@
 
 #include <KryneEngine/Core/Common/StringHelpers.hpp>
 
+namespace KryneEngine::Modules::FileSystem
+{
+    class VirtualFileSystem;
+}
+
 namespace KryneEngine::Modules::Resources
 {
     class IResourceManager;
@@ -23,5 +28,10 @@ namespace KryneEngine::Modules::Resources
             ResourceEntry* _entry,
             IResourceManager* _resourceManager,
             u64 _loadFlags) = 0;
+
+    protected:
+        explicit IResourceLoader(FileSystem::VirtualFileSystem* _vfs): m_vfs(_vfs) {}
+
+        FileSystem::VirtualFileSystem* m_vfs = nullptr;
     };
 }

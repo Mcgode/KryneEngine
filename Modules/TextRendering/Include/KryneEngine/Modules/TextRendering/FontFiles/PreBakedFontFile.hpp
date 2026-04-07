@@ -19,6 +19,11 @@
 struct ZSTD_DCtx_s;
 struct ZSTD_DDict_s;
 
+namespace KryneEngine::Modules::FileSystem
+{
+    class ReadOnlyFile;
+}
+
 namespace KryneEngine::Modules::TextRendering
 {
 
@@ -54,7 +59,7 @@ namespace KryneEngine::Modules::TextRendering
         friend class FontManager;
 
     public:
-        PreBakedFontFile(std::ifstream& _file, size_t _fileSize, AllocatorInstance _allocator);
+        PreBakedFontFile(const FileSystem::ReadOnlyFile& _file, AllocatorInstance _allocator);
 
         enum class BakedRenderInfo
         {

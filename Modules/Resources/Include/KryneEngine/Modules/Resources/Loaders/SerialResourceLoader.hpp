@@ -19,7 +19,7 @@ namespace KryneEngine::Modules::Resources
     class SerialResourceLoader final: public IResourceLoader
     {
     public:
-        explicit SerialResourceLoader(AllocatorInstance _allocator);
+        SerialResourceLoader(AllocatorInstance _allocator, FileSystem::VirtualFileSystem* _vfs);
 
         void RequestLoad(
             const StringHash& _path,
