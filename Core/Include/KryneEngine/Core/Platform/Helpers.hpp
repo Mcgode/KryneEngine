@@ -22,6 +22,8 @@ namespace KryneEngine::Platform
             NoHost,
             InvalidPath,
             AccessDenied,
+            PathTooLong,
+            SystemLimit,
         };
 
         void* m_handle = nullptr;

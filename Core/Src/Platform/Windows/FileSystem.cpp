@@ -245,4 +245,82 @@ namespace KryneEngine::Platform
 
         return std::filesystem::path(appData) / _appName.data();
     }
+
+    ReadOnlyFileDescriptor OpenReadOnlyFile(const eastl::string_view _path, const AllocatorInstance _allocator)
+    {
+        HANDLE handle = CreateFileA(
+            _path.data(),
+            GENERIC_READ,
+            FILE_SHARE_READ,
+            nullptr,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+            nullptr);
+        if (handle == INVALID_HANDLE_VALUE)
+        {
+            switch (GetLastError())
+            {
+            case ERROR_ACCESS_DENIED:
+                return { OpaqueHandle(OpaqueHandle::Error::AccessDenied) };
+            case ERROR_FILE_NOT_FOUND:
+            case ERROR_PATH_NOT_FOUND:
+                return { OpaqueHandle(OpaqueHandle::Error::InvalidPath) };
+            case ERROR_FILENAME_EXCED_RANGE:
+                return { OpaqueHandle(OpaqueHandle::Error::PathTooLong) };
+            default:
+                return { OpaqueHandle(OpaqueHandle::Error::Unknown) };
+            }
+        }
+
+        return { OpaqueHandle { _allocator.New<HANDLE>(handle) } };
+    }
+
+    size_t GetFileSize(const ReadOnlyFileDescriptor _fd)
+    {
+        KE_ASSERT(_fd.IsValid());
+        const HANDLE handle = *static_cast<HANDLE*>(_fd.m_handle);
+
+        LARGE_INTEGER size {};
+        if (!GetFileSizeEx(handle, &size) || size.QuadPart < 0)
+        {
+            return 0;
+        }
+
+        return static_cast<size_t>(size.QuadPart);
+    }
+
+    size_t ReadFile(const ReadOnlyFileDescriptor _fd, const size_t _position, const eastl::span<std::byte> _dstBuffer)
+    {
+        KE_ASSERT(_fd.IsValid());
+        const HANDLE handle = *static_cast<HANDLE*>(_fd.m_handle);
+
+        if (_position > static_cast<size_t>(std::numeric_limits<DWORD>::max()) * (static_cast<size_t>(std::numeric_limits<DWORD>::max()) + 1ull))
+            return 0;
+
+        OVERLAPPED overlapped {};
+        overlapped.Offset = static_cast<DWORD>(_position & 0xffffffffull);
+        overlapped.OffsetHigh = static_cast<DWORD>(_position >> 32ull);
+
+        DWORD bytesRead = 0;
+        if (!::ReadFile(
+            handle,
+            _dstBuffer.data(),
+            _dstBuffer.size(),
+            &bytesRead,
+            &overlapped))
+        {
+            return 0;
+        }
+
+        return bytesRead;
+    }
+
+    void CloseReadOnlyFile(const ReadOnlyFileDescriptor _fd, const AllocatorInstance _allocator)
+    {
+        KE_ASSERT(_fd.IsValid());
+
+        auto* handle = static_cast<HANDLE*>(_fd.m_handle);
+        CloseHandle(*handle);
+        _allocator.deallocate(handle);
+    }
 }

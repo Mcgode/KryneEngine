@@ -9,7 +9,9 @@
 #include <filesystem>
 #include <CoreServices/CoreServices.h>
 #include <EASTL/vector_map.h>
+#include <sys/stat.h>
 
+#include "KryneEngine/Core/Common/Utils/Macros.hpp"
 #include "KryneEngine/Core/Memory/DynamicArray.hpp"
 
 namespace KryneEngine::Platform
@@ -223,7 +225,7 @@ namespace KryneEngine::Platform
 
     std::filesystem::path GetDefaultConfigDirectory(
         const eastl::string_view _appName,
-        bool _systemConfig)
+        const bool _systemConfig)
     {
         const char* home = _systemConfig ? "" : getenv("HOME");
 
@@ -231,5 +233,91 @@ namespace KryneEngine::Platform
             return  std::filesystem::path("/tmp") / _appName.data();
 
         return std::filesystem::path(home) / "Library/Application Support" / _appName.data();
+    }
+
+    ReadOnlyFileDescriptor OpenReadOnlyFile(const eastl::string_view _path, const AllocatorInstance _allocator)
+    {
+        const s32 fd = open(_path.data(), O_RDONLY);
+        if (fd == -1)
+        {
+            switch (errno)
+            {
+            case EACCES:
+                return { OpaqueHandle(OpaqueHandle::Error::AccessDenied) };
+            case ENOENT:
+                return { OpaqueHandle(OpaqueHandle::Error::InvalidPath) };
+            case ENAMETOOLONG:
+                return { OpaqueHandle(OpaqueHandle::Error::PathTooLong) };
+            default:
+                return { OpaqueHandle(OpaqueHandle::Error::Unknown) };
+            }
+        }
+
+        if constexpr (sizeof(void*) > sizeof(s32))
+        {
+            uintptr_t ptr = fd;
+            ptr <<= 1;
+            return { OpaqueHandle { reinterpret_cast<void*>(ptr) } };
+        }
+        else
+        {
+            return { OpaqueHandle { _allocator.New<s32>(fd) } };
+        }
+    }
+
+    KE_FORCEINLINE s32 RetrieveFd(const ReadOnlyFileDescriptor _fd)
+    {
+        if constexpr (sizeof(void*) > sizeof(s32))
+        {
+            auto ptr = reinterpret_cast<uintptr_t>(_fd.m_handle);
+            ptr >>= 1;
+            return static_cast<s32>(ptr);
+        }
+        else
+        {
+            return *static_cast<s32*>(_fd.m_handle);
+        }
+    }
+
+    size_t GetFileSize(const ReadOnlyFileDescriptor _fd)
+    {
+        KE_ASSERT(_fd.IsValid());
+        const s32 fd = RetrieveFd(_fd);
+
+        struct stat st {};
+        if (fstat(fd, &st) == -1)
+        {
+            return 0;
+        }
+
+        return st.st_size;
+    }
+
+    size_t ReadFile(const ReadOnlyFileDescriptor _fd, const size_t _position, const eastl::span<std::byte> _dstBuffer)
+    {
+        KE_ASSERT(_fd.IsValid());
+        const s32 fd = RetrieveFd(_fd);
+
+        const size_t readSize = pread(fd, _dstBuffer.data(), _dstBuffer.size(), static_cast<off_t>(_position));
+        return readSize == -1 ? readSize : 0;
+    }
+
+    void CloseReadOnlyFile(const ReadOnlyFileDescriptor _fd, const AllocatorInstance _allocator)
+    {
+        KE_ASSERT(_fd.IsValid());
+        s32 fd;
+
+        if constexpr (sizeof(void*) > sizeof(s32))
+        {
+            fd = RetrieveFd(_fd);
+        }
+        else
+        {
+            auto* ptr = static_cast<s32*>(_fd.m_handle);
+            fd = *ptr;
+            _allocator.Delete(ptr);
+        }
+
+        close(fd);
     }
 }

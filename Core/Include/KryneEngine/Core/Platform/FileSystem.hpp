@@ -10,7 +10,6 @@
 #include <EASTL/span.h>
 #include <EASTL/string_view.h>
 
-#include "EASTL/string.h"
 #include "KryneEngine/Core/Platform/Helpers.hpp"
 
 namespace KryneEngine::Platform
@@ -37,4 +36,17 @@ namespace KryneEngine::Platform
     std::filesystem::path GetDefaultConfigDirectory(
         eastl::string_view _appName,
         bool _systemConfig = false);
+
+
+    /**
+     * @brief Opaque handle to a read-only file descriptor that can be read from concurrently.
+     */
+    struct ReadOnlyFileDescriptor: OpaqueHandle {};
+
+    [[nodiscard]] ReadOnlyFileDescriptor OpenReadOnlyFile(eastl::string_view _path, AllocatorInstance _allocator);
+
+    [[nodiscard]] size_t GetFileSize(ReadOnlyFileDescriptor _fd);
+    [[nodiscard]] size_t ReadFile(ReadOnlyFileDescriptor _fd, size_t _position, eastl::span<std::byte> _dstBuffer);
+
+    void CloseReadOnlyFile(ReadOnlyFileDescriptor _fd, AllocatorInstance _allocator);
 }
