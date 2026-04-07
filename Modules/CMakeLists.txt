@@ -1,4 +1,5 @@
 add_subdirectory(ShaderLib)
+add_subdirectory(FileSystem)
 add_subdirectory(Resources)
 add_subdirectory(GraphicsUtils)
 add_subdirectory(GuiLib)
