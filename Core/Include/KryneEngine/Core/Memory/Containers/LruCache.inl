@@ -106,8 +106,8 @@ namespace KryneEngine
 
                     lock.Unlock();
 
-                    _valueReclaimFunctor(_key, true, ptr);
                     std::atomic_ref(entry.m_keyIdx).stor(pair.first - m_hashMap.begin(), std::memory_order::release);
+                    _valueReclaimFunctor(true, ptr);
                     return ptr;
                 }
                 index = entry.m_previous;
@@ -135,7 +135,7 @@ namespace KryneEngine
 
             lock.Unlock();
 
-            _valueReclaimFunctor(_key, false, ptr);
+            _valueReclaimFunctor(false, ptr);
             std::atomic_ref(entry.m_keyIdx).store(pair.first - m_hashMap.begin(), std::memory_order::release);
         }
         return ptr;
