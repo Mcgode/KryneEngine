@@ -299,7 +299,7 @@ namespace KryneEngine::Platform
         const s32 fd = RetrieveFd(_fd);
 
         const size_t readSize = pread(fd, _dstBuffer.data(), _dstBuffer.size(), static_cast<off_t>(_position));
-        return readSize == -1 ? readSize : 0;
+        return readSize == -1 ? 0 : readSize;
     }
 
     void CloseReadOnlyFile(const ReadOnlyFileDescriptor _fd, const AllocatorInstance _allocator)
