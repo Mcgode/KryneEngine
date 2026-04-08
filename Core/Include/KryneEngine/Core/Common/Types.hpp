@@ -43,6 +43,18 @@ namespace KryneEngine
         u32 m_bottom;
     };
 
+    struct Version
+    {
+        u16 m_major = 1;
+        u16 m_minor = 0;
+        u32 m_patch = 0;
+
+        [[nodiscard]] explicit operator u64() const noexcept
+        {
+            return *reinterpret_cast<const u64*>(this);
+        }
+    };
+
     template <class T>
     concept IsComplete = requires (T) { sizeof(T); };
 

@@ -10,13 +10,6 @@
 
 namespace KryneEngine::GraphicsCommon
 {
-    struct Version
-    {
-        u16 m_major = 1;
-        u16 m_minor = 0;
-        u32 m_revision = 0;
-    };
-
     enum class Api
     {
         None,
