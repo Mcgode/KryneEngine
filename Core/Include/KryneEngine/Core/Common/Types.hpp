@@ -53,6 +53,11 @@ namespace KryneEngine
         {
             return *reinterpret_cast<const u64*>(this);
         }
+
+        [[nodiscard]] bool operator==(const Version& _other) const
+        {
+            return static_cast<u64>(*this) == static_cast<u64>(_other);
+        }
     };
 
     template <class T>
