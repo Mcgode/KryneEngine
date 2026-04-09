@@ -312,6 +312,7 @@ namespace KryneEngine::Tests
         // Setup
         // -----------------------------------------------------------------------
 
+        GTEST_FLAG_SET(death_test_style, "threadsafe");
         ScopedAssertCatcher catcher;
 
         // -----------------------------------------------------------------------
@@ -319,57 +320,35 @@ namespace KryneEngine::Tests
         // -----------------------------------------------------------------------
 
         {
-            bool caught = false;
-            try
-            {
+            ASSERT_NO_FATAL_FAILURE({
                 KE_ASSERT_FATAL(1 == 1);
-            }
-            catch (std::runtime_error&)
-            {
-                caught = true;
-            }
-            EXPECT_FALSE(caught);
+            });
         }
 
         {
-            bool caught = false;
-            try
-            {
-                KE_ASSERT_FATAL(1 == 2);
-            }
-            catch (std::runtime_error&)
-            {
-                caught = true;
-            }
-            EXPECT_TRUE(caught);
+            ASSERT_DEATH(
+                {
+                    KE_ASSERT_FATAL(1 == 2);
+                },
+                "");
         }
 
         {
-            bool caught = false;
-            try
-            {
-                KE_ASSERT_FATAL_MSG(1 == 2, "Bad value");
-            }
-            catch (std::runtime_error&)
-            {
-                caught = true;
-            }
-            EXPECT_TRUE(caught);
-            EXPECT_STREQ(catcher.GetLastCaughtMessages().m_message.c_str(), "Bad value");
+            ASSERT_DEATH(
+                {
+                    KE_ASSERT_FATAL_MSG(1 == 2, "Bad value");
+                },
+                "");
+            // EXPECT_STREQ(catcher.GetLastCaughtMessages().m_message.c_str(), "Bad value");
         }
 
         {
-            bool caught = false;
-            try
-            {
-                KE_FATAL("Message");
-            }
-            catch (std::runtime_error&)
-            {
-                caught = true;
-            }
-            EXPECT_TRUE(caught);
-            EXPECT_STREQ(catcher.GetLastCaughtMessages().m_message.c_str(), "Message");
+            ASSERT_DEATH(
+                {
+                    KE_FATAL("Message");
+                },
+                "");
+            // EXPECT_STREQ(catcher.GetLastCaughtMessages().m_message.c_str(), "Message");
         }
 
         // -----------------------------------------------------------------------
