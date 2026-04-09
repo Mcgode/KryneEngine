@@ -1,0 +1,75 @@
+/**
+ * @file
+ * @author Max Godefroy
+ * @date 07/04/2026.
+ */
+
+#pragma once
+
+#include <fstream>
+#include <KryneEngine/Core/Math/Hashing.hpp>
+
+#include "KryneEngine/Modules/FileSystem/Flags.hpp"
+
+struct ZSTD_CCtx_s;
+
+namespace KryneEngine::Modules::FileSystem
+{
+    class Archive
+    {
+        friend class ArchiveMaker;
+
+    public:
+        struct Header
+        {
+            u64 m_magicNumber;
+            Version m_version;
+        };
+
+        struct Tail
+        {
+            u64 m_tableSize;
+            u64 m_stringsOffset;
+        };
+
+        struct Entry
+        {
+            u64 m_offset;
+            u64 m_size;
+            u32 m_fileNameOffset;
+            FileFlags m_flags;
+        };
+
+        static constexpr u64 kMagicNumber = Hashing::Hash64Static("Kryne Engine Archive");
+        static constexpr Version kVersion = Version::DateBased(2026, 0, 2026, 4, 8);
+        static constexpr size_t kAlignment = sizeof(u64);
+    };
+
+    class ArchiveMaker
+    {
+    public:
+        ArchiveMaker(
+            std::ofstream& _file,
+            eastl::string_view _mountPoint,
+            u32 _fileCount,
+            size_t _arenaByteSize = 512 << 10,
+            AllocatorInstance _allocator = {});
+
+        ~ArchiveMaker();
+
+        void SetCompressionLevel(const s32 _compressionLevel) { m_compressionLevel = _compressionLevel; }
+        [[nodiscard]] s32 GetCompressionLevel() const { return m_compressionLevel; }
+
+        void AddFile(std::ifstream& _file, eastl::string_view _path, FileFlags _flags);
+
+        void Finish();
+
+    private:
+        std::ofstream& m_file;
+        eastl::vector<char> m_stringBuffer;
+        eastl::vector<Archive::Entry> m_entries;
+        eastl::span<char> m_arena;
+        s32 m_compressionLevel = 3;
+        ZSTD_CCtx_s* m_zstdCompressionContext = nullptr;
+    };
+}
