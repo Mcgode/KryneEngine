@@ -7,7 +7,7 @@ add_library(KryneEngine_Modules_FileSystem STATIC
         Src/ReadOnlyFile.cpp
         Include/KryneEngine/Modules/FileSystem/ReadOnlyFile.hpp
         Include/KryneEngine/Modules/FileSystem/Flags.hpp
-        Include/KryneEngine/Modules/FileSystem/Archive.cpp
+        Src/Archive.cpp
         Include/KryneEngine/Modules/FileSystem/Archive.hpp
 )
 
