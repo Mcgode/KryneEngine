@@ -102,7 +102,6 @@ namespace KryneEngine
 
         static constexpr size_t kInitialSizePot = 5;
         static constexpr u64 kInitialSize = 1 << kInitialSizePot;
-        static constexpr u64 kMaxSize = (1 << GenPool::kIndexBits) - (1 << kInitialSizePot);
         static constexpr bool kHasColdData = !eastl::is_same_v<void, ColdDataStruct>;
 
         using Segment = HotData*;
@@ -132,6 +131,8 @@ namespace KryneEngine
         explicit GenerationalPool(const Allocator &_allocator);
 
         ~GenerationalPool();
+
+        static constexpr u64 kMaxSize = (1 << GenPool::kIndexBits) - (1 << kInitialSizePot);
 
         HotDataStruct* Get(GenPool::Handle _handle) const;
         eastl::pair<HotDataStruct*, ColdDataStruct*> GetAll(GenPool::Handle _handle) const;
