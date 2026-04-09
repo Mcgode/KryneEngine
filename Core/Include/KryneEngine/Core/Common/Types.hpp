@@ -58,6 +58,11 @@ namespace KryneEngine
         {
             return static_cast<u64>(*this) == static_cast<u64>(_other);
         }
+
+        static constexpr Version DateBased(const u16 _major, const u16 _minor, const u32 _year, const u32 _month, const u32 _day)
+        {
+            return Version { _major, _minor, _year * 1'00'00 + _month * 1'00 + _day };
+        }
     };
 
     template <class T>
