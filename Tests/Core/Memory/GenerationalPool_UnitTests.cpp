@@ -28,47 +28,22 @@ namespace KryneEngine::Tests
         // Execute
         // -----------------------------------------------------------------------
 
-        EXPECT_NE(hotPool.GetSize(), 0);
-        EXPECT_NE(hotAndColdPool.GetSize(), 0);
+        EXPECT_EQ(hotPool.GetSize(), 0);
+        EXPECT_EQ(hotAndColdPool.GetSize(), 0);
 
         EXPECT_EQ(hotPool.GetSize(), hotAndColdPool.GetSize());
 
         EXPECT_EQ(catcher.GetCaughtMessages().size(), expectedCaughtCount);
 
-        // Can forcibly access just initialized gen pool data with hardcoded generation set to 0.
-        // In user code, we expect the user not to access it this way.
-        const GenPool::Handle startHandle { 0, 0 };
+        // The gen pools are lazily initialized, so they should be empty, even at the first index.
+        const GenPool::Handle invalidHandle { 0, 0 };
 
-        EXPECT_NE(hotPool.Get(startHandle), nullptr);
-        EXPECT_NE(hotAndColdPool.Get(startHandle), nullptr);
-
-        EXPECT_EQ(hotPool.GetAll(startHandle).first, hotPool.Get(startHandle));
-        EXPECT_EQ(hotPool.GetAll(startHandle).second, nullptr);
-
-        EXPECT_NE(hotAndColdPool.GetAll(startHandle).second, nullptr);
-        EXPECT_EQ(hotAndColdPool.GetAll(startHandle).second, hotAndColdPool.GetCold(startHandle));
-
-        // Should have received no assert
-        EXPECT_EQ(catcher.GetCaughtMessages().size(), expectedCaughtCount);
-
-        const GenPool::Handle invalidGenerationHandle { 0, 1 };
-
-        EXPECT_EQ(hotPool.Get(invalidGenerationHandle), nullptr);
-        EXPECT_EQ(hotAndColdPool.Get(invalidGenerationHandle), nullptr);
-        EXPECT_EQ(hotAndColdPool.GetCold(invalidGenerationHandle), nullptr);
-
-        // Should have received no assert
-        EXPECT_EQ(catcher.GetCaughtMessages().size(), expectedCaughtCount);
-
-        const GenPool::Handle outOfBoundsHandle { static_cast<u16>(hotPool.GetSize()), 0 };
-
-        EXPECT_EQ(hotPool.Get(outOfBoundsHandle), nullptr);
+        EXPECT_EQ(hotPool.Get(invalidHandle), nullptr);
+        expectedCaughtCount++;
+        EXPECT_EQ(hotAndColdPool.Get(invalidHandle), nullptr);
         expectedCaughtCount++;
 
-        EXPECT_EQ(hotAndColdPool.Get(outOfBoundsHandle), nullptr);
-        expectedCaughtCount++;
-
-        // Out of bounds should trigger assert
+        // Should have received one assert per invalid Get
         EXPECT_EQ(catcher.GetCaughtMessages().size(), expectedCaughtCount);
     }
 
@@ -103,7 +78,7 @@ namespace KryneEngine::Tests
 
         // Fill to max size
 
-        for (u32 i = pool.GetSize(); i < (1 << 16); i++)
+        for (u32 i = pool.GetSize(); i < GenerationalPool<u8>::kMaxSize; i++)
         {
             const GenPool::Handle handle = pool.Allocate();
             EXPECT_EQ(handle.m_index, i);
