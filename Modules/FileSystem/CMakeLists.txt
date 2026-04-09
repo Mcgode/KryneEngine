@@ -9,6 +9,8 @@ add_library(KryneEngine_Modules_FileSystem STATIC
         Include/KryneEngine/Modules/FileSystem/Flags.hpp
         Src/Archive.cpp
         Include/KryneEngine/Modules/FileSystem/Archive.hpp
+        Src/Utils.cpp
+        Include/KryneEngine/Modules/FileSystem/Utils.hpp
 )
 
 target_include_directories(KryneEngine_Modules_FileSystem PUBLIC Include)
