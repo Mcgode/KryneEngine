@@ -44,7 +44,7 @@ namespace KryneEngine
 
         struct LinkedListEntry
         {
-            eastl::aligned_storage<sizeof(Value), alignof(Value)> m_value;
+            alignas(alignof(Value)) std::byte m_value[sizeof(Value)];
             u32 m_previous;
             u32 m_next;
             u32 m_keyIdx; // Since we won't go beyond the max load factor of the hash map, this index is always valid.
