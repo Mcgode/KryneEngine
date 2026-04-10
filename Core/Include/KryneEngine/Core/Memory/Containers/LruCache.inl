@@ -142,6 +142,22 @@ namespace KryneEngine
     }
 
     template <class Key, class Value>
+    Value* LruCache<Key, Value>::Acquire(Value* _valuePtr)
+    {
+        static_assert(offsetof(LinkedListEntry, m_value) == 0);
+
+        if (_valuePtr == nullptr)
+            return nullptr;
+
+        const auto lock = m_lock.AutoLock();
+        auto* entry = reinterpret_cast<LinkedListEntry*>(_valuePtr);
+        KE_ASSERT(entry->m_counter > 0);
+        ++entry->m_counter;
+
+        return _valuePtr;
+    }
+
+    template <class Key, class Value>
     void LruCache<Key, Value>::Release(Value* _valuePtr)
     {
         static_assert(offsetof(LinkedListEntry, m_value) == 0);

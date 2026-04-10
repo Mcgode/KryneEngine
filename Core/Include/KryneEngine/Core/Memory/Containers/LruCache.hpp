@@ -37,6 +37,11 @@ namespace KryneEngine
         template <class Functor>
         [[nodiscard]] Value* Acquire(const Key& _key, Functor _valueReclaimFunctor);
 
+        /**
+         * @brief Increases the usage counter for the corresponding entry.
+         */
+        Value* Acquire(Value* _valuePtr);
+
         void Release(Value* _valuePtr);
 
     private:
