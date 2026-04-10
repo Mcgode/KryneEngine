@@ -28,7 +28,14 @@ namespace KryneEngine
 
         static u64 Hash64(const eastl::string_view& _string)
         {
-            return Hashing::Hash64(_string.data(), _string.size());
+            size_t size = _string.size();
+
+            // Make sure that all equal strings end up with the same hash, independently of null-termination.
+            // Solves issues where strings like 'test' and test\0' ended up with different hashes.
+            while (size > 0 && _string[size - 1] == '\0')
+                --size;
+
+            return Hashing::Hash64(_string.data(), size);
         }
 
         bool operator==(const StringHashBase &rhs) const
