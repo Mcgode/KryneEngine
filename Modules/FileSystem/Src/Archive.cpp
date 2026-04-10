@@ -9,10 +9,83 @@
 #include <zstd.h>
 
 #include "KryneEngine/Core/Common/Utils/Alignment.hpp"
+#include "KryneEngine/Modules/FileSystem/ReadOnlyFile.hpp"
 
-namespace KryneEngine
+namespace KryneEngine::Modules::FileSystem
 {
-    Modules::FileSystem::ArchiveMaker::ArchiveMaker(
+    Archive* Archive::Load(const AllocatorInstance _allocator, Platform::ReadOnlyFileDescriptor* _file)
+    {
+        if (_file == nullptr || !_file->IsValid())
+            return nullptr;
+
+        const size_t archiveSize = Platform::GetFileSize(*_file);
+        if (archiveSize < sizeof(Header) + sizeof(Tail))
+            return nullptr;
+
+        Header header {};
+        size_t readSize = Platform::ReadFile(*_file, 0, { reinterpret_cast<std::byte*>(&header), sizeof(Header) });
+
+        KE_ASSERT(readSize == sizeof(Header));
+
+        if (header.m_magicNumber != kMagicNumber)
+            return nullptr;
+        if (header.m_version != kVersion)
+            return nullptr;
+
+        auto* archive = _allocator.New<Archive>();
+        archive->m_file = _file;
+
+        Tail tail {};
+        readSize = Platform::ReadFile(*_file, archiveSize - sizeof(Tail), { reinterpret_cast<std::byte*>(&tail), sizeof(Tail) });
+        KE_ASSERT(readSize == sizeof(Tail));
+
+        if (tail.m_stringsOffset < sizeof(Header) || tail.m_stringsOffset + sizeof(Tail) + tail.m_tableSize > archiveSize)
+            return nullptr;
+
+        const size_t stringBufferSize = archiveSize - tail.m_stringsOffset - sizeof(Tail) - tail.m_tableSize;
+        char* stringBuffer =  _allocator.Allocate<char>(stringBufferSize);
+        readSize = Platform::ReadFile(*_file, tail.m_stringsOffset, { reinterpret_cast<std::byte*>(stringBuffer), stringBufferSize });
+        KE_ASSERT(readSize == stringBufferSize);
+
+        archive->m_mountPoint = eastl::string(stringBuffer, _allocator);
+
+        const size_t entryCount = tail.m_tableSize / sizeof(Entry);
+        archive->m_fileTable.set_allocator(_allocator);
+        archive->m_fileTable.reserve(entryCount);
+
+        auto* entries = _allocator.Allocate<Entry>(entryCount);
+        readSize = Platform::ReadFile(
+            *_file,
+            archiveSize - sizeof(Tail) - tail.m_tableSize,
+            { reinterpret_cast<std::byte*>(entries), entryCount * sizeof(Entry) });
+        KE_ASSERT(readSize == entryCount * sizeof(Entry));
+
+        for (size_t i = 0; i < entryCount; ++i)
+        {
+            const Entry& entry = entries[i];
+            StringViewHash hash { stringBuffer + entry.m_fileNameOffset };
+            archive->m_fileTable.emplace(hash, FileEntry {
+                .m_offset = entry.m_offset,
+                .m_size = entry.m_size,
+                .m_flags = entry.m_flags,
+            });
+        }
+
+        _allocator.deallocate(stringBuffer, stringBufferSize);
+        _allocator.deallocate(entries, entryCount * sizeof(Entry));
+
+        return archive;
+    }
+
+    const Archive::FileEntry* Archive::GetFileEntry(StringViewHash _hash) const
+    {
+        const auto it = m_fileTable.find(_hash);
+        if (it == m_fileTable.end())
+            return nullptr;
+        return &it->second;
+    }
+
+    ArchiveMaker::ArchiveMaker(
         std::ofstream& _file,
         const eastl::string_view _mountPoint,
         const u32 _fileCount,
@@ -43,13 +116,13 @@ namespace KryneEngine
         m_zstdCompressionContext = ZSTD_createCCtx();
     }
 
-    Modules::FileSystem::ArchiveMaker::~ArchiveMaker()
+    ArchiveMaker::~ArchiveMaker()
     {
         ZSTD_freeCCtx(m_zstdCompressionContext);
         m_entries.get_allocator().deallocate(m_arena.data(), m_arena.size());
     }
 
-    void Modules::FileSystem::ArchiveMaker::AddFile(
+    void ArchiveMaker::AddFile(
         std::ifstream& _file,
         const eastl::string_view _path,
         const FileFlags _flags)
@@ -145,7 +218,7 @@ namespace KryneEngine
         m_file.write(padding, static_cast<std::streamsize>(Alignment::AlignUp(position, Archive::kAlignment) - position));
     }
 
-    void Modules::FileSystem::ArchiveMaker::Finish()
+    void ArchiveMaker::Finish()
     {
         const Archive::Tail tail {
             .m_tableSize = static_cast<u64>(m_entries.size() * sizeof(Archive::Entry)),

@@ -7,14 +7,19 @@
 #pragma once
 
 #include <fstream>
+#include <EASTL/vector_map.h>
+#include <KryneEngine/Core/Common/StringHelpers.hpp>
 #include <KryneEngine/Core/Math/Hashing.hpp>
 
+#include "KryneEngine/Core/Platform/FileSystem.hpp"
 #include "KryneEngine/Modules/FileSystem/Flags.hpp"
 
 struct ZSTD_CCtx_s;
 
 namespace KryneEngine::Modules::FileSystem
 {
+    class ReadOnlyFile;
+
     class Archive
     {
         friend class ArchiveMaker;
@@ -40,9 +45,27 @@ namespace KryneEngine::Modules::FileSystem
             FileFlags m_flags;
         };
 
+        struct FileEntry
+        {
+            u64 m_offset;
+            u64 m_size;
+            FileFlags m_flags;
+        };
+
         static constexpr u64 kMagicNumber = Hashing::Hash64Static("Kryne Engine Archive");
         static constexpr Version kVersion = Version::DateBased(2026, 0, 2026, 4, 8);
         static constexpr size_t kAlignment = sizeof(u64);
+
+        static Archive* Load(AllocatorInstance _allocator, Platform::ReadOnlyFileDescriptor* _file);
+
+        [[nodiscard]] eastl::string_view GetMountPoint() const { return m_mountPoint; }
+        [[nodiscard]] const FileEntry* GetFileEntry(StringViewHash _hash) const;
+        [[nodiscard]] Platform::ReadOnlyFileDescriptor* GetFileDescriptor() const { return m_file; }
+
+    private:
+        Platform::ReadOnlyFileDescriptor* m_file;
+        eastl::string m_mountPoint;
+        eastl::vector_map<StringHashBase, FileEntry> m_fileTable;
     };
 
     class ArchiveMaker
