@@ -35,7 +35,7 @@ namespace KryneEngine
          * The functor must use placement new (aka `new (ptr) Value(args...)`) when initializing a value.
          */
         template <class Functor>
-        [[nodiscard]] Value* Acquire(Key _key, Functor _valueReclaimFunctor);
+        [[nodiscard]] Value* Acquire(const Key& _key, Functor _valueReclaimFunctor);
 
         void Release(Value* _valuePtr);
 

@@ -60,7 +60,7 @@ namespace KryneEngine
 
     template <class Key, class Value>
     template <class Functor>
-    Value* LruCache<Key, Value>::Acquire(Key _key, Functor _valueReclaimFunctor)
+    Value* LruCache<Key, Value>::Acquire(const Key& _key, Functor _valueReclaimFunctor)
     {
         auto lock = m_lock.AutoLock();
 
