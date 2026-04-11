@@ -77,6 +77,15 @@ jobs:
     - name: Build Core
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{env.BUILD_TYPE}} --target KryneEngine_Core
 
+    - name: Build Core Unit tests
+      run: >
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{env.BUILD_TYPE}} --target
+        Core_Common_UnitTests
+        Core_Graphics_UnitTests
+        Core_Math_UnitTests
+        Core_Memory_UnitTests
+        Core_Threads_UnitTests
+
     - name: Build Modules
       run: >
         cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{env.BUILD_TYPE}} --target
@@ -90,14 +99,9 @@ jobs:
         KryneEngine_Modules_ShaderReflection
         KryneEngine_Modules_TextRendering
 
-    - name: Build Unit tests
+    - name: Build Modules Unit tests
       run: >
         cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{env.BUILD_TYPE}} --target
-        Core_Common_UnitTests
-        Core_Graphics_UnitTests
-        Core_Math_UnitTests
-        Core_Memory_UnitTests
-        Core_Threads_UnitTests
         Modules_FileSystem_UnitTests
         Modules_GraphicsUtils_UnitTests:
 
