@@ -24,7 +24,7 @@ namespace KryneEngine
     {
         m_device = MTL::CreateSystemDefaultDevice();
 
-        KE_VERIFY(m_device->supportsFamily(MTL::GPUFamilyMetal3));
+        KE_ASSERT(m_device->supportsFamily(MTL::GPUFamilyMetal3) || m_device->supportsFamily(MTL::GPUFamilyMac2));
 
         if (_appInfo.m_features.m_graphics)
         {
