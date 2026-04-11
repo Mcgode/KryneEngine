@@ -94,10 +94,13 @@ namespace KryneEngine
 
     void TracyGpuProfilerContext::ResolveQueries(const GraphicsContext* _graphicsContext, u64 _frameId)
     {
+        const auto [start, end] = m_frameContextQueryRanges[_frameId % m_frameContextQueryRanges.Size()];
+        if (start == end)
+            return;
+
         const eastl::span<const u64>& resolvedTimestamps = _graphicsContext->GetResolvedTimestamps(_frameId);
         KE_ASSERT(!resolvedTimestamps.empty());
 
-        const auto [start, end] = m_frameContextQueryRanges[_frameId % m_frameContextQueryRanges.Size()];
         for (u32 i = start; i != end; i = (i + 1) % kQueryRingBufferCapacity)
         {
             const u32 timestampIdx = m_queryRingBuffer[i];
