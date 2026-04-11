@@ -632,7 +632,14 @@ namespace KryneEngine::Modules::RenderGraph
 
             const Resource& resource = _registry.GetResource(resourceHandle);
 
-            if (!ImGui::TreeNode(&resource, "#%zu %s", resourceHandle, resource.m_name.c_str()))
+#if !defined(KE_FINAL)
+            const char* name = resource.m_name.c_str();
+#else
+            char name[64];
+            snprintf(name, sizeof(name), "0x%16p", &resource);
+#endif
+
+            if (!ImGui::TreeNode(&resource, "#%zu %s", resourceHandle, name))
                 continue;
 
             for (const ResourceUse& resourceUse: resourceData.m_uses)
@@ -643,6 +650,13 @@ namespace KryneEngine::Modules::RenderGraph
                 if (trueResourceHandle != resourceHandle)
                 {
                     const Resource& trueResource = _registry.GetResource(trueResourceHandle);
+
+#if !defined(KE_FINAL)
+                    const char* trueName = trueResource.m_name.empty() ? nullptr : trueResource.m_name.c_str();
+#else
+                    const char* trueName = nullptr;
+#endif
+
                     const char* type;
                     switch (trueResource.m_type)
                     {
@@ -659,7 +673,7 @@ namespace KryneEngine::Modules::RenderGraph
                         type = "unknown";
                     }
 
-                    if (trueResource.m_name.empty())
+                    if (trueName == nullptr)
                     {
                         ImGui::Text(
                             "Used in pass '%s' as a %s (%s #%zu)",
@@ -676,7 +690,7 @@ namespace KryneEngine::Modules::RenderGraph
                             useTypeNames[resourceUse.m_useType],
                             type,
                             trueResourceHandle,
-                            trueResource.m_name.c_str());
+                            trueName);
                     }
                 }
                 else
