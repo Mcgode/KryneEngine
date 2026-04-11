@@ -1308,6 +1308,7 @@ namespace KryneEngine
             return {};
 
         const MetalFrameContext& frameContext = m_frameContexts[_frameId % m_frameContextCount];
+        KE_VERIFY(!frameContext.m_resolvedTimestamps.Empty());
         return { frameContext.m_resolvedTimestamps.Data(), frameContext.m_resolvedTimestamps.Size() };
     }
 }
