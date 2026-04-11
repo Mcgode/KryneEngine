@@ -100,6 +100,10 @@ jobs:
         with:
           name: core-unit-tests
           path: ${{ env.BUILD_DIR }}/Tests/Core
+
+      - name: Restore execute permission
+        run: find Tests -type f -name '*UnitTests*' -exec chmod +x {} \;
+
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Core
         run: ctest -C ${{env.BUILD_TYPE}}
@@ -113,6 +117,10 @@ jobs:
         with:
           name: modules-unit-tests
           path: ${{ env.BUILD_DIR }}/Tests/Modules
+
+      - name: Restore execute permission
+        run: find Tests -type f -name '*UnitTests*' -exec chmod +x {} \;
+
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Modules
         run: ctest -C ${{env.BUILD_TYPE}}
