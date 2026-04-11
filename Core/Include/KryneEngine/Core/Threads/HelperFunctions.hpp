@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <new>
 #include <thread>
 
 #if defined(__x86_64__) || defined(__i386__)
