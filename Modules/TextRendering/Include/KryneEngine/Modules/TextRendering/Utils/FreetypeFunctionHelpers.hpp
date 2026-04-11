@@ -64,7 +64,7 @@ namespace KryneEngine::Modules::TextRendering::Freetype
             float2_simd vControl = vStart;
 
             FT_Vector* pPoints = outline.points + start;
-            u8* pTags = outline.tags + start;
+            u8* pTags = reinterpret_cast<u8*>(outline.tags) + start;
             FT_Vector* end = outline.points + last;
 
             KE_ASSERT(tag != FT_CURVE_TAG_CUBIC);
