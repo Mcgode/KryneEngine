@@ -35,17 +35,13 @@ namespace KryneEngine::Tests::Math
         EXPECT_EQ(sizeof(uint3Vec), 3 * sizeof(u32));
         EXPECT_EQ(sizeof(int4Vec), 4 * sizeof(s32));
 
-        uint2_simd uint2SimdVec {};
         int3_simd int3SimdVec {};
         float4_simd float4SimdVec {};
 
-        EXPECT_EQ(sizeof(uint2SimdVec), 16);
         EXPECT_EQ(sizeof(int3SimdVec), 16);
         EXPECT_EQ(sizeof(float4SimdVec), 16);
 
         // Check that padding is properly 0-initialized
-        EXPECT_EQ((&uint2SimdVec.x)[2], 0);
-        EXPECT_EQ((&uint2SimdVec.x)[3], 0);
         EXPECT_EQ((&int3SimdVec.x)[3], 0);
 
         // -----------------------------------------------------------------------
@@ -98,8 +94,8 @@ namespace KryneEngine::Tests::Math
         }
 
         {
-            const uint2_simd vecA { 1 };
-            const uint2_simd vecB { 1 };
+            const uint2 vecA { 1 };
+            const uint2 vecB { 1 };
             EXPECT_EQ(vecA, vecB);
         }
 
@@ -143,11 +139,11 @@ namespace KryneEngine::Tests::Math
         }
 
         {
-            const int2_simd vecA { 1, 2 };
-            const int2_simd vecB { 2, 1 };
+            const int2 vecA { 1, 2 };
+            const int2 vecB { 2, 1 };
 
-            const int2_simd result = vecA + vecB;
-            EXPECT_EQ(result, int2_simd(3));
+            const int2 result = vecA + vecB;
+            EXPECT_EQ(result, int2(3));
         }
 
         {
@@ -224,11 +220,11 @@ namespace KryneEngine::Tests::Math
         }
 
         {
-            const int2_simd vecA { 1, 2 };
-            const int2_simd vecB { 2, 1 };
+            const int2 vecA { 1, 2 };
+            const int2 vecB { 2, 1 };
 
-            const int2_simd result = vecA - vecB;
-            EXPECT_EQ(result, int2_simd(-1, 1));
+            const int2 result = vecA - vecB;
+            EXPECT_EQ(result, int2(-1, 1));
         }
 
         {
@@ -307,11 +303,11 @@ namespace KryneEngine::Tests::Math
         }
 
         {
-            const int2_simd vecA { 1, 2 };
-            const int2_simd vecB { 2, -1 };
+            const int2 vecA { 1, 2 };
+            const int2 vecB { 2, -1 };
 
-            const int2_simd result = vecA * vecB;
-            EXPECT_EQ(result, int2_simd(2, -2));
+            const int2 result = vecA * vecB;
+            EXPECT_EQ(result, int2(2, -2));
         }
 
         {
@@ -390,11 +386,11 @@ namespace KryneEngine::Tests::Math
         }
 
         {
-            const int2_simd vecA { 1, 2 };
-            const int2_simd vecB { 2, -1 };
+            const int2 vecA { 1, 2 };
+            const int2 vecB { 2, -1 };
 
-            const int2_simd result = vecA / vecB;
-            EXPECT_EQ(result, int2_simd(0, -2));
+            const int2 result = vecA / vecB;
+            EXPECT_EQ(result, int2(0, -2));
         }
 
         {

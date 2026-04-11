@@ -696,7 +696,7 @@ namespace KryneEngine::Modules::GuiLib
                     TextRendering::Font* font = m_atlasManager->GetFontManager()->GetFont(renderCommand.renderData.text.fontId);
                     const float fontSize = renderCommand.renderData.text.fontSize;
 
-                    float2_simd writePoint {
+                    float2 writePoint {
                         renderCommand.boundingBox.x,
                         renderCommand.boundingBox.y + font->GetAscender(fontSize)
                     };
@@ -718,15 +718,15 @@ namespace KryneEngine::Modules::GuiLib
 
                         const float scale = fontSize / msdfFontSize;
 
-                        const float2_simd glyphHalfSize {
+                        const float2 glyphHalfSize {
                             static_cast<float>(glyphRegion.m_width) * 0.5f * scale,
                             static_cast<float>(glyphRegion.m_height) * 0.5f * scale,
                         };
-                        const float2_simd glyphOffset {
+                        const float2 glyphOffset {
                             -static_cast<float>(glyphRegion.m_pxRange) * 0.5f * scale + glyphLayoutMetrics.m_bearingX,
                             -static_cast<float>(glyphRegion.m_baseline) * scale,
                         };
-                        const float2_simd glyphCenter = writePoint + glyphOffset + glyphHalfSize;
+                        const float2 glyphCenter = writePoint + glyphOffset + glyphHalfSize;
 
                         const uint2 glyphPackedRect = {
                             Math::Float16::PackFloat16x2(glyphCenter.x, glyphCenter.y),
