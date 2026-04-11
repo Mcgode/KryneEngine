@@ -6,7 +6,6 @@
 
 #include "KryneEngine/Core/Memory/Allocators/Allocator.hpp"
 
-#include "KryneEngine/Core/Memory/Allocators/DefaultHeapHeapAllocationTracker.hpp"
 #include "KryneEngine/Core/Platform/StdAlloc.hpp"
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
 
@@ -26,9 +25,6 @@ namespace KryneEngine
         else
         {
             ptr = StdAlloc::Malloc(_size);
-#if KE_TRACK_DEFAULT_HEAP_ALLOCATIONS
-            DefaultHeapHeapAllocationTracker::GetInstance().RegisterAllocation(ptr, _size, 0);
-#endif
 #if KE_PROFILE_MEMORY_ALLOCATIONS
            TracyAlloc(ptr, _size);
 #endif
@@ -50,9 +46,6 @@ namespace KryneEngine
         else
         {
             ptr = StdAlloc::MemAlign(_size, _alignment);
-#if KE_TRACK_DEFAULT_HEAP_ALLOCATIONS
-            DefaultHeapHeapAllocationTracker::GetInstance().RegisterAllocation(ptr, _size, _alignment);
-#endif
 #if KE_PROFILE_MEMORY_ALLOCATIONS
             TracyAlloc(ptr, _size);
 #endif
@@ -72,9 +65,6 @@ namespace KryneEngine
         }
         else
         {
-#if KE_TRACK_DEFAULT_HEAP_ALLOCATIONS
-            DefaultHeapHeapAllocationTracker::GetInstance().RegisterDeallocation(_ptr);
-#endif
             StdAlloc::Free(_ptr);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
             TracyFree(_ptr);
