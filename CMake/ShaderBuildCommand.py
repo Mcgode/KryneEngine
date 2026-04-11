@@ -9,7 +9,7 @@ def main():
     common_args = sys.argv[2:]
 
     def run_command(args):
-        result = subprocess.run(args, capture_output=True, text=True)
+        result = subprocess.run(args, check=True, capture_output=True, text=True)
         if len(result.stdout) > 0:
             print(result.stdout)
         if len(result.stderr) > 0:
