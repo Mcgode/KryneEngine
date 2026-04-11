@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <EASTL/array.h>
+
 #include "KryneEngine/Core/Common/Types.hpp"
 #include "KryneEngine/Core/Common/BitUtils.hpp"
 
@@ -150,6 +152,11 @@ namespace KryneEngine
         Zero,
         One,
     };
-    using Texture4ComponentsMapping = TextureComponentMapping[4];
-#define KE_DEFAULT_TEXTURE_COMPONENTS_MAPPING { TextureComponentMapping::Red, TextureComponentMapping::Green, TextureComponentMapping::Blue, TextureComponentMapping::Alpha }
+    using Texture4ComponentsMapping = eastl::array<TextureComponentMapping, 4>;
+    static constexpr Texture4ComponentsMapping kDefaultTexture4ComponentsMapping = {
+        TextureComponentMapping::Red,
+        TextureComponentMapping::Green,
+        TextureComponentMapping::Blue,
+        TextureComponentMapping::Alpha
+    };
 }

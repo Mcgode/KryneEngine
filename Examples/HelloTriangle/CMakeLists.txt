@@ -3,7 +3,7 @@
 add_executable(HelloTriangle HelloTriangle.cpp)
 
 # Link to KryneEngine (Core lib only).
-target_link_libraries(HelloTriangle KryneEngine_Core)
+target_link_libraries(HelloTriangle KryneEngine_Core_Link)
 
 # Set CMake folder for better grouping of CMAKE targets
 set_target_properties(HelloTriangle PROPERTIES FOLDER "EngineSamples")

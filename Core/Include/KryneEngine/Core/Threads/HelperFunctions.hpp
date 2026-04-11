@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include <new>
 #include <thread>
+
+#if defined(__x86_64__) || defined(__i386__)
+#   include <immintrin.h>
+#endif
 
 #include "KryneEngine/Core/Common/Types.hpp"
 
@@ -27,9 +32,13 @@ namespace KryneEngine::Threads
 #endif
     }
 
+#if defined(__cpp_lib_hardware_interference_size)
     constexpr size_t kCacheLineSize = std::hardware_destructive_interference_size > 1
         ? std::hardware_destructive_interference_size
         : 64; // Default to 64-byte cache line size, as consumer-grade CPUs almost always use it.
+#else
+    constexpr size_t kCacheLineSize = 64; // Default to 64-byte cache line size, as consumer-grade CPUs almost always use it.
+#endif
 
     template<class SyncPrimitive, void (SyncPrimitive::*LockMethod)(), void (SyncPrimitive::*UnlockMethod)()>
     struct SyncLockGuard

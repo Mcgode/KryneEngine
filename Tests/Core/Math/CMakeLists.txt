@@ -8,7 +8,7 @@ add_executable(Core_Math_UnitTests
         Float16_UnitTests.cpp
 )
 
-target_link_libraries(Core_Math_UnitTests KryneEngine_Core TestUtils gtest gtest_main)
+target_link_libraries(Core_Math_UnitTests KryneEngine_Core_Link TestUtils gtest gtest_main)
 set_target_properties(Core_Math_UnitTests PROPERTIES FOLDER "EngineTesting")
 
 add_test(NAME Core_Math_UnitTests COMMAND Core_Math_UnitTests)

@@ -267,3 +267,11 @@ target_include_directories(KryneEngine_Core PRIVATE Src)
 set_target_properties(KryneEngine_Core PROPERTIES FOLDER "EngineCore")
 
 AddCoverage(KryneEngine_Core)
+
+add_library(KryneEngine_Core_Link INTERFACE)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(KryneEngine_Core_Link INTERFACE "$<LINK_GROUP:RESCAN,KryneEngine_Core,EASTL,EAStdC>")
+else ()
+        target_link_libraries(KryneEngine_Core_Link INTERFACE KryneEngine_Core)
+endif ()

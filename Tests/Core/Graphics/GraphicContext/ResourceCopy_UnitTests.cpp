@@ -31,7 +31,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle srcBuffer = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "SrcBuffer",
+#endif
             },
             .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferSrcBuffer,
         });
@@ -39,7 +41,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle dstBuffer = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "DstBuffer",
+#endif
             },
             .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferDstBuffer,
         });
@@ -127,7 +131,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle srcBuffer = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "SrcBuffer",
+#endif
             },
             .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferSrcBuffer,
         });
@@ -135,7 +141,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle gpuBuffer = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "GpuBuffer",
+#endif
             },
             .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferSrcBuffer | MemoryUsage::TransferDstBuffer,
         });
@@ -143,7 +151,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle dstBuffer = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "DstBuffer",
+#endif
             },
             .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferDstBuffer,
         });
@@ -263,7 +273,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle srcBuffer = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "SrcBuffer",
+#endif
             },
             .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferSrcBuffer,
         });
@@ -271,7 +283,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle gpuBuffer0 = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "GpuBuffer0",
+#endif
             },
             .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferSrcBuffer | MemoryUsage::TransferDstBuffer,
         });
@@ -279,7 +293,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle gpuBuffer1 = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "GpuBuffer1",
+#endif
             },
             .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferSrcBuffer | MemoryUsage::TransferDstBuffer,
         });
@@ -287,7 +303,9 @@ namespace KryneEngine::Tests::Graphics
         BufferHandle dstBuffer = graphicsContext->CreateBuffer({
             .m_desc = {
                 .m_size = sizeof(payload),
+#if !defined(KE_FINAL)
                 .m_debugName = "DstBuffer",
+#endif
             },
             .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferDstBuffer,
         });
