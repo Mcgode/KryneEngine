@@ -6,7 +6,6 @@ from pathlib import Path, PurePath
 import os
 from ninja import ninja_syntax
 import platform
-import subprocess
 
 
 def main():
@@ -28,20 +27,6 @@ def main():
         path = shader_tools["dxc"]
         current_mode = os.stat(path).st_mode
         os.chmod(path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-    def run_command(args, shell=False):
-        result = subprocess.run(args, capture_output=True, text=True, shell=shell)
-        if len(result.stdout) > 0:
-            print(result.stdout)
-        if len(result.stderr) > 0:
-            print(result.stderr)
-
-    for name, path in shader_tools.items():
-        run_command("uname -m", True)
-        if not Path(path).exists():
-            print(f"Error: {path} not found")
-        run_command(f"file {path}", True)
-        run_command([path, "--help"])
 
     with open(output_file, 'w') as f:
         writer = ninja_syntax.Writer(f, 150)
