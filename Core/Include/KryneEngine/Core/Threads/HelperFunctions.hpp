@@ -8,6 +8,10 @@
 
 #include <thread>
 
+#if defined(__x86_64__) || defined(__i386__)
+#   include <immintrin.h>
+#endif
+
 #include "KryneEngine/Core/Common/Types.hpp"
 
 namespace KryneEngine::Threads
