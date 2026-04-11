@@ -49,7 +49,7 @@ namespace KryneEngine::GraphicsCommon
 
         struct Features
         {
-            bool m_validationLayers = true;
+            SoftEnable m_validationLayers = SoftEnable::TryEnable;
             SoftEnable m_debugTags = SoftEnable::TryEnable;
             SoftEnable m_gpuTimestamps = SoftEnable::TryEnable;
             u32 m_gpuTimestampBufferCapacity = 4'096;

@@ -142,10 +142,13 @@ namespace KryneEngine
             MetalFrameContext& frameContext = m_frameContexts[i % m_frameContextCount];
             frameContext.WaitForFrame(i);
             frameContext.ResolveCounters(m_timestampConversion);
-            m_lastResolvedFrameId = i;
-            if (m_profilerContext != nullptr)
+            if (m_lastResolvedFrameId == ~0ull || m_lastResolvedFrameId < i)
             {
-                m_profilerContext->ResolveQueries(this, i);
+                m_lastResolvedFrameId = i;
+                if (m_profilerContext != nullptr)
+                {
+                    m_profilerContext->ResolveQueries(this, i);
+                }
             }
         }
     }

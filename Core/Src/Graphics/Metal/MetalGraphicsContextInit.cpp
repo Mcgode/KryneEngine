@@ -24,7 +24,7 @@ namespace KryneEngine
     {
         m_device = MTL::CreateSystemDefaultDevice();
 
-        KE_VERIFY(m_device->supportsFamily(MTL::GPUFamilyMetal3));
+        KE_ASSERT(m_device->supportsFamily(MTL::GPUFamilyMetal3) || m_device->supportsFamily(MTL::GPUFamilyMac2));
 
         if (_appInfo.m_features.m_graphics)
         {
@@ -92,12 +92,15 @@ namespace KryneEngine
             m_graphicsQueue != nullptr,
             m_computeQueue != nullptr,
             m_ioQueue != nullptr,
-            m_appInfo.m_features.m_validationLayers);
+            m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled);
 
         m_frameContexts[frameIndex].PrepareForNextFrame(m_frameId);
 
         m_argumentBufferManager.Init(m_frameContextCount, frameIndex);
     }
 
-    MetalGraphicsContext::~MetalGraphicsContext() = default;
+    MetalGraphicsContext::~MetalGraphicsContext()
+    {
+        WaitForLastFrame();
+    }
 }

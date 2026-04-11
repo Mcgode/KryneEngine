@@ -59,7 +59,7 @@ namespace KryneEngine
 
     private:
         VkInstance m_instance;
-        VkDebugUtilsMessengerEXT m_debugMessenger;
+        VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
         VkPhysicalDevice m_physicalDevice;
         VkDevice m_device;
 
@@ -97,9 +97,9 @@ namespace KryneEngine
         u8 m_frameContextCount;
         DynamicArray<VkFrameContext> m_frameContexts;
 
-        static void _PrepareValidationLayers(VkInstanceCreateInfo& _createInfo);
+        static bool PrepareValidationLayers(VkInstanceCreateInfo& _createInfo);
 
-        eastl::vector<const char*> _RetrieveRequiredExtensionNames(const GraphicsCommon::ApplicationInfo& _appInfo);
+        eastl::vector<const char*> RetrieveRequiredExtensionNames(const GraphicsCommon::ApplicationInfo& _appInfo, bool _validationLayersEnabled);
         void _RetrieveOptionalExtensionNames(
                 eastl::vector<const char *>& _currentList,
                 const DynamicArray<VkExtensionProperties> &_availableExtensions,
