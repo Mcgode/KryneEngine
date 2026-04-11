@@ -25,17 +25,8 @@ jobs:
         submodules: recursive
         fetch-depth: 0
 
-    - name: Install dependencies
-      run: |
-        brew update
-        brew install \
-          freetype \
-          cmake \
-          ninja
-
     - name: Setup shader build environment
       run: |
-        brew install python3
         sudo pip3 install ninja --break-system-packages
 
     - name: Set reusable strings
