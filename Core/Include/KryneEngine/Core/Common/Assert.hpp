@@ -26,6 +26,8 @@ namespace KryneEngine::Assertion
 
 #if defined(__APPLE__)
 #   define KE_DEBUG_BREAK() __builtin_debugtrap()
+#elif defined(__linux__)
+#   define KE_DEBUG_BREAK() __builtin_trap()
 #else
 #   define KE_DEBUG_BREAK() __debugbreak()
 #endif

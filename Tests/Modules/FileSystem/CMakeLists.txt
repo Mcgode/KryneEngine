@@ -1,6 +1,6 @@
 project(KryneEngine_Modules_GraphicsUtils_Tests)
 
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.31)
 
 add_executable(Modules_FileSystem_UnitTests
         Utils_UnitTests.cpp

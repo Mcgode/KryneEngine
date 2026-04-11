@@ -10,8 +10,9 @@
 #   define WINDOWS_THREADS
 #   include <KryneEngine/Core/Platform/Windows.h>
 #elif defined(__unix__)
-    #define PTHREADS
-    #include <pthread.h>
+#   define PTHREADS
+#   include <pthread.h>
+#   include <csignal>
 #elif defined(__APPLE__)
 #   define MACOS_THREADS
 #endif
