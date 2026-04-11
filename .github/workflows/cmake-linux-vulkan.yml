@@ -104,7 +104,7 @@ jobs:
       run: >
         cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{env.BUILD_TYPE}} --target
         Modules_FileSystem_UnitTests
-        Modules_GraphicsUtils_UnitTests:
+        Modules_GraphicsUtils_UnitTests
 
     - name: Build Samples
       run: >
