@@ -130,7 +130,7 @@ jobs:
 
     steps:
       - name: Install Mesa driver
-        run: sudo apt install -y mesa-vulkan-drivers
+        run: sudo apt install -y mesa-vulkan-drivers vulkan-validationlayers
 
       - name: Download
         uses: actions/download-artifact@v7
@@ -155,7 +155,7 @@ jobs:
 
     steps:
       - name: Install Mesa driver
-        run: sudo apt install -y mesa-vulkan-drivers
+        run: sudo apt install -y mesa-vulkan-drivers vulkan-validationlayers
 
       - name: Download
         uses: actions/download-artifact@v7
