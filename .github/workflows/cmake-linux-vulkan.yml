@@ -89,7 +89,7 @@ jobs:
 
     - name: Build Modules
       run: >
-        cmake --build ${{ env.BUILD_DIR }}--config ${{env.BUILD_TYPE}} --target
+        cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target
         KryneEngine_Modules_FileSystem
         KryneEngine_Modules_GraphicsUtils
         KryneEngine_Modules_GuiLib
