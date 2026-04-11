@@ -6,6 +6,8 @@
 
 #include "KryneEngine/Modules/FileSystem/ReadOnlyFile.hpp"
 
+#include <KryneEngine/Core/Memory/Containers/LruCache.inl>
+
 #include "KryneEngine/Modules/FileSystem/VirtualFileSystem.hpp"
 
 namespace KryneEngine::Modules::FileSystem

@@ -8,6 +8,8 @@
 
 #include "KryneEngine/Core/Memory/Containers/FlatHashMap.hpp"
 
+#include "KryneEngine/Core/Math/Hashing.hpp"
+
 namespace KryneEngine
 {
     template <class Key, class Value, bool Fixed>
