@@ -142,10 +142,13 @@ namespace KryneEngine
             MetalFrameContext& frameContext = m_frameContexts[i % m_frameContextCount];
             frameContext.WaitForFrame(i);
             frameContext.ResolveCounters(m_timestampConversion);
-            m_lastResolvedFrameId = i;
-            if (m_profilerContext != nullptr)
+            if (m_lastResolvedFrameId == ~0ull || m_lastResolvedFrameId < i)
             {
-                m_profilerContext->ResolveQueries(this, i);
+                m_lastResolvedFrameId = i;
+                if (m_profilerContext != nullptr)
+                {
+                    m_profilerContext->ResolveQueries(this, i);
+                }
             }
         }
     }
@@ -1299,10 +1302,9 @@ namespace KryneEngine
 
     eastl::span<const u64> MetalGraphicsContext::GetResolvedTimestamps(u64 _frameId) const
     {
-        if (!KE_VERIFY((m_lastResolvedFrameId == ~0ull)))
+        if (m_lastResolvedFrameId == ~0ull)
             return {};
-        if (!KE_VERIFY(_frameId > m_lastResolvedFrameId) ||
-            !KE_VERIFY(_frameId + m_frameContextCount <= m_lastResolvedFrameId))
+        if (_frameId > m_lastResolvedFrameId || _frameId + m_frameContextCount <= m_lastResolvedFrameId)
             return {};
 
         const MetalFrameContext& frameContext = m_frameContexts[_frameId % m_frameContextCount];

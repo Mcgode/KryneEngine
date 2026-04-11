@@ -46,6 +46,7 @@ namespace KryneEngine
     }
     void GraphicsContext::Destroy(GraphicsContext* _context)
     {
+        _context->WaitForLastFrame();
         if (_context->m_profilerContext != nullptr)
         {
             _context->m_allocator.Delete(_context->m_profilerContext);

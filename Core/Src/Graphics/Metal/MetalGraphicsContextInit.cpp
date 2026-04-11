@@ -99,5 +99,8 @@ namespace KryneEngine
         m_argumentBufferManager.Init(m_frameContextCount, frameIndex);
     }
 
-    MetalGraphicsContext::~MetalGraphicsContext() = default;
+    MetalGraphicsContext::~MetalGraphicsContext()
+    {
+        WaitForLastFrame();
+    }
 }
