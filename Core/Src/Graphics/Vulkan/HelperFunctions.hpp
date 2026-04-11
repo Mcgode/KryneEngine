@@ -28,12 +28,12 @@ namespace KryneEngine
 
 namespace KryneEngine::VkHelperFunctions
 {
-    inline u32 MakeVersion(const GraphicsCommon::Version& _version)
+    inline u32 MakeVersion(const Version& _version)
     {
         return VK_MAKE_VERSION(
             _version.m_major,
             _version.m_minor,
-            _version.m_revision
+            _version.m_patch
         );
     }
 

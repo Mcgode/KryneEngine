@@ -8,7 +8,7 @@
 
 #include "KryneEngine/Core/Platform/StdAlloc.hpp"
 
-void* __cdecl operator new[](
+void* operator new[](
     const size_t _size,
     const char* /* _name */,
     int /* _flags */,
@@ -19,7 +19,7 @@ void* __cdecl operator new[](
     return KryneEngine::StdAlloc::Malloc(_size);
 }
 
-void* __cdecl operator new[](
+void* operator new[](
     const size_t _size,
     const size_t _alignment,
     const size_t _alignmentOffset,
@@ -33,7 +33,7 @@ void* __cdecl operator new[](
     return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + _alignmentOffset);
 }
 
-void __cdecl operator delete(
+void operator delete(
     void* _p,
     const char* /* _name */,
     int /* _flags */,
@@ -47,7 +47,7 @@ void __cdecl operator delete(
     }
 }
 
-void __cdecl operator delete[](
+void operator delete[](
     void* _p,
     const char* /* _name */,
     int /* _flags */,

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-
+import stat
 import sys
 import json
 from pathlib import Path, PurePath
 import os
 from ninja import ninja_syntax
+import platform
 
 
 def main():
@@ -21,6 +22,11 @@ def main():
     shader_list_files = sys.argv[9:]
 
     working_dir = output_file.parent
+
+    if platform.system() in ("Linux", "Darwin"):
+        path = shader_tools["dxc"]
+        current_mode = os.stat(path).st_mode
+        os.chmod(path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     with open(output_file, 'w') as f:
         writer = ninja_syntax.Writer(f, 150)

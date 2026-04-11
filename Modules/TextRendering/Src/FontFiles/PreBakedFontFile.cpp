@@ -642,7 +642,7 @@ namespace KryneEngine::Modules::TextRendering
         {
             KE_ZoneScoped("Setup header");
             growingHead.resize(sizeof(Header));
-            *reinterpret_cast<Header*>(growingHead.data()) = {
+            *reinterpret_cast<Header*>(growingHead.data()) = Header {
                 .m_magicNumber = kMagicNumber,
                 .m_fontMetrics = _fontMetrics,
                 .m_options = {

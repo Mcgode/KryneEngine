@@ -8,6 +8,10 @@
 
 #include <new>
 
+#if defined(__linux__)
+#   include <stdlib.h>
+#endif
+
 namespace KryneEngine::StdAlloc
 {
     void* Malloc(size_t _size)

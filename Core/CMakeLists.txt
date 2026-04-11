@@ -17,19 +17,6 @@ set(CommonSrc
         Src/Common/StringHelpers.cpp
 )
 
-set(FilesSrc
-        Src/Files/FileWatcher.cpp
-        Src/Files/FileWatcher.hpp
-        Src/Files/WatchedDirectory.cpp
-        Src/Files/WatchedDirectory.hpp
-        Src/Files/FileSystemHelper.cpp
-        Src/Files/FileSystemHelper.hpp
-        Src/Files/IoQueryManager.cpp
-        Src/Files/IoQueryManager.hpp
-        Src/Files/File.cpp
-        Src/Files/File.hpp
-        )
-
 set(GraphicsCommonFiles
         Src/Graphics/GraphicsContext.cpp
         Include/KryneEngine/Core/Graphics/GraphicsContext.hpp
@@ -231,7 +218,6 @@ endif()
 
 add_library(KryneEngine_Core
         ${CommonSrc}
-        ${FilesSrc}
         ${GraphicsFiles}
         ${MathSrc}
         ${MemorySrc}
