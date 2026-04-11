@@ -16,7 +16,9 @@ namespace KryneEngine::Tests::Graphics
     const BufferCreateDesc defaultBufferCreateDesc {
         .m_desc = {
             .m_size = 16,
+#if !defined(KE_FINAL)
             .m_debugName = "Unit Test Buffer 0",
+#endif
         },
         .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferDstBuffer
     };
@@ -127,7 +129,12 @@ namespace KryneEngine::Tests::Graphics
         {
             // Buffer with size 0 is invalid
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 0, .m_debugName = "Unit test buffer 0"},
+                .m_desc = {
+                    .m_size = 0,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 0"
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferDstBuffer,
             }));
             errorCount++;
@@ -136,7 +143,12 @@ namespace KryneEngine::Tests::Graphics
 
             // Buffer without correct usage is invalid
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 1"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 1",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType,
             }));
             errorCount++;
@@ -147,56 +159,96 @@ namespace KryneEngine::Tests::Graphics
         // Valid buffers with only 1 usage
         {
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 2"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 2",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferSrcBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 3"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 3",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferDstBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 4"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 4",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ConstantBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 5"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 5"
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ReadBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 6"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 6",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::WriteBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 7"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 7",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::IndexBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 8"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 8"
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::VertexBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 9"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 9",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::IndirectBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
@@ -207,7 +259,12 @@ namespace KryneEngine::Tests::Graphics
             if (raytracingSupported)
             {
                 buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                    .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 10"},
+                    .m_desc = {
+                        .m_size = 16,
+#if !defined(KE_FINAL)
+                        .m_debugName = "Unit test buffer 10",
+#endif
+                    },
                     .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::AccelerationStruct,
                 }));
                 catcher.ExpectMessageCount(errorCount);
@@ -218,42 +275,72 @@ namespace KryneEngine::Tests::Graphics
         // Some multi-usage buffers
         {
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 11"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 11",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ReadWriteBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 12"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 12",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::IndexBuffer | MemoryUsage::VertexBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 13"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 13",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::IndirectBuffer | MemoryUsage::WriteBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 14"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 14",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::IndirectBuffer | MemoryUsage::ReadWriteBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 15"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 15",
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ConstantBuffer | MemoryUsage::TransferDstBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 16"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 16"
+#endif
+                },
                 .m_usage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferSrcBuffer | MemoryUsage::ReadWriteBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
@@ -263,28 +350,48 @@ namespace KryneEngine::Tests::Graphics
         // Non GPU-only buffers
         {
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 17"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 17",
+#endif
+                },
                 .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferSrcBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 18"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 18",
+#endif
+                },
                 .m_usage = MemoryUsage::StageEveryFrame_UsageType | MemoryUsage::TransferSrcBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 19"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 19",
+#endif
+                },
                 .m_usage = MemoryUsage::StageEveryFrame_UsageType | MemoryUsage::ConstantBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);
             EXPECT_EQ(buffers.back().m_handle, (GenPool::Handle{index++}));
 
             buffers.push_back(graphicsContext->CreateBuffer(BufferCreateDesc{
-                .m_desc = {.m_size = 16, .m_debugName = "Unit test buffer 20"},
+                .m_desc = {
+                    .m_size = 16,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Unit test buffer 20",
+#endif
+                },
                 .m_usage = MemoryUsage::Readback_UsageType | MemoryUsage::TransferDstBuffer,
             }));
             catcher.ExpectMessageCount(errorCount);

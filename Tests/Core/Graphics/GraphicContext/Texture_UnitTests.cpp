@@ -21,7 +21,9 @@ namespace KryneEngine::Tests::Graphics
             .m_arraySize = 1,
             .m_type = TextureTypes::Single2D,
             .m_mipCount = 1,
+#if !defined(KE_FINAL)
             .m_debugName = "Unit Test Texture 0",
+#endif
         },
         .m_footprintPerSubResource = {},
         .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::TransferDstImage,
