@@ -1299,9 +1299,10 @@ namespace KryneEngine
 
     eastl::span<const u64> MetalGraphicsContext::GetResolvedTimestamps(u64 _frameId) const
     {
-        if (m_lastResolvedFrameId == ~0ull)
+        if (!KE_VERIFY((m_lastResolvedFrameId == ~0ull)))
             return {};
-        if (_frameId > m_lastResolvedFrameId || _frameId + m_frameContextCount <= m_lastResolvedFrameId)
+        if (!KE_VERIFY(_frameId > m_lastResolvedFrameId) ||
+            !KE_VERIFY(_frameId + m_frameContextCount <= m_lastResolvedFrameId))
             return {};
 
         const MetalFrameContext& frameContext = m_frameContexts[_frameId % m_frameContextCount];
