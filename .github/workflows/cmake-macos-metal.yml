@@ -102,7 +102,7 @@ jobs:
           path: ${{ env.BUILD_DIR }}/Tests/Core
 
       - name: Restore execute permission
-        run: find ${{ env.BUILD_DIR }}/Tests/Modules -type f -name '*UnitTests*' -exec chmod +x {} \;
+        run: find ${{ env.BUILD_DIR }}/Tests/Core -type f -name '*UnitTests*' -exec chmod +x {} \;
 
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Core
