@@ -27,15 +27,15 @@ jobs:
 
     - name: Install dependencies
       run: |
-        sudo brew update
-        sudo brew install \
+        brew update
+        brew install \
           freetype \
           cmake \
           ninja
 
     - name: Setup shader build environment
       run: |
-        sudo brew install python3 pip
+        brew install python3 pip
         sudo pip install ninja --break-system-packages
 
     - name: Set reusable strings
