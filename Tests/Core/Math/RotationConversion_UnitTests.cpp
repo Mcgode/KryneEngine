@@ -20,7 +20,7 @@ namespace KryneEngine::Tests::Math
     {
         {
             // Identity quaternion should be equal to null euler
-            const Quaternion q = FromEulerAngles<float, float, false, Order>(float3(0));
+            const Quaternion q = FromEulerAngles<float, float, Order>(float3(0));
             EXPECT_EQ(Quaternion(), q);
         }
 
@@ -28,7 +28,7 @@ namespace KryneEngine::Tests::Math
             // Rotation around the X axis
             constexpr float angle = M_PI_2 * 0.8f;
             const Quaternion expected = Quaternion().FromAxisAngle(float3(1, 0, 0), angle);
-            const Quaternion result = FromEulerAngles<float, float, false, Order>(float3(angle, 0, 0));
+            const Quaternion result = FromEulerAngles<float, float, Order>(float3(angle, 0, 0));
             EXPECT_EQ(expected, result);
         }
 
@@ -36,7 +36,7 @@ namespace KryneEngine::Tests::Math
             // Rotation around the Y axis
             constexpr float angle = M_PI_2 * 0.6f;
             const Quaternion expected = Quaternion().FromAxisAngle(float3(0, 1, 0), angle);
-            const Quaternion result = FromEulerAngles<float, float, false, Order>(float3(0, angle, 0));
+            const Quaternion result = FromEulerAngles<float, float, Order>(float3(0, angle, 0));
             EXPECT_EQ(expected, result);
         }
 
@@ -44,7 +44,7 @@ namespace KryneEngine::Tests::Math
             // Rotation around the Z axis
             constexpr float angle = M_PI_2 * 0.2f;
             const Quaternion expected = Quaternion().FromAxisAngle(float3(0, 0, 1), angle);
-            const Quaternion result = FromEulerAngles<float, float, false, Order>(float3(0, 0, angle));
+            const Quaternion result = FromEulerAngles<float, float, Order>(float3(0, 0, angle));
             EXPECT_EQ(expected, result);
         }
     }
@@ -75,12 +75,12 @@ namespace KryneEngine::Tests::Math
             const Quaternion expectedYx = qy * qx;
             EXPECT_NE(expectedXy, expectedYx);
 
-            const Quaternion resultXyz = FromEulerAngles<float, float, false, EulerOrder::XYZ>(float3(x, y, 0));
-            const Quaternion resultXzy = FromEulerAngles<float, float, false, EulerOrder::XZY>(float3(x, y, 0));
-            const Quaternion resultYxz = FromEulerAngles<float, float, false, EulerOrder::YXZ>(float3(x, y, 0));
-            const Quaternion resultYzx = FromEulerAngles<float, float, false, EulerOrder::YZX>(float3(x, y, 0));
-            const Quaternion resultZxy = FromEulerAngles<float, float, false, EulerOrder::ZXY>(float3(x, y, 0));
-            const Quaternion resultZyx = FromEulerAngles<float, float, false, EulerOrder::ZYX>(float3(x, y, 0));
+            const Quaternion resultXyz = FromEulerAngles<float, float, EulerOrder::XYZ>(float3(x, y, 0));
+            const Quaternion resultXzy = FromEulerAngles<float, float, EulerOrder::XZY>(float3(x, y, 0));
+            const Quaternion resultYxz = FromEulerAngles<float, float, EulerOrder::YXZ>(float3(x, y, 0));
+            const Quaternion resultYzx = FromEulerAngles<float, float, EulerOrder::YZX>(float3(x, y, 0));
+            const Quaternion resultZxy = FromEulerAngles<float, float, EulerOrder::ZXY>(float3(x, y, 0));
+            const Quaternion resultZyx = FromEulerAngles<float, float, EulerOrder::ZYX>(float3(x, y, 0));
 
             EXPECT_EQ(expectedXy, resultXyz);
             EXPECT_EQ(expectedXy, resultXzy);
@@ -95,12 +95,12 @@ namespace KryneEngine::Tests::Math
             const Quaternion expectedYz = qy * qz;
             EXPECT_NE(expectedZy, expectedYz);
 
-            const Quaternion resultXyz = FromEulerAngles<float, float, false, EulerOrder::XYZ>(float3(0, y, z));
-            const Quaternion resultXzy = FromEulerAngles<float, float, false, EulerOrder::XZY>(float3(0, y, z));
-            const Quaternion resultYxz = FromEulerAngles<float, float, false, EulerOrder::YXZ>(float3(0, y, z));
-            const Quaternion resultYzx = FromEulerAngles<float, float, false, EulerOrder::YZX>(float3(0, y, z));
-            const Quaternion resultZxy = FromEulerAngles<float, float, false, EulerOrder::ZXY>(float3(0, y, z));
-            const Quaternion resultZyx = FromEulerAngles<float, float, false, EulerOrder::ZYX>(float3(0, y, z));
+            const Quaternion resultXyz = FromEulerAngles<float, float, EulerOrder::XYZ>(float3(0, y, z));
+            const Quaternion resultXzy = FromEulerAngles<float, float, EulerOrder::XZY>(float3(0, y, z));
+            const Quaternion resultYxz = FromEulerAngles<float, float, EulerOrder::YXZ>(float3(0, y, z));
+            const Quaternion resultYzx = FromEulerAngles<float, float, EulerOrder::YZX>(float3(0, y, z));
+            const Quaternion resultZxy = FromEulerAngles<float, float, EulerOrder::ZXY>(float3(0, y, z));
+            const Quaternion resultZyx = FromEulerAngles<float, float, EulerOrder::ZYX>(float3(0, y, z));
 
             EXPECT_EQ(expectedYz, resultXyz);
             EXPECT_EQ(expectedZy, resultXzy);
@@ -115,12 +115,12 @@ namespace KryneEngine::Tests::Math
             const Quaternion expectedZx = qz * qx;
             EXPECT_NE(expectedXz, expectedZx);
 
-            const Quaternion resultXyz = FromEulerAngles<float, float, false, EulerOrder::XYZ>(float3(x, 0, z));
-            const Quaternion resultXzy = FromEulerAngles<float, float, false, EulerOrder::XZY>(float3(x, 0, z));
-            const Quaternion resultYxz = FromEulerAngles<float, float, false, EulerOrder::YXZ>(float3(x, 0, z));
-            const Quaternion resultYzx = FromEulerAngles<float, float, false, EulerOrder::YZX>(float3(x, 0, z));
-            const Quaternion resultZxy = FromEulerAngles<float, float, false, EulerOrder::ZXY>(float3(x, 0, z));
-            const Quaternion resultZyx = FromEulerAngles<float, float, false, EulerOrder::ZYX>(float3(x, 0, z));
+            const Quaternion resultXyz = FromEulerAngles<float, float, EulerOrder::XYZ>(float3(x, 0, z));
+            const Quaternion resultXzy = FromEulerAngles<float, float, EulerOrder::XZY>(float3(x, 0, z));
+            const Quaternion resultYxz = FromEulerAngles<float, float, EulerOrder::YXZ>(float3(x, 0, z));
+            const Quaternion resultYzx = FromEulerAngles<float, float, EulerOrder::YZX>(float3(x, 0, z));
+            const Quaternion resultZxy = FromEulerAngles<float, float, EulerOrder::ZXY>(float3(x, 0, z));
+            const Quaternion resultZyx = FromEulerAngles<float, float, EulerOrder::ZYX>(float3(x, 0, z));
 
             EXPECT_EQ(expectedXz, resultXyz);
             EXPECT_EQ(expectedXz, resultXzy);
@@ -131,12 +131,12 @@ namespace KryneEngine::Tests::Math
         }
 
         {
-            const Quaternion resultXyz = FromEulerAngles<float, float, false, EulerOrder::XYZ>(float3(x, y, z));
-            const Quaternion resultXzy = FromEulerAngles<float, float, false, EulerOrder::XZY>(float3(x, y, z));
-            const Quaternion resultYxz = FromEulerAngles<float, float, false, EulerOrder::YXZ>(float3(x, y, z));
-            const Quaternion resultYzx = FromEulerAngles<float, float, false, EulerOrder::YZX>(float3(x, y, z));
-            const Quaternion resultZxy = FromEulerAngles<float, float, false, EulerOrder::ZXY>(float3(x, y, z));
-            const Quaternion resultZyx = FromEulerAngles<float, float, false, EulerOrder::ZYX>(float3(x, y, z));
+            const Quaternion resultXyz = FromEulerAngles<float, float, EulerOrder::XYZ>(float3(x, y, z));
+            const Quaternion resultXzy = FromEulerAngles<float, float, EulerOrder::XZY>(float3(x, y, z));
+            const Quaternion resultYxz = FromEulerAngles<float, float, EulerOrder::YXZ>(float3(x, y, z));
+            const Quaternion resultYzx = FromEulerAngles<float, float, EulerOrder::YZX>(float3(x, y, z));
+            const Quaternion resultZxy = FromEulerAngles<float, float, EulerOrder::ZXY>(float3(x, y, z));
+            const Quaternion resultZyx = FromEulerAngles<float, float, EulerOrder::ZYX>(float3(x, y, z));
 
             EXPECT_EQ(qx * qy * qz, resultXyz);
             EXPECT_EQ(qx * qz * qy, resultXzy);
@@ -158,17 +158,17 @@ namespace KryneEngine::Tests::Math
             const float3 euler = float3(_x, _y, _z) * float3(M_PI);
 
             const auto eulerXyz = ToEulerAngles<float3, float, EulerOrder::XYZ>(
-                FromEulerAngles<float, float, false, EulerOrder::XYZ>(euler));
+                FromEulerAngles<float, float, EulerOrder::XYZ>(euler));
             const auto eulerXzy = ToEulerAngles<float3, float, EulerOrder::XZY>(
-                FromEulerAngles<float, float, false, EulerOrder::XZY>(euler));
+                FromEulerAngles<float, float, EulerOrder::XZY>(euler));
             const auto eulerYxz = ToEulerAngles<float3, float, EulerOrder::YXZ>(
-                FromEulerAngles<float, float, false, EulerOrder::YXZ>(euler));
+                FromEulerAngles<float, float, EulerOrder::YXZ>(euler));
             const auto eulerYzx = ToEulerAngles<float3, float, EulerOrder::YZX>(
-                FromEulerAngles<float, float, false, EulerOrder::YZX>(euler));
+                FromEulerAngles<float, float, EulerOrder::YZX>(euler));
             const auto eulerZxy = ToEulerAngles<float3, float, EulerOrder::ZXY>(
-                FromEulerAngles<float, float, false, EulerOrder::ZXY>(euler));
+                FromEulerAngles<float, float, EulerOrder::ZXY>(euler));
             const auto eulerZyx = ToEulerAngles<float3, float, EulerOrder::ZYX>(
-                FromEulerAngles<float, float, false, EulerOrder::ZYX>(euler));
+                FromEulerAngles<float, float, EulerOrder::ZYX>(euler));
 
             EXPECT_LT((euler - eulerXyz).Length(), Quaternion::kQuaternionEpsilon);
             EXPECT_LT((euler - eulerXzy).Length(), Quaternion::kQuaternionEpsilon);

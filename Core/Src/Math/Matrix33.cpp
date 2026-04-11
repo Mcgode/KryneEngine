@@ -13,9 +13,9 @@ namespace KryneEngine::Math
     template <class T, bool SimdOptimal, bool RowMajor>
     Matrix33Base<T, SimdOptimal, RowMajor>::Matrix33Base()
         : m_vectors {
-              Vector3Base<T, SimdOptimal>( 1, 0, 0 ),
-              Vector3Base<T, SimdOptimal>( 0, 1, 0 ),
-              Vector3Base<T, SimdOptimal>( 0, 0, 1 ),
+              VectorType( 1, 0, 0 ),
+              VectorType( 0, 1, 0 ),
+              VectorType( 0, 0, 1 ),
           }
     {}
 
@@ -24,15 +24,15 @@ namespace KryneEngine::Math
     {
         if constexpr (RowMajor)
         {
-            m_vectors[0] = Vector3Base<T, SimdOptimal>(_a11, _a12, _a13);
-            m_vectors[1] = Vector3Base<T, SimdOptimal>(_a21, _a22, _a23);
-            m_vectors[2] = Vector3Base<T, SimdOptimal>(_a31, _a32, _a33);
+            m_vectors[0] = VectorType(_a11, _a12, _a13);
+            m_vectors[1] = VectorType(_a21, _a22, _a23);
+            m_vectors[2] = VectorType(_a31, _a32, _a33);
         }
         else
         {
-            m_vectors[0] = Vector3Base<T, SimdOptimal>(_a11, _a21, _a31);
-            m_vectors[1] = Vector3Base<T, SimdOptimal>(_a12, _a22, _a32);
-            m_vectors[2] = Vector3Base<T, SimdOptimal>(_a13, _a23, _a33);
+            m_vectors[0] = VectorType(_a11, _a21, _a31);
+            m_vectors[1] = VectorType(_a12, _a22, _a32);
+            m_vectors[2] = VectorType(_a13, _a23, _a33);
         }
     }
 
@@ -64,29 +64,31 @@ namespace KryneEngine::Math
 
     template <class T, bool SimdOptimal, bool RowMajor>
     Matrix33Base<T, SimdOptimal, RowMajor> Matrix33Base<T, SimdOptimal, RowMajor>::operator+(
-        const Matrix33Base<T, SimdOptimal, RowMajor>& _other) const
+        const Matrix33Base& _other) const
     {
-        return Matrix33Base<T, SimdOptimal, RowMajor>(
-            m_vectors[0] + _other.m_vectors[0],
-            m_vectors[1] + _other.m_vectors[1],
-            m_vectors[2] + _other.m_vectors[2]);
+        Matrix33Base result {};
+        result.m_vectors[0] = m_vectors[0] + _other.m_vectors[0];
+        result.m_vectors[1] = m_vectors[1] + _other.m_vectors[1];
+        result.m_vectors[2] = m_vectors[2] + _other.m_vectors[2];
+        return result;
     }
 
     template <class T, bool SimdOptimal, bool RowMajor>
     Matrix33Base<T, SimdOptimal, RowMajor> Matrix33Base<T, SimdOptimal, RowMajor>::operator-(
-        const Matrix33Base<T, SimdOptimal, RowMajor>& _other) const
+        const Matrix33Base& _other) const
     {
-        return Matrix33Base<T, SimdOptimal, RowMajor>(
-            m_vectors[0] - _other.m_vectors[0],
-            m_vectors[1] - _other.m_vectors[1],
-            m_vectors[2] - _other.m_vectors[2]);
+        Matrix33Base result {};
+        result.m_vectors[0] = m_vectors[0] - _other.m_vectors[0];
+        result.m_vectors[1] = m_vectors[1] - _other.m_vectors[1];
+        result.m_vectors[2] = m_vectors[2] - _other.m_vectors[2];
+        return result;
     }
 
     template <class T, bool SimdOptimal, bool RowMajor>
     Matrix33Base<T, SimdOptimal, RowMajor> Matrix33Base<T, SimdOptimal, RowMajor>::operator*(
-        const Matrix33Base<T, SimdOptimal, RowMajor>& _other) const
+        const Matrix33Base& _other) const
     {
-        return Matrix33Base<T, SimdOptimal, RowMajor>(
+        return Matrix33Base(
             Get(0, 0) * _other.Get(0, 0) + Get(0, 1) * _other.Get(1, 0) + Get(0, 2) * _other.Get(2, 0),
             Get(0, 0) * _other.Get(0, 1) + Get(0, 1) * _other.Get(1, 1) + Get(0, 2) * _other.Get(2, 1),
             Get(0, 0) * _other.Get(0, 2) + Get(0, 1) * _other.Get(1, 2) + Get(0, 2) * _other.Get(2, 2),

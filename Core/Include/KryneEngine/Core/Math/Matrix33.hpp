@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <EASTL/type_traits.h>
 
-#include "KryneEngine/Core/Math/Vector3.hpp"
+#include "KryneEngine/Core/Math/Vector4.hpp"
 
 namespace KryneEngine::Math
 {
@@ -19,6 +19,10 @@ namespace KryneEngine::Math
         using ScalarType = T;
         static constexpr bool kSimdOptimal = SimdOptimal;
         static constexpr bool kRowMajorLayout = RowMajor;
+
+        template<class U>
+        using VectorTypeT = std::conditional_t<SimdOptimal, Vector4Base<U, SimdOptimal>, Vector3Base<U>>;
+        using VectorType = VectorTypeT<T>;
 
         Matrix33Base();
         ~Matrix33Base() = default;
@@ -52,23 +56,27 @@ namespace KryneEngine::Math
          * @note Requires that the type `U` is implicitly convertible to the type `T` of
          * the matrix through a constraint using `eastl::is_convertible_v<U, T>`.
          */
-        template<class U, bool VSimdOptimal>
+        template<class U>
         requires eastl::is_convertible_v<U, T>
         Matrix33Base(
-            const Vector3Base<U, VSimdOptimal>& _v1,
-            const Vector3Base<U, VSimdOptimal>& _v2,
-            const Vector3Base<U, VSimdOptimal>& _v3)
+            const VectorTypeT<U>& _v1,
+            const VectorTypeT<U>& _v2,
+            const VectorTypeT<U>& _v3)
                 : m_vectors {
-                  Vector3Base<T, SimdOptimal>{ _v1 },
-                  Vector3Base<T, SimdOptimal>{ _v2 },
-                  Vector3Base<T, SimdOptimal>{ _v3 }
+                    VectorType { _v1 },
+                    VectorType { _v2 },
+                    VectorType { _v3 },
                 }
         {}
 
         template<class U, bool S>
         requires eastl::is_convertible_v<U, T>
         explicit Matrix33Base(const Matrix33Base<U, S, RowMajor>& _other)
-            : Matrix33Base(_other.m_vectors[0], _other.m_vectors[1], _other.m_vectors[2])
+            : m_vectors {
+                VectorType(_other.m_vectors[0].x, _other.m_vectors[0].y, _other.m_vectors[0].z),
+                VectorType(_other.m_vectors[1].x, _other.m_vectors[1].y, _other.m_vectors[1].z),
+                VectorType(_other.m_vectors[2].x, _other.m_vectors[2].y, _other.m_vectors[2].z)
+            }
         {}
 
         [[nodiscard]] bool IsRowMajor() const { return RowMajor; }
@@ -129,7 +137,7 @@ namespace KryneEngine::Math
             return Matrix33Base(transposed.m_vectors[0], transposed.m_vectors[1], transposed.m_vectors[2]);
         }
 
-        Vector3Base<T, SimdOptimal> m_vectors[3];
+        VectorType m_vectors[3];
     };
 
     template<class T>

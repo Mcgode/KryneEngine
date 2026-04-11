@@ -20,9 +20,9 @@ namespace KryneEngine::Math
     requires std::is_convertible_v<U, T>
     QuaternionBase<T> FromEulerAngles(U _x, U _y, U _z);
 
-    template <class T, class U, bool SimdOptimal, EulerOrder Order = kDefaultEulerOrder>
+    template <class T, class U, EulerOrder Order = kDefaultEulerOrder>
         requires std::is_convertible_v<U, T>
-    QuaternionBase<T> FromEulerAngles(const Vector3Base<U, SimdOptimal>& _eulerAngles)
+    QuaternionBase<T> FromEulerAngles(const Vector3Base<U>& _eulerAngles)
     {
         return FromEulerAngles<T, U, Order>(_eulerAngles.x, _eulerAngles.y, _eulerAngles.z);
     }

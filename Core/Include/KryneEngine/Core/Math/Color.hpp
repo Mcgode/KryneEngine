@@ -98,13 +98,13 @@ namespace KryneEngine
         // Based on https://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html
         [[nodiscard]] Color ToSrgb() const
         {
-            const float3_simd rgb { m_value.r, m_value.g, m_value.b };
+            const float3 rgb { m_value.r, m_value.g, m_value.b };
 
-            const float3_simd s1 = rgb.Sqrt();
-            const float3_simd s2 = s1.Sqrt();
-            const float3_simd s3 = s2.Sqrt();
+            const float3 s1 = rgb.Sqrt();
+            const float3 s2 = s1.Sqrt();
+            const float3 s3 = s2.Sqrt();
 
-            const float3_simd srgb = s1 * 0.585122381 + s2 * 0.783140355 - s3 * 0.368262736;
+            const float3 srgb = s1 * 0.585122381 + s2 * 0.783140355 - s3 * 0.368262736;
 
             return Color(float4(srgb, m_value.a));
         }
@@ -112,9 +112,9 @@ namespace KryneEngine
         // Based on https://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html
         [[nodiscard]] Color FromSrgb() const
         {
-            const float3_simd srgb { m_value.r, m_value.g, m_value.b };
+            const float3 srgb { m_value.r, m_value.g, m_value.b };
 
-            const float3_simd rgb = srgb * (srgb * (srgb * 0.305306011 + 0.682171111) + 0.012522878);
+            const float3 rgb = srgb * (srgb * (srgb * 0.305306011 + 0.682171111) + 0.012522878);
 
             return Color(float4(rgb, m_value.a));
         }

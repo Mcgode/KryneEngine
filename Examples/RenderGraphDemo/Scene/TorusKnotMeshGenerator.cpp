@@ -15,14 +15,14 @@ namespace
 {
     using namespace KryneEngine;
 
-    float3_simd computePositionOnCurve(float _u, float _p, float _q, float _knotRadius)
+    float3 computePositionOnCurve(float _u, float _p, float _q, float _knotRadius)
     {
         const float cu = std::cos(_u);
         const float su = std::sin(_u);
         const float quOverP = _q * _u / _p;
         const float cs = std::cos(quOverP);
 
-        return float3_simd {
+        return float3 {
             _knotRadius * (2 + cs) * cu * 0.5f,
             _knotRadius * (2 + cs) * su * 0.5f,
             _knotRadius * std::sin(quOverP) * 0.5f
@@ -59,13 +59,13 @@ namespace KryneEngine::Samples::RenderGraphDemo::TorusKnotMeshGenerator
         {
             const float u = static_cast<float>(i) / static_cast<float>(_tubularSegments) * p * float(M_PI) * 2.f;
 
-            const float3_simd p1 = computePositionOnCurve(u, p, q, _knotRadius);
-            const float3_simd p2 = computePositionOnCurve(u + 0.01f, p, q, _knotRadius);
+            const float3 p1 = computePositionOnCurve(u, p, q, _knotRadius);
+            const float3 p2 = computePositionOnCurve(u + 0.01f, p, q, _knotRadius);
 
-            float3_simd t = p2 - p1;
-            float3_simd n = p1 + p2;
-            float3_simd b = float3_simd::CrossProduct(t, n);
-            n = float3_simd::CrossProduct(b, t);
+            float3 t = p2 - p1;
+            float3 n = p1 + p2;
+            float3 b = float3::CrossProduct(t, n);
+            n = float3::CrossProduct(b, t);
 
             n.Normalize();
             b.Normalize();
@@ -73,17 +73,17 @@ namespace KryneEngine::Samples::RenderGraphDemo::TorusKnotMeshGenerator
             for (auto j = 0u; j <= _radialSegments; j++)
             {
                 const float v = static_cast<float>(j) / static_cast<float>(_radialSegments) * float(M_PI) * 2.f;
-                const float3_simd cx(-_tubeRadius * std::cos(v));
-                const float3_simd cy(_tubeRadius * std::sin(v));
+                const float3 cx(-_tubeRadius * std::cos(v));
+                const float3 cy(_tubeRadius * std::sin(v));
 
-                const float3_simd position = p1 + (cx * n) + (cy * b);
+                const float3 position = p1 + (cx * n) + (cy * b);
                 mesh.m_boundingBox.Expand(float3(position));
                 memcpy(
                     mesh.m_vertices + vertexId * kVertexSize + kVertexPositionOffset,
                     position.GetPtr(),
                     kVertexPositionSize);
 
-                const float3_simd normal = (position - p1).Normalized();
+                const float3 normal = (position - p1).Normalized();
                 memcpy(
                     mesh.m_vertices + vertexId * kVertexSize + kVertexNormalOffset,
                     normal.GetPtr(),

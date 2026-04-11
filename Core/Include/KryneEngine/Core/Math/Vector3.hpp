@@ -22,44 +22,26 @@ namespace KryneEngine::Math
         { _u.z } -> std::convertible_to<T>;
     };
 
-    template <typename T, bool SimdOptimal = false>
+    template <typename T>
     struct Vector3Base
     {
         using ScalarType = T;
-        static constexpr bool kSimdOptimal = SimdOptimal;
-
-        static_assert(sizeof(T) >= 4 || !SimdOptimal, "Vector3Base element type must be at least 4 bytes to use SIMD");
-
-        static constexpr size_t kSimdOptimalAlignment = Alignment::AlignUpPot(3 * sizeof(T), 4);
-        static constexpr size_t kAlignment = SimdOptimal ? kSimdOptimalAlignment : alignof(T);
 
         Vector3Base(): x(), y(), z()
-        {
-            if constexpr (SimdOptimal)
-            {
-                // Ensure padding is zero-initialized
-                new (&x + 3) T(0);
-            }
-        }
+        {}
 
         template <typename U0, typename U1 = U0, typename U2 = U0>
         requires std::is_constructible_v<T, U0> && std::is_constructible_v<T, U1> && std::is_constructible_v<T, U2>
         Vector3Base(U0 _x, U1 _y, U2 _z = 0) : x(_x), y(_y), z(_z)
-        {
-            if constexpr (SimdOptimal)
-            {
-                // Ensure padding is zero-initialized
-                new (&x + 3) T(0);
-            }
-        }
+        {}
 
         template <typename U>
         requires std::is_constructible_v<T, U>
         explicit Vector3Base(U _value) : Vector3Base(_value, _value, _value) {}
 
-        template <typename U, bool S>
+        template <typename U>
         requires std::is_constructible_v<T, U>
-        explicit Vector3Base(const Vector3Base<U, S> &_other) : Vector3Base(_other.x, _other.y, _other.z) {}
+        explicit Vector3Base(const Vector3Base<U> &_other) : Vector3Base(_other.x, _other.y, _other.z) {}
 
         template <typename U0, typename U1>
             requires std::is_constructible_v<T, U0> && std::is_constructible_v<T, U1>
@@ -109,7 +91,7 @@ namespace KryneEngine::Math
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCInconsistentNamingInspection"
-        union alignas(kAlignment)
+        union
         {
             struct
             {
@@ -130,7 +112,6 @@ namespace KryneEngine::Math
     template<typename T>
     concept Vector3Type = requires {
         typename T::ScalarType;
-        T::kSimdOptimal;
-        std::is_same_v<T, Vector3Base<typename T::ScalarType, T::kSimdOptimal>>;
+        std::is_same_v<T, Vector3Base<typename T::ScalarType>>;
     };
 }

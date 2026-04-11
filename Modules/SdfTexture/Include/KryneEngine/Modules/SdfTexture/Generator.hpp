@@ -52,6 +52,6 @@ namespace KryneEngine::Modules::SdfTexture
         Math::BoundingBox m_boundingBox {};
         Math::Float16* m_outputBuffer = nullptr;
 
-        static float TriangleSdf(const float3_simd& _p, const float3_simd& _a, const float3_simd& _b, const float3_simd& _c);
+        static float TriangleSdf(const float3& _p, const float3& _a, const float3& _b, const float3& _c);
     };
 }
