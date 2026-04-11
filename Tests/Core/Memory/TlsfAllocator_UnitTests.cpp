@@ -347,8 +347,7 @@ namespace KryneEngine::Tests
         {
             const size_t alignment = 1 << i;
             void* p = allocator->Allocate(blockSize, alignment);
-            EXPECT_TRUE(Alignment::IsAligned(reinterpret_cast<uintptr_t>(p), alignment))
-                << std::format("Pointer {:#x} is not aligned to {:#x}", reinterpret_cast<uintptr_t>(p), alignment);
+            EXPECT_TRUE(Alignment::IsAligned(reinterpret_cast<uintptr_t>(p), alignment));
             allocator->Free(p, blockSize);
         }
 
