@@ -8,8 +8,12 @@
 
 #include "KryneEngine/Core/Common/Types.hpp"
 
-#if defined(__SANITIZE_ADDRESS__) || __has_feature(address_sanitizer)
+#if defined(__SANITIZE_ADDRESS__)
 #   define HAS_ASAN 1
+#elif defined(__has_feature)
+#   if __has_feature(address_sanitizer)
+#       define HAS_ASAN 1
+#   endif
 #endif
 
 namespace KryneEngine::TlsfHeap
