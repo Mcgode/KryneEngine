@@ -148,7 +148,11 @@ namespace KryneEngine::Modules::RenderGraph
                 if (layersIndices[i] >= layers.size())
                 {
                     layers.resize(
-                        layersIndices[i] + 1, Layer{.m_nodes{_tempAllocator}, .m_downwardLinks{_tempAllocator}});
+                        layersIndices[i] + 1,
+                        Layer {
+                            .m_nodes = eastl::vector<Node>(_tempAllocator),
+                            .m_downwardLinks = eastl::vector<Link>(_tempAllocator)
+                        });
                 }
 
                 const u32 layerIndex = layersIndices[i];
@@ -586,7 +590,9 @@ namespace KryneEngine::Modules::RenderGraph
                 {
                     it = resources.emplace(
                         resource,
-                        ResourceData { .m_uses { _tempAllocator } }).first;
+                        ResourceData {
+                            .m_uses = eastl::vector<ResourceUse>(_tempAllocator)
+                        }).first;
                 }
 
                 it->second.m_uses.push_back(ResourceUse {
@@ -610,7 +616,9 @@ namespace KryneEngine::Modules::RenderGraph
                 {
                     it = resources.emplace(
                         resource,
-                        ResourceData { .m_uses { _tempAllocator } }).first;
+                        ResourceData {
+                            .m_uses = eastl::vector<ResourceUse>(_tempAllocator)
+                        }).first;
                 }
 
                 it->second.m_uses.push_back(ResourceUse {
