@@ -46,14 +46,15 @@ jobs:
           libwayland-dev \
           xorg-dev \
           libxcursor-dev \
-          libfreetype6-dev
+          libfreetype-dev \
+          libvulkan-dev \
+          cmake \
+          ninja-build
 
-    - name: Setup Vulkan SDK
-      uses: humbletim/setup-vulkan-sdk@v1.2.1
-      with:
-        vulkan-query-version: 1.4.304.1
-        vulkan-components: Vulkan-Headers, Vulkan-Loader
-        vulkan-use-cache: true
+    - name: Setup shader build environment
+      run: |
+        sudo apt install -y python3 pip
+        sudo pip install ninja --break-system-packages
 
     - name: Set reusable strings
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
