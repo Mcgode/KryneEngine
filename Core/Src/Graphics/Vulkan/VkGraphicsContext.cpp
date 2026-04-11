@@ -120,6 +120,7 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("VkGraphicsContext::VkGraphicsContext");
 
+        bool validationLayersEnabled = false;
         {
             KE_ZoneScoped("VkInstance creation");
 
@@ -140,20 +141,23 @@ namespace KryneEngine
 #endif
                 .pApplicationInfo = &applicationInfo,
                 .enabledLayerCount = 0,
+                .ppEnabledLayerNames = nullptr,
             };
 
             DynamicArray<VkExtensionProperties> availableExtensions;
             VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateInstanceExtensionProperties, nullptr);
 
             VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo;
-            if (m_appInfo.m_features.m_validationLayers)
+            if (m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled)
             {
-                _PrepareValidationLayers(instanceCreateInfo);
+                validationLayersEnabled = PrepareValidationLayers(instanceCreateInfo);
+                KE_ASSERT(validationLayersEnabled || m_appInfo.m_features.m_validationLayers == GraphicsCommon::SoftEnable::TryEnable);
+
                 debugMessengerCreateInfo = _PopulateDebugCreateInfo(this);
                 instanceCreateInfo.pNext = &debugMessengerCreateInfo;
             }
 
-            auto extensions = _RetrieveRequiredExtensionNames(m_appInfo);
+            auto extensions = RetrieveRequiredExtensionNames(m_appInfo, validationLayersEnabled);
             _RetrieveOptionalExtensionNames(extensions, availableExtensions, m_appInfo);
             instanceCreateInfo.enabledExtensionCount = extensions.size();
             instanceCreateInfo.ppEnabledExtensionNames = extensions.data();
@@ -161,7 +165,7 @@ namespace KryneEngine
             VkAssert(vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance));
         }
 
-        if (m_appInfo.m_features.m_validationLayers)
+        if (validationLayersEnabled)
         {
             _SetupValidationLayersCallback();
         }
@@ -421,7 +425,7 @@ namespace KryneEngine
         }
     }
 
-    void VkGraphicsContext::_PrepareValidationLayers(VkInstanceCreateInfo& _createInfo)
+    bool VkGraphicsContext::PrepareValidationLayers(VkInstanceCreateInfo& _createInfo)
     {
          DynamicArray<VkLayerProperties> availableLayers;
          VkHelperFunctions::VkArrayFetch(availableLayers, vkEnumerateInstanceLayerProperties);
@@ -443,21 +447,23 @@ namespace KryneEngine
             }
         }
 
-        if (KE_VERIFY(found))
+        if (found)
         {
             _createInfo.ppEnabledLayerNames = kValidationLayerNames.data();
             _createInfo.enabledLayerCount = kValidationLayerNames.size();
         }
+        return found;
     }
 
-    eastl::vector<const char *> VkGraphicsContext::_RetrieveRequiredExtensionNames(const GraphicsCommon::ApplicationInfo& _appInfo)
+    eastl::vector<const char *> VkGraphicsContext::RetrieveRequiredExtensionNames(
+        const GraphicsCommon::ApplicationInfo& _appInfo, bool _validationLayersEnabled)
     {
         u32 glfwCount;
         const char** ppGlfwExtensions = glfwGetRequiredInstanceExtensions(&glfwCount);
 
         eastl::vector<const char *> result(ppGlfwExtensions, ppGlfwExtensions + glfwCount, m_allocator);
 
-        if (_appInfo.m_features.m_validationLayers)
+        if (_validationLayersEnabled)
         {
             result.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
             m_debugUtils = true;

@@ -92,7 +92,7 @@ namespace KryneEngine
             m_graphicsQueue != nullptr,
             m_computeQueue != nullptr,
             m_ioQueue != nullptr,
-            m_appInfo.m_features.m_validationLayers);
+            m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled);
 
         m_frameContexts[frameIndex].PrepareForNextFrame(m_frameId);
 
