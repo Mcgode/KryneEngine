@@ -123,8 +123,8 @@ namespace KryneEngine
     {
         KE_ASSERT_MSG(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write)
                       || memcmp(
-                         _viewDesc.m_componentsMapping,
-                         (Texture4ComponentsMapping KE_DEFAULT_TEXTURE_COMPONENTS_MAPPING),
+                         _viewDesc.m_componentsMapping.data(),
+                         kDefaultTexture4ComponentsMapping.data(),
                          sizeof(Texture4ComponentsMapping)) == 0,
                       "Component remapping is not supported for write access");
         return { GenPool::kUndefinedHandle };

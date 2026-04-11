@@ -24,7 +24,7 @@ namespace KryneEngine
     {
         TextureHandle m_texture;
 
-        Texture4ComponentsMapping  m_componentsMapping = KE_DEFAULT_TEXTURE_COMPONENTS_MAPPING;
+        Texture4ComponentsMapping m_componentsMapping { kDefaultTexture4ComponentsMapping };
 
         u16 m_arrayStart = 0;
         u16 m_arrayRange = 1;
