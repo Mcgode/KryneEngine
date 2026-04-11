@@ -25,4 +25,4 @@ target_link_libraries(KryneEngine_Modules INTERFACE
 add_library(KryneEngine INTERFACE
         TextRendering/Src/Font.cpp
         TextRendering/Include/KryneEngine/Modules/TextRendering/Font.hpp)
-target_link_libraries(KryneEngine INTERFACE KryneEngine_Core KryneEngine_Modules)
+target_link_libraries(KryneEngine INTERFACE KryneEngine_Core_Link KryneEngine_Modules)

@@ -12,7 +12,7 @@ target_link_shader_libraries(KryneEngine_Modules_ImGui ShaderLib)
 target_compile_shaders(KryneEngine_Modules_ImGui Shaders Modules/ImGui)
 
 target_link_libraries(KryneEngine_Modules_ImGui
-        KryneEngine_Core
+        KryneEngine_Core_Link
         DearImgui
         KryneEngine_Modules_GraphicsUtils)
 

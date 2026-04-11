@@ -7,7 +7,7 @@ add_executable(Modules_FileSystem_UnitTests
         DirectoryTree_UnitTests.cpp
 )
 
-target_link_libraries(Modules_FileSystem_UnitTests KryneEngine_Core KryneEngine_Modules_FileSystem TestUtils gtest gtest_main)
+target_link_libraries(Modules_FileSystem_UnitTests KryneEngine_Core_Link KryneEngine_Modules_FileSystem TestUtils gtest gtest_main)
 set_target_properties(Modules_FileSystem_UnitTests PROPERTIES FOLDER "EngineTesting")
 
 add_test(NAME Modules_FileSystem_UnitTests COMMAND Modules_FileSystem_UnitTests)

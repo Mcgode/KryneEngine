@@ -17,4 +17,4 @@ add_library(KryneEngine_Modules_FileSystem STATIC
 
 target_include_directories(KryneEngine_Modules_FileSystem PUBLIC Include)
 target_include_directories(KryneEngine_Modules_FileSystem PRIVATE Src)
-target_link_libraries(KryneEngine_Modules_FileSystem PUBLIC KryneEngine_Core libzstd)
+target_link_libraries(KryneEngine_Modules_FileSystem PUBLIC KryneEngine_Core_Link libzstd)

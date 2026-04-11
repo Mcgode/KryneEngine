@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.20)
 add_executable(Modules_GraphicsUtils_UnitTests
         AtlasShelfAllocator_UnitTests.cpp)
 
-target_link_libraries(Modules_GraphicsUtils_UnitTests KryneEngine_Core KryneEngine_Modules_GraphicsUtils TestUtils gtest gtest_main)
+target_link_libraries(Modules_GraphicsUtils_UnitTests KryneEngine_Core_Link KryneEngine_Modules_GraphicsUtils TestUtils gtest gtest_main)
 set_target_properties(Modules_GraphicsUtils_UnitTests PROPERTIES FOLDER "EngineTesting")
 
 add_test(NAME Modules_GraphicsUtils_UnitTests COMMAND Modules_GraphicsUtils_UnitTests)
