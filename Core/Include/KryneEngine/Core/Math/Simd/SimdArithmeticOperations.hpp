@@ -427,56 +427,29 @@ namespace KryneEngine::Simd
         return result;
     }
 
-    // Assumes B is already transposed
-    KE_FORCEINLINE f32x4x4 MultiplyTransposed(const f32x4x4& a, const f32x4x4& b)
+    KE_FORCEINLINE f32x4x4 Multiply(const f32x4x4& a, const f32x4x4& b)
     {
 #if defined(__ARM_NEON)
-        f32x4x4 result;
+        f32x4x4 result {};
         for (int i = 0; i < 4; ++i)
         {
-            result.val[i] = vfmaq_laneq_f32(result.val[i], a.val[0], b.val[i], 0);
-            result.val[i] = vfmaq_laneq_f32(result.val[i], a.val[1], b.val[i], 1);
-            result.val[i] = vfmaq_laneq_f32(result.val[i], a.val[2], b.val[i], 2);
-            result.val[i] = vfmaq_laneq_f32(result.val[i], a.val[3], b.val[i], 3);
+            result.val[i] = vfmaq_laneq_f32(result.val[i], b.val[0], a.val[i], 0);
+            result.val[i] = vfmaq_laneq_f32(result.val[i], b.val[1], a.val[i], 1);
+            result.val[i] = vfmaq_laneq_f32(result.val[i], b.val[2], a.val[i], 2);
+            result.val[i] = vfmaq_laneq_f32(result.val[i], b.val[3], a.val[i], 3);
         }
         return result;
 #elif defined(__SSE2__)
-        f32x4x4 result;
-
-        for (u32 i = 0; i < 4; ++i)
+        f32x4x4 result {};
+        for (int i = 0; i < 4; ++i)
         {
-            const __m128 row = a[i];
-
-            const __m128 r0 = _mm_mul_ps(_mm_shuffle_ps(row, row, _MM_SHUFFLE(0, 0, 0, 0)), b[0]);
-            const __m128 r1 = _mm_mul_ps(_mm_shuffle_ps(row, row, _MM_SHUFFLE(1, 1, 1, 1)), b[1]);
-            const __m128 r2 = _mm_mul_ps(_mm_shuffle_ps(row, row, _MM_SHUFFLE(2, 2, 2, 2)), b[2]);
-            const __m128 r3 = _mm_mul_ps(_mm_shuffle_ps(row, row, _MM_SHUFFLE(3, 3, 3, 3)), b[3]);
-
-            result[i] = _mm_add_ps(_mm_add_ps(r0, r1), _mm_add_ps(r2, r3));
+            result[i] = _mm_mul_ps(b[i], _mm_swizzle(a[i], 0));
+            result[i] = FusedMultiplyAdd(b[i], _mm_swizzle(a[i], 1), result[i]);
+            result[i] = FusedMultiplyAdd(b[i], _mm_swizzle(a[i], 2), result[i]);
+            result[i] = FusedMultiplyAdd(b[i], _mm_swizzle(a[i], 3), result[i]);
         }
-
-        return result;
 #else
-        f32x4x4 result;
-        for (u32 i = 0; i < 4; ++i)
-        {
-            for (u32 j = 0; j < 4; ++j)
-            {
-                for (auto k = 0; k < 4; ++k)
-                {
-                    result[i][j] += a[i][k] * b[j][k];
-                }
-            }
-        }
-#endif
-    }
-
-    KE_FORCEINLINE f32x4x4 Multiply(const f32x4x4& a, const f32x4x4& b)
-    {
-#if defined(__ARM_NEON) || defined(__SSE2__)
-        return MultiplyTransposed(a, Transposed(b));
-#else
-        f32x4x4 result;
+        f32x4x4 result {};
         for (u32 i = 0; i < 4; ++i)
         {
             for (u32 j = 0; j < 4; ++j)
