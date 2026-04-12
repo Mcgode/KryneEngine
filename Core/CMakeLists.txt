@@ -66,6 +66,7 @@ set(MathSrc
         Include/KryneEngine/Core/Math/Simd/SimdTypes.hpp
         Include/KryneEngine/Core/Math/Simd/SimdMemoryOperations.hpp
         Include/KryneEngine/Core/Math/Simd/SimdArithmeticOperations.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdMathOperations.hpp
 )
 
 set(MemorySrc
