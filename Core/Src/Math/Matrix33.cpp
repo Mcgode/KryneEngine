@@ -10,8 +10,8 @@
 
 namespace KryneEngine::Math
 {
-    template <class T, bool SimdOptimal, bool RowMajor>
-    Matrix33Base<T, SimdOptimal, RowMajor>::Matrix33Base()
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor>::Matrix33Base()
         : m_vectors {
               VectorType( 1, 0, 0 ),
               VectorType( 0, 1, 0 ),
@@ -19,8 +19,8 @@ namespace KryneEngine::Math
           }
     {}
 
-    template <class T, bool SimdOptimal, bool RowMajor>
-    Matrix33Base<T, SimdOptimal, RowMajor>::Matrix33Base(T _a11, T _a12, T _a13, T _a21, T _a22, T _a23, T _a31, T _a32, T _a33)
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor>::Matrix33Base(T _a11, T _a12, T _a13, T _a21, T _a22, T _a23, T _a31, T _a32, T _a33)
     {
         if constexpr (RowMajor)
         {
@@ -36,8 +36,8 @@ namespace KryneEngine::Math
         }
     }
 
-    template <class T, bool SimdOptimal, bool RowMajor>
-    T& Matrix33Base<T, SimdOptimal, RowMajor>::Get(size_t _row, size_t _col)
+    template <class T, bool RowMajor>
+    T& Matrix33Base<T, RowMajor>::Get(size_t _row, size_t _col)
     {
         if constexpr (RowMajor)
         {
@@ -49,8 +49,8 @@ namespace KryneEngine::Math
         }
     }
 
-    template <class T, bool SimdOptimal, bool RowMajor>
-    const T& Matrix33Base<T, SimdOptimal, RowMajor>::Get(size_t _row, size_t _col) const
+    template <class T, bool RowMajor>
+    const T& Matrix33Base<T, RowMajor>::Get(size_t _row, size_t _col) const
     {
         if constexpr (RowMajor)
         {
@@ -62,8 +62,8 @@ namespace KryneEngine::Math
         }
     }
 
-    template <class T, bool SimdOptimal, bool RowMajor>
-    Matrix33Base<T, SimdOptimal, RowMajor> Matrix33Base<T, SimdOptimal, RowMajor>::operator+(
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor> Matrix33Base<T, RowMajor>::operator+(
         const Matrix33Base& _other) const
     {
         Matrix33Base result {};
@@ -73,8 +73,8 @@ namespace KryneEngine::Math
         return result;
     }
 
-    template <class T, bool SimdOptimal, bool RowMajor>
-    Matrix33Base<T, SimdOptimal, RowMajor> Matrix33Base<T, SimdOptimal, RowMajor>::operator-(
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor> Matrix33Base<T, RowMajor>::operator-(
         const Matrix33Base& _other) const
     {
         Matrix33Base result {};
@@ -84,8 +84,8 @@ namespace KryneEngine::Math
         return result;
     }
 
-    template <class T, bool SimdOptimal, bool RowMajor>
-    Matrix33Base<T, SimdOptimal, RowMajor> Matrix33Base<T, SimdOptimal, RowMajor>::operator*(
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor> Matrix33Base<T, RowMajor>::operator*(
         const Matrix33Base& _other) const
     {
         return Matrix33Base(
@@ -101,8 +101,8 @@ namespace KryneEngine::Math
         );
     }
 
-    template <class T, bool SimdOptimal, bool RowMajor>
-    Matrix33Base<T, SimdOptimal, RowMajor>& Matrix33Base<T, SimdOptimal, RowMajor>::Transpose()
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor>& Matrix33Base<T, RowMajor>::Transpose()
     {
         std::swap<T>(m_vectors[0][1], m_vectors[1][0]);
         std::swap<T>(m_vectors[0][2], m_vectors[2][0]);
@@ -110,22 +110,20 @@ namespace KryneEngine::Math
         return *this;
     }
 
-    template <class T, bool SimdOptimal, bool RowMajor>
-    Matrix33Base<T, SimdOptimal, RowMajor> Matrix33Base<T, SimdOptimal, RowMajor>::Transposed() const
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor> Matrix33Base<T, RowMajor>::Transposed() const
     {
         Matrix33Base transposed = *this;
         transposed.Transpose();
         return transposed;
     }
 
-#define IMPLEMENTATION_INDIVIDUAL(type, simdOptimal, rowMajor) \
-    template struct Matrix33Base<type, simdOptimal, rowMajor>
+#define IMPLEMENTATION_INDIVIDUAL(type, rowMajor) \
+    template struct Matrix33Base<type, rowMajor>
 
-#define IMPLEMENTATION(type)                        \
-    IMPLEMENTATION_INDIVIDUAL(type, true, true);    \
-    IMPLEMENTATION_INDIVIDUAL(type, true, false);   \
-    IMPLEMENTATION_INDIVIDUAL(type, false, false);  \
-    IMPLEMENTATION_INDIVIDUAL(type, false, true)
+#define IMPLEMENTATION(type)                  \
+    IMPLEMENTATION_INDIVIDUAL(type, true);    \
+    IMPLEMENTATION_INDIVIDUAL(type, false)
 
     IMPLEMENTATION(float);
     IMPLEMENTATION(double);

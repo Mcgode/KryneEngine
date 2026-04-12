@@ -13,16 +13,13 @@
 
 namespace KryneEngine::Math
 {
-    template<class T, bool SimdOptimal, bool RowMajor>
+    template<class T, bool RowMajor>
     struct Matrix33Base
     {
         using ScalarType = T;
-        static constexpr bool kSimdOptimal = SimdOptimal;
         static constexpr bool kRowMajorLayout = RowMajor;
 
-        template<class U>
-        using VectorTypeT = std::conditional_t<SimdOptimal, Vector4Base<U, SimdOptimal>, Vector3Base<U>>;
-        using VectorType = VectorTypeT<T>;
+        using VectorType = Vector3Base<T>;
 
         Matrix33Base();
         ~Matrix33Base() = default;
@@ -59,9 +56,9 @@ namespace KryneEngine::Math
         template<class U>
         requires eastl::is_convertible_v<U, T>
         Matrix33Base(
-            const VectorTypeT<U>& _v1,
-            const VectorTypeT<U>& _v2,
-            const VectorTypeT<U>& _v3)
+            const Vector3Base<U>& _v1,
+            const Vector3Base<U>& _v2,
+            const Vector3Base<U>& _v3)
                 : m_vectors {
                     VectorType { _v1 },
                     VectorType { _v2 },
@@ -69,9 +66,9 @@ namespace KryneEngine::Math
                 }
         {}
 
-        template<class U, bool S>
+        template<class U>
         requires eastl::is_convertible_v<U, T>
-        explicit Matrix33Base(const Matrix33Base<U, S, RowMajor>& _other)
+        explicit Matrix33Base(const Matrix33Base<U, RowMajor>& _other)
             : m_vectors {
                 VectorType(_other.m_vectors[0].x, _other.m_vectors[0].y, _other.m_vectors[0].z),
                 VectorType(_other.m_vectors[1].x, _other.m_vectors[1].y, _other.m_vectors[1].z),
@@ -118,7 +115,6 @@ namespace KryneEngine::Math
          *
          * @tparam U The type of the elements within the input matrix to be converted. This type must be convertible to the
          *         type of the elements of the target matrix `T`.
-         * @tparam OtherSimdOptimal Indicates whether the input matrix is optimized for SIMD operations.
          *
          * @param _other The input matrix to be converted to the target type and layout. This matrix must be in the opposite
          *        row-major/column-major layout relative to the target matrix.
@@ -128,11 +124,11 @@ namespace KryneEngine::Math
          *
          * @note The input matrix's type and layout constraints are enforced through a `requires` clause using `eastl::is_convertible_v<U, T>`.
          */
-        template <class U, bool OtherSimdOptimal>
+        template <class U>
         requires eastl::is_convertible_v<U, T>
-        static Matrix33Base Convert(const Matrix33Base<U, OtherSimdOptimal, !RowMajor>& _other)
+        static Matrix33Base Convert(const Matrix33Base<U, !RowMajor>& _other)
         {
-            Matrix33Base<U, OtherSimdOptimal, !RowMajor> transposed = _other;
+            Matrix33Base<U, !RowMajor> transposed = _other;
             transposed.Transpose();
             return Matrix33Base(transposed.m_vectors[0], transposed.m_vectors[1], transposed.m_vectors[2]);
         }
@@ -143,8 +139,7 @@ namespace KryneEngine::Math
     template<class T>
     concept Matrix33Type = requires {
         typename T::ScalarType;
-        T::kSimdOptimal;
         T::kRowMajorLayout;
-        std::is_same_v<Matrix33Base<typename T::ScalarType, T::kSimdOptimal, T::kRowMajorLayout>, T>;
+        std::is_same_v<Matrix33Base<typename T::ScalarType, T::kRowMajorLayout>, T>;
     };
 }

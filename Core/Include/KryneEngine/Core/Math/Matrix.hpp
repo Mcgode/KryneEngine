@@ -15,10 +15,8 @@
 
 namespace KryneEngine
 {
-    using float3x3 = Math::Matrix33Base<float, false, KE_DEFAULT_MATRIX_ROW_MAJOR>;
-    using double3x3 = Math::Matrix33Base<double, false, KE_DEFAULT_MATRIX_ROW_MAJOR>;
-    using float3x3_simd = Math::Matrix33Base<float, true, KE_DEFAULT_MATRIX_ROW_MAJOR>;
-    using double3x3_simd = Math::Matrix33Base<double, true, KE_DEFAULT_MATRIX_ROW_MAJOR>;
+    using float3x3 = Math::Matrix33Base<float, KE_DEFAULT_MATRIX_ROW_MAJOR>;
+    using double3x3 = Math::Matrix33Base<double, KE_DEFAULT_MATRIX_ROW_MAJOR>;
 
     using float4x4 = Math::Matrix44Base<float, false, KE_DEFAULT_MATRIX_ROW_MAJOR>;
     using double4x4 = Math::Matrix44Base<double, false, KE_DEFAULT_MATRIX_ROW_MAJOR>;
@@ -26,7 +24,7 @@ namespace KryneEngine
     using double4x4_simd = Math::Matrix44Base<double, true, KE_DEFAULT_MATRIX_ROW_MAJOR>;
 
     template<class T, bool SimdOptimal, bool RowMajor>
-    Math::Matrix44Base<T, SimdOptimal, RowMajor> ToMatrix44(const Math::Matrix33Base<T, SimdOptimal, RowMajor>& _matrix)
+    Math::Matrix44Base<T, SimdOptimal, RowMajor> ToMatrix44(const Math::Matrix33Base<T, RowMajor>& _matrix)
     {
         return Math::Matrix44Base<T, SimdOptimal, RowMajor> {
             Math::Vector4Base<T, SimdOptimal>{ _matrix.m_vectors[0], 0.f },
@@ -37,9 +35,9 @@ namespace KryneEngine
     }
 
     template<class T, bool SimdOptimal, bool RowMajor>
-    Math::Matrix33Base<T, SimdOptimal, RowMajor> ToMatrix33(const Math::Matrix44Base<T, SimdOptimal, RowMajor>& _matrix)
+    Math::Matrix33Base<T, RowMajor> ToMatrix33(const Math::Matrix44Base<T, SimdOptimal, RowMajor>& _matrix)
     {
-        using Matrix = Math::Matrix33Base<T, SimdOptimal, RowMajor>;
+        using Matrix = Math::Matrix33Base<T, RowMajor>;
         return Matrix {
             Matrix::VectorType(_matrix.m_vectors[0].x, _matrix.m_vectors[0].y, _matrix.m_vectors[0].z),
             Matrix::VectorType(_matrix.m_vectors[1].x, _matrix.m_vectors[1].y, _matrix.m_vectors[1].z),
