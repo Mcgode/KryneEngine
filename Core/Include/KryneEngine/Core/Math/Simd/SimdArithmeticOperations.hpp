@@ -497,4 +497,32 @@ namespace KryneEngine::Simd
         }
 #endif
     }
+
+    KE_FORCEINLINE f32x4 Multiply(const f32x4x4& m, const f32x4& v)
+    {
+#if defined(__ARM_NEON)
+        f32x4 result;
+        result = vfmaq_laneq_f32(result, m.val[0], v, 0);
+        result = vfmaq_laneq_f32(result, m.val[1], v, 1);
+        result = vfmaq_laneq_f32(result, m.val[2], v, 2);
+        result = vfmaq_laneq_f32(result, m.val[3], v, 3);
+        return result;
+#elif defined(__SSE2__)
+        const __m128 r0 = _mm_mul_ps(_mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 0, 0, 0)), m[0]);
+        const __m128 r1 = _mm_mul_ps(_mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 1, 1)), m[1]);
+        const __m128 r2 = _mm_mul_ps(_mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2)), m[2]);
+        const __m128 r3 = _mm_mul_ps(_mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 3, 3)), m[3]);
+        return _mm_add_ps(_mm_add_ps(r0, r1), _mm_add_ps(r2, r3));
+#else
+        f32x4 result;
+        for (u32 i = 0; i < 4; ++i)
+        {
+            for (u32 j = 0; j < 4; ++j)
+            {
+                result[i] += m[i][j] * v[j];
+            }
+        }
+        return result;
+#endif
+    }
 }
