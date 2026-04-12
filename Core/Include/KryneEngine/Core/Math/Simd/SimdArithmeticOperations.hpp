@@ -6,12 +6,14 @@
 
 #pragma once
 
+#include "KryneEngine/Core/Common/Types.hpp"
 #include "KryneEngine/Core/Common/Utils/Macros.hpp"
 #include "KryneEngine/Core/Math/Simd/SimdTypes.hpp"
 
 #if defined(__SSE2__)
 #   include <emmintrin.h>
 #   include <smmintrin.h>
+#   include <xmmintrin.h>
 #endif
 
 namespace KryneEngine::Simd
@@ -113,6 +115,29 @@ namespace KryneEngine::Simd
 #endif
     }
 
+    KE_FORCEINLINE float ReduceSum(const f32x4 a)
+    {
+#if defined(__ARM_NEON)
+        return vaddvq_f32(a);
+#elif defined(__SSE2__)
+#   if defined(__SSE3__)
+        const f32x4 v = _mm_hadd_ps(a, a);
+        return _mm_cvtss_f32(_mm_hadd_ps(v, v));
+#   else
+        __m128 high = _mm_movehl_ps(a, a);   // [v2, v3, v2, v3]
+        __m128 v = _mm_add_ps(a, high);             // [v0+v2, v1+v3, ..., ...]
+        high = _mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 1, 1)); // broadcast lane 1
+        v = _mm_add_ss(v, high);             // lane 0 = (v0+v2) + (v1+v3)
+        return _mm_cvtss_f32(v);
+#   endif
+#else
+        float result = 0.0f;
+        for (int i = 0; i < 4; ++i)
+            result += a.m_value[i];
+        return result;
+#endif
+    }
+
     /**
      * @defgroup u32x4 Arithmetic Operations
      */
@@ -183,6 +208,29 @@ namespace KryneEngine::Simd
         u32x4 result;
         for (int i = 0; i < 4; ++i)
             result.m_value[i] = a.m_value[i] * b.m_value[i] - c.m_value[i];
+        return result;
+#endif
+    }
+
+    KE_FORCEINLINE u32 ReduceSum(const u32x4 a)
+    {
+#if defined(__ARM_NEON)
+        return vaddvq_u32(a);
+#elif defined(__SSE2__)
+#   if defined(__SSE3__)
+        const __m128i v = _mm_hadd_epi32(a, a);
+        return static_cast<u32>(_mm_cvtsi128_si32(_mm_hadd_epi32(v, v)));
+#   else
+        __m128i high = _mm_unpackhi_epi64(a, a);   // [a2, a3, a2, a3]
+        __m128i v = _mm_add_epi32(a, high);        // [a0+a2, a1+a3, ..., ...]
+        high = _mm_shuffle_epi32(v, _MM_SHUFFLE(1, 1, 1, 1));
+        v = _mm_add_epi32(v, high);
+        return static_cast<u32>(_mm_cvtsi128_si32(v));
+#   endif
+#else
+        u32 result = 0;
+        for (int i = 0; i < 4; ++i)
+            result += a.m_value[i];
         return result;
 #endif
     }
@@ -258,6 +306,18 @@ namespace KryneEngine::Simd
         s32x4 result;
         for (int i = 0; i < 4; ++i)
             result.m_value[i] = a.m_value[i] * b.m_value[i] - c.m_value[i];
+        return result;
+#endif
+    }
+
+    KE_FORCEINLINE s32 ReduceSum(const s32x4 a)
+    {
+#if defined(__ARM_NEON)
+        return vaddvq_s32(a);
+#else
+        s32 result = 0;
+        for (int i = 0; i < 4; ++i)
+            result += a.m_value[i];
         return result;
 #endif
     }
