@@ -62,6 +62,10 @@ set(MathSrc
         Include/KryneEngine/Core/Math/Float16.hpp
         Src/Math/Float16.cpp
         Include/KryneEngine/Core/Math/Color.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdCommon.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdTypes.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdMemoryOperations.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdArithmeticOperations.hpp
 )
 
 set(MemorySrc
