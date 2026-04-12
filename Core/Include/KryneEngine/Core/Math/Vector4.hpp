@@ -23,16 +23,16 @@ namespace KryneEngine::Math
         { _u.w } -> std::convertible_to<T>;
     };
 
-    template <typename T, bool SimdOptimal = false>
+    template <typename T, bool SimdAligned = false>
     struct Vector4Base
     {
         using ScalarType = T;
-        static constexpr bool kSimdOptimal = SimdOptimal;
+        static constexpr bool kSimdAligned = SimdAligned;
 
-        static_assert(sizeof(T) >= 4 || !SimdOptimal, "Vector4Base element type must be at least 4 bytes to use SIMD");
+        static_assert(sizeof(T) >= 4 || !SimdAligned, "Vector4Base element type must be at least 4 bytes to use SIMD");
 
         static constexpr size_t kSimdOptimalAlignment = Alignment::AlignUpPot(4 * sizeof(T), 4);
-        static constexpr size_t kAlignment = SimdOptimal ? kSimdOptimalAlignment : alignof(T);
+        static constexpr size_t kAlignment = SimdAligned ? kSimdOptimalAlignment : alignof(T);
 
         Vector4Base() = default;
 
@@ -89,8 +89,8 @@ namespace KryneEngine::Math
         const T* GetPtr() const;
 
         static constexpr T kEqualsEpsilon = 1e-6f;
-        bool operator==(const Vector4Base& _other) const { return Equals(_other); }
-        bool Equals(const Vector4Base& _other, T _epsilon = kEqualsEpsilon) const;
+        bool operator==(const Vector4Base& _other) const;
+        bool Equals(const Vector4Base& _other, T _epsilon = kEqualsEpsilon) const requires std::is_floating_point_v<T>;
 
         void Normalize() requires std::is_floating_point_v<T>;
         Vector4Base Normalized() const requires std::is_floating_point_v<T>;
@@ -117,13 +117,13 @@ namespace KryneEngine::Math
 #pragma clang diagnostic pop
     };
 
-    template<typename T, bool SimdOptimal>
-    extern T Dot(const Vector4Base<T, SimdOptimal>& _a, const Vector4Base<T, SimdOptimal>& _b);
+    template<typename T, bool SimdAligned>
+    extern T Dot(const Vector4Base<T, SimdAligned>& _a, const Vector4Base<T, SimdAligned>& _b);
 
     template<typename T>
     concept Vector4Type = requires {
         typename T::ScalarType;
-        T::kSimdOptimal;
-        std::is_same_v<T, Vector4Base<typename T::ScalarType, T::kSimdOptimal>>;
+        T::kSimdAligned;
+        std::is_same_v<T, Vector4Base<typename T::ScalarType, T::kSimdAligned>>;
     };
 }
