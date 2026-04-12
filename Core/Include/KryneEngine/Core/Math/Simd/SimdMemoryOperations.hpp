@@ -298,15 +298,7 @@ namespace KryneEngine::Simd
         f32x4x4 result;
         for (int i = 0; i < 4; ++i)
             result[i] = LoadUnaligned(data + i * 4);
-        const __m128 t0 = _mm_unpacklo_ps(result[0], result[1]);
-        const __m128 t1 = _mm_unpackhi_ps(result[0], result[1]);
-        const __m128 t2 = _mm_unpacklo_ps(result[2], result[3]);
-        const __m128 t3 = _mm_unpackhi_ps(result[2], result[3]);
-
-        result[0] = _mm_movelh_ps(t0, t2);
-        result[1] = _mm_movehl_ps(t2, t0);
-        result[2] = _mm_movelh_ps(t1, t3);
-        result[3] = _mm_movehl_ps(t3, t1);
+        _MM_TRANSPOSE4_PS(result[0], result[1], result[2], result[3]);
         return result;
 #else
         f32x4x4 result;
@@ -326,15 +318,7 @@ namespace KryneEngine::Simd
         f32x4x4 result;
         for (int i = 0; i < 4; ++i)
             result[i] = LoadUnaligned(data + i * 4);
-        const __m128 t0 = _mm_unpacklo_ps(result[0], result[1]);
-        const __m128 t1 = _mm_unpackhi_ps(result[0], result[1]);
-        const __m128 t2 = _mm_unpacklo_ps(result[2], result[3]);
-        const __m128 t3 = _mm_unpackhi_ps(result[2], result[3]);
-
-        result[0] = _mm_movelh_ps(t0, t2);
-        result[1] = _mm_movehl_ps(t2, t0);
-        result[2] = _mm_movelh_ps(t1, t3);
-        result[3] = _mm_movehl_ps(t3, t1);
+        _MM_TRANSPOSE4_PS(result[0], result[1], result[2], result[3]);
         return result;
 #else
         return LoadAlignedMat44Transposed(data);

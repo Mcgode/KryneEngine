@@ -406,15 +406,7 @@ namespace KryneEngine::Simd
         m.val[2] = vcombine_f32(vget_high_f32(t0.val[0]), vget_high_f32(t1.val[0]));
         m.val[3] = vcombine_f32(vget_high_f32(t0.val[1]), vget_high_f32(t1.val[1]));
 #elif defined(__SSE2__)
-        const __m128 t0 = _mm_unpacklo_ps(m[0], m[1]);
-        const __m128 t1 = _mm_unpackhi_ps(m[0], m[1]);
-        const __m128 t2 = _mm_unpacklo_ps(m[2], m[3]);
-        const __m128 t3 = _mm_unpackhi_ps(m[2], m[3]);
-
-        m[0] = _mm_movelh_ps(t0, t2);
-        m[1] = _mm_movehl_ps(t2, t0);
-        m[2] = _mm_movelh_ps(t1, t3);
-        m[3] = _mm_movehl_ps(t3, t1);
+        _MM_TRANSPOSE4_PS(m[0], m[1], m[2], m[3]);
 #else
         for (u32 i = 0; i < 4; ++i)
         {
