@@ -213,4 +213,100 @@ namespace KryneEngine::Simd
             data[i] = value.m_value[i];
 #endif
     }
+
+    /**
+     * @defgroup f32x4x3 Memory Operations
+     */
+
+    KE_FORCEINLINE f32x4x3 LoadAlignedMat34(const float* data)
+    {
+#if defined(__ARM_NEON)
+        return vld1q_f32_x3(data);
+#else
+        f32x4x3 result;
+        for (int i = 0; i < 3; ++i)
+            result[i] = LoadAligned(data + i * 4);
+        return result;
+#endif
+    }
+
+    KE_FORCEINLINE f32x4x3 LoadUnalignedMat34(const float* data)
+    {
+#if defined(__ARM_NEON)
+        return vld1q_f32_x3(data);
+#else
+        f32x4x3 result;
+        for (int i = 0; i < 3; ++i)
+            result[i] = LoadUnaligned(data + i * 4);
+        return result;
+#endif
+    }
+
+    KE_FORCEINLINE void StoreAlignedMat34(float* data, const f32x4x3& value)
+    {
+#if defined(__ARM_NEON)
+        vst1q_f32_x3(data, value);
+#else
+        for (int i = 0; i < 3; ++i)
+            StoreAligned(data + i * 4, value[i]);
+#endif
+    }
+
+    KE_FORCEINLINE void StoreUnalignedMat34(float* data, const f32x4x3& value)
+    {
+#if defined(__ARM_NEON)
+        vst1q_f32_x3(data, value);
+#else
+        for (int i = 0; i < 3; ++i)
+            StoreUnaligned(data + i * 4, value[i]);
+#endif
+    }
+
+    /**
+     * @defgroup f32x4x4 Memory Operations
+     */
+
+    KE_FORCEINLINE f32x4x4 LoadAlignedMat44(const float* data)
+    {
+#if defined(__ARM_NEON)
+        return vld1q_f32_x4(data);
+#else
+        f32x4x4 result;
+        for (int i = 0; i < 4; ++i)
+            result[i] = LoadAligned(data + i * 4);
+        return result;
+#endif
+    }
+
+    KE_FORCEINLINE f32x4x4 LoadUnalignedMat44(const float* data)
+    {
+#if defined(__ARM_NEON)
+        return vld1q_f32_x4(data);
+#else
+        f32x4x4 result;
+        for (int i = 0; i < 4; ++i)
+            result[i] = LoadUnaligned(data + i * 4);
+        return result;
+#endif
+    }
+
+    KE_FORCEINLINE void StoreAlignedMat44(float* data, const f32x4x4& value)
+    {
+#if defined(__ARM_NEON)
+        vst1q_f32_x4(data, value);
+#else
+        for (int i = 0; i < 4; ++i)
+            StoreAligned(data + i * 4, value[i]);
+#endif
+    }
+
+    KE_FORCEINLINE void StoreUnalignedMat44(float* data, const f32x4x4& value)
+    {
+#if defined(__ARM_NEON)
+        vst1q_f32_x4(data, value);
+#else
+        for (int i = 0; i < 4; ++i)
+            StoreUnaligned(data + i * 4, value[i]);
+#endif
+    }
 }

@@ -12,6 +12,7 @@
 #   include <arm_neon.h>
 #elif defined(__SSE2__)
 #   include <xmmintrin.h>
+#   include <EASTL/array.h>
 #else
 #   include <EASTL/array.h>
 #   include "KryneEngine/Core/Common/Types.hpp"
@@ -46,6 +47,22 @@ namespace KryneEngine::Simd
         __m128i
 #else
         struct { alignas(16) eastl::array<s32, 4> m_value; }
+#endif
+    ;
+
+    using f32x4x3 =
+#if defined(__ARM_NEON)
+        float32x4x3_t
+#else
+        eastl::array<f32x4, 3>
+#endif
+    ;
+
+    using f32x4x4 =
+#if defined(__ARM_NEON)
+        float32x4x4_t
+#else
+        eastl::array<f32x4, 4>
 #endif
     ;
 }

@@ -322,4 +322,179 @@ namespace KryneEngine::Simd
 #endif
     }
 #endif
+
+    /**
+     * @defgroup f32x4x3 Arithmetic Operations
+     */
+
+    KE_FORCEINLINE f32x4x3 Add(const f32x4x3& a, const f32x4x3& b)
+    {
+        f32x4x3 result;
+#if defined(__ARM_NEON)
+        result.val[0] = vaddq_f32(a.val[0], b.val[0]);
+        result.val[1] = vaddq_f32(a.val[1], b.val[1]);
+        result.val[2] = vaddq_f32(a.val[2], b.val[2]);
+#else
+        result[0] = Add(a[0], b[0]);
+        result[1] = Add(a[1], b[1]);
+        result[2] = Add(a[2], b[2]);
+#endif
+        return result;
+    }
+
+    KE_FORCEINLINE f32x4x3 Subtract(const f32x4x3& a, const f32x4x3& b)
+    {
+        f32x4x3 result;
+#if defined(__ARM_NEON)
+        result.val[0] = vsubq_f32(a.val[0], b.val[0]);
+        result.val[1] = vsubq_f32(a.val[1], b.val[1]);
+        result.val[2] = vsubq_f32(a.val[2], b.val[2]);
+#else
+        result[0] = Subtract(a[0], b[0]);
+        result[1] = Subtract(a[1], b[1]);
+        result[2] = Subtract(a[2], b[2]);
+#endif
+        return result;
+    }
+
+    /**
+     * @defgroup f32x4x4 Arithmetic Operations
+     */
+
+    KE_FORCEINLINE f32x4x4 Add(const f32x4x4& a, const f32x4x4& b)
+    {
+        f32x4x4 result;
+#if defined(__ARM_NEON)
+        result.val[0] = vaddq_f32(a.val[0], b.val[0]);
+        result.val[1] = vaddq_f32(a.val[1], b.val[1]);
+        result.val[2] = vaddq_f32(a.val[2], b.val[2]);
+        result.val[3] = vaddq_f32(a.val[3], b.val[3]);
+#else
+        result[0] = Add(a[0], b[0]);
+        result[1] = Add(a[1], b[1]);
+        result[2] = Add(a[2], b[2]);
+        result[3] = Add(a[3], b[3]);
+#endif
+        return result;
+    }
+
+    KE_FORCEINLINE f32x4x4 Subtract(const f32x4x4& a, const f32x4x4& b)
+    {
+        f32x4x4 result;
+#if defined(__ARM_NEON)
+        result.val[0] = vsubq_f32(a.val[0], b.val[0]);
+        result.val[1] = vsubq_f32(a.val[1], b.val[1]);
+        result.val[2] = vsubq_f32(a.val[2], b.val[2]);
+        result.val[3] = vsubq_f32(a.val[3], b.val[3]);
+#else
+        result[0] = Subtract(a[0], b[0]);
+        result[1] = Subtract(a[1], b[1]);
+        result[2] = Subtract(a[2], b[2]);
+        result[3] = Subtract(a[3], b[3]);
+#endif
+        return result;
+    }
+
+    KE_FORCEINLINE void Transpose(f32x4x4& m)
+    {
+#if defined(__ARM_NEON)
+        const float32x4x2_t t0 = vtrnq_f32(m.val[0], m.val[1]);
+        const float32x4x2_t t1 = vtrnq_f32(m.val[2], m.val[3]);
+
+        m.val[0] = vcombine_f32(vget_low_f32(t0.val[0]), vget_low_f32(t1.val[0]));
+        m.val[1] = vcombine_f32(vget_low_f32(t0.val[1]), vget_low_f32(t1.val[1]));
+        m.val[2] = vcombine_f32(vget_high_f32(t0.val[0]), vget_high_f32(t1.val[0]));
+        m.val[3] = vcombine_f32(vget_high_f32(t0.val[1]), vget_high_f32(t1.val[1]));
+#elif defined(__SSE2__)
+        const __m128 t0 = _mm_unpacklo_ps(m[0], m[1]);
+        const __m128 t1 = _mm_unpackhi_ps(m[0], m[1]);
+        const __m128 t2 = _mm_unpacklo_ps(m[2], m[3]);
+        const __m128 t3 = _mm_unpackhi_ps(m[2], m[3]);
+
+        m[0] = _mm_movelh_ps(t0, t2);
+        m[1] = _mm_movehl_ps(t2, t0);
+        m[2] = _mm_movelh_ps(t1, t3);
+        m[3] = _mm_movehl_ps(t3, t1);
+#else
+        for (u32 i = 0; i < 4; ++i)
+        {
+            for (u32 j = i + 1; j < 4; ++j)
+            {
+                const float v = m[i][j];
+                m[i][j] = m[j][i];
+                m[j][i] = v;
+            }
+        }
+#endif
+    }
+
+    KE_FORCEINLINE f32x4x4 Transposed(const f32x4x4& a)
+    {
+        f32x4x4 result;
+        Transpose(result);
+        return result;
+    }
+
+    // Assumes B is already transposed
+    KE_FORCEINLINE f32x4x4 MultiplyTransposed(const f32x4x4& a, const f32x4x4& b)
+    {
+#if defined(__ARM_NEON)
+        f32x4x4 result;
+        for (int i = 0; i < 4; ++i)
+        {
+            result.val[i] = vfmaq_laneq_f32(result.val[i], a.val[0], b.val[i], 0);
+            result.val[i] = vfmaq_laneq_f32(result.val[i], a.val[1], b.val[i], 1);
+            result.val[i] = vfmaq_laneq_f32(result.val[i], a.val[2], b.val[i], 2);
+            result.val[i] = vfmaq_laneq_f32(result.val[i], a.val[3], b.val[i], 3);
+        }
+        return result;
+#elif defined(__SSE2__)
+        f32x4x4 result;
+
+        for (u32 i = 0; i < 4; ++i)
+        {
+            const __m128 row = a[i];
+
+            const __m128 r0 = _mm_mul_ps(_mm_shuffle_ps(row, row, _MM_SHUFFLE(0, 0, 0, 0)), b[0]);
+            const __m128 r1 = _mm_mul_ps(_mm_shuffle_ps(row, row, _MM_SHUFFLE(1, 1, 1, 1)), b[1]);
+            const __m128 r2 = _mm_mul_ps(_mm_shuffle_ps(row, row, _MM_SHUFFLE(2, 2, 2, 2)), b[2]);
+            const __m128 r3 = _mm_mul_ps(_mm_shuffle_ps(row, row, _MM_SHUFFLE(3, 3, 3, 3)), b[3]);
+
+            result[i] = _mm_add_ps(_mm_add_ps(r0, r1), _mm_add_ps(r2, r3));
+        }
+
+        return result;
+#else
+        f32x4x4 result;
+        for (u32 i = 0; i < 4; ++i)
+        {
+            for (u32 j = 0; j < 4; ++j)
+            {
+                for (auto k = 0; k < 4; ++k)
+                {
+                    result[i][j] += a[i][k] * b[j][k];
+                }
+            }
+        }
+#endif
+    }
+
+    KE_FORCEINLINE f32x4x4 Multiply(const f32x4x4& a, const f32x4x4& b)
+    {
+#if defined(__ARM_NEON) || defined(__SSE2__)
+        return MultiplyTransposed(a, Transposed(b));
+#else
+        f32x4x4 result;
+        for (u32 i = 0; i < 4; ++i)
+        {
+            for (u32 j = 0; j < 4; ++j)
+            {
+                for (auto k = 0; k < 4; ++k)
+                {
+                    result[i][j] += a[i][k] * b[k][j];
+                }
+            }
+        }
+#endif
+    }
 }
