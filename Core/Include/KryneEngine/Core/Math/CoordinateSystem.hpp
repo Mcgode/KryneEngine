@@ -40,27 +40,27 @@ namespace KryneEngine::Math
         RightHandedZUp,
     };
 
-    constexpr bool IsLeftHanded(CoordinateSystem _system)
+    constexpr bool IsLeftHanded(const CoordinateSystem _system)
     {
         return _system == CoordinateSystem::LeftHandedYUp || _system == CoordinateSystem::LeftHandedZUp;
     }
 
-    constexpr bool IsZUp(CoordinateSystem _system)
+    constexpr bool IsZUp(const CoordinateSystem _system)
     {
         return _system == CoordinateSystem::RightHandedZUp || _system == CoordinateSystem::LeftHandedZUp;
     }
 
-    inline float3 UpVector(CoordinateSystem _system = KE_DEFAULT_COORDINATE_SYSTEM)
+    inline float3 UpVector(const CoordinateSystem _system = KE_DEFAULT_COORDINATE_SYSTEM)
     {
         return IsZUp(_system) ? float3(0.0f, 0.0f, 1.0f) : float3(0.0f, 1.0f, 0.0f);
     }
 
-    inline float3 RightVector(CoordinateSystem _system = KE_DEFAULT_COORDINATE_SYSTEM)
+    inline float3 RightVector(const CoordinateSystem _system = KE_DEFAULT_COORDINATE_SYSTEM)
     {
         return float3 { 1.0f, 0.0f, 0.0f };
     }
 
-    inline float3 ForwardVector(CoordinateSystem _system = KE_DEFAULT_COORDINATE_SYSTEM)
+    inline float3 ForwardVector(const CoordinateSystem _system = KE_DEFAULT_COORDINATE_SYSTEM)
     {
         switch (_system)
         {
@@ -68,10 +68,11 @@ namespace KryneEngine::Math
             return float3 { 0.0f, 0.0f, 1.0f };
         case CoordinateSystem::RightHandedYUp:
             return float3 { 0.0f, 0.0f, -1.0f };
-        case CoordinateSystem::RightHandedZUp:
-            return float3 { 0.0f, 1.0f, 0.0f };
         case CoordinateSystem::LeftHandedZUp:
             return float3 { 0.0f, -1.0f, 0.0f };
+        case CoordinateSystem::RightHandedZUp:
+        default:
+            return float3 { 0.0f, 1.0f, 0.0f };
         };
     }
 
