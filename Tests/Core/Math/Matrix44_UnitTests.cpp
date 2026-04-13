@@ -390,7 +390,144 @@ namespace KryneEngine::Tests::Math
         }
     }
     
-    namespace Transpoe
+    namespace MultiplyVector
+    {
+        constexpr float4 testVector { 1.0f, 2.0f, 3.0f, 4.0f };
+        
+        const float4x4 identityMat {};
+        constexpr float4 identityVector { 1.0f, 2.0f, 3.0f, 4.0f };
+
+        const auto translationMat = ComputeTransformMatrix<float4x4>(
+            float3(1.0f, 2.0f, 3.0f),
+            Quaternion(),
+            float3(1.0f)
+        );
+        constexpr float4 translationVec { 5.0f, 10.0f, 15.0f, 4.f };
+
+        const auto scaleMat = ComputeTransformMatrix<float4x4>(
+            float3(),
+            Quaternion(),
+            float3(1.0f, 0.5f, 1.2f)
+        );
+
+        const auto rotationMat = ComputeTransformMatrix<float4x4>(
+            float3(),
+            Quaternion(),
+            float3(1.0f)
+        );
+
+        const auto transformMat = ComputeTransformMatrix<float4x4>(
+            float3(1.0f, 2.0f, 3.0f),
+            Quaternion().FromAxisAngle(float3(1.0f, 1.0f, 0.0f).Normalized(), 0.5f),
+            float3(1.0f, 0.5f, 1.2f)
+        );
+
+        const auto perspectiveMat = PerspectiveProjection<float4x4>(1.5f, 1.3333f, 0.1, 1024, false);
+        
+        template<Matrix44Type T>
+        T Copy(const float4x4& _mat)
+        {
+            if constexpr (T::kRowMajorLayout)
+                return T(_mat);
+            else
+                return T::Convert(_mat);
+        }
+
+        template<Matrix44Type T>
+        static void Test()
+        {
+            using Vector = T::VectorType;
+            {
+                const T identity = Copy<T>(identityMat);
+                const Vector test = Vector(testVector);
+                
+                const Vector vec = identity * test;
+                EXPECT_EQ(vec, Vector(identityVector)) << "Identity matrix apply is invalid";
+            }
+
+            {
+                const T translation = Copy<T>(translationMat);
+                const Vector test = Vector(testVector);
+                
+                const Vector vec = translation * test;
+                EXPECT_EQ(vec, Vector(translationVec)) << "Translation matrix apply is invalid";
+            }
+
+            // {
+            //     const T scale = Copy<T>(scaleMat);
+            //     const Vector test = Vector(testVector);
+            //     
+            //     const Vector vec = scale * test;
+            //     EXPECT_EQ(vec, Vector(scaleVector)) << "Scale matrix apply is invalid";
+            // }
+            //
+            // {
+            //     const T rotation = Copy<T>(rotationMat);
+            //     const Vector test = Vector(testVector);
+            //
+            //     const Vector vec = rotation * test;
+            //     EXPECT_EQ(vec, Vector(rotationVector)) << "Rotation matrix apply is invalid";
+            // }
+            //
+            // {
+            //     const T transform = Copy<T>(transformMat);
+            //     const Vector test = Vector(testVector);
+            //
+            //     const Vector vec = transform * test;
+            //     EXPECT_EQ(vec, Vector(transformVector)) << "Transform matrix apply is invalid";
+            // }
+            //
+            // {
+            //     const T perspective = Copy<T>(perspectiveMat);
+            //     const Vector test = Vector(testVector);
+            //
+            //     const Vector vec = perspective * test;
+            //     EXPECT_EQ(vec, Vector(perspectiveVector)) << "Perspective matrix apply is invalid";
+            // }
+        }
+        
+        TEST(Matrix44, MultiplyVector_float4x4)
+        {
+            MultiplyVector::Test<float4x4>();
+        }
+
+        TEST(Matrix44, MultiplyVector_float4x4_simd)
+        {
+            MultiplyVector::Test<float4x4_simd>();
+        }
+
+        TEST(Matrix44, MultiplyVector_double4x4)
+        {
+            MultiplyVector::Test<double4x4>();
+        }
+
+        TEST(Matrix44, MultiplyVector_double4x4_simd)
+        {
+            MultiplyVector::Test<double4x4_simd>();
+        }
+
+        TEST(Matrix44, MultiplyVector_float4x4_column_major)
+        {
+            MultiplyVector::Test<float4x4_column_major>();
+        }
+
+        TEST(Matrix44, MultiplyVector_float4x4_simd_column_major)
+        {
+            MultiplyVector::Test<float4x4_simd_column_major>();
+        }
+
+        TEST(Matrix44, MultiplyVector_double4x4_column_major)
+        {
+            MultiplyVector::Test<double4x4_column_major>();
+        }
+
+        TEST(Matrix44, MultiplyVector_double4x4_simd_column_major)
+        {
+            MultiplyVector::Test<double4x4_simd_column_major>();
+        }
+    }
+    
+    namespace Transpose
     {
         const float4x4 matBase {
             1.f, 2.f, 3.f, 4.f,
@@ -574,42 +711,42 @@ namespace KryneEngine::Tests::Math
             }
         }
 
-        TEST(Matrix4x4, Inverse_float4x4)
+        TEST(Matrix44, Inverse_float4x4)
         {
             Inverse::Test<float4x4>();
         }
 
-        TEST(Matrix4x4, Inverse_float4x4_simd)
+        TEST(Matrix44, Inverse_float4x4_simd)
         {
             Inverse::Test<float4x4_simd>();
         }
 
-        TEST(Matrix4x4, Inverse_double4x4)
+        TEST(Matrix44, Inverse_double4x4)
         {
             Inverse::Test<double4x4>();
         }
 
-        TEST(Matrix4x4, Inverse_double4x4_simd)
+        TEST(Matrix44, Inverse_double4x4_simd)
         {
             Inverse::Test<double4x4_simd>();
         }
 
-        TEST(Matrix4x4, Inverse_float4x4_column_major)
+        TEST(Matrix44, Inverse_float4x4_column_major)
         {
             Inverse::Test<float4x4_column_major>();
         }
 
-        TEST(Matrix4x4, Inverse_float4x4_simd_column_major)
+        TEST(Matrix44, Inverse_float4x4_simd_column_major)
         {
             Inverse::Test<float4x4_simd_column_major>();
         }
 
-        TEST(Matrix4x4, Inverse_double4x4_column_major)
+        TEST(Matrix44, Inverse_double4x4_column_major)
         {
             Inverse::Test<double4x4_column_major>();
         }
 
-        TEST(Matrix4x4, Inverse_double4x4_simd_column_major)
+        TEST(Matrix44, Inverse_double4x4_simd_column_major)
         {
             Inverse::Test<double4x4_simd_column_major>();
         }
