@@ -638,7 +638,7 @@ namespace KryneEngine::Tests::Math
             if constexpr (T::kRowMajorLayout)
                 return T(_mat);
             else
-                return T::Convert(_mat.Transposed());
+                return T::Convert(_mat);
         }
 
         template<Matrix44Type T>
