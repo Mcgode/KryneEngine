@@ -409,20 +409,24 @@ namespace KryneEngine::Tests::Math
             Quaternion(),
             float3(1.0f, 0.5f, 1.2f)
         );
+        constexpr float4 scaleVector { 1.f, 1.f, 3.6f, 4.f };
 
         const auto rotationMat = ComputeTransformMatrix<float4x4>(
             float3(),
-            Quaternion(),
+            Quaternion().FromAxisAngle(float3(1.0f, 1.0f, 0.0f).Normalized(), 0.5),
             float3(1.0f)
         );
+        constexpr float4 rotationVector { 2.0782238766551018, 0.92177611216902733, 2.9717527031898499, 4 };
 
         const auto transformMat = ComputeTransformMatrix<float4x4>(
             float3(1.0f, 2.0f, 3.0f),
             Quaternion().FromAxisAngle(float3(1.0f, 1.0f, 0.0f).Normalized(), 0.5f),
             float3(1.0f, 0.5f, 1.2f)
         );
+        constexpr float4 transformVector { 6.2204182408750057, 7.7795817516744137, 15.159297466278076, 4 };
 
         const auto perspectiveMat = PerspectiveProjection<float4x4>(1.5f, 1.3333f, 0.1, 1024, false);
+        constexpr float4 perspectiveVector { 0.80508971214294434, 3.2202783823013306, 1.6001561880111694, 2 };
         
         template<Matrix44Type T>
         T Copy(const float4x4& _mat)
@@ -453,37 +457,37 @@ namespace KryneEngine::Tests::Math
                 EXPECT_EQ(vec, Vector(translationVec)) << "Translation matrix apply is invalid";
             }
 
-            // {
-            //     const T scale = Copy<T>(scaleMat);
-            //     const Vector test = Vector(testVector);
-            //     
-            //     const Vector vec = scale * test;
-            //     EXPECT_EQ(vec, Vector(scaleVector)) << "Scale matrix apply is invalid";
-            // }
-            //
-            // {
-            //     const T rotation = Copy<T>(rotationMat);
-            //     const Vector test = Vector(testVector);
-            //
-            //     const Vector vec = rotation * test;
-            //     EXPECT_EQ(vec, Vector(rotationVector)) << "Rotation matrix apply is invalid";
-            // }
-            //
-            // {
-            //     const T transform = Copy<T>(transformMat);
-            //     const Vector test = Vector(testVector);
-            //
-            //     const Vector vec = transform * test;
-            //     EXPECT_EQ(vec, Vector(transformVector)) << "Transform matrix apply is invalid";
-            // }
-            //
-            // {
-            //     const T perspective = Copy<T>(perspectiveMat);
-            //     const Vector test = Vector(testVector);
-            //
-            //     const Vector vec = perspective * test;
-            //     EXPECT_EQ(vec, Vector(perspectiveVector)) << "Perspective matrix apply is invalid";
-            // }
+            {
+                const T scale = Copy<T>(scaleMat);
+                const Vector test = Vector(testVector);
+
+                const Vector vec = scale * test;
+                EXPECT_EQ(vec, Vector(scaleVector)) << "Scale matrix apply is invalid";
+            }
+
+            {
+                const T rotation = Copy<T>(rotationMat);
+                const Vector test = Vector(testVector);
+
+                const Vector vec = rotation * test;
+                EXPECT_EQ(vec, Vector(rotationVector)) << "Rotation matrix apply is invalid";
+            }
+
+            {
+                const T transform = Copy<T>(transformMat);
+                const Vector test = Vector(testVector);
+
+                const Vector vec = transform * test;
+                EXPECT_EQ(vec, Vector(transformVector)) << "Transform matrix apply is invalid";
+            }
+
+            {
+                const T perspective = Copy<T>(perspectiveMat);
+                const Vector test = Vector(testVector);
+
+                const Vector vec = perspective * test;
+                EXPECT_EQ(vec, Vector(perspectiveVector)) << "Perspective matrix apply is invalid";
+            }
         }
         
         TEST(Matrix44, MultiplyVector_float4x4)
