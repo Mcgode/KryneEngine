@@ -115,12 +115,15 @@ namespace KryneEngine::Math
     {
         if constexpr (std::is_same_v<T, float> && Simd::kIsAvailable)
         {
+            // From benchmarking, pre-transposing the matrix then doing vector multiplication is more performant, as
+            // row major layout requires the use of sum reduction.
+
             const Simd::f32x4x4 m = SimdAligned
-                ? (RowMajor ? Simd::LoadAlignedMat44(GetPtr()) : Simd::LoadAlignedMat44Transposed(GetPtr()))
-                : (RowMajor ? Simd::LoadUnalignedMat44(GetPtr()) : Simd::LoadUnalignedMat44Transposed(GetPtr()));
+                ? (RowMajor ? Simd::LoadAlignedMat44Transposed(GetPtr()) : Simd::LoadAlignedMat44(GetPtr()))
+                : (RowMajor ? Simd::LoadUnalignedMat44Transposed(GetPtr()) : Simd::LoadUnalignedMat44(GetPtr()));
             const Simd::f32x4 v = Simd::From(_other);
 
-            const Simd::f32x4 r = Simd::Multiply(m, v);
+            const Simd::f32x4 r = Simd::MultiplyTransposed(m, v);
 
             Vector4Base<T, SimdAligned> result;
             Simd::Store(r, result);
