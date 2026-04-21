@@ -44,4 +44,8 @@
             <Item Name="[object]" Condition="m_sharedObject != 0">m_sharedObject->m_object</Item>
         </Expand>
     </Type>
+
+    <Type Name="KryneEngine::Math::Vector4Base&lt;*,*&gt;">
+        <DisplayString>({x}, {y}, {z}, {w})</DisplayString>
+    </Type>
 </AutoVisualizer>
