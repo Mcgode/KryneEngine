@@ -107,7 +107,7 @@ namespace KryneEngine::Platform
         const u32 _clientIdx)
     {
         KE_ASSERT(_connection.m_handle != nullptr);
-        const auto* connection = static_cast<WindowsHostLocalIpcConnection*>(_connection.m_handle);
+        auto* connection = static_cast<WindowsHostLocalIpcConnection*>(_connection.m_handle);
 
         DWORD bytesRead = 0;
         const BOOL success = ReadFile(
