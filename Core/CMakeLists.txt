@@ -216,6 +216,7 @@ elseif (GraphicsApi STREQUAL "MTL")
                 Src/Graphics/Metal/MetalArgumentBufferManager.cpp
                 Src/Graphics/Metal/MetalArgumentBufferManager.hpp
                 Src/Graphics/Metal/Helpers/RenderState.hpp
+                Include/KryneEngine/Core/Platform/Cpu.hpp
         )
 endif()
 
