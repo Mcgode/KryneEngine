@@ -4,7 +4,9 @@
  * @date 13/03/2025.
  */
 
-#include <corecrt_math_defines.h>
+#if defined(__WIN32__)
+#   include <corecrt_math_defines.h>
+#endif
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
 #include <KryneEngine/Core/Math/RotationConversion.hpp>
