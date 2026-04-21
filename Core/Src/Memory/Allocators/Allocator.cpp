@@ -11,6 +11,12 @@
 
 namespace KryneEngine
 {
+    IAllocator::IAllocator(const char* _name, const bool _customProfiling)
+        : m_customProfiling(_customProfiling)
+    {
+        std::snprintf(m_name, sizeof(m_name), "%s", _name);
+    }
+
     void* AllocatorInstance::allocate(const size_t _size, const int _flags) const
     {
         void* ptr = nullptr;
