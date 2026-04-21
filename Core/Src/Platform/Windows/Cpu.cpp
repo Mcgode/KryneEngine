@@ -30,6 +30,8 @@ namespace KryneEngine::Platform
                 Simd::g_simdSupport |= Simd::SimdSupport::SSE3;
             if (regs[2] & (1 << 9))
                 Simd::g_simdSupport |= Simd::SimdSupport::SSSE3;
+            if (regs[2] & (1 << 12))
+                Simd::g_simdSupport |= Simd::SimdSupport::FMA;
             if (regs[2] & (1 << 19))
                 Simd::g_simdSupport |= Simd::SimdSupport::SSE41;
             if (regs[2] & (1 << 20))
