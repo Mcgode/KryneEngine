@@ -698,9 +698,13 @@ namespace KryneEngine::Tests::Math
 
                 const Vector vec = transform * test;
                 const T inverse = transform.Inverse();
-                const T mul = transform * inverse;
-                EXPECT_EQ(mul, T()) << "Transform matrix inverse is invalid";
-                EXPECT_EQ(test, inverse * vec) << "Transform matrix inverse is invalid";
+                const T mulMat = transform * inverse;
+                const Vector mulVec = inverse * vec;
+                EXPECT_EQ(mulMat, T()) << "Transform matrix inverse is invalid";
+
+                // With 32-bit floating point precision, we have some precision loss.
+                // Test with a bit of a wider tolerance
+                EXPECT_TRUE(mulVec.Equals(test, 1e-5)) << "Transform matrix inverse is invalid";
             }
 
             {
