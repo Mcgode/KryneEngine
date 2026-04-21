@@ -23,14 +23,15 @@ namespace KryneEngine
     using float4x4_simd = Math::Matrix44Base<float, KE_DEFAULT_MATRIX_ROW_MAJOR, false>;
     using double4x4_simd = Math::Matrix44Base<double, KE_DEFAULT_MATRIX_ROW_MAJOR, false>;
 
-    template<class T, bool RowMajor,  bool SimdAligned>
-    Math::Matrix44Base<T, RowMajor, SimdAligned> ToMatrix44(const Math::Matrix33Base<T, RowMajor>& _matrix)
+    template<Math::Matrix44Type T>
+    T ToMatrix44(const Math::Matrix33Base<typename T::ScalarType, T::kRowMajorLayout>& _matrix)
     {
-        return Math::Matrix44Base<T, RowMajor, SimdAligned> {
-            Math::Vector4Base<T, SimdAligned>{ _matrix.m_vectors[0], 0.f },
-            Math::Vector4Base<T, SimdAligned>{ _matrix.m_vectors[1], 0.f },
-            Math::Vector4Base<T, SimdAligned>{ _matrix.m_vectors[2], 0.f },
-            Math::Vector4Base<T, SimdAligned>{ 0.0f, 0.0f, 0.0f, 1.0f }
+        using VectorType = T::VectorType;
+        return T {
+            VectorType{ _matrix.m_vectors[0], 0.f },
+            VectorType{ _matrix.m_vectors[1], 0.f },
+            VectorType{ _matrix.m_vectors[2], 0.f },
+            VectorType{ 0.0f, 0.0f, 0.0f, 1.0f }
         };
     }
 
