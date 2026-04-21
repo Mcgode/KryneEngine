@@ -173,6 +173,8 @@ namespace KryneEngine::Math
                     Simd::StoreAlignedMat44(GetPtr(), mat);
                 else
                     Simd::StoreUnalignedMat44(GetPtr(), mat);
+
+                return *this;
             }
         }
 
