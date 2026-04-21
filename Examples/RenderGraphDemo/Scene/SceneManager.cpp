@@ -49,7 +49,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         float m_torusKnotRadius;
         float m_torusRoughness;
         float m_torusMetalness;
-        uint m_padding[1];
+        u32 m_padding[1];
     };
 
     SceneManager::SceneManager(
