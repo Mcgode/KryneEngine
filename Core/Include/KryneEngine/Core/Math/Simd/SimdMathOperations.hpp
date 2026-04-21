@@ -195,17 +195,17 @@ namespace KryneEngine::Simd
         // A#B
         __m128 a_b = Mat2AdjMul(a, b);
         // X# = |D|A - B(D#C)
-        __m128 x_ = _mm_sub_ps(_mm_mul_ps(detD, a), Mat2Mul(b, d_c));
+        __m128 xAdj = _mm_sub_ps(_mm_mul_ps(detD, a), Mat2Mul(b, d_c));
         // W# = |A|D - C(A#B)
-        __m128 w_ = _mm_sub_ps(_mm_mul_ps(detA, d), Mat2Mul(c, a_b));
+        __m128 wAdj = _mm_sub_ps(_mm_mul_ps(detA, d), Mat2Mul(c, a_b));
 
         // |M| = |A|*|D| + ... (continue later)
         __m128 detM = _mm_mul_ps(detA, detD);
 
         // Y# = |B|C - D(A#B)#
-        __m128 y_ = _mm_sub_ps(_mm_mul_ps(detB, c), Mat2MulAdj(d, a_b));
+        __m128 yAdj = _mm_sub_ps(_mm_mul_ps(detB, c), Mat2MulAdj(d, a_b));
         // Z# = |C|B - A(D#C)#
-        __m128 z_ = _mm_sub_ps(_mm_mul_ps(detC, b), Mat2MulAdj(a, d_c));
+        __m128 zAdj = _mm_sub_ps(_mm_mul_ps(detC, b), Mat2MulAdj(a, d_c));
 
         // |M| = |A|*|D| + |B|*|C| ... (continue later)
         detM = _mm_add_ps(detM, _mm_mul_ps(detB, detC));

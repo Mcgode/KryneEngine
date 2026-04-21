@@ -14,6 +14,9 @@
 #   include <emmintrin.h>
 #   include <smmintrin.h>
 #   include <xmmintrin.h>
+#   if defined(__SSE4_1__)
+#       include <smmintrin.h>
+#   endif
 #endif
 
 namespace KryneEngine::Simd
@@ -31,7 +34,7 @@ namespace KryneEngine::Simd
 #else
         f32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] + b.m_value[i];
+            result[i] = a[i] + b[i];
         return result;
 #endif
     }
@@ -45,7 +48,7 @@ namespace KryneEngine::Simd
 #else
         f32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] - b.m_value[i];
+            result[i] = a[i] - b[i];
         return result;
 #endif
     }
@@ -59,7 +62,7 @@ namespace KryneEngine::Simd
 #else
         f32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i];
+            result[i] = a[i] * b[i];
         return result;
 #endif
     }
@@ -73,7 +76,7 @@ namespace KryneEngine::Simd
 #else
         f32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] / b.m_value[i];
+            result[i] = a[i] / b[i];
         return result;
 #endif
     }
@@ -91,7 +94,7 @@ namespace KryneEngine::Simd
 #else
         f32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i] + c.m_value[i];
+            result[i] = a[i] * b[i] + c[i];
         return result;
 #endif
     }
@@ -110,7 +113,7 @@ namespace KryneEngine::Simd
 #else
         f32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i] - c.m_value[i];
+            result[i] = a[i] * b[i] - c[i];
         return result;
 #endif
     }
@@ -133,7 +136,7 @@ namespace KryneEngine::Simd
 #else
         float result = 0.0f;
         for (int i = 0; i < 4; ++i)
-            result += a.m_value[i];
+            result += a[i];
         return result;
 #endif
     }
@@ -151,7 +154,7 @@ namespace KryneEngine::Simd
 #else
         u32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] + b.m_value[i];
+            result[i] = a[i] + b[i];
         return result;
 #endif
     }
@@ -165,7 +168,7 @@ namespace KryneEngine::Simd
 #else
         u32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] - b.m_value[i];
+            result[i] = a[i] - b[i];
         return result;
 #endif
     }
@@ -174,12 +177,12 @@ namespace KryneEngine::Simd
     {
 #if defined(__ARM_NEON)
         return vmulq_u32(a, b);
-#elif defined(__SSE2__)
+#elif defined(__SSE4_1__)
         return _mm_mullo_epi32(a, b);
 #else
         u32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i];
+            result[i] = a[i] * b[i];
         return result;
 #endif
     }
@@ -188,12 +191,12 @@ namespace KryneEngine::Simd
     {
 #if defined(__ARM_NEON)
         return vmlaq_u32(c, a, b);
-#elif defined(__SSE2__)
+#elif defined(__SSE4_1__)
         return _mm_add_epi32(_mm_mullo_epi32(a, b), c);
 #else
         u32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i] + c.m_value[i];
+            result[i] = a[i] * b[i] + c[i];
         return result;
 #endif
     }
@@ -207,7 +210,7 @@ namespace KryneEngine::Simd
 #else
         u32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i] - c.m_value[i];
+            result[i] = a[i] * b[i] - c[i];
         return result;
 #endif
     }
@@ -230,7 +233,7 @@ namespace KryneEngine::Simd
 #else
         u32 result = 0;
         for (int i = 0; i < 4; ++i)
-            result += a.m_value[i];
+            result += a[i];
         return result;
 #endif
     }
@@ -244,12 +247,10 @@ namespace KryneEngine::Simd
     {
 #if defined(__ARM_NEON)
         return vaddq_s32(a, b);
-#elif defined(__SSE2__)
-        return _mm_add_epi32(a, b);
 #else
         s32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] + b.m_value[i];
+            result[i] = a[i] + b[i];
         return result;
 #endif
     }
@@ -258,12 +259,10 @@ namespace KryneEngine::Simd
     {
 #if defined(__ARM_NEON)
         return vsubq_s32(a, b);
-#elif defined(__SSE2__)
-        return _mm_sub_epi32(a, b);
 #else
         s32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] - b.m_value[i];
+            result[i] = a[i] - b[i];
         return result;
 #endif
     }
@@ -272,12 +271,10 @@ namespace KryneEngine::Simd
     {
 #if defined(__ARM_NEON)
         return vmulq_s32(a, b);
-#elif defined(__SSE2__)
-        return _mm_mullo_epi32(a, b);
 #else
         s32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i];
+            result[i] = a[i] * b[i];
         return result;
 #endif
     }
@@ -286,12 +283,10 @@ namespace KryneEngine::Simd
     {
 #if defined(__ARM_NEON)
         return vmlaq_s32(c, a, b);
-#elif defined(__SSE2__)
-        return _mm_add_epi32(_mm_mullo_epi32(a, b), c);
 #else
         s32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i] + c.m_value[i];
+            result[i] = a[i] * b[i] + c[i];
         return result;
 #endif
     }
@@ -300,12 +295,10 @@ namespace KryneEngine::Simd
     {
 #if defined(__ARM_NEON)
         return vmlsq_s32(c, a, b);
-#elif defined(__SSE2__)
-        return _mm_sub_epi32(_mm_mullo_epi32(a, b), c);
 #else
         s32x4 result;
         for (int i = 0; i < 4; ++i)
-            result.m_value[i] = a.m_value[i] * b.m_value[i] - c.m_value[i];
+            result[i] = a[i] * b[i] - c[i];
         return result;
 #endif
     }
@@ -317,7 +310,7 @@ namespace KryneEngine::Simd
 #else
         s32 result = 0;
         for (int i = 0; i < 4; ++i)
-            result += a.m_value[i];
+            result += a[i];
         return result;
 #endif
     }
@@ -505,7 +498,7 @@ namespace KryneEngine::Simd
         const float r1 = ReduceSum(_mm_mul_ps(m[1], v));
         const float r2 = ReduceSum(_mm_mul_ps(m[2], v));
         const float r3 = ReduceSum(_mm_mul_ps(m[3], v));
-        return _mm_set_ps(r0, r1, r2, r3, r4);
+        return _mm_set_ps(r0, r1, r2, r3);
 #else
         f32x4 result;
         for (u32 i = 0; i < 4; ++i)
