@@ -39,7 +39,7 @@ namespace KryneEngine::Math
             U _a11, U _a12, U _a13, U _a14,
             U _a21, U _a22, U _a23, U _a24,
             U _a31, U _a32, U _a33, U _a34,
-            U _a41, U _a42, U _a43, U _a44) requires RowMajor
+            U _a41, U _a42, U _a43, U _a44) requires (kRowMajorLayout)
             : m_vectors(
                   VectorType { _a11, _a12, _a13, _a14 },
                   VectorType { _a21, _a22, _a23, _a24 },
@@ -54,7 +54,7 @@ namespace KryneEngine::Math
             U _a11, U _a12, U _a13, U _a14,
             U _a21, U _a22, U _a23, U _a24,
             U _a31, U _a32, U _a33, U _a34,
-            U _a41, U _a42, U _a43, U _a44) requires (!RowMajor)
+            U _a41, U _a42, U _a43, U _a44) requires (!kRowMajorLayout)
             : m_vectors (
                   VectorType { _a11, _a21, _a31, _a41 },
                   VectorType { _a12, _a22, _a32, _a42 },
