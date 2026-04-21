@@ -62,21 +62,24 @@ namespace KryneEngine::Math
     template <typename T, bool RowMajor, bool SimdAligned>
     Matrix44Base<T, RowMajor, SimdAligned> Matrix44Base<T, RowMajor, SimdAligned>::operator*(const Matrix44Base& _other) const
     {
-        if constexpr (std::is_same_v<T, float> && Simd::kIsAvailable)
+        if constexpr (std::is_same_v<T, float>)
         {
-            const Simd::f32x4x4 a = SimdAligned ? Simd::LoadAlignedMat44(GetPtr()) : Simd::LoadUnalignedMat44(GetPtr());
-            const Simd::f32x4x4 b = SimdAligned ? Simd::LoadAlignedMat44(_other.GetPtr()) : Simd::LoadUnalignedMat44(_other.GetPtr());
+            if (Simd::g_simdSupport != Simd::SimdSupport::None)
+            {
+                const Simd::f32x4x4 a = SimdAligned ? Simd::LoadAlignedMat44(GetPtr()) : Simd::LoadUnalignedMat44(GetPtr());
+                const Simd::f32x4x4 b = SimdAligned ? Simd::LoadAlignedMat44(_other.GetPtr()) : Simd::LoadUnalignedMat44(_other.GetPtr());
 
-            const Simd::f32x4x4 r = RowMajor ? Simd::Multiply(a, b) : Simd::Multiply(b, a);
+                const Simd::f32x4x4 r = RowMajor ? Simd::Multiply(a, b) : Simd::Multiply(b, a);
 
-            Matrix44Base result;
-            if constexpr (SimdAligned)
-                Simd::StoreAlignedMat44(result.m_vectors[0].GetPtr(), r);
-            else
-                Simd::StoreUnalignedMat44(result.m_vectors[0].GetPtr(), r);
-            return result;
+                Matrix44Base result;
+                if constexpr (SimdAligned)
+                    Simd::StoreAlignedMat44(result.m_vectors[0].GetPtr(), r);
+                else
+                    Simd::StoreUnalignedMat44(result.m_vectors[0].GetPtr(), r);
+                return result;
+            }
         }
-        else
+
         {
             using Vector4 = Vector4Base<T, SimdAligned>;
             const Vector4* vas = RowMajor ? m_vectors : _other.m_vectors;
@@ -113,23 +116,26 @@ namespace KryneEngine::Math
     template <class T, bool RowMajor, bool SimdAligned>
     Vector4Base<T, SimdAligned> Matrix44Base<T, RowMajor, SimdAligned>::operator*(const Vector4Base<T, SimdAligned>& _other) const
     {
-        if constexpr (std::is_same_v<T, float> && Simd::kIsAvailable)
+        if constexpr (std::is_same_v<T, float>)
         {
-            // From benchmarking, pre-transposing the matrix then doing vector multiplication is more performant, as
-            // row major layout requires the use of sum reduction.
+            if (Simd::g_simdSupport != Simd::SimdSupport::None)
+            {
+                // From benchmarking, pre-transposing the matrix then doing vector multiplication is more performant, as
+                // row major layout requires the use of sum reduction.
 
-            const Simd::f32x4x4 m = SimdAligned
-                ? (RowMajor ? Simd::LoadAlignedMat44Transposed(GetPtr()) : Simd::LoadAlignedMat44(GetPtr()))
-                : (RowMajor ? Simd::LoadUnalignedMat44Transposed(GetPtr()) : Simd::LoadUnalignedMat44(GetPtr()));
-            const Simd::f32x4 v = Simd::From(_other);
+                const Simd::f32x4x4 m = SimdAligned
+                    ? (RowMajor ? Simd::LoadAlignedMat44Transposed(GetPtr()) : Simd::LoadAlignedMat44(GetPtr()))
+                    : (RowMajor ? Simd::LoadUnalignedMat44Transposed(GetPtr()) : Simd::LoadUnalignedMat44(GetPtr()));
+                const Simd::f32x4 v = Simd::From(_other);
 
-            const Simd::f32x4 r = Simd::MultiplyTransposed(m, v);
+                const Simd::f32x4 r = Simd::MultiplyTransposed(m, v);
 
-            Vector4Base<T, SimdAligned> result;
-            Simd::Store(r, result);
-            return result;
+                Vector4Base<T, SimdAligned> result;
+                Simd::Store(r, result);
+                return result;
+            }
         }
-        else
+
         {
             if constexpr (RowMajor)
             {
@@ -155,18 +161,21 @@ namespace KryneEngine::Math
     template <class T, bool RowMajor, bool SimdAligned>
     Matrix44Base<T, RowMajor, SimdAligned>& Matrix44Base<T, RowMajor, SimdAligned>::Transpose()
     {
-        if constexpr (std::is_same_v<T, float> && Simd::kIsAvailable)
+        if constexpr (std::is_same_v<T, float>)
         {
-            const Simd::f32x4x4 mat = SimdAligned
-                ? Simd::LoadAlignedMat44Transposed(GetPtr())
-                : Simd::LoadUnalignedMat44Transposed(GetPtr());
+            if (Simd::g_simdSupport != Simd::SimdSupport::None)
+            {
+                const Simd::f32x4x4 mat = SimdAligned
+                   ? Simd::LoadAlignedMat44Transposed(GetPtr())
+                   : Simd::LoadUnalignedMat44Transposed(GetPtr());
 
-            if constexpr (SimdAligned)
-                Simd::StoreAlignedMat44(GetPtr(), mat);
-            else
-                Simd::StoreUnalignedMat44(GetPtr(), mat);
+                if constexpr (SimdAligned)
+                    Simd::StoreAlignedMat44(GetPtr(), mat);
+                else
+                    Simd::StoreUnalignedMat44(GetPtr(), mat);
+            }
         }
-        else
+
         {
             std::swap(m_vectors[0][1], m_vectors[1][0]);
             std::swap(m_vectors[0][2], m_vectors[2][0]);
@@ -224,20 +233,23 @@ namespace KryneEngine::Math
 
         Matrix44Base result;
 
-        if constexpr (std::is_same_v<T, float> && Simd::kIsAvailable)
+        if constexpr (std::is_same_v<T, float>)
         {
-            const Simd::f32x4x4 mat = SimdAligned
-                ? Simd::LoadAlignedMat44(GetPtr())
-                : Simd::LoadUnalignedMat44(GetPtr());
+            if (Simd::g_simdSupport != Simd::SimdSupport::None)
+            {
+                const Simd::f32x4x4 mat = SimdAligned
+                   ? Simd::LoadAlignedMat44(GetPtr())
+                   : Simd::LoadUnalignedMat44(GetPtr());
 
-            const Simd::f32x4x4 inv = Simd::Inverse(mat);
+                const Simd::f32x4x4 inv = Simd::Inverse(mat);
 
-            if constexpr (SimdAligned)
-                Simd::StoreAlignedMat44(result.GetPtr(), inv);
-            else
-                Simd::StoreUnalignedMat44(result.GetPtr(), inv);
+                if constexpr (SimdAligned)
+                    Simd::StoreAlignedMat44(result.GetPtr(), inv);
+                else
+                    Simd::StoreUnalignedMat44(result.GetPtr(), inv);
+            }
         }
-        else
+
         {
             // Taken from assimp implementation
 
