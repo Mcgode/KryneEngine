@@ -19,14 +19,16 @@ namespace KryneEngine::Simd
 #if defined(__ARM_NEON)
     KE_FORCEINLINE f32x4 Mat2Mul(const f32x4 a, const f32x4 b)
     {
-        const float32x2_t a_lo = vget_low_f32(a);
-        const float32x2_t a_hi = vget_high_f32(a);
-        const float32x2_t b_lo = vget_low_f32(b);
-        const float32x2_t b_hi = vget_high_f32(b);
+        const float32x4x2_t trnA = vtrnq_f32(a, a);  // [ a0, a0, a2, a2 ] [ a1, a1, a3, a3 ]
+        const f32x4 a0033 = vcombine_f32(vget_low_f32(trnA.val[0]), vget_high_f32(trnA.val[1]));
+        const f32x4 a1122 = vcombine_f32(vget_low_f32(trnA.val[1]), vget_high_f32(trnA.val[0]));
 
-        return vcombine_f32(
-            vmla_lane_f32(vmul_lane_f32(b_lo, a_lo, 0), b_hi, a_lo, 1),
-            vmla_lane_f32(vmul_lane_f32(b_lo, a_hi, 0), b_lo, a_lo, 1));
+        const f32x4 b2301 = vcombine_f32(vget_high_f32(b), vget_low_f32(b));
+
+        const float32x4_t result = vaddq_f32(
+            vmulq_f32(a0033, b),
+            vmulq_f32(a1122, b2301));
+        return result;
     }
 
     KE_FORCEINLINE f32x4 Mat2AdjMul(const f32x4 a, const f32x4 b)
