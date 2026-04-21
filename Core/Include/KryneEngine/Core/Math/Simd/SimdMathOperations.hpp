@@ -174,10 +174,10 @@ namespace KryneEngine::Simd
 #elif defined(__SSE2__)
         // Based on https://lxjk.github.io/2017/09/03/Fast-4x4-Matrix-Inverse-with-SSE-SIMD-Explained.html
 
-        const __m128 a = _mm_shuffle_ps(m[0], m[1], _MM_SHUFFLE(1,0,1,0));
-        const __m128 b = _mm_shuffle_ps(m[0], m[1], _MM_SHUFFLE(3,2,3,2));
-        const __m128 c = _mm_shuffle_ps(m[2], m[3], _MM_SHUFFLE(1,0,1,0));
-        const __m128 d = _mm_shuffle_ps(m[2], m[3], _MM_SHUFFLE(3,2,3,2));
+        const __m128 a = _mm_movelh_ps(m[0], m[1]);
+        const __m128 b = _mm_movehl_ps(m[1], m[0]);
+        const __m128 c = _mm_movelh_ps(m[2], m[3]);
+        const __m128 d = _mm_movehl_ps(m[3], m[2]);
 
         const __m128 detSub = _mm_sub_ps(
             _mm_mul_ps(_mm_shuffle_ps(m[0], m[2], _MM_SHUFFLE(2,0,2,0)), _mm_shuffle_ps(m[1], m[3], _MM_SHUFFLE(3,1,3,1))),
@@ -217,7 +217,7 @@ namespace KryneEngine::Simd
         tr = _mm_hadd_ps(tr, tr);
 #   else
         // SSE2 fallback for double horizontal add
-        // First hadd: tr = [tr3+tr2, tr3+tr2, tr1+tr0, tr1+tr0]
+        // First hadd: tr = [tr0+tr1, tr0+tr1, tr2+tr3, tr2+tr3]
         __m128 temp = _mm_add_ps(tr, _mm_swizzle4(tr, 2, 3, 0, 1));
         // Second hadd: sum all elements into each component
         tr = _mm_add_ps(temp, _mm_swizzle4(temp, 1, 0, 3, 2));
