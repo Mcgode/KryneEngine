@@ -4,7 +4,7 @@
  * @date 13/03/2025.
  */
 
-#if defined(__WIN32__)
+#if defined(WIN32)
 #   include <corecrt_math_defines.h>
 #endif
 #include <KryneEngine/Core/Common/Types.hpp>
