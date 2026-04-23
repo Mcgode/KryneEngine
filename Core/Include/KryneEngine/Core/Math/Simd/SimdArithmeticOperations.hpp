@@ -639,4 +639,18 @@ namespace KryneEngine::Simd
         return result;
 #endif
     }
+
+    KE_FORCEINLINE u8x16 BitwiseAnd(u8x16 a, u8x16 b)
+    {
+#if defined(__ARM_NEON)
+        return vandq_u8(a, b);
+#elif defined(__SSE2__)
+        return _mm_and_si128(a, b);
+#else
+        u8x16 result;
+        for (int i = 0; i < 16; ++i)
+            result[i] = a[i] & b[i];
+        return result;
+#endif
+    }
 }

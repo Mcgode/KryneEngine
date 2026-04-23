@@ -344,4 +344,32 @@ namespace KryneEngine::Simd
             StoreUnaligned(data + i * 4, value[i]);
 #endif
     }
+
+    KE_FORCEINLINE u8x16 LoadUnaligned(const u8* data)
+    {
+#if defined(__ARM_NEON)
+        return vld1q_u8(data);
+#elif defined(__SSE2__)
+        return _mm_loadu_si128(reinterpret_cast<const __m128i*>(data));
+#else
+        u8x16 result;
+        for (int i = 0; i < 16; ++i)
+            result[i] = data[i];
+        return result;
+#endif
+    }
+
+    KE_FORCEINLINE u8x16 From(const u8 value)
+    {
+#if defined(__ARM_NEON)
+        return vdupq_n_u8(value);
+#elif defined(__SSE2__)
+        return _mm_set1_epi8(value);
+#else
+        u8x16 result;
+        for (int i = 0; i < 16; ++i)
+            result[i] = value;
+        return result;
+#endif
+    }
 }

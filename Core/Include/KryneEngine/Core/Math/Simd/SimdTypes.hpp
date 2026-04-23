@@ -65,4 +65,14 @@ namespace KryneEngine::Simd
         eastl::array<f32x4, 4>
 #endif
     ;
+
+    using u8x16 =
+#if defined(__ARM_NEON)
+        uint8x16_t
+#elif defined(__SSE2__)
+        __m128i
+#else
+        eastl::array<u8, 16>
+#endif
+    ;
 }
