@@ -40,15 +40,10 @@ namespace KryneEngine::Tests::Math
         // -----------------------------------------------------------------------
 
         {
-            const float3x3 result = matA + matB;
-            EXPECT_EQ(result, expectedResult);
-        }
-
-        {
-            const float3x3_simd a(matA);
-            const float3x3_simd b(matB);
-            const float3x3_simd result = a + b;
-            EXPECT_EQ(result, float3x3_simd(expectedResult));
+            const float3x3 a(matA);
+            const float3x3 b(matB);
+            const float3x3 result = a + b;
+            EXPECT_EQ(result, float3x3(expectedResult));
         }
 
         {
@@ -56,13 +51,6 @@ namespace KryneEngine::Tests::Math
             const double3x3 b(matB);
             const double3x3 result = a + b;
             EXPECT_EQ(result, double3x3(expectedResult));
-        }
-
-        {
-            const double3x3_simd a(matA);
-            const double3x3_simd b(matB);
-            const double3x3_simd result = a + b;
-            EXPECT_EQ(result, double3x3_simd(expectedResult));
         }
     }
 
@@ -95,15 +83,10 @@ namespace KryneEngine::Tests::Math
         // -----------------------------------------------------------------------
 
         {
-            const float3x3 result = matA - matB;
-            EXPECT_EQ(result, expectedResult);
-        }
-
-        {
-            const float3x3_simd a(matA);
-            const float3x3_simd b(matB);
-            const float3x3_simd result = a - b;
-            EXPECT_EQ(result, float3x3_simd(expectedResult));
+            const float3x3 a(matA);
+            const float3x3 b(matB);
+            const float3x3 result = a - b;
+            EXPECT_EQ(result, float3x3(expectedResult));
         }
 
         {
@@ -111,13 +94,6 @@ namespace KryneEngine::Tests::Math
             const double3x3 b(matB);
             const double3x3 result = a - b;
             EXPECT_EQ(result, double3x3(expectedResult));
-        }
-
-        {
-            const double3x3_simd a(matA);
-            const double3x3_simd b(matB);
-            const double3x3_simd result = a - b;
-            EXPECT_EQ(result, double3x3_simd(expectedResult));
         }
     }
 
@@ -156,19 +132,12 @@ namespace KryneEngine::Tests::Math
         // -----------------------------------------------------------------------
 
         {
-            const float3x3 resultAb = matA * matB;
-            const float3x3 resultBa = matB * matA;
-            EXPECT_EQ(resultAb, expectedResultAb);
-            EXPECT_EQ(resultBa, expectedResultBa);
-        }
-
-        {
-            const float3x3_simd a(matA);
-            const float3x3_simd b(matB);
-            const float3x3_simd resultAb = a * b;
-            const float3x3_simd resultBa = b * a;
-            EXPECT_EQ(resultAb, float3x3_simd(expectedResultAb));
-            EXPECT_EQ(resultBa, float3x3_simd(expectedResultBa));
+            const float3x3 a(matA);
+            const float3x3 b(matB);
+            const float3x3 resultAb = a * b;
+            const float3x3 resultBa = b * a;
+            EXPECT_EQ(resultAb, float3x3(expectedResultAb));
+            EXPECT_EQ(resultBa, float3x3(expectedResultBa));
         }
 
         {
@@ -178,15 +147,6 @@ namespace KryneEngine::Tests::Math
             const double3x3 resultBa = b * a;
             EXPECT_EQ(resultAb, double3x3(expectedResultAb));
             EXPECT_EQ(resultBa, double3x3(expectedResultBa));
-        }
-
-        {
-            const double3x3_simd a(matA);
-            const double3x3_simd b(matB);
-            const double3x3_simd resultAb = a * b;
-            const double3x3_simd resultBa = b * a;
-            EXPECT_EQ(resultAb, double3x3_simd(expectedResultAb));
-            EXPECT_EQ(resultBa, double3x3_simd(expectedResultBa));
         }
     }
 
@@ -213,22 +173,13 @@ namespace KryneEngine::Tests::Math
         // -----------------------------------------------------------------------
 
         {
-            EXPECT_EQ(matBase.Transposed(), expected);
-        }
-
-        {
-            const float3x3_simd mat(matBase);
-            EXPECT_EQ(mat.Transposed(), float3x3_simd(expected));
+            const float3x3 mat(matBase);
+            EXPECT_EQ(mat.Transposed(), float3x3(expected));
         }
 
         {
             const double3x3 mat(matBase);
             EXPECT_EQ(mat.Transposed(), double3x3(expected));
-        }
-
-        {
-            const double3x3_simd mat(matBase);
-            EXPECT_EQ(mat.Transposed(), double3x3_simd(expected));
         }
     }
 }

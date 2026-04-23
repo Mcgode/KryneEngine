@@ -59,7 +59,7 @@ namespace KryneEngine
 
     namespace
     {
-        constexpr eastl::array<const char*> kValidationLayerNames = {
+        constexpr eastl::array<const char*, 1> kValidationLayerNames = {
                 "VK_LAYER_KHRONOS_validation"
         };
 

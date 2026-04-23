@@ -21,16 +21,12 @@ namespace KryneEngine::Math
         { _u.y } -> std::convertible_to<T>;
     };
 
-    template <typename T, bool SimdOptimal = false>
+    template <typename T>
     struct Vector2Base
     {
         using ScalarType = T;
-        static constexpr bool kSimdOptimal = SimdOptimal;
-
-        static_assert(sizeof(T) >= 4 || !SimdOptimal, "Vector2Base element type must be at least 4 bytes to use SIMD");
 
         static constexpr size_t kSimdOptimalAlignment = Alignment::AlignUpPot(2 * sizeof(T), 4);
-        static constexpr size_t kAlignment = SimdOptimal ? kSimdOptimalAlignment : alignof(T);
 
         Vector2Base()
             : x(), y()
@@ -60,9 +56,9 @@ namespace KryneEngine::Math
         requires std::is_constructible_v<T, U>
         explicit Vector2Base(U _value) : Vector2Base(_value, _value) {}
 
-        template <typename U, bool OtherSimdOptimal>
+        template <typename U>
         requires std::is_constructible_v<T, U>
-        explicit Vector2Base(const Vector2Base<U, OtherSimdOptimal> &_other) : Vector2Base(_other.x, _other.y)
+        explicit Vector2Base(const Vector2Base<U> &_other) : Vector2Base(_other.x, _other.y)
         {}
 
         template <class U> requires IsVector2Compatible<T, U>
@@ -88,7 +84,7 @@ namespace KryneEngine::Math
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCInconsistentNamingInspection"
-        union alignas(kAlignment)
+        union
         {
             struct
             {
@@ -104,13 +100,12 @@ namespace KryneEngine::Math
 #pragma clang diagnostic pop
     };
 
-    template<typename T, bool SimdOptimal>
-    extern T Dot(const Vector2Base<T, SimdOptimal>& _a, const Vector2Base<T, SimdOptimal>& _b);
+    template<typename T>
+    extern T Dot(const Vector2Base<T>& _a, const Vector2Base<T>& _b);
 
     template<typename T>
     concept Vector2Type = requires {
         typename T::ScalarType;
-        T::kSimdOptimal;
-        std::is_same_v<T, Vector2Base<typename T::ScalarType, T::kSimdOptimal>>;
+        std::is_same_v<T, Vector2Base<typename T::ScalarType>>;
     };
 }

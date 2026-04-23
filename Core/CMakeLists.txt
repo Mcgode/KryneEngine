@@ -45,7 +45,6 @@ set(MathSrc
         Include/KryneEngine/Core/Math/Vector2.hpp
         Include/KryneEngine/Core/Math/Vector3.hpp
         Include/KryneEngine/Core/Math/Vector4.hpp
-        Include/KryneEngine/Core/Math/XSimdUtils.hpp
         Include/KryneEngine/Core/Math/Hashing.hpp
         Src/Math/Hashing.cpp
         Include/KryneEngine/Core/Math/Quaternion.hpp
@@ -62,6 +61,13 @@ set(MathSrc
         Include/KryneEngine/Core/Math/Float16.hpp
         Src/Math/Float16.cpp
         Include/KryneEngine/Core/Math/Color.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdCommon.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdTypes.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdMemoryOperations.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdArithmeticOperations.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdMathOperations.hpp
+        Include/KryneEngine/Core/Math/Simd/SimdCompareOperations.hpp
+        Include/KryneEngine/Core/Math/Simd/VectorUtils.hpp
 )
 
 set(MemorySrc
@@ -211,6 +217,7 @@ elseif (GraphicsApi STREQUAL "MTL")
                 Src/Graphics/Metal/MetalArgumentBufferManager.cpp
                 Src/Graphics/Metal/MetalArgumentBufferManager.hpp
                 Src/Graphics/Metal/Helpers/RenderState.hpp
+                Include/KryneEngine/Core/Platform/Cpu.hpp
         )
 endif()
 
@@ -223,7 +230,7 @@ add_library(KryneEngine_Core
         ${ProfilingSrc}
         ${ThreadsSrc}
         ${WindowSrc})
-target_link_libraries(KryneEngine_Core EASTL glfw glm Tracy::TracyClient moodycamel Boost::context xsimd)
+target_link_libraries(KryneEngine_Core EASTL glfw glm Tracy::TracyClient moodycamel Boost::context)
 
 if (GraphicsApi STREQUAL "VK")
         message(STATUS "Finding and linking Vulkan lib")

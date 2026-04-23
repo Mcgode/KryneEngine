@@ -49,7 +49,7 @@ namespace KryneEngine::Modules::TextRendering::Freetype
     {
         const FT_Outline outline = _face->glyph->outline;
 
-        const float2_simd scale { 1.f / static_cast<float>(_face->units_per_EM) };
+        const float2 scale { 1.f / static_cast<float>(_face->units_per_EM) };
 
         // Based on `FT_Outline_Decompose()` implementation
         for (u32 i = 0; i < outline.n_contours; i++)
@@ -59,9 +59,9 @@ namespace KryneEngine::Modules::TextRendering::Freetype
 
             u8 tag = FT_CURVE_TAG(outline.tags[start]);
 
-            float2_simd vStart = float2_simd(outline.points[start].x, outline.points[start].y) * scale;
-            float2_simd vLast = float2_simd(outline.points[last].x, outline.points[last].y) * scale;
-            float2_simd vControl = vStart;
+            float2 vStart = float2(outline.points[start].x, outline.points[start].y) * scale;
+            float2 vLast = float2(outline.points[last].x, outline.points[last].y) * scale;
+            float2 vControl = vStart;
 
             FT_Vector* pPoints = outline.points + start;
             u8* pTags = reinterpret_cast<u8*>(outline.tags) + start;
@@ -78,7 +78,7 @@ namespace KryneEngine::Modules::TextRendering::Freetype
                 }
                 else
                 {
-                    vStart = (vStart + vLast) / float2_simd(2);
+                    vStart = (vStart + vLast) / float2(2);
                 }
                 pPoints--;
                 pTags--;
@@ -100,7 +100,7 @@ namespace KryneEngine::Modules::TextRendering::Freetype
                 {
                 case FT_CURVE_TAG_ON:
                     _tags.push_back(OutlineTag::Line);
-                    _points.emplace_back(float2_simd(pPoints->x, pPoints->y) * scale);
+                    _points.emplace_back(float2(pPoints->x, pPoints->y) * scale);
 
                     // Close contour
                     if (pPoints == end)
@@ -113,13 +113,13 @@ namespace KryneEngine::Modules::TextRendering::Freetype
                 {
                     _tags.push_back(OutlineTag::Conic);
 
-                    vControl = float2_simd(pPoints->x, pPoints->y) * scale;
+                    vControl = float2(pPoints->x, pPoints->y) * scale;
                     _points.emplace_back(vControl);
 
                     if (pPoints < end)
                     {
                         tag = FT_CURVE_TAG(pTags[1]);
-                        float2_simd vec = float2_simd(pPoints[1].x, pPoints[1].y) * scale;
+                        float2 vec = float2(pPoints[1].x, pPoints[1].y) * scale;
 
                         if (tag == FT_CURVE_TAG_ON)
                         {
@@ -132,7 +132,7 @@ namespace KryneEngine::Modules::TextRendering::Freetype
                         // We are chaining conic arcs, so we take the median point of the two consecutive control points
                         else if (tag == FT_CURVE_TAG_CONIC)
                         {
-                            _points.emplace_back((vControl + vec) / float2_simd(2));
+                            _points.emplace_back((vControl + vec) / float2(2));
                             // The control point hasn't been consumed yet (we created a median point instead),
                             // so we don't need to advance
                         }
@@ -156,9 +156,9 @@ namespace KryneEngine::Modules::TextRendering::Freetype
 
                     _tags.push_back(OutlineTag::Cubic);
 
-                    float2_simd v1 = float2_simd(pPoints->x, pPoints->y) * scale;
+                    float2 v1 = float2(pPoints->x, pPoints->y) * scale;
                     pPoints++;
-                    float2_simd v2 = float2_simd(pPoints->x, pPoints->y) * scale;
+                    float2 v2 = float2(pPoints->x, pPoints->y) * scale;
                     pPoints++;
 
                     _points.emplace_back(v1);
@@ -166,7 +166,7 @@ namespace KryneEngine::Modules::TextRendering::Freetype
 
                     if (pPoints <= end)
                     {
-                        _points.emplace_back(float2_simd(pPoints->x, pPoints->y) * scale);
+                        _points.emplace_back(float2(pPoints->x, pPoints->y) * scale);
                     }
                     // Close contour
                     else

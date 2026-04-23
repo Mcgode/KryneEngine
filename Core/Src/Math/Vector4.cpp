@@ -6,208 +6,129 @@
 
 #include "KryneEngine/Core/Math/Vector4.hpp"
 
+#include <cmath>
+
 #include "KryneEngine/Core/Common/Types.hpp"
-#include "KryneEngine/Core/Math/XSimdUtils.hpp"
+#include "KryneEngine/Core/Math/Simd/SimdArithmeticOperations.hpp"
+#include "KryneEngine/Core/Math/Simd/VectorUtils.hpp"
 
 namespace KryneEngine::Math
 {
-    template<typename T, bool SimdOptimal, class Operator>
-    inline Vector4Base<T, SimdOptimal> ApplyOperation(
-        const Vector4Base<T, SimdOptimal>& _vecA,
-        const Vector4Base<T, SimdOptimal>& _vecB)
+    template <typename T, bool SimdAligned>
+    Vector4Base<T, SimdAligned> Vector4Base<T, SimdAligned>::operator+(const Vector4Base<T, SimdAligned>& _other) const
     {
-        using Vector4 = Vector4Base<T, SimdOptimal>;
-        Vector4 result {};
-
-        constexpr bool alignedOps = SimdOptimal;
-        using Operability = SimdOperability<T, Vector4>;
-
-        if constexpr (Operability::kSimdOperable)
-        {
-            using OptimalArch = Operability::OptimalArch;
-            for (size_t i = 0; i < Operability::kBatchCount; ++i)
-            {
-                xsimd::batch vecA = XsimdLoad<alignedOps, T, OptimalArch>(_vecA.GetPtr() + i * Operability::kBatchSize);
-                xsimd::batch vecB = XsimdLoad<alignedOps, T, OptimalArch>(_vecB.GetPtr() + i * Operability::kBatchSize);
-                xsimd::batch res = Operator{}(vecA, vecB);
-                XsimdStore<alignedOps, T, OptimalArch>(result.GetPtr() + i * Operability::kBatchSize, res);
-            }
-        }
-        else
-        {
-            result.x = Operator{}(_vecA.x, _vecB.x);
-            result.y = Operator{}(_vecA.y, _vecB.y);
-            result.z = Operator{}(_vecA.z, _vecB.z);
-            result.w = Operator{}(_vecA.w, _vecB.w);
-        }
-
-        return result;
+        return {
+            x + _other.x,
+            y + _other.y,
+            z + _other.z,
+            w + _other.w
+        };
     }
 
-    struct AddOperator
+    template <typename T, bool SimdAligned>
+    Vector4Base<T, SimdAligned> Vector4Base<T, SimdAligned>::operator-(const Vector4Base<T, SimdAligned>& _other) const
     {
-        template <class T>
-        T operator()(const T& _a, const T& _b) { return _a + _b; }
-    };
-
-    struct SubtractOperator
+        return {
+            x - _other.x,
+            y - _other.y,
+            z - _other.z,
+            w - _other.w
+        };
+    }
+    template <typename T, bool SimdAligned>
+    Vector4Base<T, SimdAligned> Vector4Base<T, SimdAligned>::operator*(const Vector4Base<T, SimdAligned>& _other) const
     {
-        template <class T>
-        T operator()(const T& _a, const T& _b)  { return _a - _b; }
-    };
-
-    struct MultiplyOperator
+        return {
+            x * _other.x,
+            y * _other.y,
+            z * _other.z,
+            w * _other.w
+        };
+    }
+    template <typename T, bool SimdAligned>
+    Vector4Base<T, SimdAligned> Vector4Base<T, SimdAligned>::operator/(const Vector4Base<T, SimdAligned>& _other) const
     {
-        template <class T>
-        T operator()(const T& _a, const T& _b) { return _a * _b; }
-    };
-
-    struct DivideOperator
-    {
-        template <class T>
-        T operator()(const T& _a, const T& _b) { return _a / _b; }
-    };
-
-    template <typename T, bool SimdOptimal>
-    Vector4Base<T, SimdOptimal> Vector4Base<T, SimdOptimal>::operator+(const Vector4Base<T, SimdOptimal>& _other) const
-    {
-        return ApplyOperation<T, SimdOptimal, AddOperator>(*this, _other);
+        return {
+            x / _other.x,
+            y / _other.y,
+            z / _other.z,
+            w / _other.w
+        };
     }
 
-    template <typename T, bool SimdOptimal>
-    Vector4Base<T, SimdOptimal> Vector4Base<T, SimdOptimal>::operator-(const Vector4Base<T, SimdOptimal>& _other) const
+    template <typename T, bool SimdAligned>
+    void Vector4Base<T, SimdAligned>::MinComponents(const Vector4Base& _other)
     {
-        return ApplyOperation<T, SimdOptimal, SubtractOperator>(*this, _other);
-    }
-    template <typename T, bool SimdOptimal>
-    Vector4Base<T, SimdOptimal> Vector4Base<T, SimdOptimal>::operator*(const Vector4Base<T, SimdOptimal>& _other) const
-    {
-        return ApplyOperation<T, SimdOptimal, MultiplyOperator>(*this, _other);
-    }
-    template <typename T, bool SimdOptimal>
-    Vector4Base<T, SimdOptimal> Vector4Base<T, SimdOptimal>::operator/(const Vector4Base<T, SimdOptimal>& _other) const
-    {
-        return ApplyOperation<T, SimdOptimal, DivideOperator>(*this, _other);
+        x = eastl::min(x, _other.x);
+        y = eastl::min(y, _other.y);
+        z = eastl::min(z, _other.z);
+        w = eastl::min(w, _other.w);
     }
 
-    template <typename T, bool SimdOptimal>
-    void Vector4Base<T, SimdOptimal>::MinComponents(const Vector4Base& _other)
+    template <typename T, bool SimdAligned>
+    void Vector4Base<T, SimdAligned>::MaxComponents(const Vector4Base& _other)
     {
-        constexpr bool alignedOps = SimdOptimal;
-        using Operability = SimdOperability<T, Vector4Base>;
-
-        if constexpr (Operability::kSimdOperable)
-        {
-            using OptimalArch = Operability::OptimalArch;
-            for (size_t i = 0; i < Operability::kBatchCount; ++i)
-            {
-                xsimd::batch vecA = XsimdLoad<alignedOps, T, OptimalArch>(GetPtr() + i * Operability::kBatchSize);
-                xsimd::batch vecB = XsimdLoad<alignedOps, T, OptimalArch>(_other.GetPtr() + i * Operability::kBatchSize);
-                XsimdStore<alignedOps, T, OptimalArch>(GetPtr() + i * Operability::kBatchSize, xsimd::min(vecA, vecB));
-            }
-        }
-        else
-        {
-            x = eastl::min(x, _other.x);
-            y = eastl::min(y, _other.y);
-            z = eastl::min(z, _other.z);
-            w = eastl::min(w, _other.w);
-        }
+        x = eastl::max(x, _other.x);
+        y = eastl::max(y, _other.y);
+        z = eastl::max(z, _other.z);
+        w = eastl::max(w, _other.w);
     }
 
-    template <typename T, bool SimdOptimal>
-    void Vector4Base<T, SimdOptimal>::MaxComponents(const Vector4Base& _other)
-    {
-        constexpr bool alignedOps = SimdOptimal;
-        using Operability = SimdOperability<T, Vector4Base>;
-
-        if constexpr (Operability::kSimdOperable)
-        {
-            using OptimalArch = Operability::OptimalArch;
-            for (size_t i = 0; i < Operability::kBatchCount; ++i)
-            {
-                xsimd::batch vecA = XsimdLoad<alignedOps, T, OptimalArch>(GetPtr() + i * Operability::kBatchSize);
-                xsimd::batch vecB = XsimdLoad<alignedOps, T, OptimalArch>(_other.GetPtr() + i * Operability::kBatchSize);
-                XsimdStore<alignedOps, T, OptimalArch>(GetPtr() + i * Operability::kBatchSize, xsimd::max(vecA, vecB));
-            }
-        }
-        else
-        {
-            x = eastl::max(x, _other.x);
-            y = eastl::max(y, _other.y);
-            z = eastl::max(z, _other.z);
-            w = eastl::max(w, _other.w);
-        }
-    }
-
-    template <typename T, bool SimdOptimal>
-    T& Vector4Base<T, SimdOptimal>::operator[](size_t _index)
+    template <typename T, bool SimdAligned>
+    T& Vector4Base<T, SimdAligned>::operator[](size_t _index)
     {
         _index = eastl::min<size_t>(3u, _index);
         return (&x)[_index];
     }
 
-    template <typename T, bool SimdOptimal>
-    const T& Vector4Base<T, SimdOptimal>::operator[](size_t _index) const
+    template <typename T, bool SimdAligned>
+    const T& Vector4Base<T, SimdAligned>::operator[](size_t _index) const
     {
         _index = eastl::min<size_t>(3u, _index);
         return (&x)[_index];
     }
 
-    template <typename T, bool SimdOptimal>
-    T* Vector4Base<T, SimdOptimal>::GetPtr()
+    template <typename T, bool SimdAligned>
+    T* Vector4Base<T, SimdAligned>::GetPtr()
     {
         return &x;
     }
 
-    template <typename T, bool SimdOptimal>
-    const T* Vector4Base<T, SimdOptimal>::GetPtr() const
+    template <typename T, bool SimdAligned>
+    const T* Vector4Base<T, SimdAligned>::GetPtr() const
     {
         return &x;
     }
 
-    template <typename T, bool SimdOptimal>
-    bool Vector4Base<T, SimdOptimal>::Equals(const Vector4Base& _other, T _epsilon) const
+    template <typename T, bool SimdAligned>
+    bool Vector4Base<T, SimdAligned>::operator==(const Vector4Base& _other) const
     {
-        using Vector4 = Vector4Base<T, SimdOptimal>;
-
-        constexpr bool alignedOps = SimdOptimal;
-        using Operability = SimdOperability<T, Vector4>;
-
-        if constexpr (Operability::kSimdOperable)
+        if constexpr (std::is_floating_point_v<T>)
         {
-            using OptimalArch = Operability::OptimalArch;
-            bool result = true;
-            for (size_t i = 0; i < Operability::kBatchCount; ++i)
-            {
-                xsimd::batch vecA = XsimdLoad<alignedOps, T, OptimalArch>(GetPtr() + i * Operability::kBatchSize);
-                xsimd::batch vecB = XsimdLoad<alignedOps, T, OptimalArch>(_other.GetPtr() + i * Operability::kBatchSize);
-                if (_epsilon == 0.0f)
-                {
-                    result &= xsimd::all(xsimd::eq(vecA, vecB));
-                }
-                else
-                {
-                    result &= xsimd::all(xsimd::abs(vecA - vecB) < _epsilon);
-                }
-            }
-            return result;
+            return Equals(_other);
         }
         else
         {
-            if (_epsilon == 0.0f)
-            {
-                return x == _other.x && y == _other.y && z == _other.z && w == _other.w;
-            }
-            return (std::abs(x - _other.x) < _epsilon)
-                   && (std::abs(y - _other.y) < _epsilon)
-                   && (std::abs(z - _other.z) < _epsilon)
-                   && (std::abs(w - _other.w) < _epsilon);
+            return x == _other.x && y == _other.y && z == _other.z && w == _other.w;
         }
     }
 
-    template <typename T, bool SimdOptimal>
-    void Vector4Base<T, SimdOptimal>::Normalize()
+    template <typename T, bool SimdAligned>
+    bool Vector4Base<T, SimdAligned>::Equals(const Vector4Base& _other, T _epsilon) const
+    requires std::is_floating_point_v<T>
+    {
+        if (_epsilon == 0.0f)
+        {
+            return x == _other.x && y == _other.y && z == _other.z && w == _other.w;
+        }
+        return std::abs(x - _other.x) <= _epsilon
+               && (std::abs(y - _other.y) < _epsilon)
+               && (std::abs(z - _other.z) < _epsilon)
+               && (std::abs(w - _other.w) < _epsilon);
+    }
+
+    template <typename T, bool SimdAligned>
+    void Vector4Base<T, SimdAligned>::Normalize()
         requires std::is_floating_point_v<T>
     {
         const T length = std::sqrt(Dot(*this, *this));
@@ -220,8 +141,8 @@ namespace KryneEngine::Math
         }
     }
 
-    template <typename T, bool SimdOptimal>
-    Vector4Base<T, SimdOptimal> Vector4Base<T, SimdOptimal>::Normalized() const
+    template <typename T, bool SimdAligned>
+    Vector4Base<T, SimdAligned> Vector4Base<T, SimdAligned>::Normalized() const
         requires std::is_floating_point_v<T>
     {
         Vector4Base result(*this);
@@ -229,29 +150,21 @@ namespace KryneEngine::Math
         return result;
     }
 
-    template <typename T, bool SimdOptimal>
-    T Dot(const Vector4Base<T, SimdOptimal>& _a, const Vector4Base<T, SimdOptimal>& _b)
+    template <typename T, bool SimdAligned>
+    T Dot(const Vector4Base<T, SimdAligned>& _a, const Vector4Base<T, SimdAligned>& _b)
     {
-        using Vector4 = Vector4Base<T, SimdOptimal>;
+        using SimdVec = Simd::MatchingVec<T>;
 
-        constexpr bool alignedOps = SimdOptimal;
-        using Operability = SimdOperability<T, Vector4>;
-
-        if constexpr (Operability::kSimdOperable)
+        if constexpr (std::is_void_v<SimdVec>)
         {
-            using OptimalArch = Operability::OptimalArch;
-            T result {};
-            for (size_t i = 0; i < Operability::kBatchCount; ++i)
-            {
-                xsimd::batch vecA = XsimdLoad<alignedOps, T, OptimalArch>(_a.GetPtr() + i * Operability::kBatchSize);
-                xsimd::batch vecB = XsimdLoad<alignedOps, T, OptimalArch>(_b.GetPtr() + i * Operability::kBatchSize);
-                result += xsimd::reduce_add(xsimd::mul(vecA, vecB));
-            }
-            return result;
+            return _a.x * _b.x + _a.y * _b.y + _a.z * _b.z + _a.w * _b.w;
         }
         else
         {
-            return _a.x * _b.x + _a.y * _b.y + _a.z * _b.z + _a.w * _b.w;
+            return Simd::ReduceSum(
+                Simd::Multiply(
+                    Simd::From(_a),
+                    Simd::From(_b)));
         }
     }
 

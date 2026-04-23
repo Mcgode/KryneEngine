@@ -14,11 +14,7 @@ namespace KryneEngine
     class IAllocator
     {
     public:
-        explicit IAllocator(const char* _name, const bool _customProfiling = false)
-            : m_customProfiling(_customProfiling)
-        {
-            strcpy(m_name, _name);
-        }
+        explicit IAllocator(const char* _name, const bool _customProfiling = false);
         virtual ~IAllocator() = default;
 
         virtual void* Allocate(size_t _size, size_t _alignment) = 0;

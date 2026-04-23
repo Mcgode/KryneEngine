@@ -110,10 +110,10 @@ namespace KryneEngine::Modules::SdfTexture
         {
             const size_t vertexOffset = _index * _vertexStride;
             const float3 position = *(reinterpret_cast<const float3*>(_vertexBuffer.data() + vertexOffset + _vertexPositionOffset));
-            return float3_simd { position };
+            return float3 { position };
         };
 
-        const float3_simd positionStart {
+        const float3 positionStart {
             m_boundingBox.GetCenter()
             - float3 { m_dimensions } * m_texelSize * 0.5f
         };
@@ -126,15 +126,15 @@ namespace KryneEngine::Modules::SdfTexture
             {
                 for (u32 x = 0; x < m_dimensions.x; x++)
                 {
-                    const float3_simd offset = (float3_simd { x, y, z } + 0.5f) * m_texelSize;
-                    const float3_simd position = positionStart + offset;
+                    const float3 offset = (float3 { x, y, z } + 0.5f) * m_texelSize;
+                    const float3 position = positionStart + offset;
                     float dist = FLT_MAX;
 
                     for (u32 i = 0; i < indexCount; i += 3)
                     {
-                        const float3_simd a = loadPosition(loadIndex(i));
-                        const float3_simd b = loadPosition(loadIndex(i + 1));
-                        const float3_simd c = loadPosition(loadIndex(i + 2));
+                        const float3 a = loadPosition(loadIndex(i));
+                        const float3 b = loadPosition(loadIndex(i + 1));
+                        const float3 c = loadPosition(loadIndex(i + 2));
 
                         const float sdf = TriangleSdf(position, a, b, c);
                         if (std::fabs(sdf) < std::fabs(dist))
@@ -150,24 +150,24 @@ namespace KryneEngine::Modules::SdfTexture
     }
 
     float
-    Generator::TriangleSdf(const float3_simd& _p, const float3_simd& _a, const float3_simd& _b, const float3_simd& _c)
+    Generator::TriangleSdf(const float3& _p, const float3& _a, const float3& _b, const float3& _c)
     {
-        const float3_simd ba = _b - _a;
-        const float3_simd cb = _c - _b;
-        const float3_simd ac = _a - _c;
+        const float3 ba = _b - _a;
+        const float3 cb = _c - _b;
+        const float3 ac = _a - _c;
 
-        const float3_simd pa = _p - _a;
-        const float3_simd pb = _p - _b;
-        const float3_simd pc = _p - _c;
+        const float3 pa = _p - _a;
+        const float3 pb = _p - _b;
+        const float3 pc = _p - _c;
 
-        const float3_simd n = float3_simd::CrossProduct(ba, ac);
+        const float3 n = float3::CrossProduct(ba, ac);
 
         const s32 signs =
-            std::signbit(float3_simd::Dot(float3_simd::CrossProduct(ba, n), pa))
-            + std::signbit(float3_simd::Dot(float3_simd::CrossProduct(cb, n), pb))
-            + std::signbit(float3_simd::Dot(float3_simd::CrossProduct(ac, n), pc));
+            std::signbit(float3::Dot(float3::CrossProduct(ba, n), pa))
+            + std::signbit(float3::Dot(float3::CrossProduct(cb, n), pb))
+            + std::signbit(float3::Dot(float3::CrossProduct(ac, n), pc));
 
-        const float sign = float3_simd::Dot(pa, n) >= 0 ? 1.f : -1.f;
+        const float sign = float3::Dot(pa, n) >= 0 ? 1.f : -1.f;
 
         constexpr auto saturate = [](const float _value)
         {
@@ -176,14 +176,14 @@ namespace KryneEngine::Modules::SdfTexture
 
         if (signs < 2)
         {
-            const float abEdgeSdf = (ba * saturate(float3_simd::Dot(ba, pa) / ba.LengthSquared()) - pa).LengthSquared();
-            const float bcEdgeSdf = (cb * saturate(float3_simd::Dot(cb, pb) / cb.LengthSquared()) - pb).LengthSquared();
-            const float caEdgeSdf = (ac * saturate(float3_simd::Dot(ac, pc) / ac.LengthSquared()) - pc).LengthSquared();
+            const float abEdgeSdf = (ba * saturate(float3::Dot(ba, pa) / ba.LengthSquared()) - pa).LengthSquared();
+            const float bcEdgeSdf = (cb * saturate(float3::Dot(cb, pb) / cb.LengthSquared()) - pb).LengthSquared();
+            const float caEdgeSdf = (ac * saturate(float3::Dot(ac, pc) / ac.LengthSquared()) - pc).LengthSquared();
             return sign * std::sqrt(std::fmin(std::fmin(abEdgeSdf, bcEdgeSdf), caEdgeSdf));
         }
         else
         {
-            return sign * std::sqrt(float3_simd::Dot(n, pa) * float3_simd::Dot(n, pa) / n.LengthSquared());
+            return sign * std::sqrt(float3::Dot(n, pa) * float3::Dot(n, pa) / n.LengthSquared());
         }
     }
 }

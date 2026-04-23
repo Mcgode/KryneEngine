@@ -20,9 +20,9 @@ namespace KryneEngine::Math
     requires std::is_convertible_v<U, T>
     QuaternionBase<T> FromEulerAngles(U _x, U _y, U _z);
 
-    template <class T, class U, bool SimdOptimal, EulerOrder Order = kDefaultEulerOrder>
+    template <class T, class U, EulerOrder Order = kDefaultEulerOrder>
         requires std::is_convertible_v<U, T>
-    QuaternionBase<T> FromEulerAngles(const Vector3Base<U, SimdOptimal>& _eulerAngles)
+    QuaternionBase<T> FromEulerAngles(const Vector3Base<U>& _eulerAngles)
     {
         return FromEulerAngles<T, U, Order>(_eulerAngles.x, _eulerAngles.y, _eulerAngles.z);
     }
@@ -31,9 +31,9 @@ namespace KryneEngine::Math
         requires std::is_convertible_v<typename Quat::ScalarType, typename Mat33::ScalarType>
     Mat33 ToMatrix33(const Quat& _quaternion);
 
-    template <Vector3Type Vector3, class U, bool MatrixSimdOptimal, bool RowMajor, EulerOrder Order = kDefaultEulerOrder>
+    template <Vector3Type Vector3, class U, bool RowMajor, EulerOrder Order = kDefaultEulerOrder>
         requires std::is_convertible_v<U, typename Vector3::ScalarType>
-    Vector3 ToEulerAngles(const Matrix33Base<U, MatrixSimdOptimal, RowMajor>& _matrix);
+    Vector3 ToEulerAngles(const Matrix33Base<U, RowMajor>& _matrix);
 
     template <Vector3Type Vector3, typename U, EulerOrder Order = kDefaultEulerOrder>
         requires std::is_convertible_v<U, typename Vector3::ScalarType>
@@ -145,9 +145,9 @@ namespace KryneEngine::Math
         return result;
     }
 
-    template <Vector3Type Vector3, class U, bool MatrixSimdOptimal, bool RowMajor, EulerOrder Order>
+    template <Vector3Type Vector3, class U, bool RowMajor, EulerOrder Order>
         requires std::is_convertible_v<U, typename Vector3::ScalarType>
-    Vector3 ToEulerAngles(const Matrix33Base<U, MatrixSimdOptimal, RowMajor>& _matrix)
+    Vector3 ToEulerAngles(const Matrix33Base<U, RowMajor>& _matrix)
     {
         // Based on https://github.com/mrdoob/three.js/blob/master/src/math/Euler.js#L188
 
