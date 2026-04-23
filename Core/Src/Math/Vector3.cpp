@@ -6,8 +6,9 @@
 
 #include "KryneEngine/Core/Math/Vector3.hpp"
 
+#include <cmath>
+
 #include "KryneEngine/Core/Common/Types.hpp"
-#include "KryneEngine/Core/Math/XSimdUtils.hpp"
 
 namespace KryneEngine::Math
 {

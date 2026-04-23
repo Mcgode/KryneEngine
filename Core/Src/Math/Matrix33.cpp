@@ -6,8 +6,6 @@
 
 #include "KryneEngine/Core/Math/Matrix33.hpp"
 
-#include "KryneEngine/Core/Math/XSimdUtils.hpp"
-
 namespace KryneEngine::Math
 {
     template <class T, bool RowMajor>
