@@ -8,10 +8,35 @@
 
 #include "KryneEngine/Core/Memory/Containers/FlatHashMap.hpp"
 
+#include "KryneEngine/Core/Common/Utils/Alignment.hpp"
 #include "KryneEngine/Core/Math/Hashing.hpp"
+#include "KryneEngine/Core/Math/Simd/SimdArithmeticOperations.hpp"
+#include "KryneEngine/Core/Math/Simd/SimdCompareOperations.hpp"
+#include "KryneEngine/Core/Math/Simd/SimdMemoryOperations.hpp"
 
 namespace KryneEngine
 {
+    namespace FlatHashMapInternals
+    {
+        static constexpr bool kUseSimdScan =
+#if defined(__ARM_NEON) || defined(__SSE2__)
+            true;
+#else
+            false;
+#endif
+
+        static constexpr size_t kControlAlignment =
+#if defined(__ARM_NEON)
+            sizeof(uint8x16_t);
+#elif defined(__SSE2__)
+            sizeof(__m128i);
+#else
+            1;
+#endif
+
+        static constexpr size_t kControlBufferPadding = kControlAlignment == 1 ? 0 : kControlAlignment;
+    }
+
     template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
     FlatHashMap<Key, Value, Fixed>::FlatHashMap(
@@ -56,7 +81,7 @@ namespace KryneEngine
         if (m_kvpBuffer != nullptr)
             m_allocator.deallocate(m_kvpBuffer, sizeof(*m_kvpBuffer) * m_capacity);
         if (m_controlBuffer != nullptr)
-            m_allocator.deallocate(m_controlBuffer, sizeof(*m_controlBuffer) * (m_capacity + kControlBufferPadding));
+            m_allocator.deallocate(m_controlBuffer, sizeof(*m_controlBuffer) * (m_capacity + FlatHashMapInternals::kControlBufferPadding));
 
         m_allocator = _other.m_allocator;
         m_capacity = _other.m_capacity;
@@ -110,11 +135,11 @@ namespace KryneEngine
     FlatHashMap<Key, Value, Fixed>::iterator FlatHashMap<Key, Value, Fixed>::Find(const Key& _key)
     {
         const size_t hash = Hashing::HashKey<Key>(_key);
-        const u8 expectedControl = hash >> (sizeof(size_t) == 8 ? 57 : 25);
+        const u8 expectedControl = hash >> (sizeof(size_t) * 8 - 7);
 
         size_t probeIndex = hash % m_capacity;
 
-        if constexpr (!kUseSimd)
+        if constexpr (!FlatHashMapInternals::kUseSimdScan)
         {
             size_t i = 0;
             u8& control = m_controlBuffer[probeIndex];
@@ -129,46 +154,44 @@ namespace KryneEngine
         }
         else
         {
-            using Arch = Math::SimdHighestArch;
+            static_assert(!std::is_same_v<Simd::u8x16, eastl::array<u8, 16>>, "Unsupported arch");
 
             size_t i = 0;
-            const xsimd::batch<u8, Arch> expectedControlBatch { expectedControl };
-            const xsimd::batch<u8, Arch> unusedBatch { kUnused };
+
+            const Simd::u8x16 expectedControlBatch = Simd::From(expectedControl);
+            const Simd::u8x16 unusedBatch = Simd::From(kUnused);
 
             while (i < m_capacity)
             {
-                const xsimd::batch<u8, Arch>& controlBatch = xsimd::load_unaligned(m_controlBuffer + probeIndex);
+                const Simd::u8x16 controlBatch = Simd::LoadUnaligned(m_controlBuffer + probeIndex);
 
-                const u64 unusedMask = (controlBatch == unusedBatch).mask();
-                const u64 expectedMask = (controlBatch == expectedControlBatch).mask();
+                const u64 expectedMask = Simd::CompareEqMask(controlBatch, expectedControlBatch);
+                const u64 unusedMask = Simd::CompareEqMask(controlBatch, unusedBatch);
 
-                if (expectedMask == 0)
+                if (expectedMask != 0)
                 {
-                    if (unusedMask != 0)
-                        return end();
-                }
-                else
-                {
-                    const u64 bitmask = unusedMask == 0 ? ~0ull : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
+                    const u64 bitmask = unusedMask == 0
+                        ? ~0ull
+                        : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
                     u64 matchMask = expectedMask & bitmask;
 
                     u64 offset = 0;
                     while (matchMask != 0)
                     {
-                        const u64 bitIndex = BitUtils::GetLeastSignificantBit(matchMask);
+                        const u64 bitIndex = BitUtils::GetLeastSignificantBit(matchMask) >> Simd::kCompareEqMaskElementWidthPot;
                         offset += bitIndex;
-                        matchMask <<= bitIndex;
+                        matchMask >>= (bitIndex + 1) << Simd::kCompareEqMaskElementWidthPot;
 
                         if (m_kvpBuffer[probeIndex + offset].first == _key)
                             return m_kvpBuffer + probeIndex + offset;
                     }
-
-                    if (unusedMask != 0)
-                        return end();
                 }
 
-                probeIndex += kControlAlignment;
-                i += kControlAlignment;
+                if (unusedMask != 0)
+                    return end();
+
+                probeIndex += FlatHashMapInternals::kControlAlignment;
+                i += FlatHashMapInternals::kControlAlignment;
                 probeIndex %= m_capacity;
             }
         }
@@ -216,12 +239,12 @@ namespace KryneEngine
     {
         if (m_capacity == 0)
         {
-            const size_t newCapacity = Alignment::AlignUp(_newCapacity, kControlAlignment);
+            const size_t newCapacity = Alignment::AlignUp(_newCapacity, FlatHashMapInternals::kControlAlignment);
 
             m_kvpBuffer = m_allocator.Allocate<eastl::pair<Key, Value>>(newCapacity);
 
-            m_controlBuffer = static_cast<u8*>(m_allocator.allocate(newCapacity + kControlBufferPadding, kControlAlignment));
-            memset(m_controlBuffer, kUnused, newCapacity + kControlBufferPadding);
+            m_controlBuffer = static_cast<u8*>(m_allocator.allocate(newCapacity + FlatHashMapInternals::kControlBufferPadding, FlatHashMapInternals::kControlAlignment));
+            memset(m_controlBuffer, kUnused, newCapacity + FlatHashMapInternals::kControlBufferPadding);
 
             m_count = 0;
             m_capacity = newCapacity;
@@ -273,25 +296,27 @@ namespace KryneEngine
 
         size_t probeIndex = hash % m_capacity;
 
-        if constexpr (kUseSimd)
+        if constexpr (FlatHashMapInternals::kUseSimdScan)
         {
-            using Arch = Math::SimdHighestArch;
+#if !defined(__ARM_NEON) && !defined(__SSE2__)
+#   error Unsupported arch
+#endif
 
-
-            const xsimd::batch<u8, Arch> testBatch { kAvailableSlotFlag };
+            size_t i = 0;
+            const Simd::u8x16 testBatch = Simd::From(kAvailableSlotFlag);
+            constexpr size_t lsbShift = Simd::kCompareEqMaskElementWidthPot;
 
             if constexpr (Fast)
             {
-                size_t i = 0;
                 while (i < m_capacity)
                 {
-                    const xsimd::batch<u8, Arch>& controlBatch = xsimd::load_unaligned(m_controlBuffer + probeIndex);
+                    const Simd::u8x16 controlBatch = Simd::LoadUnaligned(m_controlBuffer + probeIndex);
 
-                    const u64 availableMask = ((controlBatch & testBatch) == testBatch).mask();
+                    const u64 availableMask = Simd::CompareEqMask(Simd::BitwiseAnd(controlBatch, testBatch), testBatch);
 
                     if (availableMask != 0)
                     {
-                        const u64 firstIndex = BitUtils::GetLeastSignificantBit(availableMask);
+                        const u64 firstIndex = BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift;
                         if (firstIndex + probeIndex < m_capacity)
                         {
                             m_controlBuffer[probeIndex + firstIndex] = control;
@@ -300,78 +325,69 @@ namespace KryneEngine
                         }
                     }
 
-                    probeIndex += kControlAlignment;
-                    i += kControlAlignment;
+                    i += FlatHashMapInternals::kControlAlignment;
+                    probeIndex += FlatHashMapInternals::kControlAlignment;
                     probeIndex %= m_capacity;
                 }
             }
             else
             {
-                xsimd::batch<u8, Arch> controlTest { control };
-                xsimd::batch<u8, Arch> unusedTest { kUnused };
+                const Simd::u8x16 controlTest = Simd::From(control);
+                const Simd::u8x16 unusedBatch = Simd::From(kUnused);
 
                 size_t firstAvailableIndex = m_capacity;
 
-                size_t i = 0;
                 while (i < m_capacity)
                 {
-                    const xsimd::batch<u8, Arch>& controlBatch = xsimd::load_unaligned(m_controlBuffer + probeIndex);
+                    const Simd::u8x16 controlBatch = Simd::LoadUnaligned(m_controlBuffer + probeIndex);
 
                     if (firstAvailableIndex >= m_capacity)
                     {
-                        const u64 availableMask = ((controlBatch & testBatch) == testBatch).mask();
+                        const u64 availableMask = Simd::CompareEqMask(
+                            Simd::BitwiseAnd(controlBatch, testBatch),
+                            testBatch);
+
                         if (availableMask != 0)
                         {
-                            firstAvailableIndex = probeIndex + BitUtils::GetLeastSignificantBit(availableMask);
+                            firstAvailableIndex = probeIndex + (BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift);
                         }
                     }
 
-                    const u64 controlMask = (controlBatch == controlTest).mask();
-                    const u64 unusedMask = (controlBatch == unusedTest).mask();
+                    const u64 controlMask = Simd::CompareEqMask(controlBatch, controlTest);
+                    const u64 unusedMask = Simd::CompareEqMask(controlBatch, unusedBatch);
 
-                    if (controlMask == 0)
+                    if (controlMask != 0)
                     {
-                        if (unusedMask != 0)
-                        {
-                            KE_ASSERT(firstAvailableIndex < m_capacity);
-                            m_controlBuffer[firstAvailableIndex] = control;
-                            ++m_count;
-                            return {
-                                m_kvpBuffer + firstAvailableIndex,
-                                true
-                            };
-                        }
-                    }
-                    else
-                    {
-                        const u64 bitmask = unusedMask == 0 ? ~0ull : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
+                        const u64 bitmask = unusedMask == 0
+                            ? ~0ull
+                            : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
                         u64 matchMask = controlMask & bitmask;
 
                         u64 offset = 0;
                         while (matchMask != 0)
                         {
-                            const u64 bitIndex = BitUtils::GetLeastSignificantBit(matchMask);
+                            const u64 bitIndex = BitUtils::GetLeastSignificantBit(matchMask) >> lsbShift;
                             offset += bitIndex;
-                            matchMask <<= bitIndex;
+                            matchMask >>= (bitIndex + 1) << lsbShift;
 
                             if (m_kvpBuffer[probeIndex + offset].first == _key)
                                 return { m_kvpBuffer + probeIndex + offset, false };
                         }
-
-                        if (unusedMask != 0)
-                        {
-                            KE_ASSERT(firstAvailableIndex < m_capacity);
-                            m_controlBuffer[firstAvailableIndex] = control;
-                            ++m_count;
-                            return {
-                                m_kvpBuffer + firstAvailableIndex,
-                                true
-                            };
-                        }
                     }
 
-                    probeIndex += kControlAlignment;
-                    i += kControlAlignment;
+                    if (unusedMask != 0)
+                    {
+                        KE_ASSERT(firstAvailableIndex < m_capacity);
+                        m_controlBuffer[firstAvailableIndex] = control;
+                        ++m_count;
+                        return {
+                            m_kvpBuffer + firstAvailableIndex,
+                            true
+                        };
+                    }
+
+                    probeIndex += FlatHashMapInternals::kControlAlignment;
+                    i += FlatHashMapInternals::kControlAlignment;
                     probeIndex %= m_capacity;
                 }
             }

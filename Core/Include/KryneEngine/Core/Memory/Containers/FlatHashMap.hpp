@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "KryneEngine/Core/Math/XSimdUtils.hpp"
+#include "KryneEngine/Core/Common/Assert.hpp"
 #include "KryneEngine/Core/Memory/Allocators/Allocator.hpp"
 
 namespace KryneEngine
@@ -135,16 +135,6 @@ namespace KryneEngine
         void Defragment() requires (!Fixed);
 
     private:
-        static constexpr bool kUseSimd =
-            !std::is_same_v<Math::SimdHighestArch, xsimd::unavailable>
-
-            // No optimized way to coalesce SIMD words into masks in NEON, so the performance isn't better, no need for
-            // extra complexity
-            && !std::is_same_v<Math::SimdHighestArch, xsimd::neon64>
-            && !std::is_same_v<Math::SimdHighestArch, xsimd::neon>;
-
-        static constexpr size_t kControlAlignment = kUseSimd ? 1 : Math::SimdHighestArch::alignment();
-        static constexpr size_t kControlBufferPadding = kControlAlignment == 1 ? 0 : kControlAlignment;
         static constexpr u8 kUnused  = 0b1000'0000u;
         static constexpr u8 kTombstone = 0b1000'0001u;
         static constexpr u8 kAvailableSlotFlag = 1 << 7;
