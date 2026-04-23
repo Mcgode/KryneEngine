@@ -42,7 +42,7 @@ namespace KryneEngine::Simd
     };
     KE_ENUM_IMPLEMENT_BITWISE_OPERATORS(SimdSupport);
 
-    static SimdSupport g_simdSupport =
+    inline SimdSupport g_simdSupport =
 #if defined(__ARM_NEON)
         SimdSupport::Neon;
 #elif defined(__SSE2__)
