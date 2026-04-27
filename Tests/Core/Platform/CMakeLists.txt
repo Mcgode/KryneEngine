@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 add_executable(Core_Platform_UnitTests
         Cpu_UnitTests.cpp
+        FileSystem_UnitTests.cpp
 )
 
 target_link_libraries(Core_Platform_UnitTests KryneEngine_Core_Link TestUtils gtest_main)
