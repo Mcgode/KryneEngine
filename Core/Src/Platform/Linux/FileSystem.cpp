@@ -85,7 +85,8 @@ namespace KryneEngine::Platform
                                 continue;
 
                             WatchedDir& parent = m_watchedDirs[event->wd];
-                            path = parent.m_path / event->name;
+                            path = (parent.m_path / event->name).lexically_normal();
+                            std::filesystem::path& root = m_rootDirectories[parent.m_rootWd];
 
                             if (event->mask & IN_ISDIR)
                             {
@@ -116,15 +117,15 @@ namespace KryneEngine::Platform
                             {
                                 if (event->mask & IN_CREATE && m_fileCreatedCallback != nullptr)
                                 {
-                                    m_fileCreatedCallback(path.c_str());
+                                    m_fileCreatedCallback((root / path).c_str());
                                 }
                                 else if (event->mask & IN_MODIFY && m_fileModifiedCallback != nullptr)
                                 {
-                                    m_fileModifiedCallback(path.c_str());
+                                    m_fileModifiedCallback((root / path).c_str());
                                 }
                                 else if (event->mask & IN_DELETE && m_fileDeletedCallback != nullptr)
                                 {
-                                    m_fileDeletedCallback(path.c_str());
+                                    m_fileDeletedCallback((root / path).c_str());
                                 }
                                 else if (event->mask & (IN_MOVED_FROM | IN_MOVED_TO) && m_fileRenamedCallback != nullptr)
                                 {
@@ -141,18 +142,18 @@ namespace KryneEngine::Platform
                                     {
                                         if (event->mask & IN_MOVED_FROM)
                                         {
-                                            m_fileRenamedCallback(path.c_str(), it->m_path.c_str());
+                                            m_fileRenamedCallback(it->m_path.c_str(), (root / path).c_str());
                                         }
                                         else
                                         {
-                                            m_fileRenamedCallback(it->m_path.c_str(), path.c_str());
+                                            m_fileRenamedCallback((root / path).c_str(), it->m_path.c_str());
                                         }
                                         pendingEvents.erase(it);
                                     }
                                     else
                                     {
                                         pendingEvents.push_back(Pending {
-                                            .m_path = path,
+                                            .m_path = root / path,
                                             .m_cookie = event->cookie,
                                             .m_mask = (event->mask & IN_MOVED_TO) ? IN_MOVED_TO : IN_MOVED_FROM,
                                         });
