@@ -46,7 +46,16 @@ namespace KryneEngine::Platform
 
                 if (flags & kFSEventStreamEventFlagItemIsFile)
                 {
-                    if (flags & kFSEventStreamEventFlagItemCreated)
+                    // When a file is deleted shortly after creation, it will have both ItemCreated and ItemRemoved
+                    // flags set, even though an ItemCreated event was sent before
+                    if (flags & kFSEventStreamEventFlagItemRemoved)
+                    {
+                        if (monitor->m_fileDeletedCallback)
+                        {
+                            monitor->m_fileDeletedCallback(filePath);
+                        }
+                    }
+                    else if (flags & kFSEventStreamEventFlagItemCreated)
                     {
                         if (monitor->m_fileCreatedCallback)
                         {
@@ -99,13 +108,6 @@ namespace KryneEngine::Platform
                                     .m_path { filePath, monitor->m_inodeToPathMap.get_allocator() },
                                 });
                             }
-                        }
-                    }
-                    else if (flags & kFSEventStreamEventFlagItemRemoved)
-                    {
-                        if (monitor->m_fileDeletedCallback)
-                        {
-                            monitor->m_fileDeletedCallback(filePath);
                         }
                     }
                 }
@@ -171,6 +173,7 @@ namespace KryneEngine::Platform
         };
 
         constexpr u32 flags = kFSEventStreamCreateFlagFileEvents
+            | kFSEventStreamCreateFlagNoDefer
             | kFSEventStreamCreateFlagUseCFTypes
             | kFSEventStreamCreateFlagUseExtendedData;
         monitor->m_stream = FSEventStreamCreate(
@@ -179,7 +182,7 @@ namespace KryneEngine::Platform
             &context,
             directories,
             kFSEventStreamEventIdSinceNow,
-            static_cast<CFTimeInterval>(0),
+            static_cast<CFTimeInterval>(0.001),
             flags);
         if (monitor->m_stream == nullptr)
         {
