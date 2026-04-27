@@ -264,7 +264,11 @@ namespace KryneEngine::Platform
         const eastl::string_view _appName,
         const bool _systemConfig)
     {
-        return {};
+        const std::filesystem::path home = _systemConfig
+            ? "/etc"
+            : std::filesystem::path(getenv("HOME")) / ".config";
+
+        return home / _appName.data();
     }
 
     ReadOnlyFileDescriptor OpenReadOnlyFile(const eastl::string_view _path, const AllocatorInstance _allocator)
