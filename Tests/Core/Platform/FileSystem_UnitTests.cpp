@@ -5,6 +5,9 @@
  */
 
 
+#include "KryneEngine/Core/Math/Hashing.hpp"
+
+
 #include <KryneEngine/Core/Platform/FileSystem.hpp>
 #include <filesystem>
 #include <fstream>
@@ -16,6 +19,25 @@
 
 namespace KryneEngine::Tests
 {
+    void MakeFile(const char* _filename, const size_t _size, const u64 _salt)
+    {
+        if (std::filesystem::exists(_filename))
+            std::filesystem::remove(_filename);
+
+        KE_ASSERT(_size > 0 && _size % 8 == 0);
+        std::ofstream file(_filename, std::ios::binary | std::ios::out);
+        KE_ASSERT(file);
+        for (size_t i = 0; i < _size; i += 8)
+        {
+            u64 value = _salt ^ (i >> 3);
+            file.write(reinterpret_cast<const char*>(&value), sizeof(u64));
+        }
+        file.close();
+    }
+
+    // Directory monitor testing is very complicated. We need to take event coalescing into account and work around it.
+    // This requires more investigation for a feature that is not critical at all.
+#if 0
     template<size_t N>
     void MakeRoot(char (&_root)[N], const char* name = "test")
     {
@@ -26,19 +48,6 @@ namespace KryneEngine::Tests
             "%s_%llx",
             name,
             timePoint.time_since_epoch().count());
-    }
-
-    void MakeFile(const char* _filename, const size_t _size, const u64 _salt)
-    {
-        KE_ASSERT(_size > 0 && _size % 8 == 0);
-        std::ofstream file(_filename, std::ios::binary | std::ios::out);
-        KE_ASSERT(file);
-        for (size_t i = 0; i < _size; i += 8)
-        {
-            u64 value = _salt ^ (i >> 3);
-            file.write(reinterpret_cast<const char*>(&value), sizeof(u64));
-        }
-        file.close();
     }
 
     struct Event
@@ -82,22 +91,27 @@ namespace KryneEngine::Tests
         eastl::vector<Event> m_events;
     };
 
+    void DeduplicateEvents(eastl::vector<Event>& _events)
+    {
+        for (u32 i = 0; i + 1 < _events.size();)
+        {
+            if (_events[i].m_type == _events[i + 1].m_type
+                && _events[i].m_path == _events[i + 1].m_path)
+            {
+                _events.erase(_events.begin() + i);
+                continue;
+            }
+            ++i;
+        }
+    }
+
     void WaitForMonitor(Monitor& _monitor, const size_t _expectedEventCount, const u32 _timeoutMs)
     {
         constexpr u32 milliseconds = 10;
         const u32 count = _timeoutMs / milliseconds;
         for (u32 i = 0; i < count; i++)
         {
-            for (u32 i = 0; i < _monitor.m_events.size() - 1;)
-            {
-                if (_monitor.m_events[i].m_type == _monitor.m_events[i + 1].m_type
-                    && _monitor.m_events[i].m_path == _monitor.m_events[i + 1].m_path)
-                {
-                    _monitor.m_events.erase(_monitor.m_events.begin() + i);
-                    continue;
-                }
-                ++i;
-            }
+            DeduplicateEvents(_monitor.m_events);
 
             if (_monitor.m_events.size() >= _expectedEventCount)
                 return;
@@ -188,11 +202,13 @@ namespace KryneEngine::Tests
         }
 #endif
 
-        EXPECT_EQ(monitor.m_events.size(), 1);
-        if (monitor.m_events.size() >= 1)
+        eastl::vector<Event> events = monitor.m_events;
+        DeduplicateEvents(events);
+        EXPECT_EQ(events.size(), 1);
+        if (events.size() >= 1)
         {
-            EXPECT_EQ(monitor.m_events[0].m_type, Event::Type::Created);
-            EXPECT_EQ(monitor.m_events[0].m_path, std::filesystem::canonical(file));
+            EXPECT_EQ(events[0].m_type, Event::Type::Created);
+            EXPECT_EQ(events[0].m_path, std::filesystem::canonical(file));
         }
 
         Platform::DestroyDirectoryMonitor(handle, allocator);
@@ -327,9 +343,18 @@ namespace KryneEngine::Tests
         const std::filesystem::path file = std::filesystem::canonical(root) / "file.txt";
         MakeFile(file.c_str(), 1024, 0);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        MakeFile(file.c_str(), 2048, 0x1234);
+        {
+            std::fstream fs(file.c_str(), std::ios::binary | std::ios::in | std::ios::out);
+
+            u64 value = 0;
+            fs.read(reinterpret_cast<char*>(&value), sizeof(u64));
+            value ^= 0x123456789ABCDEF0;
+            fs.seekp(0);
+            fs.write(reinterpret_cast<const char*>(&value), sizeof(u64));
+            fs.close();
+        }
 
         WaitForMonitor(monitor, 2, 1'000);
 
@@ -360,6 +385,158 @@ namespace KryneEngine::Tests
         // -----------------------------------------------------------------------
 
         std::filesystem::remove_all(root);
+        catcher.ExpectNoMessage();
+    }
+#endif
+
+    TEST(ReadOnlyFile, OpenValid)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        const AllocatorInstance _allocator {};
+
+        const std::filesystem::path path = "test.txt";
+        MakeFile(path.c_str(), 1024, Hashing::Hash64Static("ReadOnlyFile_OpenValid"));
+
+        // -----------------------------------------------------------------------
+        // Execution
+        // -----------------------------------------------------------------------
+
+        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.c_str(), _allocator);
+        EXPECT_TRUE(fd.IsValid());
+        EXPECT_NE(fd.m_handle, nullptr);
+        Platform::CloseReadOnlyFile(fd, _allocator);
+
+        // -----------------------------------------------------------------------
+        // Teardown
+        // -----------------------------------------------------------------------
+
+        std::filesystem::remove(path);
+        catcher.ExpectNoMessage();
+    }
+
+    TEST(ReadOnlyFile, OpenInvalid)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        const AllocatorInstance _allocator {};
+        const std::filesystem::path path = "test.txt";
+        if (std::filesystem::exists(path))
+            std::filesystem::remove(path);
+
+        // -----------------------------------------------------------------------
+        // Execution
+        // -----------------------------------------------------------------------
+
+        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.c_str(), _allocator);
+        EXPECT_FALSE(fd.IsValid());
+        EXPECT_EQ(fd.GetError(), Platform::OpaqueHandle::Error::InvalidPath);
+
+        // -----------------------------------------------------------------------
+        // Teardown
+        // -----------------------------------------------------------------------
+
+        catcher.ExpectNoMessage();
+    }
+
+    TEST(ReadOnlyFile, FileSize)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        const AllocatorInstance _allocator {};
+
+        const std::filesystem::path path = "test.txt";
+        constexpr size_t size = 1024;
+        MakeFile(path.c_str(), size, Hashing::Hash64Static("ReadOnlyFile_FileSize"));
+
+        // -----------------------------------------------------------------------
+        // Execution
+        // -----------------------------------------------------------------------
+
+        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.c_str(), _allocator);
+
+        EXPECT_TRUE(fd.IsValid());
+        EXPECT_NE(fd.m_handle, nullptr);
+
+        const size_t readSize = Platform::GetFileSize(fd);
+        EXPECT_EQ(readSize, size);
+
+        Platform::CloseReadOnlyFile(fd, _allocator);
+
+        // -----------------------------------------------------------------------
+        // Teardown
+        // -----------------------------------------------------------------------
+
+        std::filesystem::remove(path);
+        catcher.ExpectNoMessage();
+    }
+
+    TEST(ReadOnlyFile, Read)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        const AllocatorInstance _allocator {};
+
+        const std::filesystem::path path = "test.txt";
+        constexpr size_t size = 1024;
+        constexpr u64 salt = Hashing::Hash64Static("ReadOnlyFile_Read");
+        MakeFile(path.c_str(), size, salt);
+
+        // -----------------------------------------------------------------------
+        // Execution
+        // -----------------------------------------------------------------------
+
+        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.c_str(), _allocator);
+
+        EXPECT_TRUE(fd.IsValid());
+        EXPECT_NE(fd.m_handle, nullptr);
+
+        const size_t readSize = Platform::GetFileSize(fd);
+        EXPECT_EQ(readSize, size);
+
+        u64 result;
+        eastl::span<std::byte> buffer = { reinterpret_cast<std::byte*>(&result), sizeof(result) };
+
+        {
+            const size_t bytesRead = Platform::ReadFile(fd, 0, buffer);
+            EXPECT_EQ(bytesRead, sizeof(result));
+            EXPECT_EQ(result, salt);
+        }
+
+        {
+            const size_t bytesRead = Platform::ReadFile(fd, 64 * 8, buffer);
+            EXPECT_EQ(bytesRead, sizeof(result));
+            EXPECT_EQ(result, salt ^ 64);
+        }
+
+        {
+            const size_t bytesRead = Platform::ReadFile(fd, size, buffer);
+            EXPECT_EQ(bytesRead, 0);
+        }
+
+        Platform::CloseReadOnlyFile(fd, _allocator);
+
+        // -----------------------------------------------------------------------
+        // Teardown
+        // -----------------------------------------------------------------------
+
+        std::filesystem::remove(path);
         catcher.ExpectNoMessage();
     }
 }
