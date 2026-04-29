@@ -50,6 +50,7 @@ jobs:
         Core_Graphics_UnitTests
         Core_Math_UnitTests
         Core_Memory_UnitTests
+        Core_Platform_UnitTests
         Core_Threads_UnitTests
     
     - name: Upload Core Unit tests
