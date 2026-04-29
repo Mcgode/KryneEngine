@@ -35,6 +35,8 @@ namespace KryneEngine::Platform
         }
     };
 
+    FcInstance FcInstance::s_instance = {};
+
     bool RetrieveSystemDefaultGlyph(
         const u32 _unicodeCodePoint,
         void* _userData,
