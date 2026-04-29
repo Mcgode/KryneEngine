@@ -232,6 +232,10 @@ add_library(KryneEngine_Core
         ${WindowSrc})
 target_link_libraries(KryneEngine_Core EASTL glfw glm Tracy::TracyClient moodycamel Boost::context)
 
+if (KE_PLATFORM_LIBS)
+        target_link_libraries(KryneEngine_Core ${KE_PLATFORM_LIBS})
+endif ()
+
 if (GraphicsApi STREQUAL "VK")
         message(STATUS "Finding and linking Vulkan lib")
         find_package(Vulkan REQUIRED)
