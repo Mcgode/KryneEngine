@@ -53,14 +53,21 @@ namespace KryneEngine::Platform
                             monitor->m_fileCreatedCallback(filePath);
                         }
                     }
-                    else if (flags & kFSEventStreamEventFlagItemModified)
+                    if (flags & kFSEventStreamEventFlagItemRemoved)
+                    {
+                        if (monitor->m_fileDeletedCallback)
+                        {
+                            monitor->m_fileDeletedCallback(filePath);
+                        }
+                    }
+                    if (flags & kFSEventStreamEventFlagItemModified)
                     {
                         if (monitor->m_fileModifiedCallback)
                         {
                             monitor->m_fileModifiedCallback(filePath);
                         }
                     }
-                    else if (flags & kFSEventStreamEventFlagItemRenamed)
+                    if (flags & kFSEventStreamEventFlagItemRenamed)
                     {
                         if (monitor->m_fileRenamedCallback)
                         {
@@ -99,13 +106,6 @@ namespace KryneEngine::Platform
                                     .m_path { filePath, monitor->m_inodeToPathMap.get_allocator() },
                                 });
                             }
-                        }
-                    }
-                    else if (flags & kFSEventStreamEventFlagItemRemoved)
-                    {
-                        if (monitor->m_fileDeletedCallback)
-                        {
-                            monitor->m_fileDeletedCallback(filePath);
                         }
                     }
                 }
@@ -171,6 +171,7 @@ namespace KryneEngine::Platform
         };
 
         constexpr u32 flags = kFSEventStreamCreateFlagFileEvents
+            | kFSEventStreamCreateFlagNoDefer
             | kFSEventStreamCreateFlagUseCFTypes
             | kFSEventStreamCreateFlagUseExtendedData;
         monitor->m_stream = FSEventStreamCreate(
@@ -179,7 +180,7 @@ namespace KryneEngine::Platform
             &context,
             directories,
             kFSEventStreamEventIdSinceNow,
-            static_cast<CFTimeInterval>(0),
+            static_cast<CFTimeInterval>(0.001),
             flags);
         if (monitor->m_stream == nullptr)
         {

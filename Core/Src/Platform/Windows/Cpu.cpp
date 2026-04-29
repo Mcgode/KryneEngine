@@ -16,7 +16,9 @@ namespace KryneEngine::Platform
 {
     void InitSimdFlags()
     {
-#if defined(__x86_64__)
+#if defined(__ARM_NEON)
+        Simd::g_simdSupport = Simd::SimdSupport::Neon;
+#elif defined(__x86_64__)
         // Based on https://en.wikipedia.org/wiki/CPUID
 
         int regs[4];
