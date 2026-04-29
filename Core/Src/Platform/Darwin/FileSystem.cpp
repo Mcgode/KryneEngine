@@ -46,8 +46,13 @@ namespace KryneEngine::Platform
 
                 if (flags & kFSEventStreamEventFlagItemIsFile)
                 {
-                    // When a file is deleted shortly after creation, it will have both ItemCreated and ItemRemoved
-                    // flags set, even though an ItemCreated event was sent before
+                    if (flags & kFSEventStreamEventFlagItemCreated)
+                    {
+                        if (monitor->m_fileCreatedCallback)
+                        {
+                            monitor->m_fileCreatedCallback(filePath);
+                        }
+                    }
                     if (flags & kFSEventStreamEventFlagItemRemoved)
                     {
                         if (monitor->m_fileDeletedCallback)
@@ -55,21 +60,14 @@ namespace KryneEngine::Platform
                             monitor->m_fileDeletedCallback(filePath);
                         }
                     }
-                    else if (flags & kFSEventStreamEventFlagItemCreated)
-                    {
-                        if (monitor->m_fileCreatedCallback)
-                        {
-                            monitor->m_fileCreatedCallback(filePath);
-                        }
-                    }
-                    else if (flags & kFSEventStreamEventFlagItemModified)
+                    if (flags & kFSEventStreamEventFlagItemModified)
                     {
                         if (monitor->m_fileModifiedCallback)
                         {
                             monitor->m_fileModifiedCallback(filePath);
                         }
                     }
-                    else if (flags & kFSEventStreamEventFlagItemRenamed)
+                    if (flags & kFSEventStreamEventFlagItemRenamed)
                     {
                         if (monitor->m_fileRenamedCallback)
                         {

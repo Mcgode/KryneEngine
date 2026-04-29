@@ -122,15 +122,15 @@ namespace KryneEngine::Platform
                                 {
                                     m_fileCreatedCallback((root / path).c_str());
                                 }
-                                else if (event->mask & IN_MODIFY && m_fileModifiedCallback != nullptr)
+                                if (event->mask & IN_MODIFY && m_fileModifiedCallback != nullptr)
                                 {
                                     m_fileModifiedCallback((root / path).c_str());
                                 }
-                                else if (event->mask & IN_DELETE && m_fileDeletedCallback != nullptr)
+                                if (event->mask & IN_DELETE && m_fileDeletedCallback != nullptr)
                                 {
                                     m_fileDeletedCallback((root / path).c_str());
                                 }
-                                else if (event->mask & (IN_MOVED_FROM | IN_MOVED_TO) && m_fileRenamedCallback != nullptr)
+                                if (event->mask & (IN_MOVED_FROM | IN_MOVED_TO) && m_fileRenamedCallback != nullptr)
                                 {
                                     auto* it = eastl::find(
                                         pendingEvents.begin(),
