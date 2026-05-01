@@ -34,7 +34,7 @@ namespace KryneEngine::Modules::Resources
         ResourceManager* m_resourceManager;
         size_t m_version;
 
-        ResourceBase(AllocatorInstance _allocator, ResourceManager* _resourceManager, size_t _version)
+        ResourceBase(const AllocatorInstance _allocator, ResourceManager* _resourceManager, const size_t _version)
             : m_allocator(_allocator)
             , m_resourceManager(_resourceManager)
             , m_version(_version)
