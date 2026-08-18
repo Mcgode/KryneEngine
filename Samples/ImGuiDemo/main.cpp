@@ -134,12 +134,11 @@ int main()
         const auto syncCounter = fibersManager.InitAndBatchJobs({ .m_function = Job });
 
 #if !defined(__APPLE__)
-        const auto mainCounter = fibersManager.InitAndBatchJobs(
-            MainFunc,
-            &allocator,
-            1,
-            FiberJob::Priority::High,
-            true);
+        const auto mainCounter = fibersManager.InitAndBatchJobs({
+            .m_function = [&](u16) { MainFunc(&allocator); },
+            .m_priority = FiberJob::Priority::High,
+            .m_useBigStack = true,
+        });
 
         fibersManager.WaitForCounterAndReset(mainCounter);
 #else
