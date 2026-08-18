@@ -180,7 +180,15 @@ namespace KryneEngine
 
             if (m_hotData != nullptr)
             {
-                memcpy(newHotData, m_hotData,  m_size * sizeof(HotDataItem));
+                if constexpr (std::is_trivially_copyable_v<HotDataItem>)
+                {
+                    memcpy(newHotData, m_hotData,  m_size * sizeof(HotDataItem));
+                }
+                else
+                {
+                    for (size_t i = 0; i < m_size; i++)
+                        new (&newHotData[i].m_hotData) HotDataItem(m_hotData[i].m_hotData);
+                }
                 m_allocator.deallocate(m_hotData, m_size * sizeof(HotDataItem));
             }
 
@@ -198,7 +206,15 @@ namespace KryneEngine
 
             if (m_coldData != nullptr)
             {
-                memcpy(newColdData, m_coldData, m_size * sizeof(ColdDataStruct));
+                if constexpr (std::is_trivially_copyable_v<ColdDataStruct>)
+                {
+                    memcpy(newColdData, m_coldData, m_size * sizeof(ColdDataStruct));
+                }
+                else
+                {
+                    for (size_t i = 0; i < m_size; i++)
+                        new (&newColdData[i]) ColdDataStruct(m_coldData[i]);
+                }
                 m_allocator.deallocate(m_coldData, m_size * sizeof(ColdDataStruct));
             }
 
