@@ -93,7 +93,7 @@ namespace KryneEngine
             if (KE_VERIFY(job->m_status.load(std::memory_order_acquire) == FiberJob::Status::PendingStart))
             {
                 job->m_status.store(FiberJob::Status::Running, std::memory_order_release);
-                job->m_functionPtr(job->m_userData);
+                job->m_function(job->m_jobIndex);
                 job->m_status.store(FiberJob::Status::Finished, std::memory_order_release);
             }
 

@@ -14,14 +14,7 @@
 using namespace KryneEngine;
 namespace KEModules = KryneEngine::Modules;
 
-void Job0(void* _counterPtr)
-{
-    ZoneScoped;
-    (*static_cast<std::atomic<u32>*>(_counterPtr))++;
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-}
-
-void Job1(void*)
+static void Job(u16)
 {
     ZoneScoped;
     std::atomic<u32> counter = 0;
@@ -32,7 +25,15 @@ void Job1(void*)
 
     static constexpr u32 kCount = 1'000;
 
-    const auto syncCounter = fibersManager->InitAndBatchJobs(Job0, &counter, kCount);
+    const auto syncCounter = fibersManager->InitAndBatchJobs({
+        .m_function = [&counter](u16)
+        {
+            ZoneScoped;
+            ++counter;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        },
+        .m_jobCount = kCount,
+    });
 
     fibersManager->WaitForCounterAndReset(syncCounter);
 
@@ -130,7 +131,7 @@ int main()
     {
         auto fibersManager = FibersManager(0, allocator);
 
-        const auto syncCounter = fibersManager.InitAndBatchJobs(Job1, nullptr);
+        const auto syncCounter = fibersManager.InitAndBatchJobs({ .m_function = Job });
 
 #if !defined(__APPLE__)
         const auto mainCounter = fibersManager.InitAndBatchJobs(

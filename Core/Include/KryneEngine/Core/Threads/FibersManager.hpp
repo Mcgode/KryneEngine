@@ -51,66 +51,8 @@ namespace KryneEngine
 
         [[nodiscard]] FiberJob* GetCurrentJob();
 
-        [[nodiscard]] SyncCounterId InitAndBatchJobs(
-            u32 _jobCount,
-            FiberJob::JobFunc* _jobFunc,
-            void* _pUserData,
-            size_t _userDataSize,
-            FiberJob::Priority _priority = FiberJob::Priority::Medium,
-            bool _useBigStack = false);
-
-        [[nodiscard]] SyncCounterId InitAndBatchJobs(
-            FiberJob::JobFunc* _jobFunc,
-            void* _userData,
-            u32 _jobCount = 1,
-            FiberJob::Priority _priority = FiberJob::Priority::Medium,
-            bool _useBigStack = false);
-
-        template <class T>
-        [[nodiscard]] SyncCounterId InitAndBatchJobs(
-            u32 _jobCount,
-            FiberJob::JobFunc* _jobFunc,
-            T* _userData,
-            FiberJob::Priority _priority = FiberJob::Priority::Medium,
-            bool _useBigStack = false)
-        {
-            return InitAndBatchJobs(
-                _jobCount,
-                _jobFunc,
-                reinterpret_cast<void*>(_userData),
-                sizeof(T),
-                _priority,
-                _useBigStack);
-        }
-
-        void InitAndBatchNoCounterJobs(
-            size_t _jobCount,
-            FiberJob::JobFunc* _jobFunc,
-            void *_userData,
-            size_t _userDataStride,
-            FiberJob::Priority _priority = FiberJob::Priority::Medium,
-            bool _useBigStack = false);
-
-        void InitAndBatchNoCounterJobs(
-            FiberJob::JobFunc* _jobFunc,
-            void *_userData,
-            size_t _jobCount = 1,
-            const FiberJob::Priority _priority = FiberJob::Priority::Medium,
-            const bool _useBigStack = false)
-        {
-            InitAndBatchNoCounterJobs(_jobCount, _jobFunc, _userData, 0, _priority, _useBigStack);
-        }
-
-        template <class T>
-        void InitAndBatchNoCounterJobs(
-            size_t _jobCount,
-            FiberJob::JobFunc* _jobFunc,
-            eastl::span<T> _userData,
-            const FiberJob::Priority _priority = FiberJob::Priority::Medium,
-            const bool _useBigStack = false)
-        {
-            InitAndBatchNoWaitJobs(_jobCount, _jobFunc, _userData.data(), sizeof(T), _priority, _useBigStack);
-        }
+        [[nodiscard]] SyncCounterId InitAndBatchJobs(const FiberJob::Desc& _desc);
+        void InitAndBatchJobsNoCounter(const FiberJob::Desc& _desc);
 
         [[nodiscard]] SyncCounterPool::AutoSyncCounter AcquireAutoSyncCounter(u32 _count = 1);
 

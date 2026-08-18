@@ -120,20 +120,25 @@ namespace KryneEngine::Modules::RenderGraph
                 // Small optimization.
                 if (m_jobs.size() > 1)
                 {
-                    const SyncCounterId jobsCounter =
-                        _fibersManager->InitAndBatchJobs(m_jobs.size() - 1, ExecuteJob, m_jobs.data());
-                    ExecuteJob(&m_jobs.back());
+                    const SyncCounterId jobsCounter = _fibersManager->InitAndBatchJobs({
+                        .m_function = [this](const u16 _jobIndex)
+                        {
+                            ExecuteJob(&m_jobs[_jobIndex], _jobIndex);
+                        },
+                        .m_jobCount = static_cast<u16>(m_jobs.size() - 1)
+                    });
+                    ExecuteJob(&m_jobs.back(), m_jobs.size() - 1);
                     _fibersManager->WaitForCounterAndReset(jobsCounter);
                 }
                 else if (!m_jobs.empty())
                 {
-                    ExecuteJob(&m_jobs.back());
+                    ExecuteJob(&m_jobs.back(), m_jobs.size() - 1);
                 }
             }
             else {
-                for (auto& job : m_jobs)
+                for (u16 i = 0; i < m_jobs.size(); i++)
                 {
-                    ExecuteJob(&job);
+                    ExecuteJob(&m_jobs[i], i);
                 }
             }
             m_jobs.clear();
@@ -152,44 +157,42 @@ namespace KryneEngine::Modules::RenderGraph
         }
     }
 
-    void RenderGraph::ExecuteJob(void* _userData)
+    void RenderGraph::ExecuteJob(JobData* _jobData, const u16 _jobIndex)
     {
-        auto* jobData = static_cast<JobData*>(_userData);
+        KE_ZoneScopedF("Execute render job #%u", _jobIndex);
 
-        KE_ZoneScopedF("Execute render job #%u", eastl::distance(jobData->m_renderGraph->m_jobs.begin(), jobData));
-
-        for (auto i = jobData->m_passRangeStart; i < jobData->m_passRangeStart + jobData->m_passRangeCount; i++)
+        for (auto i = _jobData->m_passRangeStart; i < _jobData->m_passRangeStart + _jobData->m_passRangeCount; i++)
         {
-            if (!jobData->m_renderGraph->m_builder->m_passAlive[i])
+            if (!_jobData->m_renderGraph->m_builder->m_passAlive[i])
                 continue;
 
-            const PassDeclaration& pass = jobData->m_renderGraph->m_builder->m_declaredPasses[i];
+            const PassDeclaration& pass = _jobData->m_renderGraph->m_builder->m_declaredPasses[i];
 
             KE_GpuZoneScopedF(
-                jobData->m_passExecutionData.m_graphicsContext,
-                jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
-                jobData->m_passExecutionData.m_commandList,
+                _jobData->m_passExecutionData.m_graphicsContext,
+                _jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
+                _jobData->m_passExecutionData.m_commandList,
                 "%s",
                 pass.m_name.m_string.c_str());
 
             const std::chrono::time_point start = std::chrono::steady_clock::now();
-            jobData->m_passExecutionData.m_graphicsContext->PushDebugMarker(
-                jobData->m_passExecutionData.m_commandList,
+            _jobData->m_passExecutionData.m_graphicsContext->PushDebugMarker(
+                _jobData->m_passExecutionData.m_commandList,
                 pass.m_name.m_string,
                 ColorPalette::kWhite);
 
             if (GraphicsContext::SupportsNonGlobalBarriers())
             {
-                const ResourceStateTracker::PassBarriers barriers = jobData->m_renderGraph->m_resourceStateTracker->GetPassBarriers(i);
+                const ResourceStateTracker::PassBarriers barriers = _jobData->m_renderGraph->m_resourceStateTracker->GetPassBarriers(i);
                 if (!barriers.m_bufferMemoryBarriers.empty() || !barriers.m_textureMemoryBarriers.empty())
                 {
                     KE_GpuZoneScoped(
-                        jobData->m_passExecutionData.m_graphicsContext,
-                        jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
-                        jobData->m_passExecutionData.m_commandList,
+                        _jobData->m_passExecutionData.m_graphicsContext,
+                        _jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
+                        _jobData->m_passExecutionData.m_commandList,
                         "Dispatching memory barriers");
-                    jobData->m_passExecutionData.m_graphicsContext->PlaceMemoryBarriers(
-                        jobData->m_passExecutionData.m_commandList,
+                    _jobData->m_passExecutionData.m_graphicsContext->PlaceMemoryBarriers(
+                        _jobData->m_passExecutionData.m_commandList,
                         {},
                         barriers.m_bufferMemoryBarriers,
                         barriers.m_textureMemoryBarriers);
@@ -198,54 +201,54 @@ namespace KryneEngine::Modules::RenderGraph
 
             if (pass.m_type == PassType::Render)
             {
-                auto it = jobData->m_renderGraph->m_renderPassCache.find(pass.m_renderPassHash.value());
-                KE_ASSERT(it != jobData->m_renderGraph->m_renderPassCache.end());
+                auto it = _jobData->m_renderGraph->m_renderPassCache.find(pass.m_renderPassHash.value());
+                KE_ASSERT(it != _jobData->m_renderGraph->m_renderPassCache.end());
 
-                jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
-                    jobData->m_passExecutionData.m_commandList,
+                _jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
+                    _jobData->m_passExecutionData.m_commandList,
                     it->second);
             }
             else if (pass.m_type == PassType::Compute)
             {
-                jobData->m_passExecutionData.m_graphicsContext->BeginComputePass(
-                    jobData->m_passExecutionData.m_commandList);
+                _jobData->m_passExecutionData.m_graphicsContext->BeginComputePass(
+                    _jobData->m_passExecutionData.m_commandList);
             }
 
             if (pass.m_type == PassType::Render && GraphicsContext::RenderPassNeedsUsageDeclaration()
                 || pass.m_type == PassType::Compute && GraphicsContext::ComputePassNeedsUsageDeclaration())
             {
-                jobData->m_renderGraph->HandleResourceUsage(
-                    jobData->m_passExecutionData.m_graphicsContext,
-                    jobData->m_passExecutionData.m_commandList,
+                _jobData->m_renderGraph->HandleResourceUsage(
+                    _jobData->m_passExecutionData.m_graphicsContext,
+                    _jobData->m_passExecutionData.m_commandList,
                     pass);
             }
             // TODO: handle usage as well when compute passes are set up
 
             KE_ASSERT(pass.m_executeFunction != nullptr);
-            pass.m_executeFunction(*jobData->m_renderGraph, jobData->m_passExecutionData);
+            pass.m_executeFunction(*_jobData->m_renderGraph, _jobData->m_passExecutionData);
 
             if (pass.m_type == PassType::Render)
             {
-                jobData->m_passExecutionData.m_graphicsContext->EndRenderPass(
-                    jobData->m_passExecutionData.m_commandList);
+                _jobData->m_passExecutionData.m_graphicsContext->EndRenderPass(
+                    _jobData->m_passExecutionData.m_commandList);
             }
             else if (pass.m_type == PassType::Compute)
             {
-                jobData->m_passExecutionData.m_graphicsContext->EndComputePass(
-                    jobData->m_passExecutionData.m_commandList);
+                _jobData->m_passExecutionData.m_graphicsContext->EndComputePass(
+                    _jobData->m_passExecutionData.m_commandList);
             }
 
-            jobData->m_passExecutionData.m_graphicsContext->PopDebugMarker(
-                jobData->m_passExecutionData.m_commandList);
+            _jobData->m_passExecutionData.m_graphicsContext->PopDebugMarker(
+                _jobData->m_passExecutionData.m_commandList);
 
             const std::chrono::time_point end = std::chrono::steady_clock::now();
 
             const u64 duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-            jobData->m_renderGraph->m_currentFramePassPerformance.find(pass.m_name)->second = duration;
-            jobData->m_renderGraph->m_currentFrameTotalDuration.fetch_add(duration, std::memory_order_relaxed);
+            _jobData->m_renderGraph->m_currentFramePassPerformance.find(pass.m_name)->second = duration;
+            _jobData->m_renderGraph->m_currentFrameTotalDuration.fetch_add(duration, std::memory_order_relaxed);
         }
 
-        jobData->m_passExecutionData.m_graphicsContext->EndGraphicsCommandList(jobData->m_passExecutionData.m_commandList);
+        _jobData->m_passExecutionData.m_graphicsContext->EndGraphicsCommandList(_jobData->m_passExecutionData.m_commandList);
     }
 
     RenderPassHandle RenderGraph::FetchRenderPass(

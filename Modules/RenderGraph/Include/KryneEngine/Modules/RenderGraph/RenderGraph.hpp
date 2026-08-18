@@ -65,7 +65,7 @@ namespace KryneEngine::Modules::RenderGraph
 
         eastl::unique_ptr<ResourceStateTracker> m_resourceStateTracker;
 
-        static void ExecuteJob(void* _userData);
+        static void ExecuteJob(JobData* _jobData, u16 _jobIndex);
 
         void HandleResourceUsage(
             GraphicsContext* _graphicsContext,

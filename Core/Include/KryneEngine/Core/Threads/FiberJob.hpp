@@ -70,6 +70,14 @@ namespace KryneEngine
             Finished
         };
 
+        struct Desc
+        {
+            eastl::function<void(u16)> m_function;
+            u16 m_jobCount = 1;
+            Priority m_priority = Priority::Medium;
+            bool m_useBigStack = false;
+        };
+
         friend class FibersManager;
         friend class FiberThread;
         friend class FiberContext;
@@ -101,8 +109,8 @@ namespace KryneEngine
         void _ResetContext();
 
     private:
-        JobFunc* m_functionPtr = nullptr;
-        void* m_userData = nullptr;
+        eastl::function<void(u16)> m_function = nullptr;
+        u16 m_jobIndex = 0;
         Priority m_priority = Priority::Medium;
         bool m_bigStack = false;
 

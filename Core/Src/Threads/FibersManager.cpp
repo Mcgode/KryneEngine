@@ -168,6 +168,50 @@ namespace KryneEngine
         return m_currentJobs.Load();
     }
 
+    SyncCounterId FibersManager::InitAndBatchJobs(const FiberJob::Desc& _desc)
+    {
+        if (_desc.m_jobCount == 0)
+        {
+            return kInvalidSyncCounterId;
+        }
+
+        const auto syncCounter = m_syncCounterPool.AcquireCounter(_desc.m_jobCount);
+
+        VERIFY_OR_RETURN(syncCounter != kInvalidSyncCounterId, kInvalidSyncCounterId);
+
+        for (u16 i = 0; i < _desc.m_jobCount; i++)
+        {
+            auto* job = m_fiberThreads.GetAllocator().New<FiberJob>();
+            job->m_function = eastl::move(_desc.m_function);
+            job->m_jobIndex = i;
+            job->m_priority = _desc.m_priority;
+            job->m_bigStack = _desc.m_useBigStack;
+            job->m_associatedCounterId = syncCounter;
+            QueueJob(job);
+        }
+
+        return syncCounter;
+    }
+
+    void FibersManager::InitAndBatchJobsNoCounter(const FiberJob::Desc& _desc)
+    {
+        if (_desc.m_jobCount == 0)
+        {
+            return;
+        }
+
+        for (u16 i = 0; i < _desc.m_jobCount; i++)
+        {
+            auto* job = m_fiberThreads.GetAllocator().New<FiberJob>();
+            job->m_function = eastl::move(_desc.m_function);
+            job->m_jobIndex = i;
+            job->m_priority = _desc.m_priority;
+            job->m_bigStack = _desc.m_useBigStack;
+            job->m_associatedCounterId = kInvalidSyncCounterId;
+            QueueJob(job);
+        }
+    }
+
     void FibersManager::YieldJob(Job _nextJob)
     {
         const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
@@ -212,77 +256,6 @@ namespace KryneEngine
         m_nextJob.Load(fiberIndex) = nullptr;
     }
 
-    SyncCounterId FibersManager::InitAndBatchJobs(
-        u32 _jobCount,
-        FiberJob::JobFunc* _jobFunc,
-        void* _pUserData,
-        size_t _userDataSize,
-        FiberJob::Priority _priority,
-        bool _useBigStack)
-    {
-        const auto syncCounter = m_syncCounterPool.AcquireCounter(_jobCount);
-
-        VERIFY_OR_RETURN(syncCounter != kInvalidSyncCounterId, kInvalidSyncCounterId);
-
-        auto pUserData = reinterpret_cast<uintptr_t>(_pUserData);
-
-        AllocatorInstance allocator = m_fiberThreads.GetAllocator();
-
-        for (u32 i = 0; i < _jobCount; i++)
-        {
-            auto* job = allocator.New<FiberJob>();
-            job->m_functionPtr = _jobFunc;
-            job->m_userData = reinterpret_cast<void*>(pUserData + _userDataSize * i);
-            job->m_priority = _priority;
-            job->m_bigStack = _useBigStack;
-            job->m_associatedCounterId = syncCounter;
-            QueueJob(job);
-        }
-
-        return syncCounter;
-    }
-
-    SyncCounterId FibersManager::InitAndBatchJobs(
-        FiberJob::JobFunc *_jobFunc,
-        void *_userData,
-        u32 _jobCount,
-        FiberJob::Priority _priority,
-        bool _useBigStack)
-    {
-        // We reuse the InitAndBatchJobs, but we just make sure there is no per-job shift by setting the data size to 0
-        return InitAndBatchJobs(
-            _jobCount,
-            _jobFunc,
-            _userData,
-            0,
-            _priority,
-            _useBigStack);
-    }
-
-    void FibersManager::InitAndBatchNoCounterJobs(
-        const size_t _jobCount,
-        FiberJob::JobFunc* _jobFunc,
-        void* _userData,
-        const size_t _userDataStride,
-        const FiberJob::Priority _priority,
-        const bool _useBigStack)
-    {
-        const auto userData = reinterpret_cast<uintptr_t>(_userData);
-
-        const AllocatorInstance allocator = m_fiberThreads.GetAllocator();
-
-        for (u32 i = 0; i < _jobCount; i++)
-        {
-            auto* job = allocator.New<FiberJob>();
-            job->m_functionPtr = _jobFunc;
-            job->m_userData = reinterpret_cast<void*>(userData + _userDataStride * i);
-            job->m_priority = _priority;
-            job->m_bigStack = _useBigStack;
-            job->m_associatedCounterId = kInvalidSyncCounterId;
-            QueueJob(job);
-        }
-    }
-
     SyncCounterPool::AutoSyncCounter FibersManager::AcquireAutoSyncCounter(u32 _count)
     {
         return eastl::move(m_syncCounterPool.AcquireAutoCounter(_count));
@@ -316,23 +289,19 @@ namespace KryneEngine
             KE_ZoneScopedFunction("FibersManager::WaitForCounters");
 
             TracyLockable(std::mutex, waitMutex);
-            struct Data {
-                std::condition_variable_any m_waitVariable {};
-                eastl::span<const SyncCounterId> m_syncCounterIds;
-            } data;
+            std::condition_variable_any waitVariable;
 
-            data.m_syncCounterIds = _syncCounters;
-
-            constexpr auto jobFunction = [](void* _dataPtr)
-            {
-                auto* dataPtr = static_cast<Data*>(_dataPtr);
-                GetInstance()->WaitForCounters(dataPtr->m_syncCounterIds);
-                dataPtr->m_waitVariable.notify_one();
-            };
-            InitAndBatchNoCounterJobs(jobFunction, &data);
+            InitAndBatchJobsNoCounter({
+                .m_function = [&waitVariable, &_syncCounters](u16)
+                    {
+                        GetInstance()->WaitForCounters(_syncCounters);
+                        waitVariable.notify_one();
+                    },
+                .m_priority = FiberJob::Priority::Medium
+            });
 
             std::unique_lock<LockableBase(std::mutex)> lock(waitMutex);
-            data.m_waitVariable.wait(lock);
+            waitVariable.wait(lock);
         }
     }
 
