@@ -52,7 +52,7 @@ endif ()
 
 if (KRYNE_ENGINE_BUILD_SAMPLES)
     message(STATUS "Will build samples for KryneEngine")
-    add_subdirectory(Examples)
+    add_subdirectory(Samples)
 endif ()
 
 if (KRYNE_ENGINE_ENABLE_TESTING)

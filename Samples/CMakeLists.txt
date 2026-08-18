@@ -1,4 +1,4 @@
-message(STATUS "Loading examples")
+message(STATUS "Loading samples")
 
 add_subdirectory(HelloTriangle)
 add_subdirectory(ImGuiDemo)
