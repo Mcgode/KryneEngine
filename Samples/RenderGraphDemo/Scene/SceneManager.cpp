@@ -15,9 +15,9 @@
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 #include <KryneEngine/Modules/RenderGraph/Registry.hpp>
 
+#include "../../CommonLib/Include/Scene/TorusKnot.hpp"
 #include "OrbitCamera.hpp"
 #include "SunLight.hpp"
-#include "TorusKnot.hpp"
 
 namespace KryneEngine::Samples::RenderGraphDemo
 {
@@ -175,7 +175,9 @@ namespace KryneEngine::Samples::RenderGraphDemo
 
     void SceneManager::Process(GraphicsContext* _graphicsContext)
     {
+        m_torusKnot->RenderWindow();
         m_torusKnot->Process(_graphicsContext);
+
         m_orbitCamera->Process();
         m_sunLight->Process();
 

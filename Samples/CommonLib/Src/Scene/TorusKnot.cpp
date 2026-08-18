@@ -4,7 +4,7 @@
  * @date 12/03/2025.
  */
 
-#include "TorusKnot.hpp"
+#include "../../Include/Scene/TorusKnot.hpp"
 
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
@@ -20,9 +20,9 @@
 #include <math.h>
 #include <cmath>
 
-#include "TorusKnotMeshGenerator.hpp"
+#include "../../Include/Scene/TorusKnotMeshGenerator.hpp"
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     TorusKnot::TorusKnot(AllocatorInstance _allocator)
         : m_allocator(_allocator)
@@ -126,11 +126,6 @@ namespace KryneEngine::Samples::RenderGraphDemo
         {
             _graphicsContext->DestroyBuffer(m_transferBuffer);
             m_transferBuffer = GenPool::kInvalidHandle;
-        }
-
-        if (m_windowOpen)
-        {
-            RenderWindow();
         }
 
         if (!m_meshDirty || m_transferBuffer != GenPool::kInvalidHandle)
@@ -313,6 +308,9 @@ namespace KryneEngine::Samples::RenderGraphDemo
 
     void TorusKnot::RenderWindow()
     {
+        if (!m_windowOpen)
+            return;
+
         if (!ImGui::Begin("Torus knot", &m_windowOpen))
         {
             ImGui::End();

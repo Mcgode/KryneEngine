@@ -25,11 +25,15 @@ namespace KryneEngine::Modules
     }
 }
 
+namespace KryneEngine::Samples
+{
+    class TorusKnot;
+}
+
 namespace KryneEngine::Samples::RenderGraphDemo
 {
     class OrbitCamera;
     class SunLight;
-    class TorusKnot;
 
     class SceneManager
     {

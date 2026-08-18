@@ -2,12 +2,8 @@
 # Set up Render graph demo executable
 add_executable(RenderGraphDemo
         RenderGraphDemo.cpp
-        Scene/TorusKnotMeshGenerator.cpp
-        Scene/TorusKnotMeshGenerator.hpp
         Scene/SceneManager.cpp
         Scene/SceneManager.hpp
-        Scene/TorusKnot.cpp
-        Scene/TorusKnot.hpp
         Scene/OrbitCamera.cpp
         Scene/OrbitCamera.hpp
         Scene/SunLight.cpp
@@ -28,6 +24,7 @@ add_executable(RenderGraphDemo
 
 # Link to cpp libraries
 target_link_libraries(RenderGraphDemo
+        Samples_CommonLib
         # KryneEngine_Modules_RenderGraph   (bundled with RenderGraphDebug)
         # KryneEngine_Modules_ImGui         (bundled with RenderGraphDebug)
         KryneEngine_Modules_RenderGraphDebug

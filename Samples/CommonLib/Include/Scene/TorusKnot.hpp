@@ -11,7 +11,7 @@
 #include "KryneEngine/Core/Math/Matrix.hpp"
 #include <KryneEngine/Core/Math/Quaternion.hpp>
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     class TorusKnot
     {
@@ -41,6 +41,8 @@ namespace KryneEngine::Samples::RenderGraphDemo
             GraphicsContext* _graphicsContext,
             CommandListHandle _commandList,
             DescriptorSetHandle _sceneConstantsSet);
+
+        void RenderWindow();
 
     private:
         AllocatorInstance m_allocator;
@@ -75,7 +77,5 @@ namespace KryneEngine::Samples::RenderGraphDemo
         float m_metalness = 0.f;
 
         bool m_windowOpen = true;
-
-        void RenderWindow();
     };
 }

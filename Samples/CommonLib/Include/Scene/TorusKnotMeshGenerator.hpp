@@ -10,7 +10,7 @@
 #include "KryneEngine/Core/Math/BoundingBox.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
 
-namespace KryneEngine::Samples::RenderGraphDemo::TorusKnotMeshGenerator
+namespace KryneEngine::Samples::TorusKnotMeshGenerator
 {
     struct TorusKnotMesh
     {

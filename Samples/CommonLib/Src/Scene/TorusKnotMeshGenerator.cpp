@@ -4,7 +4,7 @@
  * @date 28/02/2025.
  */
 
-#include "TorusKnotMeshGenerator.hpp"
+#include "../../Include/Scene/TorusKnotMeshGenerator.hpp"
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -30,7 +30,7 @@ namespace
     }
 }
 
-namespace KryneEngine::Samples::RenderGraphDemo::TorusKnotMeshGenerator
+namespace KryneEngine::Samples::TorusKnotMeshGenerator
 {
     TorusKnotMesh GenerateMesh(
         u32 _tubularSegments,
