@@ -208,14 +208,14 @@ namespace KryneEngine
             TracyLockable(std::mutex, waitMutex);
             std::condition_variable_any waitVariable;
 
-            InitAndBatchJobsNoCounter(
-                {.m_function =
-                     [&waitVariable, &_syncCounters](u16)
-                 {
-                     GetInstance()->WaitForCounters(_syncCounters);
-                     waitVariable.notify_one();
-                 },
-                 .m_priority = FiberJob::Priority::Medium});
+            InitAndBatchJobsNoCounter({
+                .m_function = [&waitVariable, &_syncCounters](u16)
+                {
+                    GetInstance()->WaitForCounters(_syncCounters);
+                    waitVariable.notify_one();
+                },
+                .m_priority = FiberJob::Priority::Medium
+            });
 
             std::unique_lock lock(waitMutex);
             waitVariable.wait(lock);
@@ -266,7 +266,7 @@ namespace KryneEngine
         {
             const u32 queueIndex = queueIndices[i];
 
-            if (m_jobQueues[queueIndex].try_dequeue(consumerTokens[i], job_))
+            if (m_jobQueues[queueIndex].try_dequeue(consumerTokens[queueIndex], job_))
             {
                 if (!job_->HasContextAssigned())
                 {
