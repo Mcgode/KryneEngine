@@ -1,0 +1,19 @@
+add_executable(PhysicsDemo
+        PhysicsDemo.cpp
+)
+
+target_link_libraries(PhysicsDemo
+        Samples_CommonLib
+        KryneEngine_Modules_RenderGraph
+)
+
+set_target_properties(PhysicsDemo PROPERTIES FOLDER "EngineSamples")
+
+# Link shader libraries and compile sample shaders
+target_link_shader_libraries(PhysicsDemo ShaderLib)
+target_compile_shaders(PhysicsDemo Shaders Examples/PhysicsDemo)
+
+# Symlink compiled shaders directory
+target_shaders_dir_symlink(PhysicsDemo)
+
+CopyDLLs(PhysicsDemo)
