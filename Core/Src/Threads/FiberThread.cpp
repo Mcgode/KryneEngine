@@ -91,7 +91,7 @@ namespace KryneEngine
 
         currentContext->SwapContext(nextContext);
 
-        _manager->_OnContextSwitched();
+        _manager->OnContextSwitched();
     }
 
     void FiberThread::Stop(std::condition_variable &_waitVariable)
@@ -103,18 +103,18 @@ namespace KryneEngine
 
     FiberJob *FiberThread::_TryRetrieveNextJob(FibersManager *_manager, u16 _threadIndex, bool _busyWait)
     {
-        FibersManager::Job job = nullptr;
+        FiberJob* job = nullptr;
 
         u32 i = 0;
         do
         {
-            if (FibersManager::GetInstance()->_RetrieveNextJob(job, _threadIndex))
+            if (FibersManager::GetInstance()->RetrieveNextJob(job, _threadIndex))
             {
                 break;
             }
             else if (i >= kRetrieveSpinCountBeforeThreadWait)
             {
-                FibersManager::GetInstance()->_ThreadWaitForJob();
+                FibersManager::GetInstance()->ThreadWaitForJob();
                 i = 0;
             }
             else if (_busyWait)

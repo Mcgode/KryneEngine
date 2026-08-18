@@ -7,13 +7,11 @@
 #pragma once
 
 #include <EASTL/array.h>
-#include <EASTL/unique_ptr.h>
+#include <EASTL/span.h>
 #include <KryneEngine/Core/Threads/FiberJob.hpp>
 #include <KryneEngine/Core/Threads/FiberThread.hpp>
 #include <KryneEngine/Core/Threads/FiberTls.hpp>
 #include <KryneEngine/Core/Threads/SyncCounterPool.hpp>
-
-#include "EASTL/span.h"
 
 namespace KryneEngine
 {
@@ -28,9 +26,7 @@ namespace KryneEngine
         friend FiberContext;
 
     public:
-        using Job = FiberJob*;
-
-        explicit FibersManager(s32 _requestedThreadCount, AllocatorInstance _allocatorInstance);
+        explicit FibersManager(s32 _requestedThreadCount, AllocatorInstance _allocator);
 
         ~FibersManager();
 
@@ -56,33 +52,33 @@ namespace KryneEngine
 
         [[nodiscard]] SyncCounterPool::AutoSyncCounter AcquireAutoSyncCounter(u32 _count = 1);
 
-        void QueueJob(Job _job);
+        void QueueJob(FiberJob* _job);
 
         void WaitForCounters(eastl::span<const SyncCounterId> _syncCounters);
         void WaitForCounter(SyncCounterId _syncCounter) { WaitForCounters({ &_syncCounter, 1 }); }
 
         void ResetCounter(SyncCounterId _syncCounter);
 
-        inline void WaitForCounterAndReset(const SyncCounterId _syncCounter)
+        void WaitForCounterAndReset(const SyncCounterId _syncCounter)
         {
             WaitForCounter(_syncCounter);
             ResetCounter(_syncCounter);
         }
 
-        void YieldJob(Job _nextJob = nullptr);
+        void YieldJob(FiberJob* _nextJob = nullptr);
 
         [[nodiscard]] IoQueryManager* GetIoQueryManager() const { return m_ioManager; }
 
     protected:
 
-        bool _RetrieveNextJob(Job&job_, u16 _fiberIndex);
+        bool RetrieveNextJob(FiberJob*& job_, u16 _fiberIndex);
 
-        void _OnContextSwitched();
+        void OnContextSwitched();
 
-        void _ThreadWaitForJob();
+        void ThreadWaitForJob();
 
     private:
-        using JobQueue = moodycamel::ConcurrentQueue<Job>;
+        using JobQueue = moodycamel::ConcurrentQueue<FiberJob*>;
         static constexpr u8 kJobQueuesCount = FiberJob::PriorityType::kJobPriorityTypes;
         eastl::array<JobQueue, kJobQueuesCount> m_jobQueues;
 
@@ -94,8 +90,8 @@ namespace KryneEngine
 
         DynamicArray<FiberThread> m_fiberThreads;
 
-        FiberTls<Job> m_currentJobs;
-        FiberTls<Job> m_nextJob;
+        FiberTls<FiberJob*> m_currentJobs;
+        FiberTls<FiberJob*> m_nextJob;
         FiberTls<FiberContext> m_baseContexts;
 
         FiberContextAllocator* m_contextAllocator;

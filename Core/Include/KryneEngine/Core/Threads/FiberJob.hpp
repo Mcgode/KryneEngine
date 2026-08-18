@@ -29,31 +29,31 @@ namespace KryneEngine
         {
             /// @details
             /// There are `Priority::Count` base type of priorities, and for each of them we distinguish between
-            /// kicked jobs and unkicked ones. This allows to define the priority of one over the other.
+            /// suspended jobs and unstarted ones. This allows to define the priority of one over the other.
             static constexpr u8 kJobPriorityTypes = 2 * static_cast<u8>(Priority::Count);
 
             bool m_pendingStart;
             Priority m_priority;
 
-            PriorityType(Priority _priority, bool _pendingStart)
-                : m_priority(_priority)
-                , m_pendingStart(_pendingStart)
+            PriorityType(const Priority _priority, const bool _pendingStart)
+                : m_pendingStart(_pendingStart)
+                , m_priority(_priority)
             {
                 KE_ASSERT(_priority != Priority::Count);
             }
 
             /// @details
             /// The lowest, the higher priority.
-            /// Since we want to finish the kicked jobs before starting new ones, but still want to have the higher
+            /// Since we want to finish the suspended jobs before starting new ones, but still want to have the higher
             /// priority jobs before the lower ones, we also use priority to apply order.
             ///
             /// Resulting table is:
-            /// - 0: High, kicked
-            /// - 1: High, not kicked
-            /// - 2: Medium, kicked
-            /// - 3: Medium, not kicked
-            /// - 4: Low, kicked
-            /// - 5: Low, not kicked
+            /// - 0: High, suspended
+            /// - 1: High, unstarted
+            /// - 2: Medium, suspended
+            /// - 3: Medium, unstarted
+            /// - 4: Low, suspended
+            /// - 5: Low, unstarted
             explicit operator u8() const
             {
                 return
@@ -83,9 +83,6 @@ namespace KryneEngine
         friend class FiberContext;
         friend class SyncCounterPool;
 
-    public:
-        typedef void (JobFunc)(void*);
-
         FiberJob();
 
         [[nodiscard]] Status GetStatus() const { return m_status.load(std::memory_order_acquire); }
@@ -102,11 +99,11 @@ namespace KryneEngine
         }
 
     protected:
-        [[nodiscard]] bool _HasContextAssigned() const { return m_contextId != kInvalidContextId; }
+        [[nodiscard]] bool HasContextAssigned() const { return m_contextId != kInvalidContextId; }
 
-        void _SetContext(u16 _contextId, FiberContext *_context);
+        void SetContext(u16 _contextId, FiberContext *_context);
 
-        void _ResetContext();
+        void ResetContext();
 
     private:
         eastl::function<void(u16)> m_function = nullptr;

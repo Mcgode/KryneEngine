@@ -68,7 +68,7 @@ namespace KryneEngine
 
         const auto fibersManager = FibersManager::GetInstance();
         VERIFY_OR_RETURN_VOID(fibersManager != nullptr);
-        fibersManager->_OnContextSwitched();
+        fibersManager->OnContextSwitched();
 
         if (KE_VERIFY(_transfer.data != nullptr))
         {

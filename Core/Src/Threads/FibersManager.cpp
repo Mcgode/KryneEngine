@@ -15,12 +15,10 @@
 
 namespace KryneEngine
 {
-    thread_local FibersManager* FibersManager::s_manager = nullptr;
-
-    FibersManager::FibersManager(s32 _requestedThreadCount, AllocatorInstance _allocator)
-        : m_fiberThreads(_allocator)
-        , m_jobProducerTokens(_allocator)
+    FibersManager::FibersManager(const s32 _requestedThreadCount, AllocatorInstance _allocator)
+        : m_jobProducerTokens(_allocator)
         , m_jobConsumerTokens(_allocator)
+        , m_fiberThreads(_allocator)
         , m_currentJobs(_allocator)
         , m_nextJob(_allocator)
         , m_baseContexts(_allocator)
@@ -44,7 +42,7 @@ namespace KryneEngine
         else
         {
             fiberThreadCount = _requestedThreadCount;
-        };
+        }
 
         KE_ASSERT_MSG(fiberThreadCount > 0, "You need at least one fiber thread");
 
@@ -54,30 +52,37 @@ namespace KryneEngine
 
         // Init FiberTls objects before initializing the threads, to avoid racing conditions.
         {
-            m_jobProducerTokens.InitFunc(this, [this](JobProducerTokenArray &_array)
-            {
-                for (u64 i = 0; i < _array.size(); i++)
+            m_jobProducerTokens.InitFunc(
+                this,
+                [this](JobProducerTokenArray& _array)
                 {
-                    // Do in-place memory init, else it will try to interpret uninitialized memory as a valid object.
-                    ::new(&_array[i]) moodycamel::ProducerToken(m_jobQueues[i]);
-                }
-            });
+                    for (u64 i = 0; i < _array.size(); i++)
+                    {
+                        // Do in-place memory init, else it will try to interpret uninitialized memory as a valid
+                        // object.
+                        ::new (&_array[i]) moodycamel::ProducerToken(m_jobQueues[i]);
+                    }
+                });
 
-            m_jobConsumerTokens.InitFunc(this, [this](JobConsumerTokenArray &_array)
-            {
-                for (u64 i = 0; i < _array.size(); i++)
+            m_jobConsumerTokens.InitFunc(
+                this,
+                [this](JobConsumerTokenArray& _array)
                 {
-                    // Do in-place memory init, else it will try to interpret uninitialized memory as a valid object.
-                    ::new(&_array[i]) moodycamel::ConsumerToken(m_jobQueues[i]);
-                }
-            });
+                    for (u64 i = 0; i < _array.size(); i++)
+                    {
+                        // Do in-place memory init, else it will try to interpret uninitialized memory as a valid
+                        // object.
+                        ::new (&_array[i]) moodycamel::ConsumerToken(m_jobQueues[i]);
+                    }
+                });
 
             m_currentJobs.Init(this, nullptr);
             m_nextJob.Init(this, nullptr);
             m_baseContexts.InitFunc(
                 this,
-                [](FiberContext& _context) {
-                    ::new(&_context) FiberContext();
+                [](FiberContext& _context)
+                {
+                    ::new (&_context) FiberContext();
                 });
 
             for (u32 i = 0; i < fiberThreadCount; i++)
@@ -92,69 +97,9 @@ namespace KryneEngine
         }
     }
 
-    void FibersManager::QueueJob(Job _job)
-    {
-        VERIFY_OR_RETURN_VOID(_job != nullptr);
-
-        KE_ASSERT(_job->CanRun());
-
-        const u8 priorityId = (u8)_job->GetPriorityType();
-        if (FiberThread::IsFiberThread())
-        {
-            auto& producerToken = m_jobProducerTokens.Load()[priorityId];
-            m_jobQueues[priorityId].enqueue(producerToken, _job);
-        }
-        else
-        {
-            m_jobQueues[priorityId].enqueue(_job);
-        }
-        m_waitVariable.notify_one();
-    }
-
-    bool FibersManager::_RetrieveNextJob(Job& job_, u16 _fiberIndex)
-    {
-        auto& consumerTokens = m_jobConsumerTokens.Load(_fiberIndex);
-        for (s64 i = 0; i < static_cast<s64>(kJobQueuesCount); i++)
-        {
-            if (m_jobQueues[i].try_dequeue(consumerTokens[i], job_))
-            {
-                if (!job_->_HasContextAssigned())
-                {
-                    KE_ASSERT(job_->GetStatus() == FiberJob::Status::PendingStart);
-
-                    u16 id;
-                    if (m_contextAllocator->Allocate(job_->m_bigStack, id))
-                    {
-                        job_->_SetContext(id, m_contextAllocator->GetContext(id));
-                    }
-                }
-                else if (!job_->CanRun())
-                {
-                    // If job is already finished or still running, ignore it and keep trying to retrieve the next job.
-                    // This might happen because the job was run by skipping this step, which is legal.
-                    job_ = nullptr;
-                    i--; // Roll back index to try retrieving again from this queue.
-                    continue;
-                }
-                return true;
-            }
-        }
-        return false;
-    }
-
-    FibersManager *FibersManager::GetInstance()
-    {
-        return s_manager;
-    }
-
-    void FibersManager::SetInstance(FibersManager* _instance)
-    {
-        s_manager = _instance;
-    }
-
     FibersManager::~FibersManager()
     {
-        for (auto& fiberThread: m_fiberThreads)
+        for (auto& fiberThread : m_fiberThreads)
         {
             fiberThread.Stop(m_waitVariable);
         }
@@ -163,10 +108,11 @@ namespace KryneEngine
         m_fiberThreads.GetAllocator().Delete(m_contextAllocator);
     }
 
-    FiberJob *FibersManager::GetCurrentJob()
-    {
-        return m_currentJobs.Load();
-    }
+    FibersManager* FibersManager::GetInstance() { return s_manager; }
+
+    void FibersManager::SetInstance(FibersManager* _instance) { s_manager = _instance; }
+
+    FiberJob* FibersManager::GetCurrentJob() { return m_currentJobs.Load(); }
 
     SyncCounterId FibersManager::InitAndBatchJobs(const FiberJob::Desc& _desc)
     {
@@ -212,66 +158,42 @@ namespace KryneEngine
         }
     }
 
-    void FibersManager::YieldJob(Job _nextJob)
-    {
-        const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
-        auto* currentJob = m_currentJobs.Load(fiberIndex);
-
-        if (currentJob != nullptr && currentJob->GetStatus() == FiberJob::Status::Running)
-        {
-            currentJob->m_status.store(FiberJob::Status::Paused, std::memory_order_release);
-            QueueJob(currentJob);
-        }
-
-        IF_NOT_VERIFY(_nextJob == nullptr || _nextJob->CanRun())
-        {
-            _nextJob = nullptr;
-        }
-
-        m_fiberThreads[fiberIndex].SwitchToNextJob(this, currentJob, _nextJob);
-    }
-
-    void FibersManager::_OnContextSwitched()
-    {
-        const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
-
-        FiberJob* oldJob = m_currentJobs.Load(fiberIndex);
-        FiberJob* newJob = m_nextJob.Load(fiberIndex);
-
-        if (oldJob != nullptr && oldJob->GetStatus() == FiberJob::Status::Finished)
-        {
-            if (oldJob->m_associatedCounterId != kInvalidSyncCounterId)
-            {
-                // Decrement counter
-                m_syncCounterPool.DecrementCounterValue(oldJob->m_associatedCounterId);
-            }
-
-            m_contextAllocator->Free(oldJob->m_contextId);
-
-            oldJob->_ResetContext();
-            m_fiberThreads.GetAllocator().Delete(oldJob);
-        }
-
-        m_currentJobs.Load(fiberIndex) = newJob;
-        m_nextJob.Load(fiberIndex) = nullptr;
-    }
-
-    SyncCounterPool::AutoSyncCounter FibersManager::AcquireAutoSyncCounter(u32 _count)
+    SyncCounterPool::AutoSyncCounter FibersManager::AcquireAutoSyncCounter(const u32 _count)
     {
         return eastl::move(m_syncCounterPool.AcquireAutoCounter(_count));
+    }
+
+    void FibersManager::QueueJob(FiberJob* _job)
+    {
+        VERIFY_OR_RETURN_VOID(_job != nullptr);
+
+        KE_ASSERT(_job->CanRun());
+
+        const u8 priorityId = static_cast<u8>(_job->GetPriorityType());
+        if (FiberThread::IsFiberThread())
+        {
+            const moodycamel::ProducerToken& producerToken = m_jobProducerTokens.Load()[priorityId];
+            m_jobQueues[priorityId].enqueue(producerToken, _job);
+        }
+        else
+        {
+            m_jobQueues[priorityId].enqueue(_job);
+        }
+        m_waitVariable.notify_one();
     }
 
     void FibersManager::WaitForCounters(const eastl::span<const SyncCounterId> _syncCounters)
     {
         if (_syncCounters.empty())
+        {
             return;
+        }
 
         if (FiberThread::IsFiberThread())
         {
             auto* currentJob = GetCurrentJob();
             currentJob->m_dependencyJobsRunning.fetch_add(
-                static_cast<s32>(_syncCounters.size()),
-                std::memory_order_acq_rel);
+                static_cast<s32>(_syncCounters.size()), std::memory_order_acq_rel);
             for (const auto& syncCounter : _syncCounters)
             {
                 if (!m_syncCounterPool.AddWaitingJob(syncCounter, currentJob))
@@ -291,28 +213,99 @@ namespace KryneEngine
             TracyLockable(std::mutex, waitMutex);
             std::condition_variable_any waitVariable;
 
-            InitAndBatchJobsNoCounter({
-                .m_function = [&waitVariable, &_syncCounters](u16)
-                    {
-                        GetInstance()->WaitForCounters(_syncCounters);
-                        waitVariable.notify_one();
-                    },
-                .m_priority = FiberJob::Priority::Medium
-            });
+            InitAndBatchJobsNoCounter(
+                {.m_function =
+                     [&waitVariable, &_syncCounters](u16)
+                 {
+                     GetInstance()->WaitForCounters(_syncCounters);
+                     waitVariable.notify_one();
+                 },
+                 .m_priority = FiberJob::Priority::Medium});
 
-            std::unique_lock<LockableBase(std::mutex)> lock(waitMutex);
+            std::unique_lock lock(waitMutex);
             waitVariable.wait(lock);
         }
     }
 
-    void FibersManager::ResetCounter(SyncCounterId _syncCounter)
+    void FibersManager::ResetCounter(SyncCounterId _syncCounter) { m_syncCounterPool.FreeCounter(_syncCounter); }
+
+    void FibersManager::YieldJob(FiberJob* _nextJob)
     {
-        m_syncCounterPool.FreeCounter(_syncCounter);
+        const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
+        auto* currentJob = m_currentJobs.Load(fiberIndex);
+
+        if (currentJob != nullptr && currentJob->GetStatus() == FiberJob::Status::Running)
+        {
+            currentJob->m_status.store(FiberJob::Status::Paused, std::memory_order_release);
+            QueueJob(currentJob);
+        }
+
+        IF_NOT_VERIFY(_nextJob == nullptr || _nextJob->CanRun()) { _nextJob = nullptr; }
+
+        m_fiberThreads[fiberIndex].SwitchToNextJob(this, currentJob, _nextJob);
     }
 
-    void FibersManager::_ThreadWaitForJob()
+    bool FibersManager::RetrieveNextJob(FiberJob*& job_, const u16 _fiberIndex)
     {
-        std::unique_lock<std::mutex> lock(m_waitMutex);
+        auto& consumerTokens = m_jobConsumerTokens.Load(_fiberIndex);
+        for (s64 i = 0; i < static_cast<s64>(kJobQueuesCount); i++)
+        {
+            if (m_jobQueues[i].try_dequeue(consumerTokens[i], job_))
+            {
+                if (!job_->HasContextAssigned())
+                {
+                    KE_ASSERT(job_->GetStatus() == FiberJob::Status::PendingStart);
+
+                    u16 id;
+                    if (m_contextAllocator->Allocate(job_->m_bigStack, id))
+                    {
+                        job_->SetContext(id, m_contextAllocator->GetContext(id));
+                    }
+                }
+                else if (!job_->CanRun())
+                {
+                    // If job is already finished or still running, ignore it and keep trying to retrieve the next job.
+                    // This might happen because the job was run by skipping this step, which is legal.
+                    job_ = nullptr;
+                    i--; // Roll back index to try retrieving again from this queue.
+                    continue;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void FibersManager::OnContextSwitched()
+    {
+        const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
+
+        FiberJob* oldJob = m_currentJobs.Load(fiberIndex);
+        FiberJob* newJob = m_nextJob.Load(fiberIndex);
+
+        if (oldJob != nullptr && oldJob->GetStatus() == FiberJob::Status::Finished)
+        {
+            if (oldJob->m_associatedCounterId != kInvalidSyncCounterId)
+            {
+                // Decrement counter
+                m_syncCounterPool.DecrementCounterValue(oldJob->m_associatedCounterId);
+            }
+
+            m_contextAllocator->Free(oldJob->m_contextId);
+
+            oldJob->ResetContext();
+            m_fiberThreads.GetAllocator().Delete(oldJob);
+        }
+
+        m_currentJobs.Load(fiberIndex) = newJob;
+        m_nextJob.Load(fiberIndex) = nullptr;
+    }
+
+    void FibersManager::ThreadWaitForJob()
+    {
+        std::unique_lock lock(m_waitMutex);
         m_waitVariable.wait(lock); // Allow spurious wakeup.
     }
+
+    thread_local FibersManager* FibersManager::s_manager = nullptr;
 }

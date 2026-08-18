@@ -12,13 +12,13 @@ namespace KryneEngine
 {
     FiberJob::FiberJob() = default;
 
-    void FiberJob::_SetContext(u16 _contextId, FiberContext *_context)
+    void FiberJob::SetContext(const u16 _contextId, FiberContext* _context)
     {
         m_contextId = _contextId;
         m_context = _context;
     }
 
-    void FiberJob::_ResetContext()
+    void FiberJob::ResetContext()
     {
         m_contextId = kInvalidContextId;
         m_context = nullptr;
