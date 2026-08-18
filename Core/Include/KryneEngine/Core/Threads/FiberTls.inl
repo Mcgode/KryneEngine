@@ -7,6 +7,8 @@
 #include "KryneEngine/Core/Threads/FiberTls.hpp"
 
 #include "KryneEngine/Core/Threads/FibersManager.hpp"
+#include "KryneEngine/Core/Window/Input/Enums.hpp"
+#include "eathread/eathread.h"
 
 namespace KryneEngine
 {
@@ -27,6 +29,13 @@ namespace KryneEngine
         {
             _initFunction(localFiberValue);
         }
+    }
+
+    template <class T, class Allocator>
+    void FiberTls<T, Allocator>::InitDefault(const FibersManager* _fibersManager)
+    {
+        m_array.Resize(_fibersManager->GetFiberThreadCount());
+        m_array.InitAll();
     }
 
     template<class T, class Allocator>

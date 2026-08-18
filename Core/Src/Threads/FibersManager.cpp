@@ -19,11 +19,12 @@ namespace KryneEngine
         : m_jobProducerTokens(_allocator)
         , m_jobConsumerTokens(_allocator)
         , m_fiberThreads(_allocator)
-        , m_currentJobs(_allocator)
-        , m_nextJob(_allocator)
+        , m_statuses(_allocator)
         , m_baseContexts(_allocator)
     {
         KE_ZoneScopedFunction("FibersManager::FibersManager()");
+
+        UpdateRoundRobinTotal();
 
         m_contextAllocator = _allocator.New<FiberContextAllocator>(_allocator);
 
@@ -76,14 +77,8 @@ namespace KryneEngine
                     }
                 });
 
-            m_currentJobs.Init(this, nullptr);
-            m_nextJob.Init(this, nullptr);
-            m_baseContexts.InitFunc(
-                this,
-                [](FiberContext& _context)
-                {
-                    ::new (&_context) FiberContext();
-                });
+            m_statuses.InitDefault(this);
+            m_baseContexts.InitDefault(this);
 
             for (u32 i = 0; i < fiberThreadCount; i++)
             {
@@ -112,7 +107,7 @@ namespace KryneEngine
 
     void FibersManager::SetInstance(FibersManager* _instance) { s_manager = _instance; }
 
-    FiberJob* FibersManager::GetCurrentJob() { return m_currentJobs.Load(); }
+    FiberJob* FibersManager::GetCurrentJob() { return m_statuses.Load().m_currentJob; }
 
     SyncCounterId FibersManager::InitAndBatchJobs(const FiberJob::Desc& _desc)
     {
@@ -232,7 +227,7 @@ namespace KryneEngine
     void FibersManager::YieldJob(FiberJob* _nextJob)
     {
         const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
-        auto* currentJob = m_currentJobs.Load(fiberIndex);
+        auto* currentJob = m_statuses.Load(fiberIndex).m_currentJob;
 
         if (currentJob != nullptr && currentJob->GetStatus() == FiberJob::Status::Running)
         {
@@ -247,10 +242,31 @@ namespace KryneEngine
 
     bool FibersManager::RetrieveNextJob(FiberJob*& job_, const u16 _fiberIndex)
     {
-        auto& consumerTokens = m_jobConsumerTokens.Load(_fiberIndex);
+        JobConsumerTokenArray& consumerTokens = m_jobConsumerTokens.Load(_fiberIndex);
+        u32& roundRobinProgress = m_statuses.Load(_fiberIndex).m_priorityRoundRobinProgress;
+
+        // Set up queue indices to respect round robin priority.
+        // Resuming jobs queue is always first.
+        u32 queueIndices[kJobQueuesCount] = { 0 };
+        {
+            u32 cumulated = 0;
+            for (u32 i = 0; i < kPrioritiesCount; i++)
+            {
+                if (cumulated + m_priorityRoundRobinIterations[i] > roundRobinProgress)
+                {
+                    queueIndices[1] = i + 1;
+                    for (u32 j = 1; j < kPrioritiesCount; j++)
+                        queueIndices[j + 1] = ((i + j) % kPrioritiesCount) + 1;
+                    break;
+                }
+                cumulated += m_priorityRoundRobinIterations[i];
+            }
+        }
         for (s64 i = 0; i < static_cast<s64>(kJobQueuesCount); i++)
         {
-            if (m_jobQueues[i].try_dequeue(consumerTokens[i], job_))
+            const u32 queueIndex = queueIndices[i];
+
+            if (m_jobQueues[queueIndex].try_dequeue(consumerTokens[i], job_))
             {
                 if (!job_->HasContextAssigned())
                 {
@@ -270,9 +286,30 @@ namespace KryneEngine
                     i--; // Roll back index to try retrieving again from this queue.
                     continue;
                 }
+
+                // Update round robin progress, if relevant.
+                if (i == 1)
+                {
+                    roundRobinProgress++;
+                }
+                else if (i > 0)
+                {
+                    u32 cumulated = 0;
+                    const u32 priority = queueIndex - 1;
+                    for (u32 j = 0; j < kPrioritiesCount; j++)
+                    {
+                        if (j < priority)
+                            cumulated += m_priorityRoundRobinIterations[j];
+                    }
+                    roundRobinProgress = cumulated + 1;
+                }
+                roundRobinProgress %= m_priorityRoundRobinTotal;
+
                 return true;
             }
         }
+
+        roundRobinProgress = 0;
         return false;
     }
 
@@ -280,8 +317,9 @@ namespace KryneEngine
     {
         const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
 
-        FiberJob* oldJob = m_currentJobs.Load(fiberIndex);
-        FiberJob* newJob = m_nextJob.Load(fiberIndex);
+        Status& status = m_statuses.Load(fiberIndex);
+        FiberJob* oldJob = status.m_currentJob;
+        FiberJob* newJob = status.m_nextJob;
 
         if (oldJob != nullptr && oldJob->GetStatus() == FiberJob::Status::Finished)
         {
@@ -297,14 +335,21 @@ namespace KryneEngine
             m_fiberThreads.GetAllocator().Delete(oldJob);
         }
 
-        m_currentJobs.Load(fiberIndex) = newJob;
-        m_nextJob.Load(fiberIndex) = nullptr;
+        status.m_currentJob = newJob;
+        status.m_nextJob = nullptr;
     }
 
     void FibersManager::ThreadWaitForJob()
     {
         std::unique_lock lock(m_waitMutex);
         m_waitVariable.wait(lock); // Allow spurious wakeup.
+    }
+
+    void FibersManager::UpdateRoundRobinTotal()
+    {
+        m_priorityRoundRobinTotal = 0;
+        for (u32 i = 0; i < m_priorityRoundRobinIterations.size(); ++i)
+            m_priorityRoundRobinTotal += m_priorityRoundRobinIterations[i];
     }
 
     thread_local FibersManager* FibersManager::s_manager = nullptr;

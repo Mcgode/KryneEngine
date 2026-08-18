@@ -19,6 +19,26 @@ namespace KryneEngine
     class FiberThread;
     class IoQueryManager;
 
+    /**
+     * @brief A fibers manager with job scheduling capabilities.
+     *
+     * @details
+     *
+     * To avoid low-priority job starvation under high load, a per-thread round-robin system is in place. Each fiber
+     * thread tracks a progress counter (`m_priorityRoundRobinProgress`) that determines which priority queue to try
+     * first when dequeuing the next job:
+     *  - A thread may dequeue up to X High-priority jobs before it must attempt a Normal-priority job.
+     *  - After that, it may dequeue up to Y Normal-priority jobs before it must attempt a Low-priority job.
+     *  - After Z Low-priority jobs, the cycle resets to High.
+     *
+     * Default values: High = 4, Normal = 2, Low = 1 (all configurable).
+     *
+     * If the preferred priority queue is empty, the system falls back through the remaining queues in round-robin order
+     * (wrapping around) until a job is found. If no queue has any jobs, the progress resets back to high priority.
+     *
+     * Suspended jobs that are ready to resume are always dequeued first, bypassing the round-robin entirely, since they
+     * already have a fiber context allocated and their dependency has just been resolved.
+     */
     class FibersManager
     {
         friend FiberThread;
@@ -69,6 +89,18 @@ namespace KryneEngine
 
         [[nodiscard]] IoQueryManager* GetIoQueryManager() const { return m_ioManager; }
 
+        [[nodiscard]] u32 GetPriorityRoundRobinIterations(FiberJob::Priority _priority) const
+        {
+            return m_priorityRoundRobinIterations[static_cast<size_t>(_priority)];
+        }
+
+        void SetPriorityRoundRobinIterations(FiberJob::Priority _priority, const u32 _iterations)
+        {
+            KE_ASSERT(_iterations > 0);
+            m_priorityRoundRobinIterations[static_cast<size_t>(_priority)] = _iterations;
+            UpdateRoundRobinTotal();
+        }
+
     protected:
 
         bool RetrieveNextJob(FiberJob*& job_, u16 _fiberIndex);
@@ -76,6 +108,8 @@ namespace KryneEngine
         void OnContextSwitched();
 
         void ThreadWaitForJob();
+
+        void UpdateRoundRobinTotal();
 
     private:
         using JobQueue = moodycamel::ConcurrentQueue<FiberJob*>;
@@ -90,8 +124,14 @@ namespace KryneEngine
 
         DynamicArray<FiberThread> m_fiberThreads;
 
-        FiberTls<FiberJob*> m_currentJobs;
-        FiberTls<FiberJob*> m_nextJob;
+        struct Status
+        {
+            FiberJob* m_currentJob = nullptr;
+            FiberJob* m_nextJob = nullptr;
+            u32 m_priorityRoundRobinProgress = 0;
+        };
+
+        FiberTls<Status> m_statuses;
         FiberTls<FiberContext> m_baseContexts;
 
         FiberContextAllocator* m_contextAllocator;
@@ -103,5 +143,13 @@ namespace KryneEngine
 
         static thread_local FibersManager* s_manager;
         IoQueryManager* m_ioManager = nullptr;
+
+        static constexpr size_t kPrioritiesCount = static_cast<size_t>(FiberJob::Priority::Count);
+        eastl::array<u32, kPrioritiesCount> m_priorityRoundRobinIterations = {
+            4,
+            2,
+            1
+        };
+        u32 m_priorityRoundRobinTotal = 0;
     };
 } // KryneEngine

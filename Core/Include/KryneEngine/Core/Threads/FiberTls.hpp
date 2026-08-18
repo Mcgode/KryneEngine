@@ -29,6 +29,8 @@ namespace KryneEngine
         template <typename F>
         void InitFunc(const FibersManager* _fibersManager, F _initFunction);
 
+        void InitDefault(const FibersManager* _fibersManager);
+
         [[nodiscard]] T& Load();
 
         [[nodiscard]] inline T& Load(u16 _fiberIndex)

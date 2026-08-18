@@ -64,7 +64,7 @@ namespace KryneEngine
         return sIsThread;
     }
 
-    void FiberThread::SwitchToNextJob(FibersManager *_manager, FiberJob *_currentJob, FiberJob *_nextJob)
+    void FiberThread::SwitchToNextJob(FibersManager *_manager, FiberJob* _currentJob, FiberJob *_nextJob)
     {
         const auto fiberIndex = GetCurrentFiberThreadIndex();
 
@@ -79,7 +79,7 @@ namespace KryneEngine
             return;
         }
 
-        _manager->m_nextJob.Load(fiberIndex) = _nextJob;
+        _manager->m_statuses.Load(fiberIndex).m_nextJob = _nextJob;
 
         auto* currentContext = _currentJob == nullptr
                 ? &_manager->m_baseContexts.Load(fiberIndex)

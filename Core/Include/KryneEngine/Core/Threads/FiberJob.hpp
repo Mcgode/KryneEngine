@@ -30,7 +30,7 @@ namespace KryneEngine
             /// @details
             /// There are `Priority::Count` base type of priorities, and for each of them we distinguish between
             /// suspended jobs and unstarted ones. This allows to define the priority of one over the other.
-            static constexpr u8 kJobPriorityTypes = 2 * static_cast<u8>(Priority::Count);
+            static constexpr u8 kJobPriorityTypes = 1 + static_cast<u8>(Priority::Count);
 
             bool m_pendingStart;
             Priority m_priority;
@@ -44,21 +44,16 @@ namespace KryneEngine
 
             /// @details
             /// The lowest, the higher priority.
-            /// Since we want to finish the suspended jobs before starting new ones, but still want to have the higher
-            /// priority jobs before the lower ones, we also use priority to apply order.
+            /// We want to finish the suspended jobs before starting new ones.
             ///
             /// Resulting table is:
-            /// - 0: High, suspended
+            /// - 0: Suspended
             /// - 1: High, unstarted
-            /// - 2: Medium, suspended
-            /// - 3: Medium, unstarted
-            /// - 4: Low, suspended
-            /// - 5: Low, unstarted
+            /// - 2: Medium, unstarted
+            /// - 3: Low, unstarted
             explicit operator u8() const
             {
-                return
-                        static_cast<u8>(m_pendingStart) |
-                        (static_cast<u8>(m_priority) << 1);
+                return m_pendingStart ? static_cast<u8>(m_priority) + 1 : 0;
             }
         };
 
