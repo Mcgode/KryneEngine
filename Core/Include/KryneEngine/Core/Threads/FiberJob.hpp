@@ -107,6 +107,7 @@ namespace KryneEngine
         bool m_bigStack = false;
 
         std::atomic<Status> m_status { Status::PendingStart };
+        std::atomic<s32> m_dependencyJobsRunning { 0 };
 
         static constexpr s32 kInvalidContextId = -1;
         s32 m_contextId = kInvalidContextId;

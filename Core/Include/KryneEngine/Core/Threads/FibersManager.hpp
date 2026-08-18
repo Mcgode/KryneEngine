@@ -116,10 +116,12 @@ namespace KryneEngine
 
         void QueueJob(Job _job);
 
-        void WaitForCounter(SyncCounterId _syncCounter);
+        void WaitForCounters(eastl::span<const SyncCounterId> _syncCounters);
+        void WaitForCounter(SyncCounterId _syncCounter) { WaitForCounters({ &_syncCounter, 1 }); }
+
         void ResetCounter(SyncCounterId _syncCounter);
 
-        inline void WaitForCounterAndReset(SyncCounterId _syncCounter)
+        inline void WaitForCounterAndReset(const SyncCounterId _syncCounter)
         {
             WaitForCounter(_syncCounter);
             ResetCounter(_syncCounter);

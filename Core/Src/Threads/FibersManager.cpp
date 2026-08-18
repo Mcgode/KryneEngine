@@ -288,40 +288,51 @@ namespace KryneEngine
         return eastl::move(m_syncCounterPool.AcquireAutoCounter(_count));
     }
 
-    void FibersManager::WaitForCounter(SyncCounterId _syncCounter)
+    void FibersManager::WaitForCounters(const eastl::span<const SyncCounterId> _syncCounters)
     {
+        if (_syncCounters.empty())
+            return;
+
         if (FiberThread::IsFiberThread())
         {
             auto* currentJob = GetCurrentJob();
-            if (!m_syncCounterPool.AddWaitingJob(_syncCounter, currentJob))
+            currentJob->m_dependencyJobsRunning.fetch_add(
+                static_cast<s32>(_syncCounters.size()),
+                std::memory_order_acq_rel);
+            for (const auto& syncCounter : _syncCounters)
             {
-                YieldJob();
+                if (!m_syncCounterPool.AddWaitingJob(syncCounter, currentJob))
+                {
+                    YieldJob();
+                }
+                else
+                {
+                    currentJob->m_dependencyJobsRunning.fetch_sub(1, std::memory_order_acq_rel);
+                }
             }
         }
         else
         {
-            KE_ZoneScopedFunction("FibersManager::WaitForCounter");
+            KE_ZoneScopedFunction("FibersManager::WaitForCounters");
 
             TracyLockable(std::mutex, waitMutex);
             struct Data {
                 std::condition_variable_any m_waitVariable {};
-                SyncCounterId m_syncCounterId;
+                eastl::span<const SyncCounterId> m_syncCounterIds;
             } data;
 
-            data.m_syncCounterId = _syncCounter;
+            data.m_syncCounterIds = _syncCounters;
 
             constexpr auto jobFunction = [](void* _dataPtr)
             {
-                auto* data = static_cast<Data*>(_dataPtr);
-                FibersManager::GetInstance()->WaitForCounter(data->m_syncCounterId);
-                data->m_waitVariable.notify_one();
+                auto* dataPtr = static_cast<Data*>(_dataPtr);
+                GetInstance()->WaitForCounters(dataPtr->m_syncCounterIds);
+                dataPtr->m_waitVariable.notify_one();
             };
-            SyncCounterId id = InitAndBatchJobs(jobFunction, &data);
+            InitAndBatchNoCounterJobs(jobFunction, &data);
 
             std::unique_lock<LockableBase(std::mutex)> lock(waitMutex);
             data.m_waitVariable.wait(lock);
-
-            ResetCounter(id);
         }
     }
 

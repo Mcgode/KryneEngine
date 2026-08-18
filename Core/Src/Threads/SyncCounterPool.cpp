@@ -81,7 +81,11 @@ namespace KryneEngine
                 auto* fibersManager = FibersManager::GetInstance();
                 for (auto* job: entry.m_waitingJobs)
                 {
-                    fibersManager->QueueJob(job);
+                    const s32 dependencyJobsRunning = job->m_dependencyJobsRunning.fetch_sub(1, std::memory_order_acq_rel);
+                    if (dependencyJobsRunning == 1)
+                    {
+                        fibersManager->QueueJob(job);
+                    }
                 }
                 entry.m_waitingJobs.clear();
             }
