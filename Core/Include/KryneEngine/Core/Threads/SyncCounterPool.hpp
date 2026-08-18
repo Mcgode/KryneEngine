@@ -82,7 +82,7 @@ namespace KryneEngine
             LightweightMutex m_mutex;
         };
 
-        static constexpr u16 kPoolSize = 128;
+        static constexpr u16 kPoolSize = 1024;
         eastl::array<Entry, kPoolSize> m_entries;
 
         moodycamel::ConcurrentQueue<u16> m_idQueue;

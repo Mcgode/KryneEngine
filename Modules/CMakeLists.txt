@@ -9,6 +9,7 @@ add_subdirectory(RenderGraphDebug)
 add_subdirectory(ShaderReflection)
 add_subdirectory(SdfTexture)
 add_subdirectory(TextRendering)
+add_subdirectory(Box3D)
 
 add_library(KryneEngine_Modules INTERFACE)
 target_link_libraries(KryneEngine_Modules INTERFACE
