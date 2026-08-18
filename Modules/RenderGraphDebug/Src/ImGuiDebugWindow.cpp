@@ -677,6 +677,9 @@ namespace KryneEngine::Modules::RenderGraph
                     case ResourceType::RenderTargetView:
                         type = "render target view";
                         break;
+                    case ResourceType::Dummy:
+                        type = "dummy";
+                        break;
                     default:
                         type = "unknown";
                     }

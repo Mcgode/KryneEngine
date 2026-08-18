@@ -63,7 +63,7 @@ namespace KryneEngine::Modules::RenderGraph
                             .m_planes = dependency.m_planes,
                         });
                     }
-                    else
+                    else if (resource.IsBuffer())
                     {
                         m_bufferMemoryBarriers.emplace_back(BufferMemoryBarrier {
                             .m_stagesSrc = previousState.m_syncStage,

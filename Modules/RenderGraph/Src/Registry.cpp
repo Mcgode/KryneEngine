@@ -117,6 +117,17 @@ namespace KryneEngine::Modules::RenderGraph
         return handle;
     }
 
+    SimplePoolHandle Registry::RegisterDummy(const eastl::string_view& _name)
+    {
+        return m_resources.AllocateAndInit(Resource {
+            .m_type = ResourceType::Dummy,
+            .m_owned = false,
+#if !defined(KE_FINAL)
+            .m_name = _name.data(),
+#endif
+        });
+    }
+
     SimplePoolHandle Registry::CreateRawTexture(
         GraphicsContext* _graphicsContext,
         const TextureCreateDesc& _desc)
@@ -204,6 +215,7 @@ namespace KryneEngine::Modules::RenderGraph
         case ResourceType::RawTexture:
         case ResourceType::Buffer:
         case ResourceType::Sampler:
+        case ResourceType::Dummy:
             return _resource;
         }
     }

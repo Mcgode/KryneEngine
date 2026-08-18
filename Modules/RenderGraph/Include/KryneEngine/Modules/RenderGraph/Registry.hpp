@@ -45,6 +45,8 @@ namespace KryneEngine::Modules::RenderGraph
             SimplePoolHandle _textureResource,
             const eastl::string_view& _name = {});
 
+        SimplePoolHandle RegisterDummy(const eastl::string_view& _name = {});
+
         SimplePoolHandle CreateRawTexture(
             GraphicsContext* _graphicsContext,
             const TextureCreateDesc& _desc);

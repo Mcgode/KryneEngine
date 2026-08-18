@@ -167,6 +167,11 @@ namespace KryneEngine::Modules::RenderGraph
                 << eastl::string().sprintf(", Render target view, handle: Ox%x",(u32)resource.m_renderTargetViewData.m_renderTargetView.m_handle).c_str()
                 << std::endl;
             break;
+        case ResourceType::Dummy:
+            std::cout
+                << ", Dummy"
+                << std::endl;
+            break;
         }
     }
 

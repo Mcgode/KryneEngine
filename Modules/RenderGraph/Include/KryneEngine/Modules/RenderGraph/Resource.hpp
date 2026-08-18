@@ -18,6 +18,7 @@ namespace KryneEngine::Modules::RenderGraph
         TextureView,
         BufferView,
         RenderTargetView,
+        Dummy,
     };
 
     struct RawTextureData
@@ -76,6 +77,18 @@ namespace KryneEngine::Modules::RenderGraph
                 case ResourceType::RawTexture:
                 case ResourceType::TextureView:
                 case ResourceType::RenderTargetView:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        [[nodiscard]] bool IsBuffer() const
+        {
+            switch (m_type)
+            {
+                case ResourceType::Buffer:
+                case ResourceType::BufferView:
                     return true;
                 default:
                     return false;
