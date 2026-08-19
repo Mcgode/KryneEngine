@@ -59,8 +59,15 @@ namespace KryneEngine
 
         Allocator m_allocator;
         HotDataItem* m_hotData = nullptr;
-        ColdDataStruct* m_coldData = nullptr;
-        std::atomic<s32>* m_refCounts = nullptr;
+
+        struct Empty {};
+
+        using ColdDataStructArray = std::conditional_t<kHasColdData, ColdDataStruct*, Empty>;
+        [[no_unique_address]] ColdDataStructArray m_coldData;
+
+        using RefCountArray = std::conditional_t<RefCounting, std::atomic<s32>*, Empty>;
+        [[no_unique_address]] RefCountArray m_refCounts;
+
         size_t m_size = 0;
         SimplePoolHandle m_nextFreeIndex = 0;
     };
