@@ -61,108 +61,22 @@ namespace KryneEngine::Math
             return *this;
         }
 
-        QuaternionBase operator*(const QuaternionBase& _other) const
-        {
-            return QuaternionBase(
-                w * _other.w - x * _other.x - y * _other.y - z * _other.z,
-                w * _other.x + x * _other.w + y * _other.z - z * _other.y,
-                w * _other.y - x * _other.z + y * _other.w + z * _other.x,
-                w * _other.z + x * _other.y - y * _other.x + z * _other.w);
-        }
+        QuaternionBase operator*(const QuaternionBase& _other) const;
 
-        bool operator==(const QuaternionBase& _other) const
-        {
-            return std::abs(w - _other.w) < kQuaternionEpsilon
-                && std::abs(x - _other.x) < kQuaternionEpsilon
-                && std::abs(y - _other.y) < kQuaternionEpsilon
-                && std::abs(z - _other.z) < kQuaternionEpsilon;
-        }
+        bool operator==(const QuaternionBase& _other) const;
 
-        T Length2() const
-        {
-            return w * w + x * x + y * y + z * z;
-        }
-        T Length() const
-        {
-            return std::sqrt(Length2());
-        }
+        T Length2() const;
+        T Length() const;
 
-        QuaternionBase Normalize()
-        {
-            const T length = Length();
-            w /= length;
-            x /= length;
-            y /= length;
-            z /= length;
-            return *this;
-        }
-        QuaternionBase& Conjugate()
-        {
-            x = -x;
-            y = -y;
-            z = -z;
-            return *this;
-        }
-        QuaternionBase& Inverse() const
-        {
-            return Conjugate();
-        }
+        QuaternionBase& Normalize();
+        QuaternionBase& Conjugate();
+        QuaternionBase& Inverse();
 
-        static T Dot(const QuaternionBase& _a, const QuaternionBase& _b)
-        {
-            return _a.w * _b.w + _a.x * _b.x + _a.y * _b.y + _a.z * _b.z;
-        }
+        static T Dot(const QuaternionBase& _a, const QuaternionBase& _b);
 
-        QuaternionBase& Slerp(const QuaternionBase& _other, T _t)
-        {
-            if (_t == 0)
-            {
-                return *this;
-            }
-            else if (_t == 1)
-            {
-                *this = _other;
-                return *this;
-            }
+        QuaternionBase& Slerp(const QuaternionBase& _other, T _t);
 
-            const T cosHalfTheta = Dot(*this, _other);
-
-            // If _a == _b or _a = -_b, then theta = 0, we can return a
-            if (std::abs(cosHalfTheta) >= 1.0f)
-                return *this;
-
-            if (cosHalfTheta < 0)
-            {
-                w = -w;
-                x = -x;
-                y = -y;
-                z = -z;
-                cosHalfTheta = -cosHalfTheta;
-            }
-
-            const T halfTheta = std::acos(cosHalfTheta);
-            const T sinHalfTheta = std::sqrt(1.0f - cosHalfTheta * cosHalfTheta);
-
-            // If theta = 180°, result is not clearly defined, as we could rotate around any angle
-            if (std::abs(sinHalfTheta) < kQuaternionEpsilon)
-            {
-                w = 0.5 * w + 0.5 * _other.w;
-                x = 0.5 * x + 0.5 * _other.x;
-                y = 0.5 * y + 0.5 * _other.y;
-                z = 0.5 * z + 0.5 * _other.z;
-                return *this;
-            }
-
-            const T ratioA = std::sin((1.0f - _t) * halfTheta) / sinHalfTheta;
-            const T ratioB = std::sin(_t * halfTheta) / sinHalfTheta;
-            w = ratioA * w + ratioB * _other.w;
-            x = ratioA * x + ratioB * _other.x;
-            y = ratioA * y + ratioB * _other.y;
-            z = ratioA * z + ratioB * _other.z;
-            return *this;
-        }
-
-        template<Vector3Type Vec3>
+        template <Vector3Type Vec3>
         Vec3 ApplyTo(const Vec3& _vec) const
         {
             Vec3 u(x, y, z);
@@ -171,6 +85,12 @@ namespace KryneEngine::Math
                 + _vec * (w * w - Vec3::Dot(u, u))
                 + Vec3::CrossProduct(u, _vec) * 2.0 * w;
         }
+
+        T* Ptr() { return &w; }
+        const T* Ptr() const { return &w; }
+
+        [[nodiscard]] u32 Pack32() const;
+        [[nodiscard]] u64 Pack64() const;
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCInconsistentNamingInspection"

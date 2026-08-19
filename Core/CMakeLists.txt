@@ -68,6 +68,7 @@ set(MathSrc
         Include/KryneEngine/Core/Math/Simd/SimdMathOperations.hpp
         Include/KryneEngine/Core/Math/Simd/SimdCompareOperations.hpp
         Include/KryneEngine/Core/Math/Simd/VectorUtils.hpp
+        Src/Math/Quaternion.cpp
 )
 
 set(MemorySrc
