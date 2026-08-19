@@ -3,6 +3,8 @@ add_library(Samples_CommonLib STATIC
         Include/Scene/TorusKnot.hpp
         Src/Scene/TorusKnotMeshGenerator.cpp
         Include/Scene/TorusKnotMeshGenerator.hpp
+        Src/Scene/BoxMeshGenerator.cpp
+        Include/Scene/BoxMeshGenerator.hpp
 )
 
 target_include_directories(Samples_CommonLib PUBLIC Include)
