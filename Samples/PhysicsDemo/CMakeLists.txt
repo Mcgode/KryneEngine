@@ -5,6 +5,7 @@ add_executable(PhysicsDemo
 target_link_libraries(PhysicsDemo
         Samples_CommonLib
         KryneEngine_Modules_RenderGraph
+        KryneEngine_Modules_Box3D
 )
 
 set_target_properties(PhysicsDemo PROPERTIES FOLDER "EngineSamples")

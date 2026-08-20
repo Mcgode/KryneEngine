@@ -4,15 +4,14 @@
  * @date 18/08/2026.
  */
 
-#include "../RenderGraphDemo/Rendering/FullscreenPassCommon.hpp"
-#include "KryneEngine/Modules/RenderGraph/Builder.hpp"
-#include "KryneEngine/Modules/RenderGraph/Registry.hpp"
-
-
+#include <KryneEngine/Core/Math/CoordinateSystem.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Modules/Box3D/Context.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
+#include <KryneEngine/Modules/RenderGraph/Builder.hpp>
+#include <KryneEngine/Modules/RenderGraph/Registry.hpp>
 #include <KryneEngine/Modules/RenderGraph/RenderGraph.hpp>
 
 
@@ -45,6 +44,33 @@ int main()
 #endif
     Window mainWindow(appInfo, allocator);
     GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+
+    Box3D::Context box3dContext(&fibersManager);
+    Box3D::Context::SetAllocator(allocator);
+
+    b3WorldId world;
+    b3BodyId ground;
+    {
+        {
+            b3WorldDef worldDef;
+            box3dContext.InitWorldDef(worldDef);
+            float3 gravity = Math::UpVector() * -9.81f;
+            worldDef.gravity = *reinterpret_cast<b3Vec3*>(&gravity);
+            world = b3CreateWorld(&worldDef);
+        }
+
+        {
+            b3BodyDef groundDef = b3DefaultBodyDef();
+            groundDef.type = b3_staticBody;
+            ground = b3CreateBody(world, &groundDef);
+        }
+
+        {
+            b3ShapeDef shapeDef = b3DefaultShapeDef();
+            b3BoxHull hull = b3MakeBoxHull(100, 100, 0);
+            b3CreateHullShape(ground, &shapeDef, &hull.base);
+        }
+    }
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 
