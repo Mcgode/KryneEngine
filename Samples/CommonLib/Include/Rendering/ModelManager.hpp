@@ -27,6 +27,11 @@ namespace KryneEngine::Samples
     public:
         ModelManager(AllocatorInstance _allocator, u8 _passTypeCount, size_t _maxModelCount = 4'096);
 
+        template<class Enum>
+        explicit ModelManager(const AllocatorInstance _allocator, const size_t _maxModelCount = 4'096)
+            : ModelManager(_allocator, static_cast<u8>(Enum::Count), _maxModelCount)
+        {}
+
         ~ModelManager();
 
         [[nodiscard]] u16 GetPassTypeCount() const { return m_passTypeCount; }
