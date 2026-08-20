@@ -47,6 +47,8 @@ namespace KryneEngine::Modules::GraphicsUtils
 
         void Destroy(GraphicsContext* _graphicsContext);
 
+        [[nodiscard]] bool NeedsInit() const { return m_mappableBuffers.Empty(); }
+
     private:
         BufferCreateDesc m_mappableRecreateDesc;
         BufferCreateDesc m_gpuRecreateDesc;
