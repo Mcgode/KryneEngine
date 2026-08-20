@@ -10,7 +10,6 @@
 #include <KryneEngine/Core/Graphics/Handles.hpp>
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
-#include <KryneEngine/Core/Memory/SimplePool.hpp>
 
 
 namespace KryneEngine::Samples
