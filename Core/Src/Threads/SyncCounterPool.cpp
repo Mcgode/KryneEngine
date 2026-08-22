@@ -37,9 +37,9 @@ namespace KryneEngine
 
     bool SyncCounterPool::AddWaitingJob(SyncCounterId _id, FiberJob *_newJob)
     {
-        VERIFY_OR_RETURN(_id >= 0 && _id < kPoolSize, true);
+        VERIFY_OR_RETURN(static_cast<s32>(_id) >= 0 && static_cast<s32>(_id) < kPoolSize, true);
 
-        auto& entry = m_entries[_id];
+        auto& entry = m_entries[static_cast<s32>(_id)];
         if (entry.m_counter == 0)
         {
             return true;
@@ -58,7 +58,7 @@ namespace KryneEngine
             // The status update is performed here, to avoid a data race.
             _newJob->m_status.store(FiberJob::Status::Paused, std::memory_order_release);
 
-            m_entries[_id].m_waitingJobs.push_back(_newJob);
+            m_entries[static_cast<s32>(_id)].m_waitingJobs.push_back(_newJob);
 
             return false;
         }
@@ -66,9 +66,9 @@ namespace KryneEngine
 
     u32 SyncCounterPool::DecrementCounterValue(SyncCounterId _id)
     {
-        VERIFY_OR_RETURN(_id >= 0 && _id < kPoolSize, 0);
+        VERIFY_OR_RETURN(static_cast<s32>(_id) >= 0 && static_cast<s32>(_id) < kPoolSize, 0);
 
-        auto& entry = m_entries[_id];
+        auto& entry = m_entries[static_cast<s32>(_id)];
 
         const s32 value = --entry.m_counter;
         if (KE_VERIFY(value >= 0))
@@ -98,9 +98,9 @@ namespace KryneEngine
 
     void SyncCounterPool::FreeCounter(SyncCounterId &_id)
     {
-        VERIFY_OR_RETURN_VOID(_id >= 0 && _id < kPoolSize);
+        VERIFY_OR_RETURN_VOID(static_cast<s32>(_id) >= 0 && static_cast<s32>(_id) < kPoolSize);
 
-        m_idQueue.enqueue(_id);
+        m_idQueue.enqueue(static_cast<s32>(_id));
         _id = kInvalidSyncCounterId;
     }
 

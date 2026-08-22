@@ -68,18 +68,19 @@ namespace KryneEngine::Modules::Box3D
                 _taskCallback(_taskContext);
             }
         });
-
-        void* value = nullptr;
-        memcpy(&value, &counter, sizeof(counter));
-        return value;
+        KE_ASSERT(counter != kInvalidSyncCounterId);
+        // If the sync counter id is 0 (valid id), Box3D scheduling will interpret it as a nullptr and not a valid sync
+        // counter.
+        const s32 value = static_cast<s32>(counter) + 1;
+        return reinterpret_cast<void*>(value);
     }
 
     void Context::Finish(void* _userTask, void* _userContext)
     {
         auto* fibersManager = static_cast<Context*>(_userContext)->m_fibersManager;
 
-        SyncCounterId id;
-        memcpy(&id, &_userTask, sizeof(id));
+        const s32 value = static_cast<s32>(reinterpret_cast<uintptr_t>(_userTask)) - 1;
+        const SyncCounterId id = *reinterpret_cast<const SyncCounterId*>(&value);
         fibersManager->WaitForCounterAndReset(id);
     }
 
