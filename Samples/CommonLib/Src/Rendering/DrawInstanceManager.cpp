@@ -7,6 +7,9 @@
 #include "Rendering/DrawInstanceManager.hpp"
 
 
+#include <KryneEngine/Core/Memory/SimplePool.inl>
+
+
 namespace KryneEngine::Samples
 {
     DrawInstanceManager::DrawInstanceManager(const AllocatorInstance _allocator, u32 _maxInstances)
@@ -19,6 +22,8 @@ namespace KryneEngine::Samples
     {
         m_instanceData.reserve(_maxInstances);
     }
+
+    DrawInstanceManager::~DrawInstanceManager() = default;
 
     void DrawInstanceManager::UpdateGpuData(GraphicsContext& _graphicsContext, CommandListHandle _commandList)
     {

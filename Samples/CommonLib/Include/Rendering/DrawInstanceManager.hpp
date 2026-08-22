@@ -28,6 +28,7 @@ namespace KryneEngine::Samples
     {
     public:
         explicit DrawInstanceManager(AllocatorInstance _allocator, u32 _maxInstances = 131'072);
+        ~DrawInstanceManager();
 
         void UpdateGpuData(GraphicsContext& _graphicsContext, CommandListHandle _commandList);
 
