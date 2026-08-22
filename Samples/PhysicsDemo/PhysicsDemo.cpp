@@ -85,8 +85,6 @@ int main()
     DynamicArray<SimplePoolHandle> swapChainTextures(allocator, graphicsContext->GetFrameContextCount());
     DynamicArray<SimplePoolHandle> swapChainRtvs(allocator, graphicsContext->GetFrameContextCount());
 
-    SimplePoolHandle imguiBufferDummy;
-
     {
         eastl::string nameTmp(allocator);
 
@@ -101,8 +99,6 @@ int main()
                 swapChainTextures[i],
                 nameTmp.sprintf("Swap chain RTV %d", i));
         }
-
-        imguiBufferDummy = renderGraph.GetRegistry().RegisterDummy("ImGui buffers");
     }
 
     auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
@@ -146,18 +142,12 @@ int main()
         ::ImGui::ShowDemoWindow();
 
         builder
-            .DeclarePass(RenderGraph::PassType::Transfer)
-                .SetName("Imgui transfer")
-                .SetExecuteFunction([imGuiContext](RenderGraph::RenderGraph&, const RenderGraph::PassExecutionData& _executionData)
+            .DeclarePass(RenderGraph::PassType::Render)
+                .SetName("ImGui pass")
+                .SetPrePassExecuteFunction([imGuiContext](RenderGraph::RenderGraph&, const RenderGraph::PassExecutionData& _executionData)
                 {
                     imGuiContext->PrepareToRenderFrame(_executionData.m_graphicsContext, _executionData.m_commandList);
                 })
-                .WriteDependency({
-                    .m_resource = imguiBufferDummy,
-                })
-                .Done()
-            .DeclarePass(RenderGraph::PassType::Render)
-                .SetName("ImGui pass")
                 .SetExecuteFunction([imGuiContext](RenderGraph::RenderGraph&, const RenderGraph::PassExecutionData& _executionData)
                 {
                     imGuiContext->RenderFrame(_executionData.m_graphicsContext, _executionData.m_commandList);
@@ -167,9 +157,6 @@ int main()
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Clear)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .Done()
-                .ReadDependency({
-                    .m_resource = imguiBufferDummy,
-                })
                 .Done()
             .DeclareTargetResource(swapChainTexture);
 
