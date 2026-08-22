@@ -41,7 +41,7 @@ namespace KryneEngine::Modules::RenderGraph
     static_assert(offsetof(PassAttachmentDeclaration, m_padding) + sizeof(PassAttachmentDeclaration::m_padding) == sizeof(PassAttachmentDeclaration),
         "We need explicit padding for PassAttachmentDeclaration to make sure the last bytes are properly zero initialized");
 
-    struct PassDeclarationBuilder;
+    class PassDeclarationBuilder;
 
     class PassAttachmentDeclarationBuilder
     {

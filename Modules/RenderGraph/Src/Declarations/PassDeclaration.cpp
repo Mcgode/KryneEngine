@@ -68,6 +68,12 @@ namespace KryneEngine::Modules::RenderGraph
         return *this;
     }
 
+    PassDeclarationBuilder& PassDeclarationBuilder::SetPrePassExecuteFunction(PassDeclaration::ExecuteFunction&& _function)
+    {
+        m_item.m_prePassExecuteFunction = _function;
+        return *this;
+    }
+
     PassDeclarationBuilder& PassDeclarationBuilder::SetRenderPassCallback(PassDeclaration::RenderPassCallBack&& _callback)
     {
         m_item.m_renderPassCallback = _callback;

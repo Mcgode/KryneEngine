@@ -199,6 +199,11 @@ namespace KryneEngine::Modules::RenderGraph
                 }
             }
 
+            if (pass.m_prePassExecuteFunction != nullptr)
+            {
+                pass.m_prePassExecuteFunction(*_jobData->m_renderGraph, _jobData->m_passExecutionData);
+            }
+
             if (pass.m_type == PassType::Render)
             {
                 auto it = _jobData->m_renderGraph->m_renderPassCache.find(pass.m_renderPassHash.value());

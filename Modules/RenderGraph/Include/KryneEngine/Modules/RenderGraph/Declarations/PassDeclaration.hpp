@@ -50,6 +50,10 @@ namespace KryneEngine::Modules::RenderGraph
         eastl::optional<u64> m_renderPassHash;
         ExecuteFunction m_executeFunction;
 
+        /// @brief An optional callback for executing code before the pass is executed.
+        /// Called before any Compute or Render pass is started, allowing for last minute transfer commands.
+        ExecuteFunction m_prePassExecuteFunction = nullptr;
+
         /// @brief A callback for passing the render pass handle for this pass before any execution is done.
         /// Useful for PSO creation.
         /// Only called for Render type passes.
@@ -69,6 +73,7 @@ namespace KryneEngine::Modules::RenderGraph
         PassDeclarationBuilder& ReadDependency(const Dependency& _dependency);
         PassDeclarationBuilder& WriteDependency(const Dependency& _dependency);
         PassDeclarationBuilder& SetExecuteFunction(PassDeclaration::ExecuteFunction&& _function);
+        PassDeclarationBuilder& SetPrePassExecuteFunction(PassDeclaration::ExecuteFunction&& _function);
         PassDeclarationBuilder& SetRenderPassCallback(PassDeclaration::RenderPassCallBack&& _callback);
     };
 } // namespace KryneEngine::Module::RenderGraph
