@@ -168,10 +168,12 @@ namespace KryneEngine
         if (FiberThread::IsFiberThread())
         {
             const moodycamel::ProducerToken& producerToken = m_jobProducerTokens.Load()[priorityId];
+            KE_ASSERT(_job != nullptr);
             m_jobQueues[priorityId].enqueue(producerToken, _job);
         }
         else
         {
+            KE_ASSERT(_job != nullptr);
             m_jobQueues[priorityId].enqueue(_job);
         }
         m_waitVariable.notify_one();
@@ -268,6 +270,7 @@ namespace KryneEngine
 
             if (m_jobQueues[queueIndex].try_dequeue(consumerTokens[queueIndex], job_))
             {
+                KE_ASSERT(job_ != nullptr);
                 if (!job_->HasContextAssigned())
                 {
                     KE_ASSERT(job_->GetStatus() == FiberJob::Status::PendingStart);
