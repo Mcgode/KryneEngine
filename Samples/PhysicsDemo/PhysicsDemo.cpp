@@ -4,6 +4,9 @@
  * @date 18/08/2026.
  */
 
+#include "Src/SceneManager.hpp"
+
+
 #include <KryneEngine/Core/Math/CoordinateSystem.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
@@ -17,6 +20,7 @@
 
 using namespace KryneEngine;
 using namespace KryneEngine::Modules;
+using namespace Samples::PhysicsDemo;
 
 
 int main()
@@ -72,6 +76,8 @@ int main()
         }
     }
 
+    SceneManager sceneManager(allocator, &fibersManager, world);
+
     Modules::ImGui::Context* imGuiContext = nullptr;
 
     RenderGraph::RenderGraph renderGraph {};
@@ -99,8 +105,14 @@ int main()
         imguiBufferDummy = renderGraph.GetRegistry().RegisterDummy("ImGui buffers");
     }
 
+    auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
     do
     {
+        auto timePoint = std::chrono::high_resolution_clock::now();
+        const double deltaTime = std::chrono::duration<double> { timePoint - lastFrameTimePoint }.count();
+        sceneManager.Process(deltaTime);
+        lastFrameTimePoint = timePoint;
+
         if (imGuiContext == nullptr)
         {
             KE_ZoneScoped("Init ImGui context");

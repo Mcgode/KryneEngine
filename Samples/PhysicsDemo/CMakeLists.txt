@@ -1,5 +1,8 @@
 add_executable(PhysicsDemo
         PhysicsDemo.cpp
+        Src/SceneManager.cpp
+        Src/SceneManager.hpp
+        Src/PassTypes.hpp
 )
 
 target_link_libraries(PhysicsDemo
