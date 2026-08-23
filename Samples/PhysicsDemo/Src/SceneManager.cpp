@@ -17,7 +17,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         , m_fibersManager(_fibersManager)
         , m_world(_world)
         , m_drawInstanceManager(_allocator)
-        , m_modelManager(_allocator, static_cast<u8>(PassTypes::Count))
+        , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
         , m_gameFramesQueue(_allocator, 3)
     {}
 

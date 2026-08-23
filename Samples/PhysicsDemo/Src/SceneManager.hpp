@@ -8,7 +8,7 @@
 
 #include "KryneEngine/Core/Memory/Containers/SpscQueue.hpp"
 #include "Rendering/DrawInstanceManager.hpp"
-#include "Rendering/ModelManager.hpp"
+#include "Rendering/MaterialManager.hpp"
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
@@ -32,7 +32,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         b3WorldId m_world;
 
         DrawInstanceManager m_drawInstanceManager;
-        ModelManager m_modelManager;
+        MaterialManager m_materialManager;
 
         u64 m_gameFrameId = 0;
         SpscQueue<u64> m_gameFramesQueue;

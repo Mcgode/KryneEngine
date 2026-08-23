@@ -7,8 +7,8 @@ add_library(Samples_CommonLib STATIC
         Include/Scene/BoxMeshGenerator.hpp
         Src/Rendering/DrawInstanceManager.cpp
         Include/Rendering/DrawInstanceManager.hpp
-        Src/Rendering/ModelManager.cpp
-        Include/Rendering/ModelManager.hpp
+        Src/Rendering/MaterialManager.cpp
+        Include/Rendering/MaterialManager.hpp
 )
 
 target_include_directories(Samples_CommonLib PUBLIC Include)

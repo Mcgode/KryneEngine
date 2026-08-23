@@ -14,7 +14,7 @@
 #include <KryneEngine/Core/Memory/SimplePool.hpp>
 #include <KryneEngine/Modules/GraphicsUtils/DynamicBuffer.hpp>
 
-#include "Rendering/ModelManager.hpp"
+#include "Rendering/MaterialManager.hpp"
 
 
 namespace KryneEngine
@@ -39,7 +39,7 @@ namespace KryneEngine::Samples
         {
             BufferSpan m_vertexBuffer {};
             BufferSpan m_indexBuffer {};
-            ModelHandle m_model = kInvalidModelHandle;
+            MaterialHandle m_material = kInvalidMaterialHandle;
             u32 m_instanceCount = 0;
         };
 
