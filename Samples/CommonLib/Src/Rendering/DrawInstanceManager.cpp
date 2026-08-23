@@ -7,6 +7,7 @@
 #include "Rendering/DrawInstanceManager.hpp"
 
 
+#include <KryneEngine/Core/Graphics/ShaderPipeline.hpp>
 #include <KryneEngine/Core/Memory/SimplePool.inl>
 
 
@@ -64,5 +65,29 @@ namespace KryneEngine::Samples
             _commandList,
             BarrierAccessFlags::ShaderResource,
             _graphicsContext.GetCurrentFrameContextIndex());
+    }
+
+    DescriptorSetLayoutHandle DrawInstanceManager::GetPassDescriptorSetLayout(GraphicsContext& _graphicsContext)
+    {
+        if (m_passDescriptorSetLayout == GenPool::kInvalidHandle)
+        {
+            constexpr DescriptorBindingDesc bindings[2]
+            {
+                {
+                    .m_type = DescriptorBindingDesc::Type::ConstantBuffer,
+                    .m_visibility = ShaderVisibility::Vertex,
+                },
+                {
+                    .m_type = DescriptorBindingDesc::Type::StorageReadOnlyBuffer,
+                    .m_visibility = ShaderVisibility::Vertex
+                }
+            };
+
+            m_passDescriptorSetLayout = _graphicsContext.CreateDescriptorSetLayout(
+                { .m_bindings = bindings },
+                &m_passCbBindingIndex);
+        }
+
+        return m_passDescriptorSetLayout;
     }
 } // namespace KryneEngine::Samples

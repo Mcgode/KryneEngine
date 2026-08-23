@@ -32,6 +32,8 @@ namespace KryneEngine::Samples
 
         void UpdateGpuData(GraphicsContext& _graphicsContext, CommandListHandle _commandList);
 
+        [[nodiscard]] DescriptorSetLayoutHandle GetPassDescriptorSetLayout(GraphicsContext& _graphicsContext);
+
     private:
         AllocatorInstance m_allocator;
 
@@ -63,6 +65,10 @@ namespace KryneEngine::Samples
 
         SimplePool<Instance> m_instances;
         eastl::vector<InstanceData> m_instanceData;
+
+        DescriptorSetLayoutHandle m_passDescriptorSetLayout;
+        u32 m_passCbBindingIndex = 0;
+        u32 m_instanceDataBindingIndex = 0;
 
         Modules::GraphicsUtils::DynamicBuffer m_instanceDataBuffer;
     };
