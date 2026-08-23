@@ -7,8 +7,9 @@
 #pragma once
 
 
-#include <KryneEngine/Core/Graphics/Handles.hpp>
+#include <EASTL/span.h>
 #include <KryneEngine/Core/Common/Types.hpp>
+#include <KryneEngine/Core/Graphics/Handles.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 
 
@@ -24,6 +25,14 @@ namespace KryneEngine::Samples
     class ModelManager
     {
     public:
+        struct ModelPipeline
+        {
+            GraphicsPipelineHandle m_pipeline {};
+            eastl::array<DescriptorSetHandle, 3> m_descriptorSets {};
+
+            [[nodiscard]] bool operator<(const ModelPipeline& _other) const;
+        };
+
         ModelManager(AllocatorInstance _allocator, u8 _passTypeCount, size_t _maxModelCount = 4'096);
 
         template<class Enum>
@@ -48,13 +57,13 @@ namespace KryneEngine::Samples
 
         /**
          * @details
-         * Pipelines are stored in a flat array. One model can have multiple pipelines, up to one per pass type.
+         * Model pipelines are stored in a flat array. One model can have multiple pipelines, up to one per pass type.
          *
          * The array is separated in `m_passTypeCount` sections, each section containing `m_maxModelCount` pipelines.
          * This layout was set up this way to account for usual cache access pattern: when multiple pipelines are
          * queried, they are most often queried for a specific pass type.
          */
-        GraphicsPipelineHandle* m_pipelines = nullptr;
+        ModelPipeline* m_pipelines = nullptr;
 
         u8 m_passTypeCount;
         size_t m_maxModelCount;

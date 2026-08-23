@@ -30,7 +30,11 @@ namespace KryneEngine
 
             bool operator<(const Handle &rhs) const
             {
-                return static_cast<u32>(*this) < static_cast<u32>(rhs);
+                if (m_index == rhs.m_index)
+                {
+                    return m_generation < rhs.m_generation;
+                }
+                return m_index < rhs.m_index;
             }
 
             explicit operator u32() const
