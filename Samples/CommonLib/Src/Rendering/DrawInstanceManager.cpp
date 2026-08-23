@@ -13,26 +13,25 @@
 
 namespace KryneEngine::Samples
 {
-    DrawInstanceManager::DrawInstanceManager(const AllocatorInstance _allocator, u32 _maxInstances)
-        : m_allocator(_allocator)
-        , m_models(_allocator)
-        , m_validModels(_allocator)
-        , m_instances(_allocator, _maxInstances)
-        , m_instanceData(_allocator)
-        , m_instanceDataBuffer(_allocator)
+    DrawInstanceManager::DrawInstanceManager(
+        const AllocatorInstance _allocator,
+        GraphicsContext& _graphicsContext,
+        const u32 _maxInstances)
+            : m_allocator(_allocator)
+            , m_models(_allocator)
+            , m_validModels(_allocator)
+            , m_instances(_allocator, _maxInstances)
+            , m_instanceData(_allocator)
+            , m_instanceDataBuffer(_allocator)
     {
         m_instanceData.reserve(_maxInstances);
-    }
 
-    DrawInstanceManager::~DrawInstanceManager() = default;
-
-    void DrawInstanceManager::UpdateGpuData(GraphicsContext& _graphicsContext, CommandListHandle _commandList)
-    {
-        if (m_instanceDataBuffer.NeedsInit())
+        // Instance data buffers
+        const size_t instanceBufferSize = m_instanceData.capacity() * sizeof(InstanceData);
         {
             const BufferCreateDesc desc {
                 .m_desc = {
-                    .m_size = m_instanceData.capacity() * sizeof(InstanceData),
+                    .m_size = instanceBufferSize,
 #if !defined(KE_FINAL)
                     .m_debugName { "Instance data buffer", m_allocator },
 #endif
@@ -42,6 +41,33 @@ namespace KryneEngine::Samples
             m_instanceDataBuffer.Init(&_graphicsContext, desc, _graphicsContext.GetFrameContextCount());
         }
 
+        // Instance data buffer views
+        {
+            m_instanceDataBufferViews = m_allocator.Allocate<BufferViewHandle>(_graphicsContext.GetFrameContextCount());
+
+            for (size_t i = 0; i < _graphicsContext.GetFrameContextCount(); ++i)
+            {
+                char name[128];
+                snprintf(name, sizeof(name), "Instance data buffer view #%zu", i);
+
+                m_instanceDataBufferViews[i] = _graphicsContext.CreateBufferView({
+                    .m_buffer = m_instanceDataBuffer.GetBuffer(i),
+                    .m_size = instanceBufferSize,
+                    .m_offset = 0,
+                    .m_stride = sizeof(InstanceData),
+                    .m_accessType = BufferViewAccessType::Read,
+#if !defined(KE_FINAL)
+                    .m_debugName = name,
+#endif
+                });
+            }
+        }
+    }
+
+    DrawInstanceManager::~DrawInstanceManager() = default;
+
+    void DrawInstanceManager::UpdateGpuData(GraphicsContext& _graphicsContext, CommandListHandle _commandList)
+    {
         void* dstBuffer = m_instanceDataBuffer.Map(&_graphicsContext, _graphicsContext.GetCurrentFrameContextIndex());
 
         for (size_t i = 0; i < m_instanceData.size(); ++i)

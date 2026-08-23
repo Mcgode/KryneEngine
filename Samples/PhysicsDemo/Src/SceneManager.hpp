@@ -20,7 +20,11 @@ namespace KryneEngine::Samples::PhysicsDemo
     class SceneManager
     {
     public:
-        SceneManager(AllocatorInstance _allocator, FibersManager* _fibersManager, b3WorldId _world);
+        SceneManager(
+            AllocatorInstance _allocator,
+            GraphicsContext& _graphicsContext,
+            FibersManager* _fibersManager,
+            b3WorldId _world);
 
         void Process(float _deltaTime);
 

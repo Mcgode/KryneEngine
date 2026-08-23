@@ -27,7 +27,10 @@ namespace KryneEngine::Samples
     class DrawInstanceManager
     {
     public:
-        explicit DrawInstanceManager(AllocatorInstance _allocator, u32 _maxInstances = 131'072);
+        explicit DrawInstanceManager(
+            AllocatorInstance _allocator,
+            GraphicsContext& _graphicsContext,
+            u32 _maxInstances = 131'072);
         ~DrawInstanceManager();
 
         void UpdateGpuData(GraphicsContext& _graphicsContext, CommandListHandle _commandList);
@@ -71,5 +74,6 @@ namespace KryneEngine::Samples
         u32 m_instanceDataBindingIndex = 0;
 
         Modules::GraphicsUtils::DynamicBuffer m_instanceDataBuffer;
+        BufferViewHandle* m_instanceDataBufferViews = nullptr;
     };
 }

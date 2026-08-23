@@ -12,13 +12,17 @@
 
 namespace KryneEngine::Samples::PhysicsDemo
 {
-    SceneManager::SceneManager(const AllocatorInstance _allocator, FibersManager* _fibersManager, const b3WorldId _world)
-        : m_allocator(_allocator)
-        , m_fibersManager(_fibersManager)
-        , m_world(_world)
-        , m_drawInstanceManager(_allocator)
-        , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
-        , m_gameFramesQueue(_allocator, 3)
+    SceneManager::SceneManager(
+        const AllocatorInstance _allocator,
+        GraphicsContext& _graphicsContext,
+        FibersManager* _fibersManager,
+        const b3WorldId _world)
+            : m_allocator(_allocator)
+            , m_fibersManager(_fibersManager)
+            , m_world(_world)
+            , m_drawInstanceManager(_allocator, _graphicsContext)
+            , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
+            , m_gameFramesQueue(_allocator, 3)
     {}
 
     void SceneManager::Process(const float _deltaTime)
