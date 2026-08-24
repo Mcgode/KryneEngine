@@ -37,6 +37,6 @@ namespace KryneEngine
         InputAssemblyDesc::PrimitiveTopology m_topology {};
         eastl::fixed_vector<BufferSpan, 4> m_vertexBuffers;
 
-        explicit RenderState(AllocatorInstance _allocator): m_vertexBuffers { _allocator } {}
+        explicit RenderState(const AllocatorInstance _allocator): m_vertexBuffers { _allocator } {}
     };
 }

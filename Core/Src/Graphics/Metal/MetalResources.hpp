@@ -194,7 +194,6 @@ namespace KryneEngine
             InputAssemblyDesc::PrimitiveTopology m_topology;
             bool m_dynamicBlendFactor;
             bool m_dynamicStencilRef;
-            u8 m_vertexBufferFirstIndex;
         };
 
         GenerationalPool<GraphicsPsoHotData> m_graphicsPso;

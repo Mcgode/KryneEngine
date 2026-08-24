@@ -7,6 +7,7 @@
 #include "Graphics/Metal/MetalGraphicsContext.hpp"
 
 #include "Graphics/Metal/Helpers/EnumConverters.hpp"
+#include "Graphics/Metal/MetalConstants.hpp"
 #include "Graphics/Metal/MetalFrameContext.hpp"
 #include "Graphics/Metal/MetalSwapChain.hpp"
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
@@ -878,27 +879,30 @@ namespace KryneEngine
 
     void MetalGraphicsContext::SetVertexBuffers(CommandListHandle _commandList, const eastl::span<const BufferSpan>& _bufferViews)
     {
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_commandList);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
-        auto* renderState = static_cast<RenderState*>(commandList->m_userData);
-        KE_ASSERT_FATAL(renderState != nullptr);
+        auto* encoder = reinterpret_cast<MTL::RenderCommandEncoder*>(commandList->m_encoder.get());
 
-        renderState->m_vertexBuffers.clear();
-        renderState->m_vertexBuffers.insert(
-            renderState->m_vertexBuffers.begin(),
-            _bufferViews.begin(),
-            _bufferViews.end());
+        u32 i = 0;
+        for (const auto& bufferView : _bufferViews)
+        {
+            encoder->setVertexBuffer(
+                m_resources.m_buffers.Get(bufferView.m_buffer.m_handle)->m_buffer,
+                bufferView.m_offset,
+                i + MetalConstants::kVertexStreamBuffersOffset);
+            ++i;
+        }
     }
 
     void MetalGraphicsContext::SetGraphicsPipeline(CommandListHandle _commandList, GraphicsPipelineHandle _graphicsPipeline)
     {
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_commandList);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
         auto* encoder = reinterpret_cast<MTL::RenderCommandEncoder*>(commandList->m_encoder.get());
         auto* renderState = static_cast<RenderState*>(commandList->m_userData);
         KE_ASSERT_FATAL(renderState != nullptr);
 
-        MetalResources::GraphicsPsoHotData* graphicsPsoData = m_resources.m_graphicsPso.Get(_graphicsPipeline.m_handle);
+        const MetalResources::GraphicsPsoHotData* graphicsPsoData = m_resources.m_graphicsPso.Get(_graphicsPipeline.m_handle);
 
         encoder->setRenderPipelineState(graphicsPsoData->m_pso);
 
@@ -961,16 +965,6 @@ namespace KryneEngine
                 encoder->setStencilReferenceValue(ref.m_stencilRefValue);
                 current.m_stencilRefValue = ref.m_stencilRefValue;
             }
-        }
-
-        u8 i = 0;
-        for (const BufferSpan& vertexBufferView: renderState->m_vertexBuffers)
-        {
-            encoder->setVertexBuffer(
-                m_resources.m_buffers.Get(vertexBufferView.m_buffer.m_handle)->m_buffer,
-                vertexBufferView.m_offset,
-                i + graphicsPsoData->m_vertexBufferFirstIndex);
-            i++;
         }
     }
 
