@@ -7,6 +7,7 @@
 #include "Graphics/Metal/MetalArgumentBufferManager.hpp"
 
 #include "Graphics/Metal/Helpers/EnumConverters.hpp"
+#include "Graphics/Metal/MetalConstants.hpp"
 #include "Graphics/Metal/MetalHeaders.hpp"
 #include "Graphics/Metal/MetalResources.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
@@ -153,6 +154,9 @@ namespace KryneEngine
 #pragma region Pipeline layout
     PipelineLayoutHandle MetalArgumentBufferManager::CreatePipelineLayout(const PipelineLayoutDesc& _desc)
     {
+        KE_ASSERT(_desc.m_descriptorSets.size() < MetalConstants::kMaxArgumentBuffers);
+        KE_ASSERT(_desc.m_pushConstants.size() < MetalConstants::kMaxPushConstantBuffers);
+
         const GenPool::Handle handle = m_pipelineLayouts.Allocate();
 
         PipelineLayoutHotData* hot = m_pipelineLayouts.Get(handle);
