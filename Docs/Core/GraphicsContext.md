@@ -59,7 +59,7 @@ enum class Api {
     DirectX12_0,
     DirectX12_1,
     DirectX12_2,
-    Metal_3,
+    Metal_4,
 };
 ```
 
@@ -158,7 +158,7 @@ GraphicsContext* context = GraphicsContext::Create(
 ```cpp
 GraphicsCommon::ApplicationInfo appInfo {
     .m_applicationName = "iOS/MacOS App",
-    .m_api = GraphicsCommon::Api::Metal_3,
+    .m_api = GraphicsCommon::Api::Metal_4,
     .m_features = {
         .m_validationLayers = GraphicsCommon::SoftEnable::Disabled,
     },

@@ -20,7 +20,7 @@ namespace KryneEngine::Tests::Graphics
 #elif defined(KE_GRAPHICS_API_VK)
                 GraphicsCommon::Api::Vulkan_1_0,
 #elif defined(KE_GRAPHICS_API_MTL)
-                GraphicsCommon::Api::Metal_3,
+                GraphicsCommon::Api::Metal_4,
 #endif
             .m_features = {
                 .m_present = false,

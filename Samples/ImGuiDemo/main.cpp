@@ -54,7 +54,7 @@ void MainFunc(void* _pAllocator)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::DirectX12_1;
     appInfo.m_applicationName += " - DirectX 12";
 #elif defined(KE_GRAPHICS_API_MTL)
-    appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_3;
+    appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
     Window mainWindow(appInfo, allocator);
