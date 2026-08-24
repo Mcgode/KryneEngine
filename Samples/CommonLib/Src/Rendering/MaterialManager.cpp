@@ -10,22 +10,26 @@ namespace KryneEngine::Samples
 {
     bool MaterialManager::MaterialPipeline::operator<(const MaterialPipeline& _other) const
     {
-        if (m_pipeline == _other.m_pipeline)
+        if (m_pipelineLayout == _other.m_pipelineLayout)
         {
-            for (size_t i = 0; i < m_descriptorSets.max_size(); i++)
+            if (m_pipeline == _other.m_pipeline)
             {
-                if (m_descriptorSets[i] == GenPool::kInvalidHandle)
+                for (size_t i = 0; i < m_descriptorSets.max_size(); i++)
                 {
-                    return true;
+                    if (m_descriptorSets[i] == GenPool::kInvalidHandle)
+                    {
+                        return true;
+                    }
+                    else if (m_descriptorSets[i] != _other.m_descriptorSets[i])
+                    {
+                        return m_descriptorSets[i] < _other.m_descriptorSets[i];
+                    }
                 }
-                else if (m_descriptorSets[i] != _other.m_descriptorSets[i])
-                {
-                    return m_descriptorSets[i] < _other.m_descriptorSets[i];
-                }
+                return false;
             }
-            return false;
+            return m_pipeline < _other.m_pipeline;
         }
-        return m_pipeline < _other.m_pipeline;
+        return m_pipelineLayout < _other.m_pipelineLayout;
     }
 
     MaterialManager::MaterialManager(const AllocatorInstance _allocator, const u8 _passTypeCount, const size_t _maxMaterialCount)
@@ -71,5 +75,13 @@ namespace KryneEngine::Samples
     {
         const size_t index = _passType * m_maxMaterialCount + _material.m_index;
         return m_pipelines[index].m_pipeline;
+    }
+
+    const MaterialManager::MaterialPipeline* MaterialManager::GetMaterialPipeline(
+        const MaterialHandle _material,
+        const u8 _passType) const
+    {
+        const size_t index = _passType * m_maxMaterialCount + _material.m_index;
+        return m_pipelines + index;
     }
 } // namespace KryneEngine::Samples

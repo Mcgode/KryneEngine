@@ -15,6 +15,7 @@
 #include <KryneEngine/Modules/GraphicsUtils/DynamicBuffer.hpp>
 
 #include "Rendering/MaterialManager.hpp"
+#include "Rendering/PassDispatcher.hpp"
 
 
 namespace KryneEngine
@@ -26,6 +27,8 @@ namespace KryneEngine::Samples
 {
     class DrawInstanceManager
     {
+        friend PassDispatcher;
+
     public:
         explicit DrawInstanceManager(
             AllocatorInstance _allocator,
@@ -46,6 +49,9 @@ namespace KryneEngine::Samples
             BufferSpan m_indexBuffer {};
             MaterialHandle m_material = kInvalidMaterialHandle;
             u32 m_instanceCount = 0;
+            u32 m_vertexCount = 0;
+            u32 m_indexOffset = 0;
+            u32 m_vertexOffset = 0;
         };
 
         SimplePool<Model> m_models;
@@ -53,7 +59,7 @@ namespace KryneEngine::Samples
 
         struct Instance
         {
-            GenPool::Handle m_model {};
+            SimplePoolHandle m_model {};
             bool m_valid = false;
             bool m_dynamic = false;
             u8 m_uploadFrames = 0;

@@ -9,6 +9,8 @@ add_library(Samples_CommonLib STATIC
         Include/Rendering/DrawInstanceManager.hpp
         Src/Rendering/MaterialManager.cpp
         Include/Rendering/MaterialManager.hpp
+        Src/Rendering/PassDispatcher.cpp
+        Include/Rendering/PassDispatcher.hpp
 )
 
 target_include_directories(Samples_CommonLib PUBLIC Include)

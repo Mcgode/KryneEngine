@@ -39,8 +39,9 @@ namespace KryneEngine::Samples
     public:
         struct MaterialPipeline
         {
+            PipelineLayoutHandle m_pipelineLayout {};
             GraphicsPipelineHandle m_pipeline {};
-            eastl::array<DescriptorSetHandle, 3> m_descriptorSets {};
+            eastl::array<DescriptorSetHandle, 2> m_descriptorSets {};
 
             [[nodiscard]] bool operator<(const MaterialPipeline& _other) const;
         };
@@ -60,6 +61,8 @@ namespace KryneEngine::Samples
 
         void SetGraphicsPipeline(MaterialHandle _material, u8 _passType, GraphicsPipelineHandle _pipeline) const;
         [[nodiscard]] GraphicsPipelineHandle GetGraphicsPipeline(MaterialHandle _material, u8 _passType) const;
+
+        [[nodiscard]] const MaterialPipeline* GetMaterialPipeline(MaterialHandle _material, u8 _passType) const;
 
     private:
         AllocatorInstance m_allocator;
