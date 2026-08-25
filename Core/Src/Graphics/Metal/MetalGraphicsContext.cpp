@@ -6,6 +6,7 @@
 
 #include "Graphics/Metal/MetalGraphicsContext.hpp"
 
+#include "EASTL/vector_set.h"
 #include "Graphics/Metal/Helpers/EnumConverters.hpp"
 #include "Graphics/Metal/MetalConstants.hpp"
 #include "Graphics/Metal/MetalFrameContext.hpp"
@@ -532,11 +533,7 @@ namespace KryneEngine
             _params.m_copySize);
     }
 
-    void MetalGraphicsContext::PlaceMemoryBarriers(
-        const CommandListHandle _commandList,
-        const eastl::span<const GlobalMemoryBarrier>& _globalMemoryBarriers,
-        const eastl::span<const BufferMemoryBarrier>& _bufferMemoryBarriers,
-        const eastl::span<const TextureMemoryBarrier>& _textureMemoryBarriers)
+    void MetalGraphicsContext::PlaceMemoryBarriers(const CommandListHandle _commandList, const MemoryBarriers& _barriers)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
 
@@ -549,7 +546,70 @@ namespace KryneEngine
         MTL4::CommandEncoder* encoder = commandList->m_encoder.get();
         KE_ASSERT(encoder != nullptr);
 
-        // TODO
+        eastl::vector_set<u64> barriers { m_allocator };
+
+        constexpr BarrierAccessFlags writeFlags = BarrierAccessFlags::AllWrite
+            | BarrierAccessFlags::ColorAttachment
+            | BarrierAccessFlags::DepthStencilWrite
+            | BarrierAccessFlags::UnorderedAccess
+            | BarrierAccessFlags::ResolveDst
+            | BarrierAccessFlags::TransferDst
+            | BarrierAccessFlags::AccelerationStructureWrite;
+
+        for (const auto& barrier: _barriers.m_globalBarriers)
+        {
+            if (barrier.m_accessSrc == BarrierAccessFlags::None)
+                continue;
+            if (!BitUtils::EnumHasAny(barrier.m_accessSrc, writeFlags) && BitUtils::EnumHasAny(barrier.m_accessDst, writeFlags))
+                continue;
+            const MTL::Stages after = MetalConverters::GetMetalStages(barrier.m_stagesSrc);
+            const MTL::Stages before = MetalConverters::GetMetalStages(barrier.m_stagesDst);
+            const u64 rawBarrier = BitUtils::BitfieldInsert<u64>(before, after, 32, 32);
+            barriers.emplace(rawBarrier);
+        }
+
+        for (const auto& barrier: _barriers.m_bufferBarriers)
+        {
+            if (barrier.m_accessSrc == BarrierAccessFlags::None)
+                continue;
+            if (!BitUtils::EnumHasAny(barrier.m_accessSrc, writeFlags) && BitUtils::EnumHasAny(barrier.m_accessDst, writeFlags))
+                continue;
+            const MTL::Stages after = MetalConverters::GetMetalStages(barrier.m_stagesSrc);
+            const MTL::Stages before = MetalConverters::GetMetalStages(barrier.m_stagesDst);
+            const u64 rawBarrier = BitUtils::BitfieldInsert<u64>(before, after, 32, 32);
+            barriers.emplace(rawBarrier);
+        }
+
+        for (const auto& barrier: _barriers.m_textureBarriers)
+        {
+            if (barrier.m_accessSrc == BarrierAccessFlags::None)
+                continue;
+            if (!BitUtils::EnumHasAny(barrier.m_accessSrc, writeFlags) && BitUtils::EnumHasAny(barrier.m_accessDst, writeFlags))
+                continue;
+            const MTL::Stages after = MetalConverters::GetMetalStages(barrier.m_stagesSrc);
+            const MTL::Stages before = MetalConverters::GetMetalStages(barrier.m_stagesDst);
+            const u64 rawBarrier = BitUtils::BitfieldInsert<u64>(before, after, 32, 32);
+            barriers.emplace(rawBarrier);
+        }
+
+        for (const u64 rawBarrier: barriers)
+        {
+            const MTL::Stages before = static_cast<u32>(rawBarrier);
+            const MTL::Stages after = static_cast<u32>(rawBarrier >> 32);
+
+            switch (_barriers.m_placementType)
+            {
+            case BarrierPlacementType::IntraEncoder:
+                encoder->barrierAfterEncoderStages(after, before, MTL4::VisibilityOptionDevice);
+                break;
+            case BarrierPlacementType::Producer:
+                encoder->barrierAfterStages(after, before, MTL4::VisibilityOptionDevice);
+                break;
+            case BarrierPlacementType::Consumer:
+                encoder->barrierAfterQueueStages(after, before, MTL4::VisibilityOptionDevice);
+                break;
+            }
+        }
 
 
         // const auto commandList = static_cast<CommandList>(_commandList);
@@ -867,7 +927,6 @@ namespace KryneEngine
             const MTL::Buffer* buffer = m_resources.m_buffers.Get(bufferView.m_buffer.m_handle)->m_buffer;
             renderState->m_argumentTable->setAddress(
                 buffer->gpuAddress() + bufferView.m_offset,
-                // bufferView.m_stride,
                 i + MetalConstants::kVertexStreamBuffersOffset);
             ++i;
         }
@@ -1028,6 +1087,7 @@ namespace KryneEngine
 
         const MTL::IndexType indexType = renderState->m_indexBufferIsU16 ? MTL::IndexTypeUInt16 : MTL::IndexTypeUInt32;
         const size_t indexBufferOffset = renderState->m_indexBufferView.m_offset + _desc.m_indexOffset * (renderState->m_indexBufferIsU16 ? sizeof(u16) : sizeof(u32));
+        const size_t indexBufferSize = _desc.m_elementCount * (renderState->m_indexBufferIsU16 ? sizeof(u16) : sizeof(u32));
 
         const MTL::Buffer* indexBuffer = m_resources.m_buffers.Get(renderState->m_indexBufferView.m_buffer.m_handle)->m_buffer;
 
@@ -1037,7 +1097,7 @@ namespace KryneEngine
             _desc.m_elementCount,
             indexType,
             indexBuffer->gpuAddress() + indexBufferOffset,
-            renderState->m_indexBufferView.m_size,
+            indexBufferSize,
             _desc.m_instanceCount,
             _desc.m_vertexOffset,
             _desc.m_instanceOffset);

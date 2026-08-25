@@ -143,18 +143,22 @@ namespace KryneEngine::Modules::TextRendering
         if (flushCount == 0)
             return;
 
-        if (GraphicsContext::SupportsNonGlobalBarriers())
         {
-            const TextureMemoryBarrier barrier {
-                .m_stagesSrc = BarrierSyncStageFlags::All,
-                .m_stagesDst = BarrierSyncStageFlags::AllShading,
-                .m_accessSrc = BarrierAccessFlags::ShaderResource,
-                .m_accessDst = BarrierAccessFlags::TransferDst,
-                .m_texture = m_atlasTexture,
-                .m_layoutSrc = TextureLayout::ShaderResource,
-                .m_layoutDst = TextureLayout::TransferDst,
+            const TextureMemoryBarrier barrier[1] {
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::AllShading,
+                    .m_accessSrc = BarrierAccessFlags::ShaderResource,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_texture = m_atlasTexture,
+                    .m_layoutSrc = TextureLayout::ShaderResource,
+                    .m_layoutDst = TextureLayout::TransferDst,
+                }
             };
-            _graphicsContext.PlaceMemoryBarriers(_transfer, {}, {}, { &barrier, 1 });
+            _graphicsContext.PlaceMemoryBarriers(_transfer, {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_textureBarriers = barrier,
+            });
         }
 
         // Flush all requests into a single vector
@@ -210,7 +214,6 @@ namespace KryneEngine::Modules::TextRendering
                 .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferSrcBuffer,
             });
 
-            if (GraphicsContext::SupportsNonGlobalBarriers())
             {
                 const BufferMemoryBarrier barrier[] = {
                     {
@@ -221,7 +224,10 @@ namespace KryneEngine::Modules::TextRendering
                         .m_buffer = stagingBuffer.m_buffer,
                     }
                 };
-                _graphicsContext.PlaceMemoryBarriers(_transfer, {}, barrier, {});
+                _graphicsContext.PlaceMemoryBarriers(_transfer, {
+                    .m_placementType = BarrierPlacementType::IntraEncoder,
+                    .m_bufferBarriers = barrier,
+                });
             }
 
             stagingBuffer.m_size = cumulatedSize;
@@ -302,18 +308,22 @@ namespace KryneEngine::Modules::TextRendering
         }
         _graphicsContext.UnmapBuffer(mapping);
 
-        if (GraphicsContext::SupportsNonGlobalBarriers())
         {
-            const TextureMemoryBarrier barrier {
-                .m_stagesSrc = BarrierSyncStageFlags::Transfer,
-                .m_stagesDst = BarrierSyncStageFlags::AllShading,
-                .m_accessSrc = BarrierAccessFlags::TransferDst,
-                .m_accessDst = BarrierAccessFlags::ShaderResource,
-                .m_texture = m_atlasTexture,
-                .m_layoutSrc = TextureLayout::TransferDst,
-                .m_layoutDst = TextureLayout::ShaderResource,
+            const TextureMemoryBarrier barrier[1] {
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                    .m_stagesDst = BarrierSyncStageFlags::AllShading,
+                    .m_accessSrc = BarrierAccessFlags::TransferDst,
+                    .m_accessDst = BarrierAccessFlags::ShaderResource,
+                    .m_texture = m_atlasTexture,
+                    .m_layoutSrc = TextureLayout::TransferDst,
+                    .m_layoutDst = TextureLayout::ShaderResource,
+                }
             };
-            _graphicsContext.PlaceMemoryBarriers(_transfer, {}, {}, { &barrier, 1 });
+            _graphicsContext.PlaceMemoryBarriers(_transfer, {
+                .m_placementType = BarrierPlacementType::Producer,
+                .m_textureBarriers = barrier,
+            });
         }
     }
 

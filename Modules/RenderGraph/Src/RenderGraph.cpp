@@ -181,7 +181,6 @@ namespace KryneEngine::Modules::RenderGraph
                 pass.m_name.m_string,
                 ColorPalette::kWhite);
 
-            if (GraphicsContext::SupportsNonGlobalBarriers())
             {
                 const ResourceStateTracker::PassBarriers barriers = _jobData->m_renderGraph->m_resourceStateTracker->GetPassBarriers(i);
                 if (!barriers.m_bufferMemoryBarriers.empty() || !barriers.m_textureMemoryBarriers.empty())
@@ -193,9 +192,11 @@ namespace KryneEngine::Modules::RenderGraph
                         "Dispatching memory barriers");
                     _jobData->m_passExecutionData.m_graphicsContext->PlaceMemoryBarriers(
                         _jobData->m_passExecutionData.m_commandList,
-                        {},
-                        barriers.m_bufferMemoryBarriers,
-                        barriers.m_textureMemoryBarriers);
+                        {
+                            .m_placementType = BarrierPlacementType::Consumer,
+                            .m_bufferBarriers = barriers.m_bufferMemoryBarriers,
+                            .m_textureBarriers = barriers.m_textureMemoryBarriers,
+                        });
                 }
             }
 

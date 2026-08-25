@@ -232,7 +232,10 @@ namespace KryneEngine::Samples
                 .m_buffer = m_transferBuffer,
             }
         };
-        _graphicsContext->PlaceMemoryBarriers(_commandList, {}, initBarriers, {});
+        _graphicsContext->PlaceMemoryBarriers(_commandList, {
+            .m_placementType = BarrierPlacementType::IntraEncoder,
+            .m_bufferBarriers = initBarriers,
+        });
 
         _graphicsContext->CopyBuffer(
             _commandList,
@@ -267,11 +270,10 @@ namespace KryneEngine::Samples
                 .m_buffer = m_vertexBuffer,
             }
         };
-        _graphicsContext->PlaceMemoryBarriers(
-            _commandList,
-            {},
-            postCopyBufferBarriers,
-            {});
+        _graphicsContext->PlaceMemoryBarriers(_commandList, {
+            .m_placementType = BarrierPlacementType::Producer,
+            .m_bufferBarriers = postCopyBufferBarriers,
+        });
     }
 
     void TorusKnot::RenderGBuffer(

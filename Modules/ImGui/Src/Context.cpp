@@ -299,15 +299,6 @@ namespace KryneEngine::Modules::ImGui
             }
         }
 
-        if (GraphicsContext::SupportsNonGlobalBarriers())
-        {
-            _graphicsContext->PlaceMemoryBarriers(
-                _commandList,
-                {},
-                {},
-                textureMemoryBarriers);
-        }
-
         SystemTextureStagingBuffer& stagingBuffer = m_systemsTexturesStagingBuffers[_graphicsContext->GetCurrentFrameContextIndex()];
         if (stagingBufferSizeRequired > stagingBuffer.m_size)
         {
@@ -326,25 +317,29 @@ namespace KryneEngine::Modules::ImGui
             stagingBuffer.m_buffer = _graphicsContext->CreateBuffer(stagingBufferDesc);
             stagingBuffer.m_size = stagingBufferSizeRequired;
 
-            if (GraphicsContext::SupportsNonGlobalBarriers())
-            {
-                const BufferMemoryBarrier stagingBufferBarrier[1] = {
-                    {
-                        .m_stagesSrc = BarrierSyncStageFlags::All,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::None,
-                        .m_accessDst = BarrierAccessFlags::TransferSrc,
-                        .m_offset = 0,
-                        .m_size = stagingBufferSizeRequired,
-                        .m_buffer = stagingBuffer.m_buffer,
-                    }
-                };
-                _graphicsContext->PlaceMemoryBarriers(
-                    _commandList,
-                    {},
-                    stagingBufferBarrier,
-                    {});
-            }
+            const BufferMemoryBarrier stagingBufferBarrier[1] = {
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferSrc,
+                    .m_offset = 0,
+                    .m_size = stagingBufferSizeRequired,
+                    .m_buffer = stagingBuffer.m_buffer,
+                }
+            };
+            _graphicsContext->PlaceMemoryBarriers(_commandList, {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_bufferBarriers = stagingBufferBarrier,
+                .m_textureBarriers = textureMemoryBarriers,
+            });
+        }
+        else
+        {
+            _graphicsContext->PlaceMemoryBarriers(_commandList, {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_textureBarriers = textureMemoryBarriers,
+            });
         }
 
         if (stagingBufferSizeRequired > 0)
@@ -449,10 +444,10 @@ namespace KryneEngine::Modules::ImGui
 
             texture->SetStatus(ImTextureStatus_OK);
         }
-        if (GraphicsContext::SupportsNonGlobalBarriers())
-        {
-            _graphicsContext->PlaceMemoryBarriers(_commandList, {}, {}, textureMemoryBarriers);
-        }
+        _graphicsContext->PlaceMemoryBarriers(_commandList, {
+            .m_placementType = BarrierPlacementType::Producer,
+            .m_textureBarriers = textureMemoryBarriers,
+        });
 
         const u8 frameIndex = _graphicsContext->GetCurrentFrameContextIndex();
 

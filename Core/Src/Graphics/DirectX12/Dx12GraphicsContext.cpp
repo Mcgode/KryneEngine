@@ -1047,9 +1047,7 @@ namespace KryneEngine
 
     void Dx12GraphicsContext::PlaceMemoryBarriers(
         CommandListHandle _commandList,
-        const eastl::span<const GlobalMemoryBarrier>& _globalMemoryBarriers,
-        const eastl::span<const BufferMemoryBarrier>& _bufferMemoryBarriers,
-        const eastl::span<const TextureMemoryBarrier>& _textureMemoryBarriers)
+        const MemoryBarriers& _barriers)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::PlaceMemoryBarriers");
 
@@ -1061,15 +1059,15 @@ namespace KryneEngine
         {
             eastl::fixed_vector<D3D12_BARRIER_GROUP, 3> barrierGroups;
 
-            DynamicArray<D3D12_GLOBAL_BARRIER> globalMemoryBarriers(m_allocator, _globalMemoryBarriers.size());
-            DynamicArray<D3D12_BUFFER_BARRIER> bufferMemoryBarriers(m_allocator, _bufferMemoryBarriers.size());
-            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _textureMemoryBarriers.size());
+            DynamicArray<D3D12_GLOBAL_BARRIER> globalMemoryBarriers(m_allocator, _barriers.m_globalBarriers.size());
+            DynamicArray<D3D12_BUFFER_BARRIER> bufferMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
+            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
 
-            if (!_globalMemoryBarriers.empty())
+            if (!_barriers.m_globalBarriers.empty())
             {
                 for (auto i = 0u; i < globalMemoryBarriers.Size(); i++)
                 {
-                    const GlobalMemoryBarrier& barrier = _globalMemoryBarriers[i];
+                    const GlobalMemoryBarrier& barrier = _barriers.m_globalBarriers[i];
 
                     globalMemoryBarriers[i] = D3D12_GLOBAL_BARRIER{
                         .SyncBefore = ToDx12BarrierSync(barrier.m_stagesSrc),
@@ -1086,11 +1084,11 @@ namespace KryneEngine
                 });
             }
 
-            if (!_bufferMemoryBarriers.empty())
+            if (!_barriers.m_bufferBarriers.empty())
             {
                 for (auto i = 0u; i < bufferMemoryBarriers.Size(); i++)
                 {
-                    const BufferMemoryBarrier& barrier = _bufferMemoryBarriers[i];
+                    const BufferMemoryBarrier& barrier = _barriers.m_bufferBarriers[i];
                     ID3D12Resource** buffer = m_resources.m_buffers.Get(barrier.m_buffer.m_handle);
 
                     bufferMemoryBarriers[i] = D3D12_BUFFER_BARRIER{
@@ -1111,11 +1109,11 @@ namespace KryneEngine
                 });
             }
 
-            if (!_textureMemoryBarriers.empty())
+            if (!_barriers.m_textureBarriers.empty())
             {
                 for (auto i = 0u; i < textureMemoryBarriers.Size(); i++)
                 {
-                    const TextureMemoryBarrier& barrier = _textureMemoryBarriers[i];
+                    const TextureMemoryBarrier& barrier = _barriers.m_textureBarriers[i];
                     ID3D12Resource** texture = m_resources.m_textures.Get(barrier.m_texture.m_handle);
 
                     textureMemoryBarriers[i] = D3D12_TEXTURE_BARRIER{
@@ -1152,7 +1150,7 @@ namespace KryneEngine
         {
             eastl::vector<D3D12_RESOURCE_BARRIER> resourceBarriers(m_allocator);
 
-            for (const auto& barrier: _textureMemoryBarriers)
+            for (const auto& barrier: _barriers.m_textureBarriers)
             {
                 ID3D12Resource** texture = m_resources.m_textures.Get(barrier.m_texture.m_handle);
                 if (texture == nullptr)
@@ -1191,7 +1189,7 @@ namespace KryneEngine
                 }
             }
 
-            for (const auto& barrier: _bufferMemoryBarriers)
+            for (const auto& barrier: _barriers.m_bufferBarriers)
             {
                 ID3D12Resource** buffer = m_resources.m_buffers.Get(barrier.m_buffer.m_handle);
                 if (buffer == nullptr)
@@ -1222,7 +1220,7 @@ namespace KryneEngine
                 }
             }
 
-            for (const auto& barrier: _globalMemoryBarriers)
+            for (const auto& barrier: _barriers.m_globalBarriers)
             {
                 if (KE_VERIFY_MSG(BitUtils::EnumHasAny(barrier.m_accessSrc, BarrierAccessFlags::UnorderedAccess)
                                   && BitUtils::EnumHasAny(barrier.m_accessDst, BarrierAccessFlags::UnorderedAccess),

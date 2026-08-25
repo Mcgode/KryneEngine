@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <EASTL/span.h>
 #include "Enums.hpp"
 #include "Handles.hpp"
 #include "KryneEngine/Core/Common/BitUtils.hpp"
@@ -42,22 +43,51 @@ namespace KryneEngine
         IndirectBuffer              = 1 << 3,
         ColorAttachment             = 1 << 4,
         DepthStencilRead            = 1 << 5,
-        DepthStencilWrite           = 1 << 5,
-        ShaderResource              = 1 << 6,
-        UnorderedAccess             = 1 << 7,
-        ResolveSrc                  = 1 << 8,
-        ResolveDst                  = 1 << 9,
-        TransferSrc                 = 1 << 10,
-        TransferDst                 = 1 << 11,
-        AccelerationStructureRead   = 1 << 12,
-        AccelerationStructureWrite  = 1 << 13,
-        ShadingRate                 = 1 << 14,
-        AllRead                     = 1 << 15,
-        AllWrite                    = 1 << 16,
+        DepthStencilWrite           = 1 << 6,
+        ShaderResource              = 1 << 7,
+        UnorderedAccess             = 1 << 8,
+        ResolveSrc                  = 1 << 9,
+        ResolveDst                  = 1 << 10,
+        TransferSrc                 = 1 << 11,
+        TransferDst                 = 1 << 12,
+        AccelerationStructureRead   = 1 << 13,
+        AccelerationStructureWrite  = 1 << 14,
+        ShadingRate                 = 1 << 15,
+        AllRead                     = 1 << 16,
+        AllWrite                    = 1 << 17,
         All                         = AllRead | AllWrite,
-        None                        = 1 << 17,
+        None                        = 1 << 18,
     };
     KE_ENUM_IMPLEMENT_BITWISE_OPERATORS(BarrierAccessFlags)
+
+    enum class BarrierPlacementType
+    {
+        /**
+         * @brief A set of memory barriers to execute within the current command encoder.
+         *
+         * @details
+         * Use this when you need explicit synchronisation within the same command encoder.
+         */
+        IntraEncoder,
+
+        /**
+         * @brief A set of memory barriers that must be executed before the next command encoders.
+         *
+         * @details
+         * If you need to *produce* memory access barriers relevant for later passes, use this barrier type.
+         * Can be dispatched during the encoder pass or at the end of it.
+         */
+        Producer,
+
+        /**
+         * @brief A set of memory barriers that must be executed before this command encoder continues execution.
+         *
+         * @details
+         * If you need to *consume* memory access barriers relevant for the current pass, use this barrier type.
+         * Should be dispatched at the beginning of the encoder pass.
+         */
+        Consumer,
+    };
 
     struct GlobalMemoryBarrier
     {
@@ -95,5 +125,13 @@ namespace KryneEngine
         u8 m_mipCount = 1;
 
         TexturePlane m_planes = TexturePlane::Color;
+    };
+
+    struct MemoryBarriers
+    {
+        BarrierPlacementType m_placementType = BarrierPlacementType::IntraEncoder;
+        eastl::span<const GlobalMemoryBarrier> m_globalBarriers {};
+        eastl::span<const BufferMemoryBarrier> m_bufferBarriers {};
+        eastl::span<const TextureMemoryBarrier> m_textureBarriers {};
     };
 }

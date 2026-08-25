@@ -7,8 +7,7 @@
 #pragma once
 
 #include "Graphics/Metal/MetalHeaders.hpp"
-#include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
-#include "KryneEngine/Core/Graphics/EnumHelpers.hpp"
+#include "KryneEngine/Core/Graphics/MemoryBarriers.hpp"
 #include "KryneEngine/Core/Graphics/RenderPass.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include "KryneEngine/Core/Graphics/Texture.hpp"
@@ -49,4 +48,6 @@ namespace KryneEngine::MetalConverters
     [[nodiscard]] MTL::CullMode GetCullMode(RasterStateDesc::CullMode _mode);
     [[nodiscard]] MTL::Winding GetWinding(RasterStateDesc::Front _mode);
     [[nodiscard]] MTL::PrimitiveType GetPrimitiveType(InputAssemblyDesc::PrimitiveTopology _topology);
+
+    [[nodiscard]] MTL::Stages GetMetalStages(BarrierSyncStageFlags _stageFlags);
 }

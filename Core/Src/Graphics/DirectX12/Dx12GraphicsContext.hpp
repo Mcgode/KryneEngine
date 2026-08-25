@@ -146,9 +146,7 @@ namespace KryneEngine
 
         void PlaceMemoryBarriers(
             CommandListHandle _commandList,
-            const eastl::span<const GlobalMemoryBarrier>& _globalMemoryBarriers,
-            const eastl::span<const BufferMemoryBarrier>& _bufferMemoryBarriers,
-            const eastl::span<const TextureMemoryBarrier>& _textureMemoryBarriers) override;
+            const MemoryBarriers& _barriers) override;
 
         void DeclarePassTextureViewUsage(
             CommandListHandle,

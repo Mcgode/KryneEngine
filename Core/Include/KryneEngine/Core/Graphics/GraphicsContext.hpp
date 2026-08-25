@@ -21,7 +21,6 @@ namespace KryneEngine
     struct BufferCopyParameters;
     struct BufferCreateDesc;
     struct BufferMapping;
-    struct BufferMemoryBarrier;
     struct BufferSpan;
     struct Color;
     struct ComputePipelineDesc;
@@ -29,13 +28,12 @@ namespace KryneEngine
     struct DescriptorSetWriteInfo;
     struct DrawIndexedInstancedDesc;
     struct DrawInstancedDesc;
-    struct GlobalMemoryBarrier;
     struct GraphicsPipelineDesc;
+    struct MemoryBarriers;
     struct PipelineLayoutDesc;
     struct RenderTargetViewDesc;
     struct RenderPassDesc;
     struct TextureViewDesc;
-    struct TextureMemoryBarrier;
     struct Viewport;
 
     class TracyGpuProfilerContext;
@@ -583,17 +581,11 @@ namespace KryneEngine
          * @brief Inserts GPU memory barriers to synchronize resource access between operations.
          *
          * @param _commandList The command list in which to record the barriers.
-         * @param _globalMemoryBarriers The global memory barriers to insert.
-         * @param _bufferMemoryBarriers The buffer-specific memory barriers to insert.
-         * @param _textureMemoryBarriers The texture-specific memory barriers to insert.
+         * @param _barriers The memory barriers to insert.
          *
          * @see SupportsNonGlobalBarriers
          */
-        virtual void PlaceMemoryBarriers(
-            CommandListHandle _commandList,
-            const eastl::span<const GlobalMemoryBarrier>& _globalMemoryBarriers,
-            const eastl::span<const BufferMemoryBarrier>& _bufferMemoryBarriers,
-            const eastl::span<const TextureMemoryBarrier>& _textureMemoryBarriers) = 0;
+        virtual void PlaceMemoryBarriers(CommandListHandle _commandList, const MemoryBarriers& _barriers) = 0;
 
         /**
          * @brief Indicates whether the current graphics API requires explicit resource usage declaration

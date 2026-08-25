@@ -79,11 +79,10 @@ namespace KryneEngine::Tests::Graphics
             },
         };
 
-        graphicsContext->PlaceMemoryBarriers(
-            commandList,
-            {},
-            { barriers },
-            {});
+        graphicsContext->PlaceMemoryBarriers(commandList, {
+            .m_placementType = BarrierPlacementType::IntraEncoder,
+            .m_bufferBarriers = barriers,
+        });
 
         graphicsContext->CopyBuffer(
             commandList,
@@ -172,28 +171,28 @@ namespace KryneEngine::Tests::Graphics
             graphicsContext->UnmapBuffer(srcMapping);
         }
 
-        graphicsContext->PlaceMemoryBarriers(
-            commandList,
-            {},
-            {
+        {
+            const BufferMemoryBarrier barriers[2] {
                 {
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::All,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::None,
-                        .m_accessDst = BarrierAccessFlags::TransferSrc,
-                        .m_buffer = srcBuffer,
-                    },
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::All,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::None,
-                        .m_accessDst = BarrierAccessFlags::TransferDst,
-                        .m_buffer = gpuBuffer,
-                    },
-                }
-            },
-            {});
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferSrc,
+                    .m_buffer = srcBuffer,
+                },
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_buffer = gpuBuffer,
+                },
+            };
+            graphicsContext->PlaceMemoryBarriers(commandList, {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_bufferBarriers = barriers
+            });
+        }
 
         graphicsContext->CopyBuffer(
             commandList,
@@ -203,28 +202,29 @@ namespace KryneEngine::Tests::Graphics
                 .m_bufferDst = gpuBuffer,
             });
 
-        graphicsContext->PlaceMemoryBarriers(
-            commandList,
-            {},
-            {
+
+        {
+            const BufferMemoryBarrier barriers[2] {
                 {
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::Transfer,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::TransferDst,
-                        .m_accessDst = BarrierAccessFlags::TransferSrc,
-                        .m_buffer = gpuBuffer,
-                    },
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::All,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::None,
-                        .m_accessDst = BarrierAccessFlags::TransferDst,
-                        .m_buffer = dstBuffer,
-                    },
+                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::TransferDst,
+                    .m_accessDst = BarrierAccessFlags::TransferSrc,
+                    .m_buffer = gpuBuffer,
+                },
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_buffer = dstBuffer,
                 }
-            },
-            {});
+            };
+            graphicsContext->PlaceMemoryBarriers(commandList, {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_bufferBarriers = barriers,
+            });
+        }
 
         graphicsContext->CopyBuffer(
             commandList,
@@ -324,28 +324,28 @@ namespace KryneEngine::Tests::Graphics
             graphicsContext->UnmapBuffer(srcMapping);
         }
 
-        graphicsContext->PlaceMemoryBarriers(
-            commandList,
-            {},
-            {
+        {
+            const BufferMemoryBarrier barriers[] {
                 {
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::All,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::None,
-                        .m_accessDst = BarrierAccessFlags::TransferSrc,
-                        .m_buffer = srcBuffer,
-                    },
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::All,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::None,
-                        .m_accessDst = BarrierAccessFlags::TransferDst,
-                        .m_buffer = gpuBuffer0,
-                    },
-                }
-            },
-            {});
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferSrc,
+                    .m_buffer = srcBuffer,
+                },
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_buffer = gpuBuffer0,
+                },
+            };
+            graphicsContext->PlaceMemoryBarriers(commandList, {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_bufferBarriers = barriers,
+            });
+        }
 
         graphicsContext->CopyBuffer(
             commandList,
@@ -355,28 +355,28 @@ namespace KryneEngine::Tests::Graphics
                 .m_bufferDst = gpuBuffer0,
             });
 
-        graphicsContext->PlaceMemoryBarriers(
-            commandList,
-            {},
-            {
+        {
+            const BufferMemoryBarrier barriers[] {
                 {
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::Transfer,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::TransferDst,
-                        .m_accessDst = BarrierAccessFlags::TransferSrc,
-                        .m_buffer = gpuBuffer0,
-                    },
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::All,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::None,
-                        .m_accessDst = BarrierAccessFlags::TransferDst,
-                        .m_buffer = gpuBuffer1,
-                    },
-                }
-            },
-            {});
+                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::TransferDst,
+                    .m_accessDst = BarrierAccessFlags::TransferSrc,
+                    .m_buffer = gpuBuffer0,
+                },
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_buffer = gpuBuffer1,
+                },
+            };
+            graphicsContext->PlaceMemoryBarriers(commandList, {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_bufferBarriers = barriers,
+            });
+        }
 
         graphicsContext->CopyBuffer(
             commandList,
@@ -386,28 +386,28 @@ namespace KryneEngine::Tests::Graphics
                 .m_bufferDst = gpuBuffer1,
             });
 
-        graphicsContext->PlaceMemoryBarriers(
-            commandList,
-            {},
-            {
+        {
+            const BufferMemoryBarrier barriers[] {
                 {
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::Transfer,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::TransferDst,
-                        .m_accessDst = BarrierAccessFlags::TransferSrc,
-                        .m_buffer = gpuBuffer1,
-                    },
-                    BufferMemoryBarrier{
-                        .m_stagesSrc = BarrierSyncStageFlags::All,
-                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                        .m_accessSrc = BarrierAccessFlags::None,
-                        .m_accessDst = BarrierAccessFlags::TransferDst,
-                        .m_buffer = dstBuffer,
-                    },
-                }
-            },
-            {});
+                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::TransferDst,
+                    .m_accessDst = BarrierAccessFlags::TransferSrc,
+                    .m_buffer = gpuBuffer1,
+                },
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_buffer = dstBuffer,
+                },
+            };
+            graphicsContext->PlaceMemoryBarriers(commandList, {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_bufferBarriers = barriers,
+            });
+        }
 
         graphicsContext->CopyBuffer(
             commandList,

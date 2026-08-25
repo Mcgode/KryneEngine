@@ -1328,11 +1328,7 @@ namespace KryneEngine
         vkCmdCopyBuffer(reinterpret_cast<CommandList>(_commandList), *bufferSrc, *bufferDst, 1, &region);
     }
 
-    void VkGraphicsContext::PlaceMemoryBarriers(
-        const CommandListHandle _commandList,
-        const eastl::span<const GlobalMemoryBarrier>& _globalMemoryBarriers,
-        const eastl::span<const BufferMemoryBarrier>& _bufferMemoryBarriers,
-        const eastl::span<const TextureMemoryBarrier>& _textureMemoryBarriers)
+    void VkGraphicsContext::PlaceMemoryBarriers(CommandListHandle _commandList, const MemoryBarriers& _barriers)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::PlaceMemoryBarriers");
 
@@ -1340,13 +1336,13 @@ namespace KryneEngine
 
         if (m_vkCmdPipelineBarrier2KHR != nullptr)
         {
-            DynamicArray<VkMemoryBarrier2> globalMemoryBarriers(_globalMemoryBarriers.size());
-            DynamicArray<VkBufferMemoryBarrier2> bufferMemoryBarriers(_bufferMemoryBarriers.size());
-            DynamicArray<VkImageMemoryBarrier2> imageMemoryBarriers(_textureMemoryBarriers.size());
+            DynamicArray<VkMemoryBarrier2> globalMemoryBarriers(_barriers.m_globalBarriers.size());
+            DynamicArray<VkBufferMemoryBarrier2> bufferMemoryBarriers(_barriers.m_bufferBarriers.size());
+            DynamicArray<VkImageMemoryBarrier2> imageMemoryBarriers(_barriers.m_textureBarriers.size());
 
             for (auto i = 0u; i < globalMemoryBarriers.Size(); i++)
             {
-                const GlobalMemoryBarrier& barrier = _globalMemoryBarriers[i];
+                const GlobalMemoryBarrier& barrier = _barriers.m_globalBarriers[i];
                 globalMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                     .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true),
@@ -1358,8 +1354,8 @@ namespace KryneEngine
 
             for (auto i = 0u; i < bufferMemoryBarriers.Size(); i++)
             {
-                const BufferMemoryBarrier& barrier = _bufferMemoryBarriers[i];
-                VkBuffer* buffer = m_resources.m_buffers.Get(barrier.m_buffer.m_handle);
+                const BufferMemoryBarrier& barrier = _barriers.m_bufferBarriers[i];
+                const VkBuffer* buffer = m_resources.m_buffers.Get(barrier.m_buffer.m_handle);
 
                 bufferMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
@@ -1377,8 +1373,8 @@ namespace KryneEngine
 
             for (auto i = 0u; i < imageMemoryBarriers.Size(); i++)
             {
-                const TextureMemoryBarrier& barrier = _textureMemoryBarriers[i];
-                VkImage* image = m_resources.m_textures.Get(barrier.m_texture.m_handle);
+                const TextureMemoryBarrier& barrier = _barriers.m_textureBarriers[i];
+                const VkImage* image = m_resources.m_textures.Get(barrier.m_texture.m_handle);
 
                 imageMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -1403,15 +1399,15 @@ namespace KryneEngine
             const VkDependencyInfo dependencyInfo{
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .dependencyFlags = 0,
-                .memoryBarrierCount = (u32)globalMemoryBarriers.Size(),
+                .memoryBarrierCount = static_cast<u32>(globalMemoryBarriers.Size()),
                 .pMemoryBarriers = globalMemoryBarriers.Data(),
-                .bufferMemoryBarrierCount = (u32)bufferMemoryBarriers.Size(),
+                .bufferMemoryBarrierCount = static_cast<u32>(bufferMemoryBarriers.Size()),
                 .pBufferMemoryBarriers = bufferMemoryBarriers.Data(),
-                .imageMemoryBarrierCount = (u32)imageMemoryBarriers.Size(),
+                .imageMemoryBarrierCount = static_cast<u32>(imageMemoryBarriers.Size()),
                 .pImageMemoryBarriers = imageMemoryBarriers.Data(),
             };
 
-            m_vkCmdPipelineBarrier2KHR(reinterpret_cast<CommandList>(_commandList), &dependencyInfo);
+            m_vkCmdPipelineBarrier2KHR(static_cast<CommandList>(_commandList), &dependencyInfo);
         }
         else
         {
@@ -1419,9 +1415,9 @@ namespace KryneEngine
             eastl::vector<VkBufferMemoryBarrier> bufferMemoryBarriers(m_allocator);
             eastl::vector<VkImageMemoryBarrier> imageMemoryBarriers(m_allocator);
 
-            globalMemoryBarriers.reserve(_globalMemoryBarriers.size());
-            bufferMemoryBarriers.reserve(_bufferMemoryBarriers.size());
-            imageMemoryBarriers.reserve(_textureMemoryBarriers.size());
+            globalMemoryBarriers.reserve(_barriers.m_globalBarriers.size());
+            bufferMemoryBarriers.reserve(_barriers.m_bufferBarriers.size());
+            imageMemoryBarriers.reserve(_barriers.m_textureBarriers.size());
 
             u32 gIndex = 0;
             u32 bIndex = 0;
@@ -1452,9 +1448,9 @@ namespace KryneEngine
                     }
                 };
 
-                for (; gIndex < _globalMemoryBarriers.size(); gIndex++)
+                for (; gIndex < _barriers.m_globalBarriers.size(); gIndex++)
                 {
-                    const GlobalMemoryBarrier& barrier = _globalMemoryBarriers[gIndex];
+                    const GlobalMemoryBarrier& barrier = _barriers.m_globalBarriers[gIndex];
                     if (shouldRegister(barrier.m_stagesSrc, barrier.m_stagesDst))
                     {
                         globalMemoryBarriers.push_back({
@@ -1469,10 +1465,10 @@ namespace KryneEngine
                     }
                 }
 
-                for (; bIndex < _bufferMemoryBarriers.size(); bIndex++)
+                for (; bIndex < _barriers.m_bufferBarriers.size(); bIndex++)
                 {
-                    const BufferMemoryBarrier& barrier = _bufferMemoryBarriers[bIndex];
-                    VkBuffer* buffer = m_resources.m_buffers.Get(barrier.m_buffer.m_handle);
+                    const BufferMemoryBarrier& barrier = _barriers.m_bufferBarriers[bIndex];
+                    const VkBuffer* buffer = m_resources.m_buffers.Get(barrier.m_buffer.m_handle);
 
                     if (shouldRegister(barrier.m_stagesSrc, barrier.m_stagesDst))
                     {
@@ -1493,10 +1489,10 @@ namespace KryneEngine
                     }
                 }
 
-                for (; iIndex < _textureMemoryBarriers.size(); iIndex++)
+                for (; iIndex < _barriers.m_textureBarriers.size(); iIndex++)
                 {
-                    const TextureMemoryBarrier& barrier = _textureMemoryBarriers[iIndex];
-                    VkImage* image = m_resources.m_textures.Get(barrier.m_texture.m_handle);
+                    const TextureMemoryBarrier& barrier = _barriers.m_textureBarriers[iIndex];
+                    const VkImage* image = m_resources.m_textures.Get(barrier.m_texture.m_handle);
 
                     if (shouldRegister(barrier.m_stagesSrc, barrier.m_stagesDst))
                     {
@@ -1525,7 +1521,7 @@ namespace KryneEngine
                 }
 
                 vkCmdPipelineBarrier(
-                    reinterpret_cast<CommandList>(_commandList),
+                    static_cast<CommandList>(_commandList),
                     ToVkPipelineStageFlagBits(src, true),
                     ToVkPipelineStageFlagBits(dst, false),
                     0,
@@ -1536,7 +1532,7 @@ namespace KryneEngine
                     imageMemoryBarriers.size(),
                     imageMemoryBarriers.data());
             }
-            while (gIndex < _globalMemoryBarriers.size() && bIndex < _bufferMemoryBarriers.size() && iIndex < _textureMemoryBarriers.size());
+            while (gIndex < _barriers.m_globalBarriers.size() && bIndex < _barriers.m_bufferBarriers.size() && iIndex < _barriers.m_textureBarriers.size());
         }
     }
 
