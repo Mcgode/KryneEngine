@@ -1142,12 +1142,14 @@ namespace KryneEngine
             reinterpret_cast<CommandList>(_commandList));
     }
 
-    void VkGraphicsContext::BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _renderPass)
+    RenderCommandEncoderHandle VkGraphicsContext::BeginRenderPass(
+        CommandListHandle _commandList,
+        const RenderPassHandle _renderPass)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::BeginRenderPass");
 
         auto* renderPassData = m_resources.m_renderPasses.Get(_renderPass.m_handle);
-        VERIFY_OR_RETURN_VOID(renderPassData != nullptr);
+        VERIFY_OR_RETURN(renderPassData != nullptr, { nullptr });
 
         VkRenderPassBeginInfo beginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -1157,18 +1159,20 @@ namespace KryneEngine
                 .offset = { 0, 0 },
                 .extent = { renderPassData->m_size.m_width, renderPassData->m_size.m_height }
             },
-            .clearValueCount = u32(renderPassData->m_clearValues.size()),
+            .clearValueCount = static_cast<u32>(renderPassData->m_clearValues.size()),
             .pClearValues = renderPassData->m_clearValues.data()
         };
 
-        vkCmdBeginRenderPass(reinterpret_cast<CommandList>(_commandList), &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(static_cast<CommandList>(_commandList), &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        return { _commandList };
     }
 
-    void VkGraphicsContext::EndRenderPass(CommandListHandle _commandList)
+    void VkGraphicsContext::EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::EndRenderPass");
 
-        vkCmdEndRenderPass(reinterpret_cast<CommandList>(_commandList));
+        vkCmdEndRenderPass(static_cast<CommandList>(_renderCommandEncoder.m_handle));
     }
 
     void VkGraphicsContext::SetTextureData(

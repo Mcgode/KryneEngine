@@ -563,14 +563,16 @@ namespace KryneEngine
         m_frameContexts[m_frameId % m_frameContextCount].EndDirectCommandList(commandList);
     }
 
-    void Dx12GraphicsContext::BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _renderPass)
+    RenderCommandEncoderHandle Dx12GraphicsContext::BeginRenderPass(
+        CommandListHandle _commandList,
+        const RenderPassHandle _renderPass)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::BeginRenderPass");
 
         auto commandList = static_cast<CommandList>(_commandList);
 
         const auto* desc = m_resources.m_renderPasses.Get(_renderPass.m_handle);
-        VERIFY_OR_RETURN_VOID(desc != nullptr);
+        VERIFY_OR_RETURN(desc != nullptr, { nullptr });
 
         constexpr auto convertLoadOperation = [](RenderPassDesc::Attachment::LoadOperation _op)
         {
@@ -695,9 +697,9 @@ namespace KryneEngine
             };
 
             const GenPool::Handle handle = attachment.m_rtv.m_handle;
-            VERIFY_OR_RETURN_VOID((handle.m_index & Dx12Resources::kDsvFlag) == 0);
+            VERIFY_OR_RETURN((handle.m_index & Dx12Resources::kDsvFlag) == 0, { nullptr });
             auto* rtvData = m_resources.m_renderTargetViews.Get(handle);
-            VERIFY_OR_RETURN_VOID(rtvData != nullptr);
+            VERIFY_OR_RETURN(rtvData != nullptr, { nullptr });
 
             colorAttachments.push_back(D3D12_RENDER_PASS_RENDER_TARGET_DESC { rtvData->m_cpuHandle, beginningAccess, endingAccess });
 
@@ -728,10 +730,10 @@ namespace KryneEngine
             };
 
             GenPool::Handle handle = attachment.m_rtv.m_handle;
-            VERIFY_OR_RETURN_VOID((handle.m_index & Dx12Resources::kDsvFlag) != 0);
+            VERIFY_OR_RETURN((handle.m_index & Dx12Resources::kDsvFlag) != 0, { nullptr });
             handle.m_index &= ~Dx12Resources::kDsvFlag;
             auto* rtvData = m_resources.m_depthStencilViews.Get(handle);
-            VERIFY_OR_RETURN_VOID(rtvData != nullptr);
+            VERIFY_OR_RETURN(rtvData != nullptr, { nullptr });
 
             depthStencilDesc = {
                     rtvData->m_cpuHandle,
@@ -753,13 +755,15 @@ namespace KryneEngine
                 D3D12_RENDER_PASS_FLAG_NONE);
 
         m_currentRenderPass = _renderPass;
+
+        return { commandList };
     }
 
-    void Dx12GraphicsContext::EndRenderPass(CommandListHandle _commandList)
+    void Dx12GraphicsContext::EndRenderPass(const RenderCommandEncoderHandle _renderCommandEncoder)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::EndRenderPass");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto* commandList = static_cast<CommandList>(_renderCommandEncoder.m_handle);
 
         const auto* desc = m_resources.m_renderPasses.Get(m_currentRenderPass.m_handle);
         VERIFY_OR_RETURN_VOID(desc != nullptr);

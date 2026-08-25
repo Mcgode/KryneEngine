@@ -204,9 +204,10 @@ namespace KryneEngine::Modules::RenderGraph
                 auto it = _jobData->m_renderGraph->m_renderPassCache.find(pass.m_renderPassHash.value());
                 KE_ASSERT(it != _jobData->m_renderGraph->m_renderPassCache.end());
 
-                _jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
-                    _jobData->m_passExecutionData.m_commandList,
-                    it->second);
+                _jobData->m_passExecutionData.m_renderEncoder =
+                    _jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
+                        _jobData->m_passExecutionData.m_commandList,
+                        it->second);
             }
             else if (pass.m_type == PassType::Compute)
             {
@@ -230,7 +231,7 @@ namespace KryneEngine::Modules::RenderGraph
             if (pass.m_type == PassType::Render)
             {
                 _jobData->m_passExecutionData.m_graphicsContext->EndRenderPass(
-                    _jobData->m_passExecutionData.m_commandList);
+                    _jobData->m_passExecutionData.m_renderEncoder);
             }
             else if (pass.m_type == PassType::Compute)
             {

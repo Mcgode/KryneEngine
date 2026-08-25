@@ -329,19 +329,21 @@ namespace KryneEngine
         commandList->m_commandBuffer->endCommandBuffer();
     }
 
-    void MetalGraphicsContext::BeginRenderPass(const CommandListHandle _commandList, const RenderPassHandle _handle)
+    RenderCommandEncoderHandle MetalGraphicsContext::BeginRenderPass(
+        const CommandListHandle _commandList,
+        const RenderPassHandle _handle)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
-        VERIFY_OR_RETURN_VOID(commandList != nullptr);
+        VERIFY_OR_RETURN(commandList != nullptr, { nullptr });
 
         const MetalResources::RenderPassHotData* rpHot = m_resources.m_renderPasses.Get(_handle.m_handle);
-        VERIFY_OR_RETURN_VOID(rpHot != nullptr);
+        VERIFY_OR_RETURN(rpHot != nullptr, { nullptr });
 
         // Update system RTVs
         for (const auto& systemRtv: rpHot->m_systemRtvs)
         {
             const MetalResources::RtvHotData* rtvHot = m_resources.m_renderTargetViews.Get(systemRtv.m_handle.m_handle);
-            VERIFY_OR_RETURN_VOID(rtvHot != nullptr);
+            VERIFY_OR_RETURN(rtvHot != nullptr, { nullptr });
 
             rpHot->m_descriptor->colorAttachments()->object(systemRtv.m_index)
                 ->setTexture(rtvHot->m_texture);
@@ -370,11 +372,14 @@ namespace KryneEngine
 
         commandList->m_encoder = encoder;
         commandList->m_userData = renderState;
+
+        return { commandList };
     }
 
-    void MetalGraphicsContext::EndRenderPass(const CommandListHandle _commandList)
+    void MetalGraphicsContext::EndRenderPass(const RenderCommandEncoderHandle _renderCommandEncoder)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderCommandEncoder.m_handle);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Render);
         m_allocator.Delete(static_cast<RenderState*>(commandList->m_userData));
         commandList->m_userData = nullptr;
         commandList->ResetEncoder();

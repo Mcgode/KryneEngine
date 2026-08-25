@@ -29,4 +29,13 @@ namespace KryneEngine
         u32 m_index;
         u32 m_frameId;
     };
+
+    struct CommandEncoderHandle
+    {
+        void* m_handle = nullptr;
+    };
+
+    struct RenderCommandEncoderHandle: CommandEncoderHandle {};
+    struct UtilCommandEncoderHandle: CommandEncoderHandle {};
+    struct ComputeCommandEncoderHandle: UtilCommandEncoderHandle {};
 }

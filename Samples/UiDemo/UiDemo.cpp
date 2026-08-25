@@ -284,11 +284,11 @@ s32 main(s32 argc, const char** argv)
         }
 
         const RenderPassHandle currentPass = renderPassHandles[graphicsContext->GetCurrentPresentImageIndex()];
-        graphicsContext->BeginRenderPass(renderCommandList, currentPass);
+        const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(renderCommandList, currentPass);
         clayContext.EndLayout(*graphicsContext, transferCommandList, renderCommandList);
 
         uiCube.Render(*graphicsContext, transferCommandList, renderCommandList, contentScale);
-        graphicsContext->EndRenderPass(renderCommandList);
+        graphicsContext->EndRenderPass(renderEncoder);
 
         msdfAtlasManager.FlushLoads(*graphicsContext, transferCommandList);
 

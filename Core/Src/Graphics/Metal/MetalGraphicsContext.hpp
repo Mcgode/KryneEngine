@@ -113,8 +113,8 @@ namespace KryneEngine
         CommandListHandle BeginGraphicsCommandList() override;
         void EndGraphicsCommandList(CommandListHandle _commandList) override;
 
-        void BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _handle) override;
-        void EndRenderPass(CommandListHandle _commandList) override;
+        [[nodiscard]] RenderCommandEncoderHandle BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _handle) override;
+        void EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder) override;
 
         void BeginComputePass(CommandListHandle _commandList) override;
         void EndComputePass(CommandListHandle _commandList) override;

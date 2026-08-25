@@ -344,7 +344,8 @@ int main()
             KE_GpuZoneScoped(graphicsContext, graphicsContext->GetProfilerContext(), commandList, "Main loop");
 
             const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-            graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
+            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
+                commandList, renderPassHandles[index]);
 
             graphicsContext->SetVertexBuffers(commandList, { &vertexBufferView, 1 });
             graphicsContext->SetIndexBuffer(commandList, indexBufferView, false);
@@ -371,7 +372,7 @@ int main()
                     .m_elementCount = 3
                 });
 
-            graphicsContext->EndRenderPass(commandList);
+            graphicsContext->EndRenderPass(renderEncoder);
         }
 
         graphicsContext->EndGraphicsCommandList(commandList);

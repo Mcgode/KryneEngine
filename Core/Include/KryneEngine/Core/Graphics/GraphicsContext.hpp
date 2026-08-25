@@ -9,7 +9,7 @@
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
-#include "Texture.hpp"
+#include "KryneEngine/Core/Graphics/Texture.hpp"
 
 namespace KryneEngine
 {
@@ -481,15 +481,19 @@ namespace KryneEngine
          *
          * @param _commandList The command list in which to record the render pass begin.
          * @param _handle The render pass to begin, previously created with #CreateRenderPass.
+         *
+         * @return The encoder for all the render pass related commands.
          */
-        virtual void BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _handle) = 0;
+        [[nodiscard]] virtual RenderCommandEncoderHandle BeginRenderPass(
+            CommandListHandle _commandList,
+            RenderPassHandle _handle) = 0;
 
         /**
          * @brief Ends the render pass previously started with #BeginRenderPass, applying store operations.
          *
-         * @param _commandList The command list in which to record the render pass end.
+         * @param _renderCommandEncoder The command encoder associated with the render pass.
          */
-        virtual void EndRenderPass(CommandListHandle _commandList) = 0;
+        virtual void EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder) = 0;
 
         /**
          * @brief Begins a compute pass in the given command list.

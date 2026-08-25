@@ -101,11 +101,11 @@ void MainFunc(void* _pAllocator)
         imGuiContext.PrepareToRenderFrame(graphicsContext, commandList);
 
         const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-        graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
+        const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
 
         imGuiContext.RenderFrame(graphicsContext, commandList);
 
-        graphicsContext->EndRenderPass(commandList);
+        graphicsContext->EndRenderPass(renderEncoder);
 
         graphicsContext->EndGraphicsCommandList(commandList);
     }
