@@ -104,6 +104,9 @@ namespace KryneEngine
         for (u32 i = start; i != end; i = (i + 1) % kQueryRingBufferCapacity)
         {
             const u32 timestampIdx = m_queryRingBuffer[i];
+            if (timestampIdx >= resolvedTimestamps.size())
+                continue;
+
             const u64 timestamp = resolvedTimestamps[timestampIdx];
 
             using namespace tracy;
