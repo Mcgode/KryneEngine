@@ -31,6 +31,7 @@ namespace KryneEngine
     {
         friend class MetalGraphicsContext;
         friend class MetalArgumentBufferManager;
+        friend class ByteUploader;
 
     public:
         explicit MetalResources(AllocatorInstance _allocator);
@@ -40,6 +41,9 @@ namespace KryneEngine
 
     private:
         [[nodiscard]] AllocatorInstance GetAllocator() const;
+
+        NS::SharedPtr<MTL::ResidencySet> m_residencySet;
+        SpinLock m_residencySetLock;
 
     public:
         BufferHandle CreateBuffer(MTL::Device& _device, const BufferCreateDesc& _desc);

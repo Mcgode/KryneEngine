@@ -6,6 +6,7 @@
 
 #include "ByteUploader.hpp"
 
+#include "Graphics/Metal/MetalResources.hpp"
 #include "KryneEngine/Core/Common/Assert.hpp"
 #include "KryneEngine/Core/Common/Utils/Alignment.hpp"
 #include "Metal/MTLDevice.hpp"
@@ -27,6 +28,7 @@ namespace KryneEngine {
 
     MTL::GPUAddress ByteUploader::SetBytes(
         MTL::Device* _device,
+        MetalResources& _resources,
         const eastl::span<const std::byte> _bytes,
         const size_t _frameIndex)
     {
@@ -44,6 +46,16 @@ namespace KryneEngine {
             if (m_freePages.empty())
             {
                 MTL::Buffer* pageBuffer = _device->newBuffer(kPageSize, MTL::ResourceStorageModeShared);
+                {
+                    const auto resLock = _resources.m_residencySetLock.AutoLock();
+                    _resources.m_residencySet->addAllocation(pageBuffer);
+                }
+#if !defined(KE_FINAL)
+                char name[256];
+                snprintf(name, sizeof(name), "ByteUploader Page %zu", m_pages.size());
+                pageBuffer->setLabel(NS::String::string(name, NS::UTF8StringEncoding));
+#endif
+
                 newPage = static_cast<PageHeader*>(pageBuffer->contents());
                 newPage->m_buffer = pageBuffer;
                 newPage->m_index = sizeof(PageHeader);

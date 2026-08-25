@@ -26,6 +26,16 @@ namespace KryneEngine
 
         KE_ASSERT(m_device->supportsFamily(MTL::GPUFamilyMetal4));
 
+        {
+            MTL::ResidencySetDescriptor* descriptor = MTL::ResidencySetDescriptor::alloc()->init();
+            descriptor->setInitialCapacity(128);
+
+            NS::Error* error;
+            m_resources.m_residencySet = NS::TransferPtr(m_device->newResidencySet(descriptor, &error));
+            KE_ASSERT_MSG(error == nullptr, error->localizedDescription()->cString(NS::UTF8StringEncoding));
+            descriptor->release();
+        }
+
         if (_appInfo.m_features.m_graphics)
         {
             // Catch internal auto release
@@ -35,6 +45,7 @@ namespace KryneEngine
             descriptor->setLabel(MTLSTR("Graphics Queue"));
 
             m_graphicsQueue = m_device->newMTL4CommandQueue(descriptor.get(), nullptr);
+            m_graphicsQueue->addResidencySet(m_resources.m_residencySet.get());
         }
 
         if (_appInfo.m_features.m_compute)
@@ -47,7 +58,8 @@ namespace KryneEngine
                 const NsPtr descriptor { MTL4::CommandQueueDescriptor::alloc()->init() };
                 descriptor->setLabel(MTLSTR("Compute Queue"));
 
-                m_graphicsQueue = m_device->newMTL4CommandQueue(descriptor.get(), nullptr);
+                m_computeQueue = m_device->newMTL4CommandQueue(descriptor.get(), nullptr);
+                m_computeQueue->addResidencySet(m_resources.m_residencySet.get());
             }
         }
 
@@ -62,6 +74,7 @@ namespace KryneEngine
                 descriptor->setLabel(MTLSTR("IO Queue"));
 
                 m_ioQueue = m_device->newMTL4CommandQueue(descriptor.get(), nullptr);
+                m_ioQueue->addResidencySet(m_resources.m_residencySet.get());
             }
         }
 

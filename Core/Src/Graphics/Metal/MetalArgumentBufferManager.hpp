@@ -63,8 +63,8 @@ namespace KryneEngine
 
     public:
         [[nodiscard]] DescriptorSetHandle
-        CreateArgumentBuffer(MTL::Device& _device, DescriptorSetLayoutHandle _descriptor);
-        bool DestroyArgumentBuffer(DescriptorSetHandle _argumentBuffer);
+        CreateArgumentBuffer(MTL::Device& _device, MetalResources& _resources, DescriptorSetLayoutHandle _descriptor);
+        bool DestroyArgumentBuffer(DescriptorSetHandle _argumentBuffer, MetalResources& _resources);
 
     private:
         struct ArgumentBufferHotData

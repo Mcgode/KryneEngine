@@ -16,6 +16,8 @@
 
 namespace KryneEngine
 {
+    class MetalResources;
+
     /**
      * @brief A per-frame bump allocator for uploading small chunks of data.
      */
@@ -34,17 +36,20 @@ namespace KryneEngine
 
         [[nodiscard]] MTL::GPUAddress SetBytes(
             MTL::Device* _device,
+            MetalResources& _resources,
             eastl::span<const std::byte> _bytes,
             size_t _frameIndex);
 
         template <class T>
         [[nodiscard]] MTL::GPUAddress SetBytes(
             MTL::Device* _device,
+            MetalResources& _resources,
             eastl::span<const T> _bytes,
             size_t _frameIndex)
         {
             return SetBytes(
                 _device,
+                _resources,
                 { reinterpret_cast<const std::byte*>(_bytes.data()), _bytes.size_bytes() },
                 _frameIndex);
         }

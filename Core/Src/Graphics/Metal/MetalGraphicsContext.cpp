@@ -57,6 +57,10 @@ namespace KryneEngine
 
             {
                 KE_ZoneScoped("Commit");
+                {
+                    const auto lock = m_resources.m_residencySetLock.AutoLock();
+                    m_resources.m_residencySet->commit();
+                }
                 frameContext.m_graphicsAllocationSet.Commit(m_frameId, frameContext.m_enhancedCommandBufferErrors);
                 frameContext.m_computeAllocationSet.Commit(m_frameId, frameContext.m_enhancedCommandBufferErrors);
                 frameContext.m_ioAllocationSet.Commit(m_frameId, frameContext.m_enhancedCommandBufferErrors);
@@ -818,7 +822,7 @@ namespace KryneEngine
 
     DescriptorSetHandle MetalGraphicsContext::CreateDescriptorSet(const DescriptorSetLayoutHandle _layout)
     {
-        return m_argumentBufferManager.CreateArgumentBuffer(*m_device, _layout);
+        return m_argumentBufferManager.CreateArgumentBuffer(*m_device, m_resources, _layout);
     }
 
     PipelineLayoutHandle MetalGraphicsContext::CreatePipelineLayout(const PipelineLayoutDesc& _desc)
@@ -843,7 +847,7 @@ namespace KryneEngine
 
     bool MetalGraphicsContext::DestroyDescriptorSet(const DescriptorSetHandle _set)
     {
-        return m_argumentBufferManager.DestroyArgumentBuffer(_set);
+        return m_argumentBufferManager.DestroyArgumentBuffer(_set, m_resources);
     }
 
     bool MetalGraphicsContext::DestroyDescriptorSetLayout(const DescriptorSetLayoutHandle _layout)
@@ -1038,13 +1042,13 @@ namespace KryneEngine
             if (BitUtils::EnumHasAny(data.m_visibility, ShaderVisibility::Vertex))
             {
                 renderState->m_vertexArgumentTable->setAddress(
-                    m_byteUploader->SetBytes<u32>(m_device.get(), _data, m_frameId % m_frameContextCount),
+                    m_byteUploader->SetBytes<u32>(m_device.get(), m_resources, _data, m_frameId % m_frameContextCount),
                     data.m_bufferIndex);
             }
             if (BitUtils::EnumHasAny(data.m_visibility, ShaderVisibility::Fragment))
             {
                 renderState->m_fragmentArgumentTable->setAddress(
-                    m_byteUploader->SetBytes<u32>(m_device.get(), _data, m_frameId % m_frameContextCount),
+                    m_byteUploader->SetBytes<u32>(m_device.get(), m_resources, _data, m_frameId % m_frameContextCount),
                     data.m_bufferIndex);
             }
         }
@@ -1191,7 +1195,7 @@ namespace KryneEngine
         KE_ASSERT(pushConstantData.m_data.size() == 1);
         KE_ASSERT(pushConstantData.m_data[0].m_visibility == ShaderVisibility::Compute);
         argumentTable->setAddress(
-            m_byteUploader->SetBytes<u32>(m_device.get(), _data, m_frameId % m_frameContextCount),
+            m_byteUploader->SetBytes<u32>(m_device.get(), m_resources, _data, m_frameId % m_frameContextCount),
             pushConstantData.m_data[0].m_bufferIndex);
     }
 
