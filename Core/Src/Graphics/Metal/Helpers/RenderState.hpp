@@ -38,6 +38,7 @@ namespace KryneEngine
         BufferSpan m_indexBufferView {};
         bool m_indexBufferIsU16 = false;
         InputAssemblyDesc::PrimitiveTopology m_topology {};
-        NsPtr<MTL4::ArgumentTable> m_argumentTable {};
+        NsPtr<MTL4::ArgumentTable> m_vertexArgumentTable {};
+        NsPtr<MTL4::ArgumentTable> m_fragmentArgumentTable {};
     };
 }

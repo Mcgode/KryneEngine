@@ -366,10 +366,20 @@ namespace KryneEngine
 
         RenderState* renderState = m_allocator.New<RenderState>();
 
-        MTL4::ArgumentTableDescriptor* descriptor = MTL4::ArgumentTableDescriptor::alloc()->init();
-        descriptor->setMaxBufferBindCount(MetalConstants::kMaxBuffersPerStage);
-        renderState->m_argumentTable = m_device->newArgumentTable(descriptor, nullptr);
-        encoder->setArgumentTable(renderState->m_argumentTable.get(), MetalConstants::kAllRenderStages);
+        {
+            MTL4::ArgumentTableDescriptor* descriptor = MTL4::ArgumentTableDescriptor::alloc()->init();
+            descriptor->setMaxBufferBindCount(MetalConstants::kVertexArgumentTableSize);
+            renderState->m_vertexArgumentTable = m_device->newArgumentTable(descriptor, nullptr);
+            descriptor->release();
+        }
+        {
+            MTL4::ArgumentTableDescriptor* descriptor = MTL4::ArgumentTableDescriptor::alloc()->init();
+            descriptor->setMaxBufferBindCount(MetalConstants::kDefaultArgumentTableSize);
+            renderState->m_fragmentArgumentTable = m_device->newArgumentTable(descriptor, nullptr);
+            descriptor->release();
+        }
+        encoder->setArgumentTable(renderState->m_vertexArgumentTable.get(), MTL::RenderStageVertex);
+        encoder->setArgumentTable(renderState->m_fragmentArgumentTable.get(), MTL::RenderStageFragment);
 
         commandList->m_encoder = encoder;
         commandList->m_userData = renderState;
@@ -398,7 +408,7 @@ namespace KryneEngine
         MTL4::ComputeCommandEncoder* encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
 
         MTL4::ArgumentTableDescriptor* descriptor = MTL4::ArgumentTableDescriptor::alloc()->init();
-        descriptor->setMaxBufferBindCount(MetalConstants::kMaxArgumentBuffers + MetalConstants::kMaxPushConstantBuffers);
+        descriptor->setMaxBufferBindCount(MetalConstants::kDefaultArgumentTableSize);
         MTL4::ArgumentTable* argumentTable = m_device->newArgumentTable(descriptor, nullptr)->retain();
         encoder->setArgumentTable(argumentTable);
 
@@ -925,7 +935,7 @@ namespace KryneEngine
         for (const auto& bufferView : _bufferViews)
         {
             const MTL::Buffer* buffer = m_resources.m_buffers.Get(bufferView.m_buffer.m_handle)->m_buffer;
-            renderState->m_argumentTable->setAddress(
+            renderState->m_vertexArgumentTable->setAddress(
                 buffer->gpuAddress() + bufferView.m_offset,
                 i + MetalConstants::kVertexStreamBuffersOffset);
             ++i;
@@ -1023,18 +1033,26 @@ namespace KryneEngine
         const MetalArgumentBufferManager::PushConstantData& pushConstantData =
             m_argumentBufferManager.m_pipelineLayouts.Get(_layout.m_handle)->m_pushConstantsData[_index];
 
-
         for (auto& data: pushConstantData.m_data)
         {
-            renderState->m_argumentTable->setAddress(
-            m_byteUploader->SetBytes<u32>(m_device.get(), _data, m_frameId % m_frameContextCount),
-            data.m_bufferIndex);
+            if (BitUtils::EnumHasAny(data.m_visibility, ShaderVisibility::Vertex))
+            {
+                renderState->m_vertexArgumentTable->setAddress(
+                    m_byteUploader->SetBytes<u32>(m_device.get(), _data, m_frameId % m_frameContextCount),
+                    data.m_bufferIndex);
+            }
+            if (BitUtils::EnumHasAny(data.m_visibility, ShaderVisibility::Fragment))
+            {
+                renderState->m_fragmentArgumentTable->setAddress(
+                    m_byteUploader->SetBytes<u32>(m_device.get(), _data, m_frameId % m_frameContextCount),
+                    data.m_bufferIndex);
+            }
         }
     }
 
     void MetalGraphicsContext::SetGraphicsDescriptorSetsWithOffset(
         const RenderCommandEncoderHandle _renderEncoder,
-        const PipelineLayoutHandle /*_layout*/,
+        const PipelineLayoutHandle _layout,
         const eastl::span<const DescriptorSetHandle>& _sets,
         const u32 _offset)
     {
@@ -1043,16 +1061,30 @@ namespace KryneEngine
         const auto* renderState = static_cast<RenderState*>(commandList->m_userData);
         KE_ASSERT_FATAL(renderState != nullptr);
 
+        const MetalArgumentBufferManager::PipelineLayoutHotData& layoutData =
+            *m_argumentBufferManager.m_pipelineLayouts.Get(_layout.m_handle);
+
+
         const u8 frameIndex = m_frameId % m_frameContextCount;
         for (u32 i = 0; i < _sets.size(); i++)
         {
             const u32 index = _offset + i;
+            const ShaderVisibility visibility = layoutData.m_setVisibilities[index];
             const MetalArgumentBufferManager::ArgumentBufferHotData& argBuffer =
                 *m_argumentBufferManager.m_argumentBufferSets.Get(_sets[i].m_handle);
 
-            renderState->m_argumentTable->setAddress(
-                argBuffer.m_argumentBuffer->gpuAddress() + frameIndex * argBuffer.m_encoder->encodedLength(),
-                index);
+            if (BitUtils::EnumHasAny(visibility, ShaderVisibility::Vertex))
+            {
+                renderState->m_vertexArgumentTable->setAddress(
+                    argBuffer.m_argumentBuffer->gpuAddress() + frameIndex * argBuffer.m_encoder->encodedLength(),
+                    index);
+            }
+            if (BitUtils::EnumHasAny(visibility, ShaderVisibility::Fragment))
+            {
+                renderState->m_fragmentArgumentTable->setAddress(
+                    argBuffer.m_argumentBuffer->gpuAddress() + frameIndex * argBuffer.m_encoder->encodedLength(),
+                    index);
+            }
         }
     }
 

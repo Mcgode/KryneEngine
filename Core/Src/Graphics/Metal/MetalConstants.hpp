@@ -18,7 +18,11 @@ namespace KryneEngine::MetalConstants
     static constexpr u32 kVertexStreamBuffersOffset = kMaxArgumentBuffers + kMaxPushConstantBuffers;
     static constexpr u32 kMaxVertexBuffers = 16;
 
-    static_assert(kMaxArgumentBuffers + kMaxPushConstantBuffers + kMaxVertexBuffers <= kMaxBuffersPerStage);
+    static constexpr u32 kDefaultArgumentTableSize = kMaxArgumentBuffers + kMaxPushConstantBuffers;
+    static constexpr u32 kVertexArgumentTableSize = kMaxArgumentBuffers + kMaxPushConstantBuffers + kMaxVertexBuffers;
+
+    static_assert(kDefaultArgumentTableSize <= kMaxBuffersPerStage);
+    static_assert(kVertexArgumentTableSize <= kMaxBuffersPerStage);
 
     static constexpr MTL::RenderStages kAllRenderStages =
         MTL::RenderStageVertex
