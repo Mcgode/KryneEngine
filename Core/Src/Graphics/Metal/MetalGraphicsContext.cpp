@@ -403,8 +403,7 @@ namespace KryneEngine
     void MetalGraphicsContext::BeginComputePass(const CommandListHandle _commandList)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
-        KE_ASSERT(commandList->m_encoder == nullptr);
-        KE_ASSERT(commandList->m_userData == nullptr);
+        KE_ASSERT(commandList->m_type != CommandListData::EncoderType::Render);
 
         KE_AUTO_RELEASE_POOL;
 
