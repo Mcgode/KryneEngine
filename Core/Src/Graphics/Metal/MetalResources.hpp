@@ -144,7 +144,7 @@ namespace KryneEngine
     private:
         struct RenderPassHotData
         {
-            MTL::RenderPassDescriptor* m_descriptor;
+            MTL4::RenderPassDescriptor* m_descriptor;
 
             struct SystemRtv
             {

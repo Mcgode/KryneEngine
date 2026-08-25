@@ -7,6 +7,7 @@
 #pragma once
 
 #include "KryneEngine/Core/Common/Types.hpp"
+#include <Metal/Metal.hpp>
 
 namespace KryneEngine::MetalConstants
 {
@@ -18,4 +19,12 @@ namespace KryneEngine::MetalConstants
     static constexpr u32 kMaxVertexBuffers = 16;
 
     static_assert(kMaxArgumentBuffers + kMaxPushConstantBuffers + kMaxVertexBuffers <= kMaxBuffersPerStage);
+
+    static constexpr MTL::RenderStages kAllRenderStages =
+        MTL::RenderStageVertex
+        | MTL::RenderStageMesh
+        | MTL::RenderStageObject
+        | MTL::RenderStageFragment
+        | MTL::RenderStageTile
+    ;
 }

@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <EASTL/unique_ptr.h>
-
 #include "Graphics/Metal/MetalArgumentBufferManager.hpp"
 #include "Graphics/Metal/MetalHeaders.hpp"
 #include "Graphics/Metal/MetalResources.hpp"
@@ -22,10 +20,10 @@
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include "KryneEngine/Core/Graphics/Texture.hpp"
-#include "KryneEngine/Core/Threads/SpinLock.hpp"
 
 namespace KryneEngine
 {
+    class ByteUploader;
     struct DrawIndexedInstancedDesc;
     struct DrawInstancedDesc;
     struct RenderPassDesc;
@@ -59,9 +57,9 @@ namespace KryneEngine
         NsPtr<MTL::Device> m_device;
         MetalSwapChain m_swapChain;
 
-        NsPtr<MTL::CommandQueue> m_graphicsQueue;
-        NsPtr<MTL::CommandQueue> m_computeQueue;
-        NsPtr<MTL::IOCommandQueue> m_ioQueue;
+        NsPtr<MTL4::CommandQueue> m_graphicsQueue;
+        NsPtr<MTL4::CommandQueue> m_computeQueue;
+        NsPtr<MTL4::CommandQueue> m_ioQueue;
 
         u8 m_frameContextCount;
         DynamicArray<MetalFrameContext> m_frameContexts;
@@ -227,7 +225,6 @@ namespace KryneEngine
     private:
         MetalResources m_resources;
         MetalArgumentBufferManager m_argumentBufferManager;
-
-        void UseResources(CommandListHandle _commandList, eastl::span<MTL::Resource*> _resources, MTL::ResourceUsage _usage);
+        ByteUploader* m_byteUploader = nullptr;
     };
 } // KryneEngine

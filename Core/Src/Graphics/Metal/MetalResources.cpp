@@ -311,7 +311,7 @@ namespace KryneEngine
         const GenPool::Handle handle = m_renderPasses.Allocate();
 
         auto [hotData, coldData] = m_renderPasses.GetAll(handle);
-        hotData->m_descriptor = MTL::RenderPassDescriptor::alloc()->init();
+        hotData->m_descriptor = MTL4::RenderPassDescriptor::alloc()->init();
 
         coldData->m_colorFormats.clear(true);
 

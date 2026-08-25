@@ -90,11 +90,6 @@ namespace KryneEngine
         m_metalLayer->setDrawableSize(windowSize);
     }
 
-    void MetalSwapChain::Present(CommandList _commandList, u8 _frameIndex)
-    {
-        _commandList->m_commandBuffer->presentDrawable(m_drawable.get());
-    }
-
     void MetalSwapChain::UpdateNextDrawable(u8 _frameIndex, MetalResources& _resources)
     {
         KE_AUTO_RELEASE_POOL;
