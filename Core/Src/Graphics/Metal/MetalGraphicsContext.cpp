@@ -408,14 +408,18 @@ namespace KryneEngine
         KE_AUTO_RELEASE_POOL;
 
         commandList->ResetEncoder(CommandListData::EncoderType::Compute);
-        MTL4::ComputeCommandEncoder* encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
+        auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
+        if (commandList->m_encoder == nullptr)
+        {
+            encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
+            commandList->m_encoder = encoder;
+        }
 
         MTL4::ArgumentTableDescriptor* descriptor = MTL4::ArgumentTableDescriptor::alloc()->init();
         descriptor->setMaxBufferBindCount(MetalConstants::kDefaultArgumentTableSize);
         MTL4::ArgumentTable* argumentTable = m_device->newArgumentTable(descriptor, nullptr)->retain();
         encoder->setArgumentTable(argumentTable);
 
-        commandList->m_encoder = encoder;
         commandList->m_userData = argumentTable;
     }
 
