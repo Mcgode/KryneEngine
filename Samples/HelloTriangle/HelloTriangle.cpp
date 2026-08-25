@@ -347,26 +347,26 @@ int main()
             const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
                 commandList, renderPassHandles[index]);
 
-            graphicsContext->SetVertexBuffers(commandList, {&vertexBufferView, 1});
-            graphicsContext->SetIndexBuffer(commandList, indexBufferView, false);
-            graphicsContext->SetGraphicsPipeline(commandList, trianglePso);
+            graphicsContext->SetVertexBuffers(renderEncoder, {&vertexBufferView, 1});
+            graphicsContext->SetIndexBuffer(renderEncoder, indexBufferView, false);
+            graphicsContext->SetGraphicsPipeline(renderEncoder, trianglePso);
 
             const uint2 viewportSize = graphicsContext->GetPresentFrameBufferSize();
             graphicsContext->SetViewport(
-                commandList,
+                renderEncoder,
                 {
                     .m_width = static_cast<s32>(viewportSize.x),
                     .m_height = static_cast<s32>(viewportSize.y),
                 });
             graphicsContext->SetScissorsRect(
-                commandList,
+                renderEncoder,
                 {
                     .m_left = 0,
                     .m_top = 0,
                     .m_right = viewportSize.x,
                     .m_bottom = viewportSize.y,
                 });
-            graphicsContext->DrawIndexedInstanced(commandList, {.m_elementCount = 3});
+            graphicsContext->DrawIndexedInstanced(renderEncoder, {.m_elementCount = 3});
 
             graphicsContext->EndRenderPass(renderEncoder);
         }
