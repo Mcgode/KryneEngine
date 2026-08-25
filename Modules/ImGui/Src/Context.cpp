@@ -520,7 +520,7 @@ namespace KryneEngine::Modules::ImGui
         }
     }
 
-    void Context::RenderFrame(GraphicsContext* _graphicsContext, CommandListHandle _commandList)
+    void Context::RenderFrame(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextRenderFrame");
 
@@ -539,7 +539,7 @@ namespace KryneEngine::Modules::ImGui
                 .m_width = static_cast<s32>(drawData->DisplaySize.x * drawData->FramebufferScale.x),
                 .m_height = static_cast<s32>(drawData->DisplaySize.y * drawData->FramebufferScale.y),
             };
-            _graphicsContext->SetViewport(_commandList, viewport);
+            _graphicsContext->SetViewport(_renderEncoder, viewport);
         }
 
         const u8 frameIndex = _graphicsContext->GetCurrentFrameContextIndex();
@@ -550,7 +550,7 @@ namespace KryneEngine::Modules::ImGui
                 .m_size = m_dynamicIndexBuffer.GetSize(frameIndex),
                 .m_buffer = m_dynamicIndexBuffer.GetBuffer(frameIndex),
             };
-            _graphicsContext->SetIndexBuffer(_commandList, bufferView, false);
+            _graphicsContext->SetIndexBuffer(_renderEncoder, bufferView, false);
         }
 
         // Set vertex buffer
@@ -560,7 +560,7 @@ namespace KryneEngine::Modules::ImGui
                 .m_stride = sizeof(VertexEntry),
                 .m_buffer = m_dynamicVertexBuffer.GetBuffer(frameIndex),
             };
-            _graphicsContext->SetVertexBuffers(_commandList, {&bufferView,1});
+            _graphicsContext->SetVertexBuffers(_renderEncoder, {&bufferView, 1});
         }
 
         eastl::vector_map<ImTextureID, DescriptorSetHandle> textureDescriptorSets(m_setIndices.get_allocator());
@@ -626,8 +626,6 @@ namespace KryneEngine::Modules::ImGui
                         };
 
                         _graphicsContext->UpdateDescriptorSet(descriptorSet, writeInfo, true);
-
-                        _graphicsContext->DeclarePassTextureViewUsage(_commandList, { &pair.first, 1 }, TextureViewAccessType::Read);
                     }
                 }
 
@@ -643,17 +641,14 @@ namespace KryneEngine::Modules::ImGui
                         .m_right = static_cast<u32>(clipMax.x * drawData->FramebufferScale.x),
                         .m_bottom = static_cast<u32>(clipMax.y * drawData->FramebufferScale.y),
                     };
-                    _graphicsContext->SetScissorsRect(_commandList, rect);
+                    _graphicsContext->SetScissorsRect(_renderEncoder, rect);
                 }
 
                 // Draw
                 {
-                    _graphicsContext->SetGraphicsPipeline(_commandList, m_pso);
+                    _graphicsContext->SetGraphicsPipeline(_renderEncoder, m_pso);
 
-                    _graphicsContext->SetGraphicsDescriptorSets(
-                        _commandList,
-                        m_pipelineLayout,
-                        { &descriptorSet, 1 });
+                    _graphicsContext->SetGraphicsDescriptorSets(_renderEncoder, m_pipelineLayout, {&descriptorSet, 1});
 
                     PushConstants pushConstants {};
                     pushConstants.m_scale = {
@@ -665,18 +660,14 @@ namespace KryneEngine::Modules::ImGui
                         1.0f - drawData->DisplayPos.y * pushConstants.m_scale.y,
                     };
                     _graphicsContext->SetGraphicsPushConstant(
-                        _commandList,
-                        m_pipelineLayout,
-                        { reinterpret_cast<u32*>(&pushConstants), 4 },
-                        0,
-                        0);
+                        _renderEncoder, m_pipelineLayout, {reinterpret_cast<u32*>(&pushConstants), 4}, 0, 0);
 
                     const DrawIndexedInstancedDesc desc {
                         .m_elementCount = drawCmd.ElemCount,
                         .m_indexOffset = static_cast<u32>(indexOffset + drawCmd.IdxOffset),
                         .m_vertexOffset = static_cast<u32>(vertexOffset + drawCmd.VtxOffset),
                     };
-                    _graphicsContext->DrawIndexedInstanced(_commandList, desc);
+                    _graphicsContext->DrawIndexedInstanced(_renderEncoder, desc);
                 }
             }
 

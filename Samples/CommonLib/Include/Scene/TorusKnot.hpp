@@ -39,7 +39,7 @@ namespace KryneEngine::Samples
 
         void RenderGBuffer(
             GraphicsContext* _graphicsContext,
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             DescriptorSetHandle _sceneConstantsSet);
 
         void RenderWindow();

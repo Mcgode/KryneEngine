@@ -347,7 +347,7 @@ int main()
             const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
                 commandList, renderPassHandles[index]);
 
-            graphicsContext->SetVertexBuffers(commandList, { &vertexBufferView, 1 });
+            graphicsContext->SetVertexBuffers(commandList, {&vertexBufferView, 1});
             graphicsContext->SetIndexBuffer(commandList, indexBufferView, false);
             graphicsContext->SetGraphicsPipeline(commandList, trianglePso);
 
@@ -366,11 +366,7 @@ int main()
                     .m_right = viewportSize.x,
                     .m_bottom = viewportSize.y,
                 });
-            graphicsContext->DrawIndexedInstanced(
-                commandList,
-                {
-                    .m_elementCount = 3
-                });
+            graphicsContext->DrawIndexedInstanced(commandList, {.m_elementCount = 3});
 
             graphicsContext->EndRenderPass(renderEncoder);
         }

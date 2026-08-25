@@ -473,7 +473,7 @@ namespace KryneEngine::Modules::GuiLib
     void BasicGuiRenderer::EndLayoutAndRender(
         GraphicsContext& _graphicsContext,
         CommandListHandle _transferCommandList,
-        CommandListHandle _renderCommandList)
+        RenderCommandEncoderHandle _renderEncoder)
     {
         KE_ZoneScopedFunction("BasicGuiRenderer::EndLayoutAndRender");
 
@@ -496,7 +496,6 @@ namespace KryneEngine::Modules::GuiLib
                 }
             };
             _graphicsContext.UpdateDescriptorSet(m_commonDescriptorSet, writes, true);
-            _graphicsContext.DeclarePassBufferViewUsage(_renderCommandList, { &m_commonConstantBufferViews[frameIndex], 1 }, BufferViewAccessType::Read);
         }
 
         if (m_textDescriptorSet == GenPool::kInvalidHandle && m_atlasManager != nullptr)
@@ -532,18 +531,6 @@ namespace KryneEngine::Modules::GuiLib
                 m_texturesDescriptorSetIndices.data());
             textureDataMap = eastl::move(pair.first);
             samplerDataMap = eastl::move(pair.second);
-
-            for (const auto [textureViewRawHandle, _]: textureDataMap)
-            {
-                TextureViewHandle handle { GenPool::Handle(textureViewRawHandle) };
-                _graphicsContext.DeclarePassTextureViewUsage(_renderCommandList, { &handle, 1 }, TextureViewAccessType::Read);
-            }
-        }
-
-        if (m_atlasManager != nullptr)
-        {
-            TextureViewHandle atlasView = m_atlasManager->GetAtlasView();
-            _graphicsContext.DeclarePassTextureViewUsage(_renderCommandList, { &atlasView, 1 }, TextureViewAccessType::Read);
         }
 
         size_t sizeEstimation = 0;
@@ -589,19 +576,19 @@ namespace KryneEngine::Modules::GuiLib
             .m_stride = sizeof(PackedInstanceData),
             .m_buffer = m_instanceDataBuffer.GetBuffer(frameIndex),
         };
-        _graphicsContext.SetVertexBuffers(_renderCommandList, { &bufferView, 1 });
+        _graphicsContext.SetVertexBuffers(_renderEncoder, {&bufferView, 1});
 
         size_t texturesDescriptorSetIndex = 0;
         const DescriptorSetHandle descriptorSets[] = { m_commonDescriptorSet, m_texturesDescriptorSets[0] };
-        _graphicsContext.SetGraphicsDescriptorSets(_renderCommandList, m_commonPipelineLayout, descriptorSets);
+        _graphicsContext.SetGraphicsDescriptorSets(_renderEncoder, m_commonPipelineLayout, descriptorSets);
 
         eastl::fixed_vector<Rect, 16, false> scissors;
         if (m_viewportConstants.ndcProjectionMatrix == float4x4())
         {
-            _graphicsContext.SetViewport(_renderCommandList, {
-               .m_width = static_cast<s32>(m_viewportConstants.viewportSize.x),
-               .m_height = static_cast<s32>(m_viewportConstants.viewportSize.y)
-           });
+            _graphicsContext.SetViewport(
+                _renderEncoder,
+                {.m_width = static_cast<s32>(m_viewportConstants.viewportSize.x),
+                 .m_height = static_cast<s32>(m_viewportConstants.viewportSize.y)});
 
             scissors.push_back({
                 .m_left = 0,
@@ -609,7 +596,7 @@ namespace KryneEngine::Modules::GuiLib
                 .m_right = static_cast<u32>(m_viewportConstants.viewportSize.x),
                 .m_bottom = static_cast<u32>(m_viewportConstants.viewportSize.y)
             });
-            _graphicsContext.SetScissorsRect(_renderCommandList, scissors.back());
+            _graphicsContext.SetScissorsRect(_renderEncoder, scissors.back());
         }
 
         {
@@ -632,22 +619,24 @@ namespace KryneEngine::Modules::GuiLib
                     auto* packedInstanceData = reinterpret_cast<PackedInstanceData*>(buffer + offset);
                     packedInstanceData->m_packedRect = packedRect;
                     packedInstanceData->m_packedColor = Color(
-                        renderCommand.renderData.rectangle.backgroundColor.r / 255.f,
-                        renderCommand.renderData.rectangle.backgroundColor.g / 255.f,
-                        renderCommand.renderData.rectangle.backgroundColor.b / 255.f,
-                        renderCommand.renderData.rectangle.backgroundColor.a / 255.f).ToSrgb().ToRgba8();
+                        static_cast<float>(renderCommand.renderData.rectangle.backgroundColor.r) / 255.f,
+                        static_cast<float>(renderCommand.renderData.rectangle.backgroundColor.g) / 255.f,
+                        static_cast<float>(renderCommand.renderData.rectangle.backgroundColor.b) / 255.f,
+                        static_cast<float>(renderCommand.renderData.rectangle.backgroundColor.a) / 255.f).ToSrgb().ToRgba8();
                     const uint2 packedRadii = packCornerRadii(renderCommand.renderData.rectangle.cornerRadius);
                     packedInstanceData->m_packedData.x = packedRadii.x;
                     packedInstanceData->m_packedData.y = packedRadii.y;
 
                     if (previous != CLAY_RENDER_COMMAND_TYPE_RECTANGLE)
                     {
-                        _graphicsContext.SetGraphicsPipeline(_renderCommandList, m_rectanglePipeline);
+                        _graphicsContext.SetGraphicsPipeline(_renderEncoder, m_rectanglePipeline);
                     }
-                    _graphicsContext.DrawInstanced(_renderCommandList, DrawInstancedDesc {
-                        .m_vertexCount = 6,
-                        .m_instanceOffset = static_cast<u32>(offset / sizeof(PackedInstanceData)),
-                    });
+                    _graphicsContext.DrawInstanced(
+                        _renderEncoder,
+                        DrawInstancedDesc{
+                            .m_vertexCount = 6,
+                            .m_instanceOffset = static_cast<u32>(offset / sizeof(PackedInstanceData)),
+                        });
                     offset += sizeof(PackedInstanceData);
 
                     previous = CLAY_RENDER_COMMAND_TYPE_RECTANGLE;
@@ -658,10 +647,10 @@ namespace KryneEngine::Modules::GuiLib
                     auto* packedInstanceData = reinterpret_cast<PackedInstanceData*>(buffer + offset);
                     packedInstanceData->m_packedRect = packedRect;
                     packedInstanceData->m_packedColor = Color(
-                        renderCommand.renderData.border.color.r / 255.f,
-                        renderCommand.renderData.border.color.g / 255.f,
-                        renderCommand.renderData.border.color.b / 255.f,
-                        renderCommand.renderData.border.color.a / 255.f).ToSrgb().ToRgba8();
+                        static_cast<float>(renderCommand.renderData.border.color.r) / 255.f,
+                        static_cast<float>(renderCommand.renderData.border.color.g) / 255.f,
+                        static_cast<float>(renderCommand.renderData.border.color.b) / 255.f,
+                        static_cast<float>(renderCommand.renderData.border.color.a) / 255.f).ToSrgb().ToRgba8();
                     const uint2 packedRadii = packCornerRadii(renderCommand.renderData.border.cornerRadius);
                     packedInstanceData->m_packedData.x = packedRadii.x;
                     packedInstanceData->m_packedData.y = packedRadii.y;
@@ -672,12 +661,14 @@ namespace KryneEngine::Modules::GuiLib
 
                     if (previous != CLAY_RENDER_COMMAND_TYPE_BORDER)
                     {
-                        _graphicsContext.SetGraphicsPipeline(_renderCommandList, m_borderPipeline);
+                        _graphicsContext.SetGraphicsPipeline(_renderEncoder, m_borderPipeline);
                     }
-                    _graphicsContext.DrawInstanced(_renderCommandList, DrawInstancedDesc {
-                        .m_vertexCount = 6,
-                        .m_instanceOffset = static_cast<u32>(offset / sizeof(PackedInstanceData)),
-                    });
+                    _graphicsContext.DrawInstanced(
+                        _renderEncoder,
+                        DrawInstancedDesc{
+                            .m_vertexCount = 6,
+                            .m_instanceOffset = static_cast<u32>(offset / sizeof(PackedInstanceData)),
+                        });
                     offset += sizeof(PackedInstanceData);
 
                     previous = CLAY_RENDER_COMMAND_TYPE_BORDER;
@@ -738,10 +729,10 @@ namespace KryneEngine::Modules::GuiLib
                         packedInstanceData->m_packedRect = glyphPackedRect;
 
                         Color tintColor {
-                            renderCommand.renderData.text.textColor.r / 255.f,
-                            renderCommand.renderData.text.textColor.g / 255.f,
-                            renderCommand.renderData.text.textColor.b / 255.f,
-                            renderCommand.renderData.text.textColor.a / 255.f,
+                            static_cast<float>(renderCommand.renderData.text.textColor.r) / 255.f,
+                            static_cast<float>(renderCommand.renderData.text.textColor.g) / 255.f,
+                            static_cast<float>(renderCommand.renderData.text.textColor.b) / 255.f,
+                            static_cast<float>(renderCommand.renderData.text.textColor.a) / 255.f,
                         };
                         if (tintColor.m_value == float4(0))
                         {
@@ -755,7 +746,7 @@ namespace KryneEngine::Modules::GuiLib
 
                         if (previous != CLAY_RENDER_COMMAND_TYPE_TEXT)
                         {
-                            _graphicsContext.SetGraphicsPipeline(_renderCommandList, m_textPipeline);
+                            _graphicsContext.SetGraphicsPipeline(_renderEncoder, m_textPipeline);
                             previous = CLAY_RENDER_COMMAND_TYPE_TEXT;
                         }
 
@@ -763,17 +754,16 @@ namespace KryneEngine::Modules::GuiLib
                         if (texturesDescriptorSetIndex != m_texturesDescriptorSets.size())
                         {
                             _graphicsContext.SetGraphicsDescriptorSetsWithOffset(
-                                _renderCommandList,
-                                m_commonPipelineLayout,
-                                { &m_textDescriptorSet, 1 },
-                                1);
+                                _renderEncoder, m_commonPipelineLayout, {&m_textDescriptorSet, 1}, 1);
                             texturesDescriptorSetIndex = m_texturesDescriptorSets.size();
                         }
 
-                        _graphicsContext.DrawInstanced(_renderCommandList, DrawInstancedDesc {
-                            .m_vertexCount = 6,
-                            .m_instanceOffset = static_cast<u32>(offset / sizeof(PackedInstanceData)),
-                        });
+                        _graphicsContext.DrawInstanced(
+                            _renderEncoder,
+                            DrawInstancedDesc{
+                                .m_vertexCount = 6,
+                                .m_instanceOffset = static_cast<u32>(offset / sizeof(PackedInstanceData)),
+                            });
                         offset += sizeof(PackedInstanceData);
 
                         writePoint.x += glyphLayoutMetrics.m_advanceX;
@@ -788,10 +778,10 @@ namespace KryneEngine::Modules::GuiLib
                     packedInstanceData->m_packedRect = packedRect;
 
                     Color tintColor {
-                        renderCommand.renderData.rectangle.backgroundColor.r / 255.f,
-                        renderCommand.renderData.rectangle.backgroundColor.g / 255.f,
-                        renderCommand.renderData.rectangle.backgroundColor.b / 255.f,
-                        renderCommand.renderData.rectangle.backgroundColor.a / 255.f,
+                        static_cast<float>(renderCommand.renderData.rectangle.backgroundColor.r) / 255.f,
+                        static_cast<float>(renderCommand.renderData.rectangle.backgroundColor.g) / 255.f,
+                        static_cast<float>(renderCommand.renderData.rectangle.backgroundColor.b) / 255.f,
+                        static_cast<float>(renderCommand.renderData.rectangle.backgroundColor.a) / 255.f,
                     };
                     if (tintColor.m_value == float4(0))
                     {
@@ -807,9 +797,9 @@ namespace KryneEngine::Modules::GuiLib
                         {
                             texturesDescriptorSetIndex = it->second.m_descriptorSetIndex;
                             _graphicsContext.SetGraphicsDescriptorSetsWithOffset(
-                                _renderCommandList,
+                                _renderEncoder,
                                 m_commonPipelineLayout,
-                                { m_texturesDescriptorSets.begin() + texturesDescriptorSetIndex, 1 },
+                                {m_texturesDescriptorSets.begin() + texturesDescriptorSetIndex, 1},
                                 1);
                         }
 
@@ -860,12 +850,14 @@ namespace KryneEngine::Modules::GuiLib
                     }
 
                     if (previous != CLAY_RENDER_COMMAND_TYPE_IMAGE)
-                        _graphicsContext.SetGraphicsPipeline(_renderCommandList, m_imagePipeline);
+                        _graphicsContext.SetGraphicsPipeline(_renderEncoder, m_imagePipeline);
 
-                    _graphicsContext.DrawInstanced(_renderCommandList, DrawInstancedDesc {
-                        .m_vertexCount = 6,
-                        .m_instanceOffset = static_cast<u32>(offset / sizeof(PackedInstanceData)),
-                    });
+                    _graphicsContext.DrawInstanced(
+                        _renderEncoder,
+                        DrawInstancedDesc{
+                            .m_vertexCount = 6,
+                            .m_instanceOffset = static_cast<u32>(offset / sizeof(PackedInstanceData)),
+                        });
                     offset += sizeof(PackedInstanceData);
 
                     previous = CLAY_RENDER_COMMAND_TYPE_IMAGE;
@@ -880,7 +872,7 @@ namespace KryneEngine::Modules::GuiLib
                             .m_right = static_cast<u32>(eastl::clamp(renderCommand.boundingBox.x + renderCommand.boundingBox.width, 0.f, m_viewportConstants.viewportSize.x)),
                             .m_bottom = static_cast<u32>(eastl::clamp(renderCommand.boundingBox.y + renderCommand.boundingBox.height, 0.f, m_viewportConstants.viewportSize.y)),
                         });
-                        _graphicsContext.SetScissorsRect(_renderCommandList, scissors.back());
+                        _graphicsContext.SetScissorsRect(_renderEncoder, scissors.back());
                     }
                     previous = CLAY_RENDER_COMMAND_TYPE_SCISSOR_START;
                     break;
@@ -888,7 +880,7 @@ namespace KryneEngine::Modules::GuiLib
                     if (KE_VERIFY(scissors.size() > 1)) [[likely]]
                     {
                         scissors.pop_back();
-                        _graphicsContext.SetScissorsRect(_renderCommandList, scissors.back());
+                        _graphicsContext.SetScissorsRect(_renderEncoder, scissors.back());
                     }
                     previous = CLAY_RENDER_COMMAND_TYPE_SCISSOR_END;
                     break;

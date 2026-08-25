@@ -233,7 +233,7 @@ UiCube::UiCube(
 void UiCube::Render(
     GraphicsContext& _graphicsContext,
     CommandListHandle _transferCommandList,
-    CommandListHandle _renderCommandList,
+    RenderCommandEncoderHandle _renderEncoder,
     const float _contentScale)
 {
     if (m_transferBuffer != GenPool::kInvalidHandle)
@@ -308,28 +308,33 @@ void UiCube::Render(
             .m_index = m_descriptorSetIndex,
             .m_descriptorData = { &descriptorData, 1 },
         };
-        _graphicsContext.DeclarePassBufferViewUsage(_renderCommandList, { &m_constantBufferViews[frameIndex], 1 }, BufferViewAccessType::Read);
         _graphicsContext.UpdateDescriptorSet(m_descriptorSet, { &writeInfo, 1 }, true);
     }
 
 
     const BufferSpan vbSpan { .m_size = sizeof(positions), .m_offset = 0, .m_stride = sizeof(float3), .m_buffer = m_vertexBuffer };
-    _graphicsContext.SetVertexBuffers(_renderCommandList, { &vbSpan, 1 });
+    _graphicsContext.SetVertexBuffers(_renderEncoder, {&vbSpan, 1});
 
     const BufferSpan ibSpan { .m_size = sizeof(indices), .m_offset = 0, .m_stride = sizeof(u16), .m_buffer = m_indexBuffer };
-    _graphicsContext.SetIndexBuffer(_renderCommandList, ibSpan, true);
+    _graphicsContext.SetIndexBuffer(_renderEncoder, ibSpan, true);
 
-    _graphicsContext.SetViewport(_renderCommandList, {
-        .m_topLeftX = static_cast<s32>(cubeViewport.m_left),
-        .m_topLeftY = static_cast<s32>(cubeViewport.m_top),
-        .m_width = static_cast<s32>(cubeViewport.m_right - cubeViewport.m_left),
-        .m_height = static_cast<s32>(cubeViewport.m_bottom - cubeViewport.m_top),
-    });
+    _graphicsContext.SetViewport(
+        _renderEncoder,
+        {
+            .m_topLeftX = static_cast<s32>(cubeViewport.m_left),
+            .m_topLeftY = static_cast<s32>(cubeViewport.m_top),
+            .m_width = static_cast<s32>(cubeViewport.m_right - cubeViewport.m_left),
+            .m_height = static_cast<s32>(cubeViewport.m_bottom - cubeViewport.m_top),
+        });
 
-    _graphicsContext.SetGraphicsPipeline(_renderCommandList, m_pso);
-    _graphicsContext.SetGraphicsDescriptorSets(_renderCommandList, m_pipelineLayout, { &m_descriptorSet, 1 });
+    _graphicsContext.SetGraphicsPipeline(_renderEncoder, m_pso);
+    _graphicsContext.SetGraphicsDescriptorSets(_renderEncoder, m_pipelineLayout, {&m_descriptorSet, 1});
 
-    _graphicsContext.DrawIndexedInstanced(_renderCommandList, { .m_elementCount = 36, });
+    _graphicsContext.DrawIndexedInstanced(
+        _renderEncoder,
+        {
+            .m_elementCount = 36,
+        });
 
     for (u32 i = 0; i < 6; ++i)
     {
@@ -400,6 +405,6 @@ void UiCube::Render(
                 .fontSize = 32,
             }));
         }
-        m_guiContexts[i].EndLayout(_graphicsContext, _transferCommandList, _renderCommandList);
+        m_guiContexts[i].EndLayout(_graphicsContext, _transferCommandList, _renderEncoder);
     }
 }

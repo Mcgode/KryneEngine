@@ -83,9 +83,9 @@ namespace KryneEngine::Modules::ImGui
          * This function is responsible for rendering the ImGui UI for a single frame.
          *
          * @param _graphicsContext The graphics context used for rendering.
-         * @param _commandList The command list used for rendering.
+         * @param _renderEncoder The command list used for rendering.
          */
-        void RenderFrame(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+        void RenderFrame(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
 
         /**
          * @brief A helper function to convert a texture view / sampler set into an ImTextureID.

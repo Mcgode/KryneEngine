@@ -276,7 +276,7 @@ namespace KryneEngine::Samples
 
     void TorusKnot::RenderGBuffer(
         GraphicsContext* _graphicsContext,
-        CommandListHandle _commandList,
+        RenderCommandEncoderHandle _renderEncoder,
         DescriptorSetHandle _sceneConstantsSet)
     {
         const BufferSpan vertexBufferView = {
@@ -290,17 +290,14 @@ namespace KryneEngine::Samples
             .m_buffer = m_indexBuffer,
         };
 
-        _graphicsContext->SetVertexBuffers(_commandList, { &vertexBufferView, 1 });
-        _graphicsContext->SetIndexBuffer(_commandList, indexBufferView, false);
+        _graphicsContext->SetVertexBuffers(_renderEncoder, {&vertexBufferView, 1});
+        _graphicsContext->SetIndexBuffer(_renderEncoder, indexBufferView, false);
 
-        _graphicsContext->SetGraphicsPipeline(_commandList, m_pso);
-        _graphicsContext->SetGraphicsDescriptorSets(
-            _commandList,
-            m_pipelineLayout,
-            { &_sceneConstantsSet, 1 });
+        _graphicsContext->SetGraphicsPipeline(_renderEncoder, m_pso);
+        _graphicsContext->SetGraphicsDescriptorSets(_renderEncoder, m_pipelineLayout, {&_sceneConstantsSet, 1});
 
         _graphicsContext->DrawIndexedInstanced(
-            _commandList,
+            _renderEncoder,
             {
                 .m_elementCount = static_cast<u32>(m_indexBufferSize / sizeof(u32)),
             });

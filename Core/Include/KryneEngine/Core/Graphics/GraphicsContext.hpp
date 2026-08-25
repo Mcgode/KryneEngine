@@ -775,57 +775,64 @@ namespace KryneEngine
             bool _singleFrame) = 0;
 
         /**
-         * @brief Sets the viewport used for rasterization in the given command list.
+         * @brief Sets the viewport used for rasterization in the given render command encoder.
          *
-         * @param _commandList The command list in which to record the viewport state.
+         * @param _renderEncoder The command encoder in which to record the viewport state.
          * @param _viewport The viewport dimensions and depth range to set.
          */
-        virtual void SetViewport(CommandListHandle _commandList, const Viewport& _viewport) = 0;
+        virtual void SetViewport(RenderCommandEncoderHandle _renderEncoder, const Viewport& _viewport) = 0;
 
         /**
-         * @brief Sets the scissor rectangle used to clip rasterization in the given command list.
+         * @brief Sets the scissor rectangle used to clip rasterization in the given render command encoder.
          *
-         * @param _commandList The command list in which to record the scissor rectangle.
+         * @param _renderEncoder The command encoder in which to record the scissor rectangle.
          * @param _rect The scissor rectangle to set.
          */
-        virtual void SetScissorsRect(CommandListHandle _commandList, const Rect& _rect) = 0;
+        virtual void SetScissorsRect(RenderCommandEncoderHandle _renderEncoder, const Rect& _rect) = 0;
 
         /**
          * @brief Binds an index buffer for use by subsequent indexed draw calls.
          *
-         * @param _commandList The command list in which to record the index buffer binding.
+         * @param _renderEncoder The command encoder in which to record the index buffer binding.
          * @param _indexBufferView The buffer span to bind as the index buffer.
          * @param _isU16 Whether the index buffer contains 16-bit indices (`true`) or 32-bit indices (`false`).
          */
-        virtual void SetIndexBuffer(CommandListHandle _commandList, const BufferSpan& _indexBufferView, bool _isU16) = 0;
+        virtual void SetIndexBuffer(
+            RenderCommandEncoderHandle _renderEncoder,
+            const BufferSpan& _indexBufferView,
+            bool _isU16) = 0;
 
         /**
          * @brief Binds one or more vertex buffers for use by subsequent draw calls.
          *
-         * @param _commandList The command list in which to record the vertex buffer bindings.
+         * @param _renderEncoder The command encoder in which to record the vertex buffer bindings.
          * @param _bufferViews The buffer spans to bind as vertex buffers, in binding slot order.
          */
-        virtual void SetVertexBuffers(CommandListHandle _commandList, const eastl::span<const BufferSpan>& _bufferViews) = 0;
+        virtual void SetVertexBuffers(
+            RenderCommandEncoderHandle _renderEncoder,
+            const eastl::span<const BufferSpan>& _bufferViews) = 0;
 
         /**
          * @brief Binds a graphics pipeline for use by subsequent draw calls.
          *
-         * @param _commandList The command list in which to record the pipeline binding.
+         * @param _renderEncoder The command encoder in which to record the pipeline binding.
          * @param _graphicsPipeline The graphics pipeline to bind, previously created with #CreateGraphicsPipeline.
          */
-        virtual void SetGraphicsPipeline(CommandListHandle _commandList, GraphicsPipelineHandle _graphicsPipeline) = 0;
+        virtual void SetGraphicsPipeline(
+            RenderCommandEncoderHandle _renderEncoder,
+            GraphicsPipelineHandle _graphicsPipeline) = 0;
 
         /**
          * @brief Sets push constant data for the graphics pipeline stages.
          *
-         * @param _commandList The command list in which to record the push constant update.
+         * @param _renderEncoder The command encoder in which to record the push constant update.
          * @param _layout The pipeline layout describing the push constant range to update.
          * @param _data The raw push constant data to set.
          * @param _index The index of the push constant range in the pipeline layout.
          * @param _offset The offset, in 32-bit words, within the push constant range at which to start writing.
          */
         virtual void SetGraphicsPushConstant(
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             PipelineLayoutHandle _layout,
             const eastl::span<const u32>& _data,
             u32 _index,
@@ -834,13 +841,13 @@ namespace KryneEngine
         /**
          * @brief Binds a set of descriptor sets for use by the graphics pipeline, starting at a given offset.
          *
-         * @param _commandList The command list in which to record the descriptor set bindings.
+         * @param _renderEncoder The command encoder in which to record the descriptor set bindings.
          * @param _layout The pipeline layout describing the descriptor set slots to bind to.
          * @param _sets The descriptor sets to bind.
          * @param _offset The index of the first descriptor set slot (in `_layout`) to bind to.
          */
         virtual void SetGraphicsDescriptorSetsWithOffset(
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             PipelineLayoutHandle _layout,
             const eastl::span<const DescriptorSetHandle>& _sets,
             u32 _offset) = 0;
@@ -848,35 +855,37 @@ namespace KryneEngine
         /**
          * @brief Binds a set of descriptor sets for use by the graphics pipeline, starting at slot 0.
          *
-         * @param _commandList The command list in which to record the descriptor set bindings.
+         * @param _renderEncoder The command encoder in which to record the descriptor set bindings.
          * @param _layout The pipeline layout describing the descriptor set slots to bind to.
          * @param _sets The descriptor sets to bind.
          *
          * @see SetGraphicsDescriptorSetsWithOffset
          */
         void SetGraphicsDescriptorSets(
-            CommandListHandle _commandList,
-            PipelineLayoutHandle _layout,
+            const RenderCommandEncoderHandle _renderEncoder,
+            const PipelineLayoutHandle _layout,
             const eastl::span<const DescriptorSetHandle>& _sets)
         {
-            SetGraphicsDescriptorSetsWithOffset(_commandList, _layout, _sets, 0);
+            SetGraphicsDescriptorSetsWithOffset(_renderEncoder, _layout, _sets, 0);
         }
 
         /**
          * @brief Records a non-indexed, (potentially) instanced draw call.
          *
-         * @param _commandList The command list in which to record the draw call.
+         * @param _renderEncoder The command list in which to record the draw call.
          * @param _desc The parameters describing the draw call (vertex/instance counts and offsets).
          */
-        virtual void DrawInstanced(CommandListHandle _commandList, const DrawInstancedDesc& _desc) = 0;
+        virtual void DrawInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc) = 0;
 
         /**
          * @brief Records an indexed, (potentially) instanced draw call.
          *
-         * @param _commandList The command list in which to record the draw call.
+         * @param _renderEncoder The command list in which to record the draw call.
          * @param _desc The parameters describing the draw call (index/instance counts and offsets).
          */
-        virtual void DrawIndexedInstanced(CommandListHandle _commandList, const DrawIndexedInstancedDesc& _desc) = 0;
+        virtual void DrawIndexedInstanced(
+            RenderCommandEncoderHandle _renderEncoder,
+            const DrawIndexedInstancedDesc& _desc) = 0;
 
         /**
          * @brief Binds a compute pipeline for use by subsequent dispatch calls.

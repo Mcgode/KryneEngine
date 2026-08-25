@@ -29,7 +29,7 @@ public:
     void Render(
         GraphicsContext& _graphicsContext,
         CommandListHandle _transferCommandList,
-        CommandListHandle _renderCommandList,
+        RenderCommandEncoderHandle _renderEncoder,
         float _contentScale);
 
 private:

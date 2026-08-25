@@ -224,21 +224,16 @@ namespace KryneEngine::Samples::RenderGraphDemo
         m_torusKnot->ProcessTransfers(_graphicsContext, _commandList);
     }
 
-    void SceneManager::RenderGBuffer(GraphicsContext* _graphicsContext, CommandListHandle _commandList)
+    void SceneManager::RenderGBuffer(GraphicsContext* _graphicsContext, const RenderCommandEncoderHandle _renderEncoder)
     {
-        _graphicsContext->DeclarePassBufferViewUsage(
-            _commandList,
-            { &m_sceneCbvs[_graphicsContext->GetCurrentFrameContextIndex()], 1 },
-            BufferViewAccessType::Constant);
         _graphicsContext->SetViewport(
-            _commandList,
-            Viewport { .m_width = static_cast<s32>(m_windowSize.x), .m_height = static_cast<s32>(m_windowSize.y) });
+            _renderEncoder,
+            Viewport{.m_width = static_cast<s32>(m_windowSize.x), .m_height = static_cast<s32>(m_windowSize.y)});
         _graphicsContext->SetScissorsRect(
-            _commandList,
-            Rect { .m_left = 0, .m_top = 0, .m_right = m_windowSize.x, .m_bottom = m_windowSize.y });
+            _renderEncoder, Rect{.m_left = 0, .m_top = 0, .m_right = m_windowSize.x, .m_bottom = m_windowSize.y});
         m_torusKnot->RenderGBuffer(
             _graphicsContext,
-            _commandList,
+            _renderEncoder,
             m_sceneDescriptorSets[_graphicsContext->GetCurrentFrameContextIndex()]);
     }
 }

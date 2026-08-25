@@ -48,7 +48,7 @@ namespace KryneEngine::Modules::GuiLib
         void EndLayout(
             GraphicsContext& _graphicsContext,
             CommandListHandle _transferCommandList,
-            CommandListHandle _renderCommandList);
+            RenderCommandEncoderHandle _renderEncoder);
 
         void* RegisterTextureRegion(TextureRegion&& _region);
 

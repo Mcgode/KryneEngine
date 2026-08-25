@@ -808,9 +808,9 @@ namespace KryneEngine
             m_frameId % m_frameContextCount);
     }
 
-    void MetalGraphicsContext::SetViewport(const CommandListHandle _commandList, const Viewport& _viewport)
+    void MetalGraphicsContext::SetViewport(const RenderCommandEncoderHandle _renderEncoder, const Viewport& _viewport)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
 
         auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
@@ -824,9 +824,9 @@ namespace KryneEngine
         });
     }
 
-    void MetalGraphicsContext::SetScissorsRect(const CommandListHandle _commandList, const Rect& _rect)
+    void MetalGraphicsContext::SetScissorsRect(const RenderCommandEncoderHandle _renderEncoder, const Rect& _rect)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
         auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
 
@@ -839,9 +839,10 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetIndexBuffer(
-        const CommandListHandle _commandList, const BufferSpan& _indexBufferView, const bool _isU16)
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferSpan& _indexBufferView, const bool _isU16)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
         auto* renderState = static_cast<RenderState*>(commandList->m_userData);
         KE_ASSERT_FATAL(renderState != nullptr);
@@ -851,9 +852,10 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetVertexBuffers(
-        const CommandListHandle _commandList, const eastl::span<const BufferSpan>& _bufferViews)
+        const RenderCommandEncoderHandle _renderEncoder,
+        const eastl::span<const BufferSpan>& _bufferViews)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
         auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
         auto* renderState = static_cast<RenderState*>(commandList->m_userData);
@@ -872,9 +874,10 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetGraphicsPipeline(
-        const CommandListHandle _commandList, const GraphicsPipelineHandle _graphicsPipeline)
+        const RenderCommandEncoderHandle _renderEncoder,
+        const GraphicsPipelineHandle _graphicsPipeline)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
         auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
         auto* renderState = static_cast<RenderState*>(commandList->m_userData);
@@ -947,15 +950,15 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetGraphicsPushConstant(
-        const CommandListHandle _commandList,
+        const RenderCommandEncoderHandle _renderEncoder,
         const PipelineLayoutHandle _layout,
         const eastl::span<const u32>& _data,
         const u32 _index,
-        u32 _offset)
+        u32 /*_offset*/)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
-        auto* renderState = static_cast<RenderState*>(commandList->m_userData);
+        const auto* renderState = static_cast<RenderState*>(commandList->m_userData);
         KE_ASSERT_FATAL(renderState != nullptr);
 
         const MetalArgumentBufferManager::PushConstantData& pushConstantData =
@@ -971,19 +974,15 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetGraphicsDescriptorSetsWithOffset(
-        const CommandListHandle _commandList,
-        const PipelineLayoutHandle _layout,
+        const RenderCommandEncoderHandle _renderEncoder,
+        const PipelineLayoutHandle /*_layout*/,
         const eastl::span<const DescriptorSetHandle>& _sets,
         const u32 _offset)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
-        auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
-        auto* renderState = static_cast<RenderState*>(commandList->m_userData);
+        const auto* renderState = static_cast<RenderState*>(commandList->m_userData);
         KE_ASSERT_FATAL(renderState != nullptr);
-
-        const MetalArgumentBufferManager::PipelineLayoutHotData& layoutData =
-            *m_argumentBufferManager.m_pipelineLayouts.Get(_layout.m_handle);
 
         const u8 frameIndex = m_frameId % m_frameContextCount;
         for (u32 i = 0; i < _sets.size(); i++)
@@ -998,9 +997,11 @@ namespace KryneEngine
         }
     }
 
-    void MetalGraphicsContext::DrawInstanced(const CommandListHandle _commandList, const DrawInstancedDesc& _desc)
+    void MetalGraphicsContext::DrawInstanced(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const DrawInstancedDesc& _desc)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
         auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
         const auto* renderState = static_cast<RenderState*>(commandList->m_userData);
@@ -1016,10 +1017,10 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::DrawIndexedInstanced(
-        const CommandListHandle _commandList,
+        const RenderCommandEncoderHandle _renderEncoder,
         const DrawIndexedInstancedDesc& _desc)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
         auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
         const auto* renderState = static_cast<RenderState*>(commandList->m_userData);

@@ -178,24 +178,30 @@ namespace KryneEngine
             const eastl::span<const DescriptorSetWriteInfo>& _writes,
             bool _singleFrame) override;
 
-        void SetViewport(CommandListHandle  _commandList, const Viewport& _viewport) override;
-        void SetScissorsRect(CommandListHandle  _commandList, const Rect& _rect) override;
-        void SetIndexBuffer(CommandListHandle _commandList, const BufferSpan& _indexBufferView, bool _isU16) override;
-        void SetVertexBuffers(CommandListHandle _commandList, const eastl::span<const BufferSpan>& _bufferViews) override;
-        void SetGraphicsPipeline(CommandListHandle _commandList, GraphicsPipelineHandle _graphicsPipeline) override;
+        void SetViewport(RenderCommandEncoderHandle _renderEncoder, const Viewport& _viewport) override;
+        void SetScissorsRect(RenderCommandEncoderHandle _renderEncoder, const Rect& _rect) override;
+        void SetIndexBuffer(
+            RenderCommandEncoderHandle _renderEncoder,
+            const BufferSpan& _indexBufferView, bool _isU16) override;
+        void SetVertexBuffers(
+            RenderCommandEncoderHandle _renderEncoder,
+            const eastl::span<const BufferSpan>& _bufferViews) override;
+        void SetGraphicsPipeline(
+            RenderCommandEncoderHandle _renderEncoder,
+            GraphicsPipelineHandle _graphicsPipeline) override;
         void SetGraphicsPushConstant(
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             PipelineLayoutHandle _layout,
             const eastl::span<const u32>& _data,
             u32 _index,
             u32 _offset) override;
         void SetGraphicsDescriptorSetsWithOffset(
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             PipelineLayoutHandle _layout,
             const eastl::span<const DescriptorSetHandle>& _sets,
             u32 _offset) override;
-        void DrawInstanced(CommandListHandle _commandList, const DrawInstancedDesc& _desc) override;
-        void DrawIndexedInstanced(CommandListHandle _commandList, const DrawIndexedInstancedDesc& _desc) override;
+        void DrawInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc) override;
+        void DrawIndexedInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawIndexedInstancedDesc& _desc) override;
 
         void SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline) override;
         void SetComputeDescriptorSetsWithOffset(

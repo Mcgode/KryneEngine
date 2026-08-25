@@ -61,7 +61,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         [[nodiscard]] DescriptorSetLayoutHandle GetDescriptorSetLayout() const { return m_sceneDescriptorSetLayout; }
         [[nodiscard]] DescriptorSetHandle GetSceneDescriptorSet(u8 _index) const { return m_sceneDescriptorSets[_index]; }
 
-        void RenderGBuffer(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+        void RenderGBuffer(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
 
     private:
         AllocatorInstance m_allocator;

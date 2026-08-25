@@ -1315,11 +1315,11 @@ namespace KryneEngine
             m_frameId % m_frameContextCount);
     }
 
-    void Dx12GraphicsContext::SetViewport(CommandListHandle _commandList, const Viewport& _viewport)
+    void Dx12GraphicsContext::SetViewport(const RenderCommandEncoderHandle _renderEncoder, const Viewport& _viewport)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetViewport");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         const D3D12_VIEWPORT viewport {
             .TopLeftX = static_cast<float>(_viewport.m_topLeftX),
@@ -1332,11 +1332,11 @@ namespace KryneEngine
         commandList->RSSetViewports(1, &viewport);
     }
 
-    void Dx12GraphicsContext::SetScissorsRect(CommandListHandle _commandList, const Rect& _rect)
+    void Dx12GraphicsContext::SetScissorsRect(const RenderCommandEncoderHandle _renderEncoder, const Rect& _rect)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetScissorsRect");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         const D3D12_RECT scissorRect = {
             .left = static_cast<LONG>(_rect.m_left),
@@ -1347,11 +1347,14 @@ namespace KryneEngine
         commandList->RSSetScissorRects(1, &scissorRect);
     }
 
-    void Dx12GraphicsContext::SetIndexBuffer(CommandListHandle _commandList, const BufferSpan& _indexBufferView, bool _isU16)
+    void Dx12GraphicsContext::SetIndexBuffer(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferSpan& _indexBufferView,
+        const bool _isU16)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetIndexBuffer");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         VERIFY_OR_RETURN_VOID(_indexBufferView.m_buffer != GenPool::kInvalidHandle);
         ID3D12Resource** pIndexBuffer = m_resources.m_buffers.Get(_indexBufferView.m_buffer.m_handle);
@@ -1366,11 +1369,13 @@ namespace KryneEngine
         commandList->IASetIndexBuffer(&indexBufferView);
     }
 
-    void Dx12GraphicsContext::SetVertexBuffers(CommandListHandle _commandList, const eastl::span<const BufferSpan>& _bufferViews)
+    void Dx12GraphicsContext::SetVertexBuffers(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const eastl::span<const BufferSpan>& _bufferViews)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetVertexBuffers");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         eastl::fixed_vector<D3D12_VERTEX_BUFFER_VIEW, 4> bufferViews;
         bufferViews.reserve(_bufferViews.size());
@@ -1391,11 +1396,13 @@ namespace KryneEngine
         commandList->IASetVertexBuffers(0, bufferViews.size(), bufferViews.data());
     }
 
-    void Dx12GraphicsContext::SetGraphicsPipeline(CommandListHandle _commandList, GraphicsPipelineHandle _graphicsPipeline)
+    void Dx12GraphicsContext::SetGraphicsPipeline(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const GraphicsPipelineHandle _graphicsPipeline)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetGraphicsPipeline");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         VERIFY_OR_RETURN_VOID(_graphicsPipeline != GenPool::kInvalidHandle);
         ID3D12PipelineState** pPso = m_resources.m_pipelineStateObjects.Get(_graphicsPipeline.m_handle);
@@ -1409,15 +1416,15 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetGraphicsPushConstant(
-        CommandListHandle _commandList,
-        PipelineLayoutHandle _layout,
+        const RenderCommandEncoderHandle _renderEncoder,
+        const PipelineLayoutHandle _layout,
         const eastl::span<const u32>& _data,
-        u32 _index,
-        u32 _offset)
+        const u32 _index,
+        const u32 _offset)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetGraphicsPushConstant");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         u32* offset = m_resources.m_pipelineLayouts.GetCold(_layout.m_handle);
         VERIFY_OR_RETURN_VOID(offset != nullptr);
@@ -1431,24 +1438,24 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetGraphicsDescriptorSetsWithOffset(
-        CommandListHandle _commandList,
-        PipelineLayoutHandle _pipelineLayout,
+        const RenderCommandEncoderHandle _renderEncoder,
+        const PipelineLayoutHandle _pipelineLayout,
         const eastl::span<const DescriptorSetHandle>& _sets,
-        u32 _offset)
+        const u32 _offset)
     {
         m_descriptorSetManager.SetGraphicsDescriptorSets(
-            static_cast<CommandList>(_commandList),
+            static_cast<CommandList>(_renderEncoder.m_handle),
             _sets,
             m_resources.m_pipelineLayouts.Get(_pipelineLayout.m_handle)->m_tableSetOffsets,
             _offset,
             m_frameId % m_frameContextCount);
     }
 
-    void Dx12GraphicsContext::DrawInstanced(CommandListHandle _commandList, const DrawInstancedDesc& _desc)
+    void Dx12GraphicsContext::DrawInstanced(const RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::DrawInstanced");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         commandList->DrawInstanced(
             _desc.m_vertexCount,
@@ -1457,11 +1464,13 @@ namespace KryneEngine
             _desc.m_instanceOffset);
     }
 
-    void Dx12GraphicsContext::DrawIndexedInstanced(CommandListHandle _commandList, const DrawIndexedInstancedDesc& _desc)
+    void Dx12GraphicsContext::DrawIndexedInstanced(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const DrawIndexedInstancedDesc& _desc)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::DrawIndexedInstanced");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         commandList->DrawIndexedInstanced(
             _desc.m_elementCount,

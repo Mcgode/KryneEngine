@@ -35,7 +35,7 @@ namespace KryneEngine::Modules::GuiLib
         void EndLayoutAndRender(
             GraphicsContext& _graphicsContext,
             CommandListHandle _transferCommandList,
-            CommandListHandle _renderCommandList) override;
+            RenderCommandEncoderHandle _renderEncoder) override;
 
         static constexpr u32 kMaxTextureSlots = 32;
         static constexpr u32 kMaxSamplerSlots = 8;

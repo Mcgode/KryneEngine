@@ -15,12 +15,12 @@ namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
 {
     GraphicsPipelineHandle CreatePso(
         GraphicsContext* _graphicsContext,
-        AllocatorInstance _allocator,
-        RenderPassHandle _renderPass,
-        PipelineLayoutHandle _pipelineLayout,
+        const AllocatorInstance _allocator,
+        const RenderPassHandle _renderPass,
+        const PipelineLayoutHandle _pipelineLayout,
         const char* _fsShader,
         const char* _fsFunctionName,
-        bool _depthTest)
+        const bool _depthTest)
     { 
         void* vsByteCode, *fsByteCode;
         const auto createShaderModule = [&](const auto& _path, void*& _data) -> ShaderModuleHandle
@@ -83,37 +83,22 @@ namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
 
     void Render(
         GraphicsContext* _graphicsContext,
-        CommandListHandle _commandList,
-        u32 _width,
-        u32 _height,
+        const RenderCommandEncoderHandle _renderEncoder,
+        const u32 _width,
+        const u32 _height,
         float _fullscreenDepth,
-        GraphicsPipelineHandle _pso,
-        PipelineLayoutHandle _pipelineLayout,
+        const GraphicsPipelineHandle _pso,
+        const PipelineLayoutHandle _pipelineLayout,
         eastl::span<DescriptorSetHandle> _descriptorSets)
     {
-        _graphicsContext->SetViewport(
-            _commandList,
-            { .m_width = (s32)_width, .m_height = (s32)_height });
+        _graphicsContext->SetViewport(_renderEncoder, {.m_width = (s32)_width, .m_height = (s32)_height});
         _graphicsContext->SetScissorsRect(
-            _commandList,
-            { .m_left = 0, .m_top = 0, .m_right = _width, .m_bottom = _height });
-        _graphicsContext->SetGraphicsPipeline(
-            _commandList,
-            _pso);
-        _graphicsContext->SetGraphicsDescriptorSets(
-            _commandList,
-            _pipelineLayout,
-            _descriptorSets);
+            _renderEncoder, {.m_left = 0, .m_top = 0, .m_right = _width, .m_bottom = _height});
+        _graphicsContext->SetGraphicsPipeline(_renderEncoder, _pso);
+        _graphicsContext->SetGraphicsDescriptorSets(_renderEncoder, _pipelineLayout, _descriptorSets);
 
-        _graphicsContext->SetGraphicsPushConstant(
-            _commandList,
-            _pipelineLayout,
-            { (u32*)(&_fullscreenDepth), 1 },
-            0,
-            0);
+        _graphicsContext->SetGraphicsPushConstant(_renderEncoder, _pipelineLayout, {(u32*)(&_fullscreenDepth), 1}, 0, 0);
 
-        _graphicsContext->DrawInstanced(
-            _commandList,
-            { .m_vertexCount = 3 });
+        _graphicsContext->DrawInstanced(_renderEncoder, {.m_vertexCount = 3});
     }
 } 
