@@ -1272,12 +1272,16 @@ namespace KryneEngine
         m_calibrateCpuGpuClocks = true;
         m_timestampConversion.m_gpuFrequency = static_cast<double>(m_device->queryTimestampFrequency()) / 1e9;
         m_timestampConversion.m_cpuReference = tracy::Profiler::GetTime();
-        m_device->sampleTimestamps(nullptr, &m_timestampConversion.m_gpuReference);
+        MTL::Timestamp cpu, gpu;
+        m_device->sampleTimestamps(&cpu, &gpu);
+        gpu = static_cast<u64>(static_cast<double>(gpu) * m_timestampConversion.m_gpuFrequency); // Convert from ns to ticks
+        m_timestampConversion.m_gpuReference = gpu;
     }
 
     TimestampHandle MetalGraphicsContext::PutTimestamp(const CommandListHandle _commandList)
     {
-        MetalFrameContext& frameContext = m_frameContexts[m_frameId % m_frameContextCount];
+        const u8 frameIndex = m_frameId % m_frameContextCount;
+        MetalFrameContext& frameContext = m_frameContexts[frameIndex];
 
         if (frameContext.m_sampleCounterHeap.get() == nullptr)
         {
@@ -1285,18 +1289,17 @@ namespace KryneEngine
         }
         const auto commandList = static_cast<CommandList>(_commandList);
 
-        u32 index = ~0u;
+        const u32 index = frameContext.AllocateTimestamp();
 
         if (commandList->m_encoder != nullptr)
         {
-            index = frameContext.AllocateTimestamp();
             switch (commandList->m_type)
             {
             case CommandListData::EncoderType::Render:
             {
                 auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
                 encoder->writeTimestamp(
-                    MTL4::TimestampGranularityPrecise,
+                    MTL4::TimestampGranularityRelaxed,
                     MetalConstants::kAllRenderStages,
                     frameContext.m_sampleCounterHeap.get(),
                     index);
@@ -1306,7 +1309,7 @@ namespace KryneEngine
             {
                 auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
                 encoder->writeTimestamp(
-                    MTL4::TimestampGranularityPrecise,
+                    MTL4::TimestampGranularityRelaxed,
                     frameContext.m_sampleCounterHeap.get(),
                     index);
                 break;
@@ -1315,6 +1318,10 @@ namespace KryneEngine
                 commandList->m_commandBuffer->writeTimestampIntoHeap(frameContext.m_sampleCounterHeap.get(), index);
                 break;
             }
+        }
+        else
+        {
+            commandList->m_commandBuffer->writeTimestampIntoHeap(frameContext.m_sampleCounterHeap.get(), index);
         }
 
         return { index, static_cast<u32>(m_frameId) };

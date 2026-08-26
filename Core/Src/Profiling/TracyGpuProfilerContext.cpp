@@ -38,7 +38,7 @@ namespace KryneEngine
 #elif defined(KE_GRAPHICS_API_DX12)
         MemWrite(&item->gpuNewContext.type, GpuContextType::Direct3D12);
 #elif defined(KE_GRAPHICS_API_MTL)
-        MemWrite(&item->gpuNewContext.type, GpuContextType::Invalid);
+        MemWrite(&item->gpuNewContext.type, GpuContextType::Metal);
 #else
 #   error Unsupported API
 #endif
