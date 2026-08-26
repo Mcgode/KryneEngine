@@ -55,13 +55,13 @@ namespace KryneEngine::Samples::RenderGraphDemo
 
         void Process(GraphicsContext* _graphicsContext);
 
-        void ExecuteTransfers(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+        void ExecuteTransfers(GraphicsContext* _graphicsContext, TransferCommandEncoderHandle _transferEncoder) const;
 
         [[nodiscard]] SimplePoolHandle GetSceneConstantsCbv() const { return m_currentCbv; }
         [[nodiscard]] DescriptorSetLayoutHandle GetDescriptorSetLayout() const { return m_sceneDescriptorSetLayout; }
         [[nodiscard]] DescriptorSetHandle GetSceneDescriptorSet(u8 _index) const { return m_sceneDescriptorSets[_index]; }
 
-        void RenderGBuffer(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+        void RenderGBuffer(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder) const;
 
     private:
         AllocatorInstance m_allocator;

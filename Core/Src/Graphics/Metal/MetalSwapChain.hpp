@@ -35,9 +35,12 @@ namespace KryneEngine
 
         void Resize(Window* _window);
 
-        void Present(CommandList _commandList, u8 _frameIndex);
-
         void UpdateNextDrawable(u8 _frameIndex, MetalResources& _resources);
+
+        [[nodiscard]] CA::MetalDrawable* GetDrawable() const
+        {
+            return m_drawable.get();
+        }
 
         [[nodiscard]] uint2 GetDrawableSize() const
         {

@@ -8,6 +8,7 @@
 
 #include "Graphics/Metal/Helpers/EnumConverters.hpp"
 #include "Graphics/Metal/MetalArgumentBufferManager.hpp"
+#include "Graphics/Metal/MetalConstants.hpp"
 #include "KryneEngine/Core/Common/StringHelpers.hpp"
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
@@ -65,6 +66,11 @@ namespace KryneEngine
         KE_ASSERT_FATAL(bufferHot->m_buffer != nullptr);
         bufferCold->m_options = options;
 
+        {
+            const auto lock = m_residencySetLock.AutoLock();
+            m_residencySet->addAllocation(bufferHot->m_buffer);
+        }
+
 #if !defined(KE_FINAL)
         NS::String* label = NS::String::string(_desc.m_desc.m_debugName.c_str(), NS::UTF8StringEncoding);
         bufferHot->m_buffer->setLabel(label);
@@ -78,6 +84,10 @@ namespace KryneEngine
         BufferHotData hotData;
         if (m_buffers.Free(_buffer.m_handle, &hotData))
         {
+            {
+                const auto lock = m_residencySetLock.AutoLock();
+                m_residencySet->removeAllocation(hotData.m_buffer);
+            }
             hotData.m_buffer->release();
             return true;
         }
@@ -105,6 +115,11 @@ namespace KryneEngine
         hot->m_texture = _device.newTexture(desc.get());
         hot->m_isSystemTexture = false;
 
+        {
+            const auto lock = m_residencySetLock.AutoLock();
+            m_residencySet->addAllocation(hot->m_texture);
+        }
+
 #if !defined(KE_FINAL)
         NS::String* label = NS::String::string(_desc.m_desc.m_debugName.c_str(), NS::UTF8StringEncoding);
         hot->m_texture->setLabel(label);
@@ -127,6 +142,10 @@ namespace KryneEngine
         TextureHotData textureHot;
         if (m_textures.Free(_handle.m_handle, &textureHot))
         {
+            {
+                const auto lock = m_residencySetLock.AutoLock();
+                m_residencySet->removeAllocation(textureHot.m_texture);
+            }
             textureHot.m_texture->release();
             return true;
         }
@@ -310,7 +329,7 @@ namespace KryneEngine
         const GenPool::Handle handle = m_renderPasses.Allocate();
 
         auto [hotData, coldData] = m_renderPasses.GetAll(handle);
-        hotData->m_descriptor = MTL::RenderPassDescriptor::alloc()->init();
+        hotData->m_descriptor = MTL4::RenderPassDescriptor::alloc()->init();
 
         coldData->m_colorFormats.clear(true);
 
@@ -373,10 +392,6 @@ namespace KryneEngine
             coldData->m_depthStencilFormat = TextureFormat::NoFormat;
         }
 
-#if !defined(KE_FINAL)
-        hotData->m_debugName = _desc.m_debugName;
-#endif
-
         return { handle };
     }
 
@@ -431,33 +446,6 @@ namespace KryneEngine
         const GenPool::Handle handle = m_graphicsPso.Allocate();
         GraphicsPsoHotData* hot = m_graphicsPso.Get(handle);
 
-        // Retrieve vertex buffer index
-        {
-            hot->m_vertexBufferFirstIndex = 0;
-            for (auto& pcData: hotLayout->m_pushConstantsData)
-            {
-                for (auto& visibilityData: pcData.m_data)
-                {
-                    if (visibilityData.m_visibility == ShaderVisibility::Vertex)
-                    {
-                        hot->m_vertexBufferFirstIndex = eastl::max<u8>(hot->m_vertexBufferFirstIndex, visibilityData.m_bufferIndex + 1);
-                    }
-                }
-            }
-
-            // Push constant buffers are set after argument buffers, so can early break
-            if (hot->m_vertexBufferFirstIndex == 0)
-            {
-                for (u32 i = 0; i < hotLayout->m_setVisibilities.size(); i++)
-                {
-                    if (BitUtils::EnumHasAny(hotLayout->m_setVisibilities[i], ShaderVisibility::Vertex))
-                    {
-                        hot->m_vertexBufferFirstIndex = eastl::max<u8>(hot->m_vertexBufferFirstIndex, i + 1);
-                    }
-                }
-            }
-        }
-
         // Init descriptor
         NsPtr<MTL::RenderPipelineDescriptor> descriptor { MTL::RenderPipelineDescriptor::alloc()->init() };
 
@@ -489,19 +477,22 @@ namespace KryneEngine
         // Set up vertex input
         if (!_desc.m_vertexInput.m_elements.empty())
         {
-            NsPtr<MTL::VertexDescriptor> vertexDescriptor { MTL::VertexDescriptor::alloc()->init() };
+            NsPtr vertexDescriptor { MTL::VertexDescriptor::alloc()->init() };
 
             for (const auto& element: _desc.m_vertexInput.m_elements)
             {
                 MTL::VertexAttributeDescriptor* attribute = vertexDescriptor->attributes()->object(element.m_location);
                 attribute->setFormat(MetalConverters::GetVertexFormat(element.m_format));
                 attribute->setOffset(element.m_offset);
-                attribute->setBufferIndex(hot->m_vertexBufferFirstIndex + element.m_bindingIndex);
+                attribute->setBufferIndex(MetalConstants::kVertexStreamBuffersOffset + element.m_bindingIndex);
+
+                KE_ASSERT(element.m_bindingIndex < MetalConstants::kMaxVertexBuffers);
             }
 
             for (const auto& binding: _desc.m_vertexInput.m_bindings)
             {
-                MTL::VertexBufferLayoutDescriptor* layout = vertexDescriptor->layouts()->object(hot->m_vertexBufferFirstIndex + binding.m_binding);
+                MTL::VertexBufferLayoutDescriptor* layout = vertexDescriptor->layouts()->object(MetalConstants::kVertexStreamBuffersOffset + binding.m_binding);
+                KE_ASSERT(binding.m_binding < MetalConstants::kMaxVertexBuffers);
                 layout->setStride(binding.m_stride);
                 switch (binding.m_inputRate)
                 {

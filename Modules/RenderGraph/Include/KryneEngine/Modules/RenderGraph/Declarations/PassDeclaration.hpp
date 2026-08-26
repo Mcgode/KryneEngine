@@ -26,8 +26,11 @@ namespace KryneEngine::Modules::RenderGraph
 
     struct PassExecutionData
     {
-        GraphicsContext* m_graphicsContext;
-        CommandListHandle m_commandList;
+        GraphicsContext* m_graphicsContext = nullptr;
+        CommandListHandle m_commandList = nullptr;
+        RenderCommandEncoderHandle m_renderEncoder {};
+        ComputeCommandEncoderHandle m_computeEncoder {};
+        TransferCommandEncoderHandle m_transferEncoder {};
     };
 
     struct PassDeclaration

@@ -558,4 +558,66 @@ namespace KryneEngine::MetalConverters
             return MTL::PrimitiveTypeTriangleStrip;
         }
     }
-}
+
+    MTL::Stages GetMetalStages(const BarrierSyncStageFlags _stageFlags)
+    {
+        if (_stageFlags == BarrierSyncStageFlags::None)
+            return 0;
+
+        if (BitUtils::EnumHasAny(_stageFlags, BarrierSyncStageFlags::All))
+            return MTL::StageAll;
+
+        MTL::Stages stages = 0;
+
+        constexpr BarrierSyncStageFlags vertexFlags = BarrierSyncStageFlags::ExecuteIndirect
+            | BarrierSyncStageFlags::IndexInputAssembly
+            | BarrierSyncStageFlags::VertexInputAssembly
+            | BarrierSyncStageFlags::VertexShading
+            | BarrierSyncStageFlags::AllShading;
+        if (BitUtils::EnumHasAny(_stageFlags, vertexFlags))
+        {
+            stages |= MTL::StageVertex | MTL::StageMesh | MTL::StageObject;
+        }
+
+        constexpr BarrierSyncStageFlags fragmentFlags = BarrierSyncStageFlags::FragmentShading
+            | BarrierSyncStageFlags::ColorBlending
+            | BarrierSyncStageFlags::DepthStencilTesting
+            | BarrierSyncStageFlags::MultiSampleResolve
+            | BarrierSyncStageFlags::AllShading;
+        if (BitUtils::EnumHasAny(_stageFlags, fragmentFlags))
+        {
+            stages |= MTL::StageFragment;
+        }
+
+        constexpr BarrierSyncStageFlags tileFlags = BarrierSyncStageFlags::MultiSampleResolve
+            | BarrierSyncStageFlags::AllShading;
+        if (BitUtils::EnumHasAny(_stageFlags, tileFlags))
+        {
+            stages |= MTL::StageTile;
+        }
+
+        constexpr BarrierSyncStageFlags computeFlags = BarrierSyncStageFlags::ComputeShading
+            | BarrierSyncStageFlags::ExecuteIndirect
+            | BarrierSyncStageFlags::Raytracing // Metal dispatches raytracing commands as compute workloads
+            | BarrierSyncStageFlags::AllShading;
+        if (BitUtils::EnumHasAny(_stageFlags, computeFlags))
+        {
+            stages |= MTL::StageDispatch;
+        }
+
+        constexpr BarrierSyncStageFlags blit = BarrierSyncStageFlags::Transfer;
+        if (BitUtils::EnumHasAny(_stageFlags, blit))
+        {
+            stages |= MTL::StageBlit;
+        }
+
+        constexpr BarrierSyncStageFlags accelerationStructureFlags = BarrierSyncStageFlags::AccelerationStructureBuild
+            | BarrierSyncStageFlags::AccelerationStructureCopy;
+        if (BitUtils::EnumHasAny(_stageFlags, accelerationStructureFlags))
+        {
+            stages |= MTL::StageAccelerationStructure;
+        }
+
+        return stages;
+    }
+} // namespace KryneEngine::MetalConverters

@@ -7,6 +7,7 @@
 #include "Graphics/Metal/MetalArgumentBufferManager.hpp"
 
 #include "Graphics/Metal/Helpers/EnumConverters.hpp"
+#include "Graphics/Metal/MetalConstants.hpp"
 #include "Graphics/Metal/MetalHeaders.hpp"
 #include "Graphics/Metal/MetalResources.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
@@ -103,6 +104,7 @@ namespace KryneEngine
 
     DescriptorSetHandle MetalArgumentBufferManager::CreateArgumentBuffer(
         MTL::Device& _device,
+        MetalResources& _resources,
         DescriptorSetLayoutHandle _descriptor)
     {
         KE_AUTO_RELEASE_POOL;
@@ -129,6 +131,11 @@ namespace KryneEngine
 #endif
         hot->m_argumentBuffer = _device.newBuffer(hot->m_encoder->encodedLength() * m_inFlightFrameCount, options);
 
+        {
+            const auto lock = _resources.m_residencySetLock.AutoLock();
+            _resources.m_residencySet->addAllocation(hot->m_argumentBuffer.get());
+        }
+
 #if !defined(KE_FINAL)
         eastl::string debugName;
         debugName.sprintf("ArgumentBuffer#%d", handle.m_index);
@@ -138,11 +145,17 @@ namespace KryneEngine
         return { handle };
     }
 
-    bool MetalArgumentBufferManager::DestroyArgumentBuffer(DescriptorSetHandle _argumentBuffer)
+    bool MetalArgumentBufferManager::DestroyArgumentBuffer(
+        const DescriptorSetHandle _argumentBuffer,
+        MetalResources& _resources)
     {
         ArgumentBufferHotData hot;
         if (m_argumentBufferSets.Free(_argumentBuffer.m_handle, &hot))
         {
+            {
+                const auto lock = _resources.m_residencySetLock.AutoLock();
+                _resources.m_residencySet->removeAllocation(hot.m_argumentBuffer.get());
+            }
             hot.m_encoder.reset();
             hot.m_argumentBuffer.reset();
             return true;
@@ -153,6 +166,9 @@ namespace KryneEngine
 #pragma region Pipeline layout
     PipelineLayoutHandle MetalArgumentBufferManager::CreatePipelineLayout(const PipelineLayoutDesc& _desc)
     {
+        KE_ASSERT(_desc.m_descriptorSets.size() < MetalConstants::kMaxArgumentBuffers);
+        KE_ASSERT(_desc.m_pushConstants.size() < MetalConstants::kMaxPushConstantBuffers);
+
         const GenPool::Handle handle = m_pipelineLayouts.Allocate();
 
         PipelineLayoutHotData* hot = m_pipelineLayouts.Get(handle);

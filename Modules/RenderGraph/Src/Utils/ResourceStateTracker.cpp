@@ -32,8 +32,8 @@ namespace KryneEngine::Modules::RenderGraph
             PassDeclaration& pass = _builder.m_declaredPasses[i];
             constexpr ResourceState defaultState {};
 
-            size_t bufferSpanBegin = m_bufferMemoryBarriers.size();
-            size_t textureSpanBegin = m_textureMemoryBarriers.size();
+            const size_t bufferSpanBegin = m_bufferMemoryBarriers.size();
+            const size_t textureSpanBegin = m_textureMemoryBarriers.size();
 
             const auto parseDependencies = [&](const eastl::span<Dependency>& _dependencies)
             {
@@ -48,7 +48,35 @@ namespace KryneEngine::Modules::RenderGraph
 
                     if (previousState.m_attachment != nullptr)
                     {
-                        previousState.m_attachment->m_layoutAfter = dependency.m_targetLayout;
+                        if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
+                        {
+                            previousState.m_attachment->m_layoutAfter = dependency.m_targetLayout;
+                        }
+                        else
+                        {
+                            const BarrierSyncStageFlags stageSrc = previousState.m_depthPass
+                                ? BarrierSyncStageFlags::DepthStencilTesting
+                                : BarrierSyncStageFlags::ColorBlending;
+
+                            auto accessSrc = BarrierAccessFlags::ColorAttachment;
+                            if (previousState.m_depthPass)
+                            {
+                                accessSrc = previousState.m_attachment->m_readOnly
+                                    ? BarrierAccessFlags::DepthStencilRead
+                                    : BarrierAccessFlags::DepthStencilWrite;
+                            }
+
+                            m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                                .m_stagesSrc = stageSrc,
+                                .m_stagesDst = dependency.m_targetSyncStage,
+                                .m_accessSrc = accessSrc,
+                                .m_accessDst = dependency.m_targetAccessFlags,
+                                .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
+                                .m_layoutSrc = previousState.m_attachment->m_layoutAfter,
+                                .m_layoutDst = dependency.m_targetLayout,
+                                .m_planes = dependency.m_planes,
+                            });
+                        }
                     }
                     else if (resource.IsTexture())
                     {
@@ -106,27 +134,103 @@ namespace KryneEngine::Modules::RenderGraph
                             ? TextureLayout::Present // If last render pass stores color, it is likely presenting. This
                                                      // approach is not the best, and will likely encounter edge cases.
                             : TextureLayout::ColorAttachment;
+                _attachment.m_layoutBefore = _depth
+                    ? _attachment.m_readOnly
+                        ? TextureLayout::DepthStencilReadOnly
+                        : TextureLayout::DepthStencilAttachment
+                    : TextureLayout::ColorAttachment;
+
+                const BarrierSyncStageFlags stageDst = _depth
+                    ? BarrierSyncStageFlags::DepthStencilTesting
+                    : BarrierSyncStageFlags::ColorBlending;
+                auto accessDst = BarrierAccessFlags::ColorAttachment;
+                if (_depth)
+                {
+                    accessDst = _attachment.m_readOnly
+                        ? BarrierAccessFlags::DepthStencilRead
+                        : BarrierAccessFlags::DepthStencilWrite;
+                }
 
                 // Update layoutBefore based on previous state
                 if (it == m_trackedStates.end())
                 {
-                    _attachment.m_layoutBefore = TextureLayout::Unknown;
+                    if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
+                    {
+                        _attachment.m_layoutBefore = TextureLayout::Unknown;
+                    }
+                    else
+                    {
+                        m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                            .m_stagesSrc = BarrierSyncStageFlags::All,
+                            .m_stagesDst = stageDst,
+                            .m_accessSrc = BarrierAccessFlags::None,
+                            .m_accessDst = accessDst,
+                            .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
+                            .m_layoutSrc = TextureLayout::Unknown,
+                            .m_layoutDst = _attachment.m_layoutAfter,
+                            .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
+                        });
+                    }
                     m_trackedStates.emplace(underlyingResource, newState);
                 }
                 else
                 {
-                    if (it->second.m_attachment != nullptr)
+                    if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
                     {
-                        it->second.m_attachment->m_layoutAfter = _depth
-                            ? _attachment.m_readOnly
-                                ? TextureLayout::DepthStencilReadOnly
-                                : TextureLayout::DepthStencilAttachment
-                            : TextureLayout::ColorAttachment;
-                        _attachment.m_layoutBefore = it->second.m_attachment->m_layoutAfter;
+                        if (it->second.m_attachment != nullptr)
+                        {
+                            it->second.m_attachment->m_layoutAfter = _depth
+                                ? _attachment.m_readOnly
+                                    ? TextureLayout::DepthStencilReadOnly
+                                    : TextureLayout::DepthStencilAttachment
+                                : TextureLayout::ColorAttachment;
+                            _attachment.m_layoutBefore = it->second.m_attachment->m_layoutAfter;
+                        }
+                        else
+                        {
+                            _attachment.m_layoutBefore = it->second.m_layout;
+                        }
                     }
                     else
                     {
-                        _attachment.m_layoutBefore = it->second.m_layout;
+                        if (it->second.m_attachment != nullptr)
+                        {
+                            const BarrierSyncStageFlags stageSrc = it->second.m_depthPass
+                                ? BarrierSyncStageFlags::DepthStencilTesting
+                                : BarrierSyncStageFlags::ColorBlending;
+
+                            auto accessSrc = BarrierAccessFlags::ColorAttachment;
+                            if (it->second.m_depthPass)
+                            {
+                                accessSrc = it->second.m_attachment->m_readOnly
+                                    ? BarrierAccessFlags::DepthStencilRead
+                                    : BarrierAccessFlags::DepthStencilWrite;
+                            }
+
+                            m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                                .m_stagesSrc = stageSrc,
+                                .m_stagesDst = stageDst,
+                                .m_accessSrc = accessSrc,
+                                .m_accessDst = accessDst,
+                                .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
+                                .m_layoutSrc = it->second.m_attachment->m_layoutAfter,
+                                .m_layoutDst = _attachment.m_layoutAfter,
+                                .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
+                            });
+                        }
+                        else
+                        {
+                            m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                                .m_stagesSrc = it->second.m_syncStage,
+                                .m_stagesDst = stageDst,
+                                .m_accessSrc = it->second.m_accessFlags,
+                                .m_accessDst = accessDst,
+                                .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
+                                .m_layoutSrc = it->second.m_layout,
+                                .m_layoutDst = _attachment.m_layoutAfter,
+                                .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
+                            });
+                        }
                     }
                     it->second = newState;
                 }
@@ -150,7 +254,7 @@ namespace KryneEngine::Modules::RenderGraph
         }
     }
 
-    ResourceStateTracker::PassBarriers ResourceStateTracker::GetPassBarriers(u32 _passIndex)
+    ResourceStateTracker::PassBarriers ResourceStateTracker::GetPassBarriers(const u32 _passIndex)
     {
         const PassBarriersRaw& ranges = m_passBarriers[_passIndex];
         return PassBarriers {

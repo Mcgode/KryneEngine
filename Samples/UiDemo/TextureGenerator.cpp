@@ -17,7 +17,7 @@ TextureGenerator::TextureGenerator(
 {
 }
 
-void TextureGenerator::HandleUpload(GraphicsContext& _graphicsContext, CommandListHandle _transfer)
+void TextureGenerator::HandleUpload(GraphicsContext& _graphicsContext, const TransferCommandEncoderHandle _transfer)
 {
     if (m_stagingBuffers.Empty() && m_uploadFrame != ~0ull)
         return;

@@ -563,14 +563,17 @@ namespace KryneEngine
         m_frameContexts[m_frameId % m_frameContextCount].EndDirectCommandList(commandList);
     }
 
-    void Dx12GraphicsContext::BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _renderPass)
+    RenderCommandEncoderHandle Dx12GraphicsContext::BeginRenderPass(
+        CommandListHandle _commandList,
+        const RenderPassHandle _renderPass,
+        const eastl::string_view /* _debugName */)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::BeginRenderPass");
 
         auto commandList = static_cast<CommandList>(_commandList);
 
         const auto* desc = m_resources.m_renderPasses.Get(_renderPass.m_handle);
-        VERIFY_OR_RETURN_VOID(desc != nullptr);
+        VERIFY_OR_RETURN(desc != nullptr, { nullptr });
 
         constexpr auto convertLoadOperation = [](RenderPassDesc::Attachment::LoadOperation _op)
         {
@@ -695,9 +698,9 @@ namespace KryneEngine
             };
 
             const GenPool::Handle handle = attachment.m_rtv.m_handle;
-            VERIFY_OR_RETURN_VOID((handle.m_index & Dx12Resources::kDsvFlag) == 0);
+            VERIFY_OR_RETURN((handle.m_index & Dx12Resources::kDsvFlag) == 0, { nullptr });
             auto* rtvData = m_resources.m_renderTargetViews.Get(handle);
-            VERIFY_OR_RETURN_VOID(rtvData != nullptr);
+            VERIFY_OR_RETURN(rtvData != nullptr, { nullptr });
 
             colorAttachments.push_back(D3D12_RENDER_PASS_RENDER_TARGET_DESC { rtvData->m_cpuHandle, beginningAccess, endingAccess });
 
@@ -728,10 +731,10 @@ namespace KryneEngine
             };
 
             GenPool::Handle handle = attachment.m_rtv.m_handle;
-            VERIFY_OR_RETURN_VOID((handle.m_index & Dx12Resources::kDsvFlag) != 0);
+            VERIFY_OR_RETURN((handle.m_index & Dx12Resources::kDsvFlag) != 0, { nullptr });
             handle.m_index &= ~Dx12Resources::kDsvFlag;
             auto* rtvData = m_resources.m_depthStencilViews.Get(handle);
-            VERIFY_OR_RETURN_VOID(rtvData != nullptr);
+            VERIFY_OR_RETURN(rtvData != nullptr, { nullptr });
 
             depthStencilDesc = {
                     rtvData->m_cpuHandle,
@@ -753,13 +756,15 @@ namespace KryneEngine
                 D3D12_RENDER_PASS_FLAG_NONE);
 
         m_currentRenderPass = _renderPass;
+
+        return { commandList };
     }
 
-    void Dx12GraphicsContext::EndRenderPass(CommandListHandle _commandList)
+    void Dx12GraphicsContext::EndRenderPass(const RenderCommandEncoderHandle _renderCommandEncoder)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::EndRenderPass");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto* commandList = static_cast<CommandList>(_renderCommandEncoder.m_handle);
 
         const auto* desc = m_resources.m_renderPasses.Get(m_currentRenderPass.m_handle);
         VERIFY_OR_RETURN_VOID(desc != nullptr);
@@ -872,16 +877,16 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetTextureData(
-        CommandListHandle _commandList,
-        BufferHandle _stagingBuffer,
-        TextureHandle _dstTexture,
+        const TransferCommandEncoderHandle _transferEncoder,
+        const BufferHandle _stagingBuffer,
+        const TextureHandle _dstTexture,
         const TextureMemoryFootprint& _footprint,
         const SubResourceIndexing& _subResourceIndex,
         const void* _data)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetTextureData");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
 
         ID3D12Resource** stagingTexture = m_resources.m_buffers.Get(_stagingBuffer.m_handle);
         ID3D12Resource** dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
@@ -939,15 +944,15 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetTextureRegionData(
-        CommandListHandle _commandList,
-        BufferSpan _srcBuffer,
-        TextureHandle _dstTexture,
+        const TransferCommandEncoderHandle _transferEncoder,
+        const BufferSpan _srcBuffer,
+        const TextureHandle _dstTexture,
         const TextureMemoryFootprint& _footprint,
         const SubResourceIndexing& _subresourceIndex,
         const uint3& _regionOffset,
         const uint3& _regionSize)
     {
-        auto commandList = static_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
 
         ID3D12Resource** srcBuffer = m_resources.m_buffers.Get(_srcBuffer.m_buffer.m_handle);
         ID3D12Resource** dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
@@ -1023,11 +1028,13 @@ namespace KryneEngine
         _mapping.m_ptr = nullptr;
     }
 
-    void Dx12GraphicsContext::CopyBuffer(CommandListHandle _commandList, const BufferCopyParameters& _params)
+    void Dx12GraphicsContext::CopyBuffer(
+        const TransferCommandEncoderHandle _transferEncoder,
+        const BufferCopyParameters& _params)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::CopyBuffer");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
 
         ID3D12Resource** bufferSrc = m_resources.m_buffers.Get(_params.m_bufferSrc.m_handle);
         ID3D12Resource** bufferDst = m_resources.m_buffers.Get(_params.m_bufferDst.m_handle);
@@ -1042,14 +1049,12 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::PlaceMemoryBarriers(
-        CommandListHandle _commandList,
-        const eastl::span<const GlobalMemoryBarrier>& _globalMemoryBarriers,
-        const eastl::span<const BufferMemoryBarrier>& _bufferMemoryBarriers,
-        const eastl::span<const TextureMemoryBarrier>& _textureMemoryBarriers)
+        const CommandEncoderHandle _commandEncoder,
+        const MemoryBarriers& _barriers)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::PlaceMemoryBarriers");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_commandEncoder.m_handle);
 
         using namespace Dx12Converters;
 
@@ -1057,15 +1062,15 @@ namespace KryneEngine
         {
             eastl::fixed_vector<D3D12_BARRIER_GROUP, 3> barrierGroups;
 
-            DynamicArray<D3D12_GLOBAL_BARRIER> globalMemoryBarriers(m_allocator, _globalMemoryBarriers.size());
-            DynamicArray<D3D12_BUFFER_BARRIER> bufferMemoryBarriers(m_allocator, _bufferMemoryBarriers.size());
-            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _textureMemoryBarriers.size());
+            DynamicArray<D3D12_GLOBAL_BARRIER> globalMemoryBarriers(m_allocator, _barriers.m_globalBarriers.size());
+            DynamicArray<D3D12_BUFFER_BARRIER> bufferMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
+            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
 
-            if (!_globalMemoryBarriers.empty())
+            if (!_barriers.m_globalBarriers.empty())
             {
                 for (auto i = 0u; i < globalMemoryBarriers.Size(); i++)
                 {
-                    const GlobalMemoryBarrier& barrier = _globalMemoryBarriers[i];
+                    const GlobalMemoryBarrier& barrier = _barriers.m_globalBarriers[i];
 
                     globalMemoryBarriers[i] = D3D12_GLOBAL_BARRIER{
                         .SyncBefore = ToDx12BarrierSync(barrier.m_stagesSrc),
@@ -1082,11 +1087,11 @@ namespace KryneEngine
                 });
             }
 
-            if (!_bufferMemoryBarriers.empty())
+            if (!_barriers.m_bufferBarriers.empty())
             {
                 for (auto i = 0u; i < bufferMemoryBarriers.Size(); i++)
                 {
-                    const BufferMemoryBarrier& barrier = _bufferMemoryBarriers[i];
+                    const BufferMemoryBarrier& barrier = _barriers.m_bufferBarriers[i];
                     ID3D12Resource** buffer = m_resources.m_buffers.Get(barrier.m_buffer.m_handle);
 
                     bufferMemoryBarriers[i] = D3D12_BUFFER_BARRIER{
@@ -1107,11 +1112,11 @@ namespace KryneEngine
                 });
             }
 
-            if (!_textureMemoryBarriers.empty())
+            if (!_barriers.m_textureBarriers.empty())
             {
                 for (auto i = 0u; i < textureMemoryBarriers.Size(); i++)
                 {
-                    const TextureMemoryBarrier& barrier = _textureMemoryBarriers[i];
+                    const TextureMemoryBarrier& barrier = _barriers.m_textureBarriers[i];
                     ID3D12Resource** texture = m_resources.m_textures.Get(barrier.m_texture.m_handle);
 
                     textureMemoryBarriers[i] = D3D12_TEXTURE_BARRIER{
@@ -1148,7 +1153,7 @@ namespace KryneEngine
         {
             eastl::vector<D3D12_RESOURCE_BARRIER> resourceBarriers(m_allocator);
 
-            for (const auto& barrier: _textureMemoryBarriers)
+            for (const auto& barrier: _barriers.m_textureBarriers)
             {
                 ID3D12Resource** texture = m_resources.m_textures.Get(barrier.m_texture.m_handle);
                 if (texture == nullptr)
@@ -1187,7 +1192,7 @@ namespace KryneEngine
                 }
             }
 
-            for (const auto& barrier: _bufferMemoryBarriers)
+            for (const auto& barrier: _barriers.m_bufferBarriers)
             {
                 ID3D12Resource** buffer = m_resources.m_buffers.Get(barrier.m_buffer.m_handle);
                 if (buffer == nullptr)
@@ -1218,7 +1223,7 @@ namespace KryneEngine
                 }
             }
 
-            for (const auto& barrier: _globalMemoryBarriers)
+            for (const auto& barrier: _barriers.m_globalBarriers)
             {
                 if (KE_VERIFY_MSG(BitUtils::EnumHasAny(barrier.m_accessSrc, BarrierAccessFlags::UnorderedAccess)
                                   && BitUtils::EnumHasAny(barrier.m_accessDst, BarrierAccessFlags::UnorderedAccess),
@@ -1311,11 +1316,11 @@ namespace KryneEngine
             m_frameId % m_frameContextCount);
     }
 
-    void Dx12GraphicsContext::SetViewport(CommandListHandle _commandList, const Viewport& _viewport)
+    void Dx12GraphicsContext::SetViewport(const RenderCommandEncoderHandle _renderEncoder, const Viewport& _viewport)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetViewport");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         const D3D12_VIEWPORT viewport {
             .TopLeftX = static_cast<float>(_viewport.m_topLeftX),
@@ -1328,11 +1333,11 @@ namespace KryneEngine
         commandList->RSSetViewports(1, &viewport);
     }
 
-    void Dx12GraphicsContext::SetScissorsRect(CommandListHandle _commandList, const Rect& _rect)
+    void Dx12GraphicsContext::SetScissorsRect(const RenderCommandEncoderHandle _renderEncoder, const Rect& _rect)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetScissorsRect");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         const D3D12_RECT scissorRect = {
             .left = static_cast<LONG>(_rect.m_left),
@@ -1343,11 +1348,14 @@ namespace KryneEngine
         commandList->RSSetScissorRects(1, &scissorRect);
     }
 
-    void Dx12GraphicsContext::SetIndexBuffer(CommandListHandle _commandList, const BufferSpan& _indexBufferView, bool _isU16)
+    void Dx12GraphicsContext::SetIndexBuffer(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferSpan& _indexBufferView,
+        const bool _isU16)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetIndexBuffer");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         VERIFY_OR_RETURN_VOID(_indexBufferView.m_buffer != GenPool::kInvalidHandle);
         ID3D12Resource** pIndexBuffer = m_resources.m_buffers.Get(_indexBufferView.m_buffer.m_handle);
@@ -1362,11 +1370,13 @@ namespace KryneEngine
         commandList->IASetIndexBuffer(&indexBufferView);
     }
 
-    void Dx12GraphicsContext::SetVertexBuffers(CommandListHandle _commandList, const eastl::span<const BufferSpan>& _bufferViews)
+    void Dx12GraphicsContext::SetVertexBuffers(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const eastl::span<const BufferSpan>& _bufferViews)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetVertexBuffers");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         eastl::fixed_vector<D3D12_VERTEX_BUFFER_VIEW, 4> bufferViews;
         bufferViews.reserve(_bufferViews.size());
@@ -1387,11 +1397,13 @@ namespace KryneEngine
         commandList->IASetVertexBuffers(0, bufferViews.size(), bufferViews.data());
     }
 
-    void Dx12GraphicsContext::SetGraphicsPipeline(CommandListHandle _commandList, GraphicsPipelineHandle _graphicsPipeline)
+    void Dx12GraphicsContext::SetGraphicsPipeline(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const GraphicsPipelineHandle _graphicsPipeline)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetGraphicsPipeline");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         VERIFY_OR_RETURN_VOID(_graphicsPipeline != GenPool::kInvalidHandle);
         ID3D12PipelineState** pPso = m_resources.m_pipelineStateObjects.Get(_graphicsPipeline.m_handle);
@@ -1405,15 +1417,15 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetGraphicsPushConstant(
-        CommandListHandle _commandList,
-        PipelineLayoutHandle _layout,
+        const RenderCommandEncoderHandle _renderEncoder,
+        const PipelineLayoutHandle _layout,
         const eastl::span<const u32>& _data,
-        u32 _index,
-        u32 _offset)
+        const u32 _index,
+        const u32 _offset)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetGraphicsPushConstant");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         u32* offset = m_resources.m_pipelineLayouts.GetCold(_layout.m_handle);
         VERIFY_OR_RETURN_VOID(offset != nullptr);
@@ -1427,24 +1439,24 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetGraphicsDescriptorSetsWithOffset(
-        CommandListHandle _commandList,
-        PipelineLayoutHandle _pipelineLayout,
+        const RenderCommandEncoderHandle _renderEncoder,
+        const PipelineLayoutHandle _pipelineLayout,
         const eastl::span<const DescriptorSetHandle>& _sets,
-        u32 _offset)
+        const u32 _offset)
     {
         m_descriptorSetManager.SetGraphicsDescriptorSets(
-            static_cast<CommandList>(_commandList),
+            static_cast<CommandList>(_renderEncoder.m_handle),
             _sets,
             m_resources.m_pipelineLayouts.Get(_pipelineLayout.m_handle)->m_tableSetOffsets,
             _offset,
             m_frameId % m_frameContextCount);
     }
 
-    void Dx12GraphicsContext::DrawInstanced(CommandListHandle _commandList, const DrawInstancedDesc& _desc)
+    void Dx12GraphicsContext::DrawInstanced(const RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::DrawInstanced");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         commandList->DrawInstanced(
             _desc.m_vertexCount,
@@ -1453,11 +1465,13 @@ namespace KryneEngine
             _desc.m_instanceOffset);
     }
 
-    void Dx12GraphicsContext::DrawIndexedInstanced(CommandListHandle _commandList, const DrawIndexedInstancedDesc& _desc)
+    void Dx12GraphicsContext::DrawIndexedInstanced(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const DrawIndexedInstancedDesc& _desc)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::DrawIndexedInstanced");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
 
         commandList->DrawIndexedInstanced(
             _desc.m_elementCount,
@@ -1467,11 +1481,13 @@ namespace KryneEngine
             _desc.m_instanceOffset);
     }
 
-    void Dx12GraphicsContext::SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline)
+    void Dx12GraphicsContext::SetComputePipeline(
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const ComputePipelineHandle _pipeline)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetComputePipeline");
 
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
 
         KE_ASSERT(_pipeline != GenPool::kInvalidHandle);
         ID3D12PipelineState** pPso = m_resources.m_pipelineStateObjects.Get(_pipeline.m_handle);
@@ -1483,14 +1499,14 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetComputeDescriptorSetsWithOffset(
-        CommandListHandle _commandList,
-        PipelineLayoutHandle _layout,
-        eastl::span<const DescriptorSetHandle> _sets,
-        u32 _offset)
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const PipelineLayoutHandle _layout,
+        const eastl::span<const DescriptorSetHandle> _sets,
+        const u32 _offset)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetComputeDescriptorSetsWithOffset");
 
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
         m_descriptorSetManager.SetComputeDescriptorSets(
             commandList,
             _sets,
@@ -1500,13 +1516,13 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetComputePushConstant(
-        CommandListHandle _commandList,
-        PipelineLayoutHandle _layout,
-        eastl::span<const u32> _data)
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const PipelineLayoutHandle _layout,
+        const eastl::span<const u32> _data)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetComputePushConstant");
 
-        auto commandList = static_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
 
         u32* offset = m_resources.m_pipelineLayouts.GetCold(_layout.m_handle);
         VERIFY_OR_RETURN_VOID(offset != nullptr);
@@ -1520,13 +1536,13 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::Dispatch(
-        CommandListHandle _commandList,
+        const ComputeCommandEncoderHandle _computeEncoder,
         const uint3 _threadGroupCount,
         const uint3 _threadGroupSize)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::Dispatch");
 
-        auto commandList = static_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
 
         commandList->Dispatch(_threadGroupCount.x, _threadGroupCount.y, _threadGroupCount.z);
     }
@@ -1576,7 +1592,7 @@ namespace KryneEngine
         m_directQueueTimestampOffset = cpuTimestamp - gpuTimestampSolved;
     }
 
-    TimestampHandle Dx12GraphicsContext::PutTimestamp(CommandListHandle _commandList)
+    TimestampHandle Dx12GraphicsContext::PutTimestamp(CommandListHandle _commandList, const TimestampPlacement /* _placement */)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
         return {

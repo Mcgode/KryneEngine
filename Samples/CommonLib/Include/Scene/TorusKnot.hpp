@@ -25,7 +25,7 @@ namespace KryneEngine::Samples
 
         void Process(GraphicsContext* _graphicsContext);
 
-        void ProcessTransfers(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+        void ProcessTransfers(GraphicsContext* _graphicsContext, TransferCommandEncoderHandle _transferEncoder) const;
 
         [[nodiscard]] const float4x4& GetModelMatrix() const { return m_modelMatrix; }
         [[nodiscard]] const float3& GetAlbedo() const { return m_albedo; }
@@ -39,7 +39,7 @@ namespace KryneEngine::Samples
 
         void RenderGBuffer(
             GraphicsContext* _graphicsContext,
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             DescriptorSetHandle _sceneConstantsSet);
 
         void RenderWindow();

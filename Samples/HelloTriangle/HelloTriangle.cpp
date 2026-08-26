@@ -225,6 +225,7 @@ void PrepareBuffers(
             // command buffers for each trivial operation, and group them into one single buffer.
 
             CommandListHandle commandList = _graphicsContext.BeginGraphicsCommandList();
+            TransferCommandEncoderHandle transferEncoder = _graphicsContext.BeginTransferPass(commandList, "Initial upload pass");
 
             {
                 KE_GpuZoneScoped(&_graphicsContext, _graphicsContext.GetProfilerContext(), commandList, "PrepareBuffers");
@@ -252,17 +253,22 @@ void PrepareBuffers(
                         .m_buffer = _indexBuffer,
                     }
                 };
-                _graphicsContext.PlaceMemoryBarriers(commandList, {}, beforeBarriers, {});
+                _graphicsContext.PlaceMemoryBarriers(
+                    transferEncoder,
+                    {
+                        .m_placementType = BarrierPlacementType::IntraEncoder,
+                        .m_bufferBarriers = beforeBarriers,
+                    });
 
                 _graphicsContext.CopyBuffer(
-                    commandList,
+                    transferEncoder,
                     {
                         .m_copySize = _vertexBufferView.m_size,
                         .m_bufferSrc = _stagingBuffer,
                         .m_bufferDst = _vertexBuffer,
                     });
                 _graphicsContext.CopyBuffer(
-                    commandList,
+                    transferEncoder,
                     {
                         .m_copySize = _indexBufferView.m_size,
                         .m_bufferSrc = _stagingBuffer,
@@ -286,9 +292,15 @@ void PrepareBuffers(
                         .m_buffer = _indexBuffer,
                     }
                 };
-                _graphicsContext.PlaceMemoryBarriers(commandList, {}, postCopyBarriers, {});
+                _graphicsContext.PlaceMemoryBarriers(
+                    transferEncoder,
+                    {
+                        .m_placementType = BarrierPlacementType::Producer,
+                        .m_bufferBarriers = postCopyBarriers,
+                    });
             }
 
+            _graphicsContext.EndTransferPass(transferEncoder);
             _graphicsContext.EndGraphicsCommandList(commandList);
         }
     }
@@ -305,7 +317,7 @@ int main()
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::DirectX12_1;
     appInfo.m_applicationName += " - DirectX 12";
 #elif defined(KE_GRAPHICS_API_MTL)
-    appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_3;
+    appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
 
@@ -344,34 +356,30 @@ int main()
             KE_GpuZoneScoped(graphicsContext, graphicsContext->GetProfilerContext(), commandList, "Main loop");
 
             const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-            graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
+            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index], "Render pass");
 
-            graphicsContext->SetVertexBuffers(commandList, { &vertexBufferView, 1 });
-            graphicsContext->SetIndexBuffer(commandList, indexBufferView, false);
-            graphicsContext->SetGraphicsPipeline(commandList, trianglePso);
+            graphicsContext->SetVertexBuffers(renderEncoder, {&vertexBufferView, 1});
+            graphicsContext->SetIndexBuffer(renderEncoder, indexBufferView, false);
+            graphicsContext->SetGraphicsPipeline(renderEncoder, trianglePso);
 
             const uint2 viewportSize = graphicsContext->GetPresentFrameBufferSize();
             graphicsContext->SetViewport(
-                commandList,
+                renderEncoder,
                 {
                     .m_width = static_cast<s32>(viewportSize.x),
                     .m_height = static_cast<s32>(viewportSize.y),
                 });
             graphicsContext->SetScissorsRect(
-                commandList,
+                renderEncoder,
                 {
                     .m_left = 0,
                     .m_top = 0,
                     .m_right = viewportSize.x,
                     .m_bottom = viewportSize.y,
                 });
-            graphicsContext->DrawIndexedInstanced(
-                commandList,
-                {
-                    .m_elementCount = 3
-                });
+            graphicsContext->DrawIndexedInstanced(renderEncoder, {.m_elementCount = 3});
 
-            graphicsContext->EndRenderPass(commandList);
+            graphicsContext->EndRenderPass(renderEncoder);
         }
 
         graphicsContext->EndGraphicsCommandList(commandList);

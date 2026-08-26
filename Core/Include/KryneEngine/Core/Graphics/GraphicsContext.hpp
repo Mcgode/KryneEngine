@@ -9,7 +9,7 @@
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
-#include "Texture.hpp"
+#include "KryneEngine/Core/Graphics/Texture.hpp"
 
 namespace KryneEngine
 {
@@ -21,7 +21,6 @@ namespace KryneEngine
     struct BufferCopyParameters;
     struct BufferCreateDesc;
     struct BufferMapping;
-    struct BufferMemoryBarrier;
     struct BufferSpan;
     struct Color;
     struct ComputePipelineDesc;
@@ -29,13 +28,12 @@ namespace KryneEngine
     struct DescriptorSetWriteInfo;
     struct DrawIndexedInstancedDesc;
     struct DrawInstancedDesc;
-    struct GlobalMemoryBarrier;
     struct GraphicsPipelineDesc;
+    struct MemoryBarriers;
     struct PipelineLayoutDesc;
     struct RenderTargetViewDesc;
     struct RenderPassDesc;
     struct TextureViewDesc;
-    struct TextureMemoryBarrier;
     struct Viewport;
 
     class TracyGpuProfilerContext;
@@ -60,8 +58,7 @@ namespace KryneEngine
      * - **Resource lifetime** is not tracked internally. A resource that is in use during a frame must not be
      *   destroyed until that frame has finished executing on the GPU (see #IsFrameExecuted).
      * - **Synchronisation** between GPU operations must be managed explicitly by inserting memory barriers
-     *   (see #PlaceMemoryBarriers) and, where required by the backend, declaring pass resource usages
-     *   (see #RenderPassNeedsUsageDeclaration, #DeclarePassTextureViewUsage, #DeclarePassBufferViewUsage).
+     *   (see #PlaceMemoryBarriers).
      * - **Staging** for device-local resources must be handled by the caller: use #NeedsStagingBuffer to
      *   determine whether a buffer requires an intermediate upload buffer, and #CreateStagingBuffer /
      *   #SetTextureData for texture uploads.
@@ -481,34 +478,51 @@ namespace KryneEngine
          *
          * @param _commandList The command list in which to record the render pass begin.
          * @param _handle The render pass to begin, previously created with #CreateRenderPass.
+         * @param _debugName
+         *
+         * @return The encoder for all the render pass related commands.
          */
-        virtual void BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _handle) = 0;
+        [[nodiscard]] virtual RenderCommandEncoderHandle BeginRenderPass(
+            CommandListHandle _commandList,
+            RenderPassHandle _handle,
+            eastl::string_view _debugName) = 0;
 
         /**
          * @brief Ends the render pass previously started with #BeginRenderPass, applying store operations.
          *
-         * @param _commandList The command list in which to record the render pass end.
+         * @param _renderCommandEncoder The command encoder associated with the render pass.
          */
-        virtual void EndRenderPass(CommandListHandle _commandList) = 0;
+        virtual void EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder) = 0;
 
         /**
          * @brief Begins a compute pass in the given command list.
          *
          * @param _commandList The command list in which to record the compute pass begin.
+         * @param _debugName
+         *
+         * @return The encoder for all the compute pass related commands.
          */
-        virtual void BeginComputePass(CommandListHandle _commandList) = 0;
+        virtual ComputeCommandEncoderHandle BeginComputePass(
+            CommandListHandle _commandList,
+            eastl::string_view _debugName) = 0;
 
         /**
          * @brief Ends the compute pass previously started with #BeginComputePass.
          *
-         * @param _commandList The command list in which to record the compute pass end.
+         * @param _computeEncoder The compute command encoder associated with the compute pass.
          */
-        virtual void EndComputePass(CommandListHandle _commandList) = 0;
+        virtual void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) = 0;
+
+        virtual TransferCommandEncoderHandle BeginTransferPass(
+            CommandListHandle _commandList,
+            eastl::string_view _debugName) = 0;
+
+        virtual void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) = 0;
 
         /**
          * @brief Uploads texture data for a single subresource from a staging buffer.
          *
-         * @param _commandList The command list in which to record the copy operation.
+         * @param _transferEncoder The command encoder in which to record the copy operation.
          * @param _stagingBuffer The staging buffer containing the source data, previously created with
          * #CreateStagingBuffer and filled via #MapBuffer/#UnmapBuffer.
          * @param _dstTexture The destination texture to upload the data to.
@@ -517,7 +531,7 @@ namespace KryneEngine
          * @param _data A pointer to the raw data to copy into the staging buffer before the upload.
          */
         virtual void SetTextureData(
-            CommandListHandle _commandList,
+            TransferCommandEncoderHandle _transferEncoder,
             BufferHandle _stagingBuffer,
             TextureHandle _dstTexture,
             const TextureMemoryFootprint& _footprint,
@@ -527,7 +541,7 @@ namespace KryneEngine
         /**
          * @brief Uploads a specific region of a texture subresource from a buffer, for partial updates.
          *
-         * @param _commandList The command list in which to record the copy operation.
+         * @param _transferEncoder The command encoder in which to record the copy operation.
          * @param _srcBuffer The source buffer span containing the data to upload.
          * @param _dstTexture The destination texture to upload the data to.
          * @param _footprint The memory footprint of the subresource being updated.
@@ -536,7 +550,7 @@ namespace KryneEngine
          * @param _regionSize The size, in texels, of the region to update.
          */
         virtual void SetTextureRegionData(
-            CommandListHandle _commandList,
+            TransferCommandEncoderHandle _transferEncoder,
             BufferSpan _srcBuffer,
             TextureHandle _dstTexture,
             const TextureMemoryFootprint& _footprint,
@@ -562,74 +576,38 @@ namespace KryneEngine
         /**
          * @brief Copies data between buffers using a GPU command.
          *
-         * @param _commandList The command list in which to record the copy operation.
+         * @param _transferEncoder The command encoder in which to record the copy operation.
          * @param _params The parameters describing the source, destination and range of the copy.
          */
-        virtual void CopyBuffer(CommandListHandle _commandList, const BufferCopyParameters& _params) = 0;
+        virtual void CopyBuffer(TransferCommandEncoderHandle _transferEncoder, const BufferCopyParameters& _params) = 0;
 
         /**
          * @brief Indicates whether the current graphics API supports per-resource (non-global) memory barriers.
          *
+         * @details
+         * If per-resource barriers are unavailable, such barriers provided to `PlaceMemoryBarriers` will be converted
+         * into global barriers instead.
+         *
          * @return `true` if buffer- and texture-specific barriers are supported, `false` if only global
          * barriers are available.
          */
-        [[nodiscard]] static bool SupportsNonGlobalBarriers();
+        [[nodiscard]] static bool SupportsPerResourceBarriers();
+
+        /**
+         * @brief Indicates whether the current graphics API automatically places attachment memory barriers for render
+         * passes
+         *
+         * @return `true` if attachment barriers are automatically placed, `false` if they must be manually inserted
+         */
+        [[nodiscard]] static bool RenderPassesAutomaticallyPlaceAttachmentBarriers();
 
         /**
          * @brief Inserts GPU memory barriers to synchronize resource access between operations.
          *
-         * @param _commandList The command list in which to record the barriers.
-         * @param _globalMemoryBarriers The global memory barriers to insert.
-         * @param _bufferMemoryBarriers The buffer-specific memory barriers to insert.
-         * @param _textureMemoryBarriers The texture-specific memory barriers to insert.
-         *
-         * @see SupportsNonGlobalBarriers
+         * @param _commandEncoder The command list in which to record the barriers.
+         * @param _barriers The memory barriers to insert.
          */
-        virtual void PlaceMemoryBarriers(
-            CommandListHandle _commandList,
-            const eastl::span<const GlobalMemoryBarrier>& _globalMemoryBarriers,
-            const eastl::span<const BufferMemoryBarrier>& _bufferMemoryBarriers,
-            const eastl::span<const TextureMemoryBarrier>& _textureMemoryBarriers) = 0;
-
-        /**
-         * @brief Indicates whether the current graphics API requires explicit resource usage declaration
-         * before a render pass (see #DeclarePassTextureViewUsage and #DeclarePassBufferViewUsage).
-         */
-        [[nodiscard]] static bool RenderPassNeedsUsageDeclaration();
-
-        /**
-         * @brief Indicates whether the current graphics API requires explicit resource usage declaration
-         * before a compute pass (see #DeclarePassTextureViewUsage and #DeclarePassBufferViewUsage).
-         */
-        [[nodiscard]] static bool ComputePassNeedsUsageDeclaration();
-
-        /**
-         * @brief Declares how a set of texture views will be accessed during the upcoming render or compute pass.
-         *
-         * @param _commandList The command list in which to record the declaration.
-         * @param _textures The texture views whose usage is being declared.
-         * @param _accessType The type of access (e.g. read, write) that will be performed on the texture views.
-         *
-         * @see RenderPassNeedsUsageDeclaration, ComputePassNeedsUsageDeclaration
-         */
-        virtual void DeclarePassTextureViewUsage(
-            CommandListHandle _commandList,
-            const eastl::span<const TextureViewHandle>& _textures,
-            KryneEngine::TextureViewAccessType _accessType) = 0;
-
-        /**
-         * @brief Declares how a set of buffer views will be accessed during the upcoming render or compute pass.
-         *
-         * @param _commandList The command list in which to record the declaration.
-         * @param _buffers The buffer views whose usage is being declared.
-         * @param _accessType The type of access (e.g. read, write) that will be performed on the buffer views.
-         *
-         * @see RenderPassNeedsUsageDeclaration, ComputePassNeedsUsageDeclaration
-         */
-        virtual void DeclarePassBufferViewUsage(
-            CommandListHandle _commandList,
-            const eastl::span<const BufferViewHandle>& _buffers,
-            BufferViewAccessType _accessType) = 0;
+        virtual void PlaceMemoryBarriers(CommandEncoderHandle _commandEncoder, const MemoryBarriers& _barriers) = 0;
 
         /**
          * @brief Registers a compiled shader bytecode blob with the graphics API, creating a shader module.
@@ -771,57 +749,64 @@ namespace KryneEngine
             bool _singleFrame) = 0;
 
         /**
-         * @brief Sets the viewport used for rasterization in the given command list.
+         * @brief Sets the viewport used for rasterization in the given render command encoder.
          *
-         * @param _commandList The command list in which to record the viewport state.
+         * @param _renderEncoder The command encoder in which to record the viewport state.
          * @param _viewport The viewport dimensions and depth range to set.
          */
-        virtual void SetViewport(CommandListHandle _commandList, const Viewport& _viewport) = 0;
+        virtual void SetViewport(RenderCommandEncoderHandle _renderEncoder, const Viewport& _viewport) = 0;
 
         /**
-         * @brief Sets the scissor rectangle used to clip rasterization in the given command list.
+         * @brief Sets the scissor rectangle used to clip rasterization in the given render command encoder.
          *
-         * @param _commandList The command list in which to record the scissor rectangle.
+         * @param _renderEncoder The command encoder in which to record the scissor rectangle.
          * @param _rect The scissor rectangle to set.
          */
-        virtual void SetScissorsRect(CommandListHandle _commandList, const Rect& _rect) = 0;
+        virtual void SetScissorsRect(RenderCommandEncoderHandle _renderEncoder, const Rect& _rect) = 0;
 
         /**
          * @brief Binds an index buffer for use by subsequent indexed draw calls.
          *
-         * @param _commandList The command list in which to record the index buffer binding.
+         * @param _renderEncoder The command encoder in which to record the index buffer binding.
          * @param _indexBufferView The buffer span to bind as the index buffer.
          * @param _isU16 Whether the index buffer contains 16-bit indices (`true`) or 32-bit indices (`false`).
          */
-        virtual void SetIndexBuffer(CommandListHandle _commandList, const BufferSpan& _indexBufferView, bool _isU16) = 0;
+        virtual void SetIndexBuffer(
+            RenderCommandEncoderHandle _renderEncoder,
+            const BufferSpan& _indexBufferView,
+            bool _isU16) = 0;
 
         /**
          * @brief Binds one or more vertex buffers for use by subsequent draw calls.
          *
-         * @param _commandList The command list in which to record the vertex buffer bindings.
+         * @param _renderEncoder The command encoder in which to record the vertex buffer bindings.
          * @param _bufferViews The buffer spans to bind as vertex buffers, in binding slot order.
          */
-        virtual void SetVertexBuffers(CommandListHandle _commandList, const eastl::span<const BufferSpan>& _bufferViews) = 0;
+        virtual void SetVertexBuffers(
+            RenderCommandEncoderHandle _renderEncoder,
+            const eastl::span<const BufferSpan>& _bufferViews) = 0;
 
         /**
          * @brief Binds a graphics pipeline for use by subsequent draw calls.
          *
-         * @param _commandList The command list in which to record the pipeline binding.
+         * @param _renderEncoder The command encoder in which to record the pipeline binding.
          * @param _graphicsPipeline The graphics pipeline to bind, previously created with #CreateGraphicsPipeline.
          */
-        virtual void SetGraphicsPipeline(CommandListHandle _commandList, GraphicsPipelineHandle _graphicsPipeline) = 0;
+        virtual void SetGraphicsPipeline(
+            RenderCommandEncoderHandle _renderEncoder,
+            GraphicsPipelineHandle _graphicsPipeline) = 0;
 
         /**
          * @brief Sets push constant data for the graphics pipeline stages.
          *
-         * @param _commandList The command list in which to record the push constant update.
+         * @param _renderEncoder The command encoder in which to record the push constant update.
          * @param _layout The pipeline layout describing the push constant range to update.
          * @param _data The raw push constant data to set.
          * @param _index The index of the push constant range in the pipeline layout.
          * @param _offset The offset, in 32-bit words, within the push constant range at which to start writing.
          */
         virtual void SetGraphicsPushConstant(
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             PipelineLayoutHandle _layout,
             const eastl::span<const u32>& _data,
             u32 _index,
@@ -830,13 +815,13 @@ namespace KryneEngine
         /**
          * @brief Binds a set of descriptor sets for use by the graphics pipeline, starting at a given offset.
          *
-         * @param _commandList The command list in which to record the descriptor set bindings.
+         * @param _renderEncoder The command encoder in which to record the descriptor set bindings.
          * @param _layout The pipeline layout describing the descriptor set slots to bind to.
          * @param _sets The descriptor sets to bind.
          * @param _offset The index of the first descriptor set slot (in `_layout`) to bind to.
          */
         virtual void SetGraphicsDescriptorSetsWithOffset(
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             PipelineLayoutHandle _layout,
             const eastl::span<const DescriptorSetHandle>& _sets,
             u32 _offset) = 0;
@@ -844,54 +829,56 @@ namespace KryneEngine
         /**
          * @brief Binds a set of descriptor sets for use by the graphics pipeline, starting at slot 0.
          *
-         * @param _commandList The command list in which to record the descriptor set bindings.
+         * @param _renderEncoder The command encoder in which to record the descriptor set bindings.
          * @param _layout The pipeline layout describing the descriptor set slots to bind to.
          * @param _sets The descriptor sets to bind.
          *
          * @see SetGraphicsDescriptorSetsWithOffset
          */
         void SetGraphicsDescriptorSets(
-            CommandListHandle _commandList,
-            PipelineLayoutHandle _layout,
+            const RenderCommandEncoderHandle _renderEncoder,
+            const PipelineLayoutHandle _layout,
             const eastl::span<const DescriptorSetHandle>& _sets)
         {
-            SetGraphicsDescriptorSetsWithOffset(_commandList, _layout, _sets, 0);
+            SetGraphicsDescriptorSetsWithOffset(_renderEncoder, _layout, _sets, 0);
         }
 
         /**
          * @brief Records a non-indexed, (potentially) instanced draw call.
          *
-         * @param _commandList The command list in which to record the draw call.
+         * @param _renderEncoder The command list in which to record the draw call.
          * @param _desc The parameters describing the draw call (vertex/instance counts and offsets).
          */
-        virtual void DrawInstanced(CommandListHandle _commandList, const DrawInstancedDesc& _desc) = 0;
+        virtual void DrawInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc) = 0;
 
         /**
          * @brief Records an indexed, (potentially) instanced draw call.
          *
-         * @param _commandList The command list in which to record the draw call.
+         * @param _renderEncoder The command list in which to record the draw call.
          * @param _desc The parameters describing the draw call (index/instance counts and offsets).
          */
-        virtual void DrawIndexedInstanced(CommandListHandle _commandList, const DrawIndexedInstancedDesc& _desc) = 0;
+        virtual void DrawIndexedInstanced(
+            RenderCommandEncoderHandle _renderEncoder,
+            const DrawIndexedInstancedDesc& _desc) = 0;
 
         /**
          * @brief Binds a compute pipeline for use by subsequent dispatch calls.
          *
-         * @param _commandList The command list in which to record the pipeline binding.
+         * @param _computeEncoder The command list in which to record the pipeline binding.
          * @param _pipeline The compute pipeline to bind, previously created with #CreateComputePipeline.
          */
-        virtual void SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline) = 0;
+        virtual void SetComputePipeline(ComputeCommandEncoderHandle _computeEncoder, ComputePipelineHandle _pipeline) = 0;
 
         /**
          * @brief Binds a set of descriptor sets for use by the compute pipeline, starting at a given offset.
          *
-         * @param _commandList The command list in which to record the descriptor set bindings.
+         * @param _computeEncoder The command encoder in which to record the descriptor set bindings.
          * @param _layout The pipeline layout describing the descriptor set slots to bind to.
          * @param _sets The descriptor sets to bind.
          * @param _offset The index of the first descriptor set slot (in `_layout`) to bind to.
          */
         virtual void SetComputeDescriptorSetsWithOffset(
-            CommandListHandle _commandList,
+            ComputeCommandEncoderHandle _computeEncoder,
             PipelineLayoutHandle _layout,
             eastl::span<const DescriptorSetHandle> _sets,
             u32 _offset) = 0;
@@ -899,41 +886,41 @@ namespace KryneEngine
         /**
          * @brief Binds a set of descriptor sets for use by the compute pipeline, starting at slot 0.
          *
-         * @param _commandList The command list in which to record the descriptor set bindings.
+         * @param _computeEncoder The command encoder in which to record the descriptor set bindings.
          * @param _layout The pipeline layout describing the descriptor set slots to bind to.
          * @param _sets The descriptor sets to bind.
          *
          * @see SetComputeDescriptorSetsWithOffset
          */
         void SetComputeDescriptorSets(
-            CommandListHandle _commandList,
+            ComputeCommandEncoderHandle _computeEncoder,
             PipelineLayoutHandle _layout,
             eastl::span<const DescriptorSetHandle> _sets)
         {
-            SetComputeDescriptorSetsWithOffset(_commandList, _layout, _sets, 0);
+            SetComputeDescriptorSetsWithOffset(_computeEncoder, _layout, _sets, 0);
         }
 
         /**
          * @brief Sets push constant data for the compute pipeline stage.
          *
-         * @param _commandList The command list in which to record the push constant update.
+         * @param _computeEncoder The command list in which to record the push constant update.
          * @param _layout The pipeline layout describing the push constant range to update.
          * @param _data The raw push constant data to set.
          */
         virtual void SetComputePushConstant(
-            CommandListHandle _commandList,
+            ComputeCommandEncoderHandle _computeEncoder,
             PipelineLayoutHandle _layout,
             eastl::span<const u32> _data) = 0;
 
         /**
          * @brief Records a compute dispatch call.
          *
-         * @param _commandList The command list in which to record the dispatch call.
+         * @param _computeEncoder The command encoder in which to record the dispatch call.
          * @param _threadGroupCount The number of thread groups to dispatch, along each axis.
          * @param _threadGroupSize The size of a single thread group, along each axis, as expected by the
          * bound compute shader.
          */
-        virtual void Dispatch(CommandListHandle _commandList, uint3 _threadGroupCount, uint3 _threadGroupSize) = 0;
+        virtual void Dispatch(ComputeCommandEncoderHandle _computeEncoder, uint3 _threadGroupCount, uint3 _threadGroupSize) = 0;
 
         /**
          * @brief Inserts a debug marker into the command list to assist with GPU profiling and debugging.
@@ -1015,11 +1002,18 @@ namespace KryneEngine
          * @brief Records a GPU timestamp query in the given command list.
          *
          * @param _commandList The command list in which to record the timestamp.
+         * @param _placement
+         * @param _placement
          *
          * @return A handle to the recorded timestamp, to be resolved later with #GetResolvedTimestamp
          * or #GetResolvedTimestamps.
          */
-        virtual TimestampHandle PutTimestamp(CommandListHandle _commandList) = 0;
+        virtual TimestampHandle PutTimestamp(CommandListHandle _commandList, TimestampPlacement _placement) = 0;
+
+        [[nodiscard]] TimestampHandle PutTimestamp(CommandListHandle _commandList)
+        {
+            return PutTimestamp(_commandList, TimestampPlacement::StartOfPipe);
+        }
 
         /**
          * @brief Retrieves the resolved GPU timestamp value for a previously recorded timestamp query.

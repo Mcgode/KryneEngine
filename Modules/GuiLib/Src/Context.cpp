@@ -79,10 +79,10 @@ namespace KryneEngine::Modules::GuiLib
 
     void Context::EndLayout(
         GraphicsContext& _graphicsContext,
-        CommandListHandle _transferCommandList,
-        CommandListHandle _renderCommandList)
+        const TransferCommandEncoderHandle _transferEncoder,
+        const RenderCommandEncoderHandle _renderEncoder)
     {
-        m_renderer->EndLayoutAndRender(_graphicsContext, _transferCommandList, _renderCommandList);
+        m_renderer->EndLayoutAndRender(_graphicsContext, _transferEncoder, _renderEncoder);
         Clay_SetCurrentContext(nullptr);
     }
 

@@ -159,21 +159,25 @@ namespace KryneEngine
         CommandListHandle BeginGraphicsCommandList() override;
         void EndGraphicsCommandList(CommandListHandle _commandList) override;
 
-        void BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _renderPass) override;
-        void EndRenderPass(CommandListHandle _commandList) override;
+        [[nodiscard]] RenderCommandEncoderHandle BeginRenderPass(
+            CommandListHandle _commandList, RenderPassHandle _renderPass, eastl::string_view _debugName) override;
+        void EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder) override;
 
-        void BeginComputePass(CommandListHandle _commandList) override {};
-        void EndComputePass(CommandListHandle _commandList) override {};
+        ComputeCommandEncoderHandle BeginComputePass(CommandListHandle _commandList, eastl::string_view _debugName) override { return { _commandList}; }
+        void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) override {}
+
+        TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList, eastl::string_view _debugName) override { return { _commandList }; }
+        void EndTransferPass(const TransferCommandEncoderHandle _utilEncoder) override {}
 
         void SetTextureData(
-            CommandListHandle _commandList,
+            TransferCommandEncoderHandle _transferEncoder,
             BufferHandle _stagingBuffer,
             TextureHandle _dstTexture,
             const TextureMemoryFootprint& _footprint,
             const SubResourceIndexing& _subResourceIndex,
             const void* _data) override;
         void SetTextureRegionData(
-            CommandListHandle _commandList,
+            TransferCommandEncoderHandle _transferEncoder,
             BufferSpan _srcBuffer,
             TextureHandle _dstTexture,
             const TextureMemoryFootprint& _footprint,
@@ -183,22 +187,9 @@ namespace KryneEngine
 
         void MapBuffer(BufferMapping& _mapping) override;
         void UnmapBuffer(BufferMapping& _mapping) override;
-        void CopyBuffer(CommandListHandle _commandList, const BufferCopyParameters& _params) override;
+        void CopyBuffer(TransferCommandEncoderHandle _transferEncoder, const BufferCopyParameters& _params) override;
 
-        void PlaceMemoryBarriers(
-            CommandListHandle _commandList,
-            const eastl::span<const GlobalMemoryBarrier>& _globalMemoryBarriers,
-            const eastl::span<const BufferMemoryBarrier>& _bufferMemoryBarriers,
-            const eastl::span<const TextureMemoryBarrier>& _textureMemoryBarriers) override;
-
-        void DeclarePassTextureViewUsage(
-            CommandListHandle,
-            const eastl::span<const TextureViewHandle>&,
-            TextureViewAccessType) override {}
-        void DeclarePassBufferViewUsage(
-            CommandListHandle,
-            const eastl::span<const BufferViewHandle>&,
-            BufferViewAccessType) override {}
+        void PlaceMemoryBarriers(CommandEncoderHandle _commandEncoder, const MemoryBarriers& _barriers) override;
 
         [[nodiscard]] ShaderModuleHandle RegisterShaderModule(void* _bytecodeData, u64 _bytecodeSize) override;
         [[nodiscard]] DescriptorSetLayoutHandle CreateDescriptorSetLayout(const DescriptorSetDesc& _desc, u32* _bindingIndices) override;
@@ -219,37 +210,40 @@ namespace KryneEngine
             const eastl::span<const DescriptorSetWriteInfo>& _writes,
             bool _singleFrame) override;
 
-        void SetViewport(CommandListHandle _commandList, const Viewport& _viewport) override;
-        void SetScissorsRect(CommandListHandle _commandList, const Rect& _rect) override;
-        void SetIndexBuffer(CommandListHandle _commandList, const BufferSpan& _indexBufferView, bool _isU16) override;
-        void SetVertexBuffers(CommandListHandle _commandList, const eastl::span<const BufferSpan>& _bufferViews) override;
-        void SetGraphicsPipeline(CommandListHandle _commandList, GraphicsPipelineHandle _graphicsPipeline) override;
+        void SetViewport(RenderCommandEncoderHandle _renderEncoder, const Viewport& _viewport) override;
+        void SetScissorsRect(RenderCommandEncoderHandle _renderEncoder, const Rect& _rect) override;
+        void SetIndexBuffer(
+            RenderCommandEncoderHandle _renderEncoder, const BufferSpan& _indexBufferView, bool _isU16) override;
+        void SetVertexBuffers(
+            RenderCommandEncoderHandle _renderEncoder, const eastl::span<const BufferSpan>& _bufferViews) override;
+        void SetGraphicsPipeline(
+            RenderCommandEncoderHandle _renderEncoder, GraphicsPipelineHandle _graphicsPipeline) override;
         void SetGraphicsPushConstant(
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             PipelineLayoutHandle _layout,
             const eastl::span<const u32>& _data,
             u32 _index,
             u32 _offset) override;
         void SetGraphicsDescriptorSetsWithOffset(
-            CommandListHandle _commandList,
+            RenderCommandEncoderHandle _renderEncoder,
             PipelineLayoutHandle _layout,
             const eastl::span<const DescriptorSetHandle>& _sets,
             u32 _offset) override;
-        void DrawInstanced(CommandListHandle _commandList, const DrawInstancedDesc& _desc) override;
-        void DrawIndexedInstanced(CommandListHandle _commandList, const DrawIndexedInstancedDesc& _desc) override;
+        void DrawInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc) override;
+        void DrawIndexedInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawIndexedInstancedDesc& _desc) override;
 
-    void SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline) override;
+    void SetComputePipeline(ComputeCommandEncoderHandle _computeEncoder, ComputePipelineHandle _pipeline) override;
     void SetComputeDescriptorSetsWithOffset(
-        CommandListHandle _commandList,
+        ComputeCommandEncoderHandle _computeEncoder,
         PipelineLayoutHandle _layout,
         eastl::span<const DescriptorSetHandle> _sets,
         u32 _offset) override;
     void SetComputePushConstant(
-        CommandListHandle _commandList,
+        ComputeCommandEncoderHandle _computeEncoder,
         PipelineLayoutHandle _layout,
         eastl::span<const u32> _data) override;
 
-    void Dispatch(CommandListHandle _commandList, uint3 _threadGroupCount, uint3) override;
+    void Dispatch(ComputeCommandEncoderHandle _computeEncoder, uint3 _threadGroupCount, uint3) override;
 
     void PushDebugMarker(
         CommandListHandle _commandList,
@@ -263,7 +257,7 @@ namespace KryneEngine
         const Color& _color) override;
 
     void CalibrateCpuGpuClocks() override;
-    TimestampHandle PutTimestamp(CommandListHandle _commandList) override;
+    TimestampHandle PutTimestamp(CommandListHandle _commandList, TimestampPlacement _placement) override;
     u64 GetResolvedTimestamp(TimestampHandle _timestamp) const override;
     eastl::span<const u64> GetResolvedTimestamps(u64 _frameId) const override;
 

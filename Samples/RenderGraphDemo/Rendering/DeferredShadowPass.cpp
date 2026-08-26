@@ -132,22 +132,14 @@ namespace KryneEngine::Samples::RenderGraphDemo
 
         const GraphicsCommon::ApplicationInfo& appInfo = _passExecutionData.m_graphicsContext->GetApplicationInfo();
 
-        _passExecutionData.m_graphicsContext->SetComputePipeline(
-            _passExecutionData.m_commandList,
-            m_pso);
+        _passExecutionData.m_graphicsContext->SetComputePipeline(_passExecutionData.m_computeEncoder, m_pso);
         _passExecutionData.m_graphicsContext->SetComputeDescriptorSets(
-            _passExecutionData.m_commandList,
-            m_pipelineLayout,
-            { &m_sceneConstantsDescriptorSet, 2 });
+            _passExecutionData.m_computeEncoder, m_pipelineLayout, {&m_sceneConstantsDescriptorSet, 2});
 
         const uint2 viewportSize = _passExecutionData.m_graphicsContext->GetPresentFrameBufferSize();
         _passExecutionData.m_graphicsContext->Dispatch(
-            _passExecutionData.m_commandList,
-            uint3 {
-                (viewportSize.x + 7) / 8,
-                (viewportSize.y + 7) / 8,
-                1
-            },
-            uint3 { 8, 8, 1 });
+            _passExecutionData.m_computeEncoder,
+            uint3{(viewportSize.x + 7) / 8, (viewportSize.y + 7) / 8, 1},
+            uint3{8, 8, 1});
     }
 }
