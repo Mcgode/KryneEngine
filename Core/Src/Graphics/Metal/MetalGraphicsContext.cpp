@@ -1110,7 +1110,7 @@ namespace KryneEngine
         m_timestampConversion.m_gpuReference = gpu;
     }
 
-    TimestampHandle MetalGraphicsContext::PutTimestamp(const CommandListHandle _commandList)
+    TimestampHandle MetalGraphicsContext::PutTimestamp(const CommandListHandle _commandList, const TimestampPlacement _placement)
     {
         const u8 frameIndex = m_frameId % m_frameContextCount;
         MetalFrameContext& frameContext = m_frameContexts[frameIndex];
@@ -1132,7 +1132,7 @@ namespace KryneEngine
                 auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
                 encoder->writeTimestamp(
                     MTL4::TimestampGranularityRelaxed,
-                    MetalConstants::kAllRenderStages,
+                    _placement == TimestampPlacement::StartOfPipe ? MTL::RenderStageVertex : MTL::RenderStageTile,
                     frameContext.m_sampleCounterHeap.get(),
                     index);
                 break;

@@ -1591,7 +1591,7 @@ namespace KryneEngine
         m_directQueueTimestampOffset = cpuTimestamp - gpuTimestampSolved;
     }
 
-    TimestampHandle Dx12GraphicsContext::PutTimestamp(CommandListHandle _commandList)
+    TimestampHandle Dx12GraphicsContext::PutTimestamp(CommandListHandle _commandList, const TimestampPlacement /* _placement */)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
         return {

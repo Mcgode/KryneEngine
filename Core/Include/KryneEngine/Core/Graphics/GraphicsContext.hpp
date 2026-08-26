@@ -986,11 +986,18 @@ namespace KryneEngine
          * @brief Records a GPU timestamp query in the given command list.
          *
          * @param _commandList The command list in which to record the timestamp.
+         * @param _placement
+         * @param _placement
          *
          * @return A handle to the recorded timestamp, to be resolved later with #GetResolvedTimestamp
          * or #GetResolvedTimestamps.
          */
-        virtual TimestampHandle PutTimestamp(CommandListHandle _commandList) = 0;
+        virtual TimestampHandle PutTimestamp(CommandListHandle _commandList, TimestampPlacement _placement) = 0;
+
+        [[nodiscard]] TimestampHandle PutTimestamp(CommandListHandle _commandList)
+        {
+            return PutTimestamp(_commandList, TimestampPlacement::StartOfPipe);
+        }
 
         /**
          * @brief Retrieves the resolved GPU timestamp value for a previously recorded timestamp query.

@@ -33,7 +33,7 @@ namespace KryneEngine
             if (!m_isActive || m_context == nullptr)
                 return;
 
-            const TimestampHandle gpuTimestamp = m_graphicsContext->PutTimestamp(m_commandList);
+            const TimestampHandle gpuTimestamp = m_graphicsContext->PutTimestamp(m_commandList, TimestampPlacement::StartOfPipe);
             if (gpuTimestamp.m_index == ~0u)
             {
                 m_isActive = false;
@@ -77,7 +77,7 @@ namespace KryneEngine
             if (!m_isActive || m_context == nullptr)
                 return;
 
-            const TimestampHandle gpuTimestamp = m_graphicsContext->PutTimestamp(m_commandList);
+            const TimestampHandle gpuTimestamp = m_graphicsContext->PutTimestamp(m_commandList, TimestampPlacement::StartOfPipe);
             if (gpuTimestamp.m_index == ~0u)
             {
                 m_isActive = false;
@@ -120,7 +120,7 @@ namespace KryneEngine
             if (!m_isActive || m_context == nullptr)
                 return;
 
-            const TimestampHandle gpuTimestamp = m_graphicsContext->PutTimestamp(m_commandList);
+            const TimestampHandle gpuTimestamp = m_graphicsContext->PutTimestamp(m_commandList, TimestampPlacement::EndOfPipe);
             m_context->SetQueryTimestampIndex(m_queryId + 1, gpuTimestamp.m_index);
 
             using namespace tracy;

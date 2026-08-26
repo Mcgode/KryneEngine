@@ -217,7 +217,7 @@ namespace KryneEngine
             const Color &_color) override;
 
         void CalibrateCpuGpuClocks() override;
-        TimestampHandle PutTimestamp(CommandListHandle _commandList) override;
+        TimestampHandle PutTimestamp(CommandListHandle _commandList, TimestampPlacement _placement) override;
         u64 GetResolvedTimestamp(TimestampHandle _timestamp) const override;
         eastl::span<const u64> GetResolvedTimestamps(u64 _frameId) const override;
 

@@ -1972,12 +1972,12 @@ namespace KryneEngine
         m_cpuTimestampOffset = cpuTimestampNs - gpuTimestampNs;
     }
 
-    TimestampHandle VkGraphicsContext::PutTimestamp(const CommandListHandle _commandList)
+    TimestampHandle VkGraphicsContext::PutTimestamp(const CommandListHandle _commandList, const TimestampPlacement /* _placement */)
     {
         return {
 
             .m_index = m_frameContexts[m_frameId % m_frameContextCount].PutTimestamp(
-                reinterpret_cast<VkCommandBuffer>(_commandList)),
+                static_cast<VkCommandBuffer>(_commandList)),
             .m_frameId = static_cast<u32>(m_frameId),
         };
     }

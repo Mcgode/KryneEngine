@@ -159,4 +159,10 @@ namespace KryneEngine
         TextureComponentMapping::Blue,
         TextureComponentMapping::Alpha
     };
+
+    enum class TimestampPlacement
+    {
+        StartOfPipe,
+        EndOfPipe,
+    };
 }
