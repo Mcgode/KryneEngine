@@ -153,7 +153,7 @@ int main()
                     imGuiContext->RenderFrame(_executionData.m_graphicsContext, _executionData.m_renderEncoder);
                 })
                 .AddColorAttachment(swapChainRtv)
-                    .SetClearColor({ 1.f, 0.f, 1.f, 1.f })
+                    .SetClearColor({ .3f, 1.f, 1.f, 1.f })
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Clear)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .Done()
