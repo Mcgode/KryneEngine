@@ -10,6 +10,7 @@
 #include <EASTL/sort.h>
 #include <KryneEngine/Core/Graphics/Drawing.hpp>
 #include <KryneEngine/Core/Graphics/ShaderPipeline.hpp>
+#include <KryneEngine/Core/Memory/SimplePool.inl>
 
 
 namespace KryneEngine::Samples
