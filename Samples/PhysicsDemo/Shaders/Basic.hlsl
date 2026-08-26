@@ -6,10 +6,10 @@
 
 #include "Platform.hlsl"
 #include "Instances.hlsl"
-#include "Camera.hlsl"
+#include "Pass.hlsl"
 
 
-vkBinding(0, 0) ConstantBuffer<Camera> camera: register(b0, space0);
+vkBinding(0, 0) ConstantBuffer<PassData> passData: register(b0, space0);
 vkBinding(1, 0) StructuredBuffer<InstanceData> instanceData: register(t0, space0);
 
 
@@ -36,7 +36,7 @@ VsOutput MainVs(const in VsInput _input)
 
     output.normal = mul(float4(_input.normal, 0.f), worldMat).xyz;
 
-    output.position = mul(mul(float4(_input.position, 1.f), worldMat), camera.m_viewProjMat);
+    output.position = mul(mul(float4(_input.position, 1.f), worldMat), passData.m_viewProjectionMatrix);
 
     return output;
 }
@@ -55,7 +55,7 @@ FsOutput MainFs(FsInput _input)
 {
     FsOutput output;
 
-    output.albedo = float4(1, 1, 1, 1);
+    output.albedo = float4(0.5f.xxx, 1);
     output.normal = float4(normalize(_input.normal) * 0.5f + 0.5f, 0.f);
 
     return output;

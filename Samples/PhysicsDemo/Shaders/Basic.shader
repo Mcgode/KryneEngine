@@ -1,5 +1,5 @@
 {
-  "Path": "Cube.hlsl",
+  "Path": "Basic.hlsl",
   "Configurations": [
     {
       "ShaderType": "vs_6_0",
