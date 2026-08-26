@@ -142,7 +142,5 @@ jobs:
 
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Modules
-        run: >
-          ctest -C ${{env.BUILD_TYPE}} --output-on-failure 
-          -E "Core_Graphics.*"
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure -E "Core_Graphics_UnitTests"
         # Disabled Core graphics test, as Github-hosted runner does not provide a Metal 4 interface.
