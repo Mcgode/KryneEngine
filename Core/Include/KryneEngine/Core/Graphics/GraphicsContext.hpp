@@ -592,11 +592,6 @@ namespace KryneEngine
          */
         virtual void PlaceMemoryBarriers(CommandEncoderHandle _commandEncoder, const MemoryBarriers& _barriers) = 0;
 
-        [[deprecated]] void PlaceMemoryBarriers(CommandListHandle _commandList, const MemoryBarriers& _barriers)
-        {
-            PlaceMemoryBarriers(CommandEncoderHandle { _commandList }, _barriers);
-        }
-
         /**
          * @brief Indicates whether the current graphics API requires explicit resource usage declaration
          * before a render pass (see #DeclarePassTextureViewUsage and #DeclarePassBufferViewUsage).

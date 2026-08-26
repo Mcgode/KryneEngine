@@ -569,12 +569,7 @@ namespace KryneEngine
     {
         const auto commandList = static_cast<CommandList>(_commandEncoder.m_handle);
 
-        if (commandList->m_type == CommandListData::EncoderType::None)
-        {
-            commandList->ResetEncoder(CommandListData::EncoderType::Compute);
-            commandList->m_encoder = commandList->m_commandBuffer->computeCommandEncoder();
-        }
-
+        KE_ASSERT(commandList->m_type != CommandListData::EncoderType::None);
         MTL4::CommandEncoder* encoder = commandList->m_encoder.get();
         KE_ASSERT(encoder != nullptr);
 

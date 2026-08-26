@@ -254,7 +254,7 @@ void PrepareBuffers(
                     }
                 };
                 _graphicsContext.PlaceMemoryBarriers(
-                    commandList,
+                    transferEncoder,
                     {
                         .m_placementType = BarrierPlacementType::IntraEncoder,
                         .m_bufferBarriers = beforeBarriers,
@@ -293,7 +293,7 @@ void PrepareBuffers(
                     }
                 };
                 _graphicsContext.PlaceMemoryBarriers(
-                    commandList,
+                    transferEncoder,
                     {
                         .m_placementType = BarrierPlacementType::Producer,
                         .m_bufferBarriers = postCopyBarriers,
