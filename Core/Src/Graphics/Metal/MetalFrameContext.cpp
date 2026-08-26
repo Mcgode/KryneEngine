@@ -145,6 +145,11 @@ namespace KryneEngine
             m_synchronizationEvent->setSignaledValue(_frameId);
         }
 
+        for (CommandListData* commandList: m_usedCommandBuffers)
+        {
+            m_usedCommandBuffers.get_allocator().Delete(commandList);
+        }
+
         m_usedCommandBuffers.clear();
         m_currentCommandAllocatorIndex = 0;
     }
