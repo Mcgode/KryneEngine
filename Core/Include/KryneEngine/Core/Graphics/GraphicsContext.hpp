@@ -58,8 +58,7 @@ namespace KryneEngine
      * - **Resource lifetime** is not tracked internally. A resource that is in use during a frame must not be
      *   destroyed until that frame has finished executing on the GPU (see #IsFrameExecuted).
      * - **Synchronisation** between GPU operations must be managed explicitly by inserting memory barriers
-     *   (see #PlaceMemoryBarriers) and, where required by the backend, declaring pass resource usages
-     *   (see #RenderPassNeedsUsageDeclaration, #DeclarePassTextureViewUsage, #DeclarePassBufferViewUsage).
+     *   (see #PlaceMemoryBarriers).
      * - **Staging** for device-local resources must be handled by the caller: use #NeedsStagingBuffer to
      *   determine whether a buffer requires an intermediate upload buffer, and #CreateStagingBuffer /
      *   #SetTextureData for texture uploads.
@@ -577,60 +576,22 @@ namespace KryneEngine
         /**
          * @brief Indicates whether the current graphics API supports per-resource (non-global) memory barriers.
          *
+         * @details
+         * If per-resource barriers are unavailable, such barriers provided to `PlaceMemoryBarriers` will be converted
+         * into global barriers instead.
+         *
          * @return `true` if buffer- and texture-specific barriers are supported, `false` if only global
          * barriers are available.
          */
-        [[nodiscard]] static bool SupportsNonGlobalBarriers();
+        [[nodiscard]] static bool SupportsPerResourceBarriers();
 
         /**
          * @brief Inserts GPU memory barriers to synchronize resource access between operations.
          *
          * @param _commandEncoder The command list in which to record the barriers.
          * @param _barriers The memory barriers to insert.
-         *
-         * @see SupportsNonGlobalBarriers
          */
         virtual void PlaceMemoryBarriers(CommandEncoderHandle _commandEncoder, const MemoryBarriers& _barriers) = 0;
-
-        /**
-         * @brief Indicates whether the current graphics API requires explicit resource usage declaration
-         * before a render pass (see #DeclarePassTextureViewUsage and #DeclarePassBufferViewUsage).
-         */
-        [[nodiscard]] static bool RenderPassNeedsUsageDeclaration();
-
-        /**
-         * @brief Indicates whether the current graphics API requires explicit resource usage declaration
-         * before a compute pass (see #DeclarePassTextureViewUsage and #DeclarePassBufferViewUsage).
-         */
-        [[nodiscard]] static bool ComputePassNeedsUsageDeclaration();
-
-        /**
-         * @brief Declares how a set of texture views will be accessed during the upcoming render or compute pass.
-         *
-         * @param _commandList The command list in which to record the declaration.
-         * @param _textures The texture views whose usage is being declared.
-         * @param _accessType The type of access (e.g. read, write) that will be performed on the texture views.
-         *
-         * @see RenderPassNeedsUsageDeclaration, ComputePassNeedsUsageDeclaration
-         */
-        virtual void DeclarePassTextureViewUsage(
-            CommandListHandle _commandList,
-            const eastl::span<const TextureViewHandle>& _textures,
-            KryneEngine::TextureViewAccessType _accessType) = 0;
-
-        /**
-         * @brief Declares how a set of buffer views will be accessed during the upcoming render or compute pass.
-         *
-         * @param _commandList The command list in which to record the declaration.
-         * @param _buffers The buffer views whose usage is being declared.
-         * @param _accessType The type of access (e.g. read, write) that will be performed on the buffer views.
-         *
-         * @see RenderPassNeedsUsageDeclaration, ComputePassNeedsUsageDeclaration
-         */
-        virtual void DeclarePassBufferViewUsage(
-            CommandListHandle _commandList,
-            const eastl::span<const BufferViewHandle>& _buffers,
-            BufferViewAccessType _accessType) = 0;
 
         /**
          * @brief Registers a compiled shader bytecode blob with the graphics API, creating a shader module.

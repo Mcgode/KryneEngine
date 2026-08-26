@@ -228,16 +228,6 @@ namespace KryneEngine::Modules::RenderGraph
                     }
                 }
 
-                if (pass.m_type == PassType::Render && GraphicsContext::RenderPassNeedsUsageDeclaration()
-                    || pass.m_type == PassType::Compute && GraphicsContext::ComputePassNeedsUsageDeclaration())
-                {
-                    _jobData->m_renderGraph->HandleResourceUsage(
-                        _jobData->m_passExecutionData.m_graphicsContext,
-                        _jobData->m_passExecutionData.m_commandList,
-                        pass);
-                }
-                // TODO: handle usage as well when compute passes are set up
-
                 KE_ASSERT(pass.m_executeFunction != nullptr);
                 pass.m_executeFunction(*_jobData->m_renderGraph, _jobData->m_passExecutionData);
             }
@@ -323,59 +313,5 @@ namespace KryneEngine::Modules::RenderGraph
     void RenderGraph::ResetRenderPassCache()
     {
         m_renderPassCache.clear();
-    }
-
-    void RenderGraph::HandleResourceUsage(
-        GraphicsContext* _graphicsContext,
-        CommandListHandle _commandList,
-        const PassDeclaration& _pass)
-    {
-        eastl::vector<TextureViewHandle> textureViews;
-        eastl::vector<BufferViewHandle> bufferViews;
-
-        const auto markUsage = [&](const auto& _dependencies, BufferViewAccessType _bufferAccessType, TextureViewAccessType _textureAccessType)
-        {
-            textureViews.clear();
-            textureViews.reserve(_dependencies.size());
-
-            bufferViews.clear();
-            bufferViews.reserve(_dependencies.size());
-
-            for (const auto& dependency : _dependencies)
-            {
-                const Resource& resource = m_registry->GetResource(dependency.m_resource);
-
-                switch (resource.m_type)
-                {
-                case ResourceType::TextureView:
-                    textureViews.push_back(resource.m_textureViewData.m_textureView);
-                    break;
-                case ResourceType::BufferView:
-                    bufferViews.push_back(resource.m_bufferViewData.m_bufferView);
-                    break;
-                default:
-                    KE_ERROR("Unhandled resource type");
-                    break;
-                }
-            }
-
-            _graphicsContext->DeclarePassTextureViewUsage(
-                _commandList,
-                textureViews,
-                _textureAccessType);
-            _graphicsContext->DeclarePassBufferViewUsage(
-                _commandList,
-                bufferViews,
-                _bufferAccessType);
-        };
-
-        markUsage(
-            _pass.m_readDependencies,
-            BufferViewAccessType::Read,
-            TextureViewAccessType::Read); // Don't differentiate between read and constant here.
-        markUsage(
-            _pass.m_writeDependencies,
-            BufferViewAccessType::Write,
-            TextureViewAccessType::Write);
     }
 } // namespace KryneEngine::Modules::RenderGraph

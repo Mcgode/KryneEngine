@@ -145,15 +145,6 @@ namespace KryneEngine
 
         void PlaceMemoryBarriers(CommandEncoderHandle _commandEncoder, const MemoryBarriers& _barriers) override;
 
-        void DeclarePassTextureViewUsage(
-            CommandListHandle _commandList,
-            const eastl::span<const TextureViewHandle>& _textures,
-            TextureViewAccessType _accessType) override;
-        void DeclarePassBufferViewUsage(
-            CommandListHandle _commandList,
-            const eastl::span<const BufferViewHandle>& _buffers,
-            BufferViewAccessType _accessType) override;
-
         [[nodiscard]] ShaderModuleHandle RegisterShaderModule(void* _bytecodeData, u64 _bytecodeSize) override;
         [[nodiscard]] DescriptorSetLayoutHandle CreateDescriptorSetLayout(const DescriptorSetDesc& _desc, u32* _bindingIndices) override;
         [[nodiscard]] DescriptorSetHandle CreateDescriptorSet(DescriptorSetLayoutHandle _layout) override;
