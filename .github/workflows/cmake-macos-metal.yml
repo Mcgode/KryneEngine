@@ -27,6 +27,23 @@ jobs:
         fetch-depth: 0
         lfs: true
 
+    - name: Inspect machine
+      run: |
+        echo "=== Architecture ==="
+        uname -m
+
+        echo "=== OS ==="
+        sw_vers
+
+        echo "=== Hardware ==="
+        system_profiler SPHardwareDataType
+
+        echo "=== GPU ==="
+        system_profiler SPDisplaysDataType
+
+        echo "=== Xcode ==="
+        xcodebuild -version
+
     - name: Setup shader build environment
       run: |
         sudo pip3 install ninja --break-system-packages
