@@ -164,8 +164,8 @@ namespace KryneEngine
             RenderPassHandle _renderPass) override;
         void EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder) override;
 
-        void BeginComputePass(CommandListHandle _commandList) override {}
-        void EndComputePass(CommandListHandle _commandList) override {}
+        ComputeCommandEncoderHandle BeginComputePass(CommandListHandle _commandList) override { return { _commandList}; }
+        void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) override {}
 
         TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList) override { return { _commandList }; }
         void EndTransferPass(const TransferCommandEncoderHandle _utilEncoder) override {}

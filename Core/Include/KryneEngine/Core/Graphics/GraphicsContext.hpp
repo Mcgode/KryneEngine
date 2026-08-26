@@ -497,15 +497,17 @@ namespace KryneEngine
          * @brief Begins a compute pass in the given command list.
          *
          * @param _commandList The command list in which to record the compute pass begin.
+         *
+         * @return The encoder for all the compute pass related commands.
          */
-        virtual void BeginComputePass(CommandListHandle _commandList) = 0;
+        virtual ComputeCommandEncoderHandle BeginComputePass(CommandListHandle _commandList) = 0;
 
         /**
          * @brief Ends the compute pass previously started with #BeginComputePass.
          *
-         * @param _commandList The command list in which to record the compute pass end.
+         * @param _computeEncoder The compute command encoder associated with the compute pass.
          */
-        virtual void EndComputePass(CommandListHandle _commandList) = 0;
+        virtual void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) = 0;
 
         virtual TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList) = 0;
         virtual void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) = 0;

@@ -116,8 +116,8 @@ namespace KryneEngine
         [[nodiscard]] RenderCommandEncoderHandle BeginRenderPass(CommandListHandle _commandList, RenderPassHandle _handle) override;
         void EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder) override;
 
-        void BeginComputePass(CommandListHandle _commandList) override;
-        void EndComputePass(CommandListHandle _commandList) override;
+        ComputeCommandEncoderHandle BeginComputePass(CommandListHandle _commandList) override;
+        void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) override;
 
         TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList) override;
         void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) override;

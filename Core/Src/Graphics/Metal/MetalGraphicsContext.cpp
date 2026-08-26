@@ -400,7 +400,7 @@ namespace KryneEngine
         commandList->ResetEncoder();
     }
 
-    void MetalGraphicsContext::BeginComputePass(const CommandListHandle _commandList)
+    ComputeCommandEncoderHandle MetalGraphicsContext::BeginComputePass(const CommandListHandle _commandList)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
         KE_ASSERT(commandList->m_type != CommandListData::EncoderType::Render);
@@ -421,11 +421,13 @@ namespace KryneEngine
         encoder->setArgumentTable(argumentTable);
 
         commandList->m_userData = argumentTable;
+
+        return { _commandList };
     }
 
-    void MetalGraphicsContext::EndComputePass(const CommandListHandle _commandList)
+    void MetalGraphicsContext::EndComputePass(const ComputeCommandEncoderHandle _computeEncoder)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
         KE_ASSERT(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Compute);
         auto* argumentTable = static_cast<MTL4::ArgumentTable*>(commandList->m_userData);
         KE_ASSERT(argumentTable != nullptr);
@@ -469,7 +471,7 @@ namespace KryneEngine
         const void* _data)
     {
         const auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
-        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer || commandList->m_type == CommandListData::EncoderType::Compute);
         KE_ASSERT(commandList->m_encoder != nullptr);
         auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
 
@@ -503,7 +505,7 @@ namespace KryneEngine
         const uint3& _regionSize)
     {
         const auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
-        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer || commandList->m_type == CommandListData::EncoderType::Compute);
         KE_ASSERT(commandList->m_encoder != nullptr);
         auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
 
@@ -544,10 +546,12 @@ namespace KryneEngine
         _mapping.m_ptr = nullptr;
     }
 
-    void MetalGraphicsContext::CopyBuffer(TransferCommandEncoderHandle _transferEncoder, const BufferCopyParameters& _params)
+    void MetalGraphicsContext::CopyBuffer(
+        const TransferCommandEncoderHandle _transferEncoder,
+        const BufferCopyParameters& _params)
     {
         const auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
-        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer || commandList->m_type == CommandListData::EncoderType::Compute);
         KE_ASSERT(commandList->m_encoder != nullptr);
         auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
 
