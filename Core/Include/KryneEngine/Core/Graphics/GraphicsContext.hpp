@@ -507,6 +507,9 @@ namespace KryneEngine
          */
         virtual void EndComputePass(CommandListHandle _commandList) = 0;
 
+        virtual TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList) = 0;
+        virtual void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) = 0;
+
         /**
          * @brief Uploads texture data for a single subresource from a staging buffer.
          *

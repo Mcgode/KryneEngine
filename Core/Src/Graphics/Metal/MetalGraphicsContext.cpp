@@ -436,6 +436,30 @@ namespace KryneEngine
         commandList->ResetEncoder();
     }
 
+    TransferCommandEncoderHandle MetalGraphicsContext::BeginTransferPass(const CommandListHandle _commandList)
+    {
+        const auto commandList = static_cast<CommandList>(_commandList);
+        KE_ASSERT(commandList->m_type != CommandListData::EncoderType::Render);
+
+        KE_AUTO_RELEASE_POOL;
+
+        commandList->ResetEncoder(CommandListData::EncoderType::Transfer);
+        if (commandList->m_encoder == nullptr)
+        {
+            commandList->m_encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
+        }
+
+        return { _commandList };
+    }
+
+    void MetalGraphicsContext::EndTransferPass(const TransferCommandEncoderHandle _utilEncoder)
+    {
+        const auto commandList = static_cast<CommandList>(_utilEncoder.m_handle);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer);
+
+        commandList->ResetEncoder();
+    }
+
     void MetalGraphicsContext::SetTextureData(
         const CommandListHandle _commandList,
         const BufferHandle _stagingBuffer,

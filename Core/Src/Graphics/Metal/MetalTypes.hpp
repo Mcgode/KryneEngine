@@ -18,6 +18,7 @@ namespace KryneEngine
         {
             Render,
             Compute,
+            Transfer,
             None
         };
 

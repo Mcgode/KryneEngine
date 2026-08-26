@@ -36,6 +36,6 @@ namespace KryneEngine
     };
 
     struct RenderCommandEncoderHandle: CommandEncoderHandle {};
-    struct UtilCommandEncoderHandle: CommandEncoderHandle {};
-    struct ComputeCommandEncoderHandle: UtilCommandEncoderHandle {};
+    struct TransferCommandEncoderHandle: CommandEncoderHandle {};
+    struct ComputeCommandEncoderHandle: TransferCommandEncoderHandle {};
 }

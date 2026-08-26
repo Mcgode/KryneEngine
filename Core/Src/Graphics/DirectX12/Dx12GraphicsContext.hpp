@@ -124,6 +124,9 @@ namespace KryneEngine
         void BeginComputePass(CommandListHandle _commandList) override {}
         void EndComputePass(CommandListHandle _commandList) override {}
 
+        TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList) override { return { _commandList }; }
+        void EndTransferPass(const TransferCommandEncoderHandle _utilEncoder) override {}
+
         void SetTextureData(
             CommandListHandle _commandList,
             BufferHandle _stagingBuffer,

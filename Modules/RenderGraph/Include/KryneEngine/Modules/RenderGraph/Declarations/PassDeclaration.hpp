@@ -30,7 +30,7 @@ namespace KryneEngine::Modules::RenderGraph
         CommandListHandle m_commandList = nullptr;
         RenderCommandEncoderHandle m_renderEncoder {};
         ComputeCommandEncoderHandle m_computeEncoder {};
-        UtilCommandEncoderHandle m_utilEncoder {};
+        TransferCommandEncoderHandle m_utilEncoder {};
     };
 
     struct PassDeclaration
