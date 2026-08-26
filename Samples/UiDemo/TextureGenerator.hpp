@@ -17,7 +17,7 @@ class TextureGenerator
 public:
     TextureGenerator(AllocatorInstance _allocator, size_t _textureCount);
 
-    void HandleUpload(GraphicsContext& _graphicsContext, CommandListHandle _transfer);
+    void HandleUpload(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transfer);
 
     [[nodiscard]] TextureViewHandle GetTextureView(size_t _index) const;
 

@@ -461,14 +461,17 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetTextureData(
-        const CommandListHandle _commandList,
+        TransferCommandEncoderHandle _transferEncoder,
         const BufferHandle _stagingBuffer,
         const TextureHandle _dstTexture,
         const TextureMemoryFootprint& _footprint,
         const SubResourceIndexing& _subResourceIndex,
         const void* _data)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer);
+        KE_ASSERT(commandList->m_encoder != nullptr);
+        auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
 
         MTL::Buffer* stagingBuffer = m_resources.m_buffers.Get(_stagingBuffer.m_handle)->m_buffer;
 
@@ -477,14 +480,6 @@ namespace KryneEngine
             reinterpret_cast<void*>(stagingBufferContent + _footprint.m_offset),
             _data,
             _footprint.m_lineByteAlignedSize * _footprint.m_height * _footprint.m_depth);
-
-        commandList->ResetEncoder(CommandListData::EncoderType::Compute);
-        if (commandList->m_encoder == nullptr)
-        {
-            NsPtr autoReleasePool { NS::AutoreleasePool::alloc()->init() };
-            commandList->m_encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
-        }
-        auto* encoder = reinterpret_cast<MTL::BlitCommandEncoder*>(commandList->m_encoder.get());
 
         encoder->copyFromBuffer(
             stagingBuffer,
@@ -499,7 +494,7 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetTextureRegionData(
-        const CommandListHandle _commandList,
+        TransferCommandEncoderHandle _transferEncoder,
         const BufferSpan _srcBuffer,
         const TextureHandle _dstTexture,
         const TextureMemoryFootprint& _footprint,
@@ -507,18 +502,13 @@ namespace KryneEngine
         const uint3& _regionOffset,
         const uint3& _regionSize)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer);
+        KE_ASSERT(commandList->m_encoder != nullptr);
+        auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
 
-        commandList->ResetEncoder(CommandListData::EncoderType::Compute);
-        if (commandList->m_encoder == nullptr)
-        {
-            NsPtr autoReleasePool { NS::AutoreleasePool::alloc()->init() };
-            commandList->m_encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
-        }
-        auto* encoder = reinterpret_cast<MTL::BlitCommandEncoder*>(commandList->m_encoder.get());
-
-        MTL::Buffer* srcBuffer = m_resources.m_buffers.Get(_srcBuffer.m_buffer.m_handle)->m_buffer;
-        MTL::Texture* dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle)->m_texture;
+        const MTL::Buffer* srcBuffer = m_resources.m_buffers.Get(_srcBuffer.m_buffer.m_handle)->m_buffer;
+        const MTL::Texture* dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle)->m_texture;
 
         encoder->copyFromBuffer(
             srcBuffer,
@@ -554,17 +544,12 @@ namespace KryneEngine
         _mapping.m_ptr = nullptr;
     }
 
-    void MetalGraphicsContext::CopyBuffer(const CommandListHandle _commandList, const BufferCopyParameters& _params)
+    void MetalGraphicsContext::CopyBuffer(TransferCommandEncoderHandle _transferEncoder, const BufferCopyParameters& _params)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
-
-        commandList->ResetEncoder(CommandListData::EncoderType::Compute);
-        if (commandList->m_encoder == nullptr)
-        {
-            NsPtr autoReleasePool { NS::AutoreleasePool::alloc()->init() };
-            commandList->m_encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
-        }
-        auto* encoder = reinterpret_cast<MTL::BlitCommandEncoder*>(commandList->m_encoder.get());
+        const auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::Transfer);
+        KE_ASSERT(commandList->m_encoder != nullptr);
+        auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
 
         encoder->copyFromBuffer(
             m_resources.m_buffers.Get(_params.m_bufferSrc.m_handle)->m_buffer,
@@ -1331,6 +1316,7 @@ namespace KryneEngine
                     index);
                 break;
             }
+            case CommandListData::EncoderType::Transfer:
             case CommandListData::EncoderType::Compute:
             {
                 auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());

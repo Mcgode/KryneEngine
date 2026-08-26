@@ -197,7 +197,7 @@ namespace KryneEngine::Modules::ImGui
         ::ImGui::NewFrame();
     }
 
-    void Context::PrepareToRenderFrame(GraphicsContext* _graphicsContext, CommandListHandle _commandList)
+    void Context::PrepareToRenderFrame(GraphicsContext* _graphicsContext, TransferCommandEncoderHandle _transferEncoder)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextPrepareToRenderFrame");
 
@@ -328,18 +328,22 @@ namespace KryneEngine::Modules::ImGui
                     .m_buffer = stagingBuffer.m_buffer,
                 }
             };
-            _graphicsContext->PlaceMemoryBarriers(_commandList, {
-                .m_placementType = BarrierPlacementType::IntraEncoder,
-                .m_bufferBarriers = stagingBufferBarrier,
-                .m_textureBarriers = textureMemoryBarriers,
-            });
+            _graphicsContext->PlaceMemoryBarriers(
+                _transferEncoder,
+                {
+                    .m_placementType = BarrierPlacementType::IntraEncoder,
+                    .m_bufferBarriers = stagingBufferBarrier,
+                    .m_textureBarriers = textureMemoryBarriers,
+                });
         }
         else
         {
-            _graphicsContext->PlaceMemoryBarriers(_commandList, {
-                .m_placementType = BarrierPlacementType::IntraEncoder,
-                .m_textureBarriers = textureMemoryBarriers,
-            });
+            _graphicsContext->PlaceMemoryBarriers(
+                _transferEncoder,
+                {
+                    .m_placementType = BarrierPlacementType::IntraEncoder,
+                    .m_textureBarriers = textureMemoryBarriers,
+                });
         }
 
         if (stagingBufferSizeRequired > 0)
@@ -370,8 +374,8 @@ namespace KryneEngine::Modules::ImGui
                             rowSize - texture->Width * texture->BytesPerPixel);
                     }
                     _graphicsContext->SetTextureRegionData(
-                        _commandList,
-                        BufferSpan {
+                        _transferEncoder,
+                        BufferSpan{
                             .m_size = rowSize * texture->Height,
                             .m_offset = static_cast<u64>(eastl::distance(mapping.m_ptr, stagingBufferPtr)),
                             .m_buffer = stagingBuffer.m_buffer,
@@ -380,8 +384,7 @@ namespace KryneEngine::Modules::ImGui
                         footprint,
                         {},
                         {0, 0, 0},
-                        {texture->Width, texture->Height, 1}
-                    );
+                        {texture->Width, texture->Height, 1});
                     stagingBufferPtr += rowSize * texture->Height;
                 }
                 else
@@ -403,8 +406,8 @@ namespace KryneEngine::Modules::ImGui
                         regionFootprint.m_width = update.w,
                         regionFootprint.m_height = update.h;
                         _graphicsContext->SetTextureRegionData(
-                            _commandList,
-                            BufferSpan {
+                            _transferEncoder,
+                            BufferSpan{
                                 .m_size = rowSize * update.h,
                                 .m_offset = static_cast<u64>(eastl::distance(mapping.m_ptr, stagingBufferPtr)),
                                 .m_buffer = stagingBuffer.m_buffer,
@@ -412,8 +415,8 @@ namespace KryneEngine::Modules::ImGui
                             it->second.m_texture,
                             regionFootprint,
                             {},
-                            { update.x, update.y, 0 },
-                            { update.w, update.h, 1 });
+                            {update.x, update.y, 0},
+                            {update.w, update.h, 1});
 
                         stagingBufferPtr += rowSize * update.h;
                     }
@@ -444,10 +447,12 @@ namespace KryneEngine::Modules::ImGui
 
             texture->SetStatus(ImTextureStatus_OK);
         }
-        _graphicsContext->PlaceMemoryBarriers(_commandList, {
-            .m_placementType = BarrierPlacementType::Producer,
-            .m_textureBarriers = textureMemoryBarriers,
-        });
+        _graphicsContext->PlaceMemoryBarriers(
+            _transferEncoder,
+            {
+                .m_placementType = BarrierPlacementType::Producer,
+                .m_textureBarriers = textureMemoryBarriers,
+            });
 
         const u8 frameIndex = _graphicsContext->GetCurrentFrameContextIndex();
 
@@ -479,11 +484,7 @@ namespace KryneEngine::Modules::ImGui
             }
             m_dynamicVertexBuffer.Unmap(_graphicsContext);
 
-            m_dynamicVertexBuffer.PrepareBuffers(
-                _graphicsContext,
-                _commandList,
-                BarrierAccessFlags::VertexBuffer,
-                frameIndex);
+            m_dynamicVertexBuffer.PrepareBuffers(_graphicsContext, _transferEncoder, BarrierAccessFlags::VertexBuffer, frameIndex);
         }
 
         {
@@ -507,11 +508,7 @@ namespace KryneEngine::Modules::ImGui
             }
             m_dynamicIndexBuffer.Unmap(_graphicsContext);
 
-            m_dynamicIndexBuffer.PrepareBuffers(
-                _graphicsContext,
-                _commandList,
-                BarrierAccessFlags::IndexBuffer,
-                frameIndex);
+            m_dynamicIndexBuffer.PrepareBuffers(_graphicsContext, _transferEncoder, BarrierAccessFlags::IndexBuffer, frameIndex);
         }
     }
 

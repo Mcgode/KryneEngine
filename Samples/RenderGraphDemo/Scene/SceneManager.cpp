@@ -155,11 +155,12 @@ namespace KryneEngine::Samples::RenderGraphDemo
 
         m_currentCbv = m_cbvRenderGraphHandles[index];
 
-        const auto transferExecuteFunction =
-            [this, _imGuiContext](Modules::RenderGraph::RenderGraph& _renderGraph, Modules::RenderGraph::PassExecutionData _passData)
+        const auto transferExecuteFunction = [this, _imGuiContext](
+            Modules::RenderGraph::RenderGraph& /* _renderGraph */,
+            const Modules::RenderGraph::PassExecutionData& _passData)
         {
-            ExecuteTransfers(_passData.m_graphicsContext, _passData.m_commandList);
-            _imGuiContext->PrepareToRenderFrame(_passData.m_graphicsContext, _passData.m_commandList);
+            ExecuteTransfers(_passData.m_graphicsContext, _passData.m_transferEncoder);
+            _imGuiContext->PrepareToRenderFrame(_passData.m_graphicsContext, _passData.m_transferEncoder);
         };
 
         _builder
@@ -211,20 +212,24 @@ namespace KryneEngine::Samples::RenderGraphDemo
         m_sceneConstantsBuffer.Unmap(_graphicsContext);
     }
 
-    void SceneManager::ExecuteTransfers(GraphicsContext* _graphicsContext, CommandListHandle _commandList)
+    void SceneManager::ExecuteTransfers(
+        GraphicsContext* _graphicsContext,
+        const TransferCommandEncoderHandle _transferEncoder) const
     {
         KE_ZoneScopedFunction("SceneManager::ExecuteTransfers");
 
         m_sceneConstantsBuffer.PrepareBuffers(
             _graphicsContext,
-            _commandList,
+            _transferEncoder,
             BarrierAccessFlags::ConstantBuffer,
             _graphicsContext->GetCurrentFrameContextIndex());
 
-        m_torusKnot->ProcessTransfers(_graphicsContext, _commandList);
+        m_torusKnot->ProcessTransfers(_graphicsContext, _transferEncoder);
     }
 
-    void SceneManager::RenderGBuffer(GraphicsContext* _graphicsContext, const RenderCommandEncoderHandle _renderEncoder)
+    void SceneManager::RenderGBuffer(
+        GraphicsContext* _graphicsContext,
+        const RenderCommandEncoderHandle _renderEncoder) const
     {
         _graphicsContext->SetViewport(
             _renderEncoder,

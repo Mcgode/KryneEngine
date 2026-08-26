@@ -73,9 +73,9 @@ namespace KryneEngine::Modules::ImGui
          * @brief Prepares the rendering context for a new frame by updating the vertex and index buffers.
          *
          * @param _graphicsContext The graphics context used for rendering.
-         * @param _commandList The command list used for uploading the buffers and texture regions.
+         * @param _transferEncoder The command list used for uploading the buffers and texture regions.
          */
-        void PrepareToRenderFrame(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+        void PrepareToRenderFrame(GraphicsContext* _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
 
         /**
          * @brief Renders a frame using the provided graphics context and command list.

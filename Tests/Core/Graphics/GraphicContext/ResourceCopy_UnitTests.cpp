@@ -54,6 +54,7 @@ namespace KryneEngine::Tests::Graphics
         // -----------------------------------------------------------------------
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
+        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList);
 
         {
             BufferMapping srcMapping { srcBuffer, sizeof(payload) };
@@ -79,19 +80,22 @@ namespace KryneEngine::Tests::Graphics
             },
         };
 
-        graphicsContext->PlaceMemoryBarriers(commandList, {
-            .m_placementType = BarrierPlacementType::IntraEncoder,
-            .m_bufferBarriers = barriers,
-        });
+        graphicsContext->PlaceMemoryBarriers(
+            transferEncoder,
+            {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_bufferBarriers = barriers,
+            });
 
         graphicsContext->CopyBuffer(
-            commandList,
+            transferEncoder,
             {
                 .m_copySize = sizeof(payload),
                 .m_bufferSrc = srcBuffer,
                 .m_bufferDst = dstBuffer,
             });
 
+        graphicsContext->EndTransferPass(transferEncoder);
         graphicsContext->EndGraphicsCommandList(commandList);
         graphicsContext->EndFrame();
         graphicsContext->WaitForLastFrame();
@@ -163,6 +167,7 @@ namespace KryneEngine::Tests::Graphics
         // -----------------------------------------------------------------------
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
+        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList);
 
         {
             BufferMapping srcMapping { srcBuffer, sizeof(payload) };
@@ -188,14 +193,12 @@ namespace KryneEngine::Tests::Graphics
                     .m_buffer = gpuBuffer,
                 },
             };
-            graphicsContext->PlaceMemoryBarriers(commandList, {
-                .m_placementType = BarrierPlacementType::IntraEncoder,
-                .m_bufferBarriers = barriers
-            });
+            graphicsContext->PlaceMemoryBarriers(
+                transferEncoder, {.m_placementType = BarrierPlacementType::IntraEncoder, .m_bufferBarriers = barriers});
         }
 
         graphicsContext->CopyBuffer(
-            commandList,
+            transferEncoder,
             {
                 .m_copySize = sizeof(payload),
                 .m_bufferSrc = srcBuffer,
@@ -220,20 +223,23 @@ namespace KryneEngine::Tests::Graphics
                     .m_buffer = dstBuffer,
                 }
             };
-            graphicsContext->PlaceMemoryBarriers(commandList, {
-                .m_placementType = BarrierPlacementType::IntraEncoder,
-                .m_bufferBarriers = barriers,
-            });
+            graphicsContext->PlaceMemoryBarriers(
+                transferEncoder,
+                {
+                    .m_placementType = BarrierPlacementType::IntraEncoder,
+                    .m_bufferBarriers = barriers,
+                });
         }
 
         graphicsContext->CopyBuffer(
-            commandList,
+            transferEncoder,
             {
                 .m_copySize = sizeof(payload),
                 .m_bufferSrc = gpuBuffer,
                 .m_bufferDst = dstBuffer,
             });
 
+        graphicsContext->EndTransferPass(transferEncoder);
         graphicsContext->EndGraphicsCommandList(commandList);
         graphicsContext->EndFrame();
         graphicsContext->WaitForLastFrame();
@@ -316,6 +322,7 @@ namespace KryneEngine::Tests::Graphics
         // -----------------------------------------------------------------------
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
+        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList);
 
         {
             BufferMapping srcMapping { srcBuffer, sizeof(payload) };
@@ -341,14 +348,16 @@ namespace KryneEngine::Tests::Graphics
                     .m_buffer = gpuBuffer0,
                 },
             };
-            graphicsContext->PlaceMemoryBarriers(commandList, {
-                .m_placementType = BarrierPlacementType::IntraEncoder,
-                .m_bufferBarriers = barriers,
-            });
+            graphicsContext->PlaceMemoryBarriers(
+                transferEncoder,
+                {
+                    .m_placementType = BarrierPlacementType::IntraEncoder,
+                    .m_bufferBarriers = barriers,
+                });
         }
 
         graphicsContext->CopyBuffer(
-            commandList,
+            transferEncoder,
             {
                 .m_copySize = sizeof(payload),
                 .m_bufferSrc = srcBuffer,
@@ -372,14 +381,16 @@ namespace KryneEngine::Tests::Graphics
                     .m_buffer = gpuBuffer1,
                 },
             };
-            graphicsContext->PlaceMemoryBarriers(commandList, {
-                .m_placementType = BarrierPlacementType::IntraEncoder,
-                .m_bufferBarriers = barriers,
-            });
+            graphicsContext->PlaceMemoryBarriers(
+                transferEncoder,
+                {
+                    .m_placementType = BarrierPlacementType::IntraEncoder,
+                    .m_bufferBarriers = barriers,
+                });
         }
 
         graphicsContext->CopyBuffer(
-            commandList,
+            transferEncoder,
             {
                 .m_copySize = sizeof(payload),
                 .m_bufferSrc = gpuBuffer0,
@@ -403,20 +414,23 @@ namespace KryneEngine::Tests::Graphics
                     .m_buffer = dstBuffer,
                 },
             };
-            graphicsContext->PlaceMemoryBarriers(commandList, {
-                .m_placementType = BarrierPlacementType::IntraEncoder,
-                .m_bufferBarriers = barriers,
-            });
+            graphicsContext->PlaceMemoryBarriers(
+                transferEncoder,
+                {
+                    .m_placementType = BarrierPlacementType::IntraEncoder,
+                    .m_bufferBarriers = barriers,
+                });
         }
 
         graphicsContext->CopyBuffer(
-            commandList,
+            transferEncoder,
             {
                 .m_copySize = sizeof(payload),
                 .m_bufferSrc = gpuBuffer1,
                 .m_bufferDst = dstBuffer,
             });
 
+        graphicsContext->EndTransferPass(transferEncoder);
         graphicsContext->EndGraphicsCommandList(commandList);
         graphicsContext->EndFrame();
         graphicsContext->WaitForLastFrame();

@@ -25,9 +25,9 @@ namespace KryneEngine::Modules::GraphicsUtils
         void Unmap(GraphicsContext* _graphicsContext);
         void PrepareBuffers(
             GraphicsContext* _graphicsContext,
-            CommandListHandle _commandLine,
+            TransferCommandEncoderHandle _transferEncoder,
             BarrierAccessFlags _accessFlags,
-            u8 _frameIndex);
+            u8 _frameIndex) const;
 
         /**
          * @brief Informs you whether your destination buffer is GPU memory-only (and thus requires explicit transfer)

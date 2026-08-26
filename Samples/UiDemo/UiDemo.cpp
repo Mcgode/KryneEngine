@@ -129,7 +129,9 @@ s32 main(s32 argc, const char** argv)
 
         {
             KE_ZoneScoped("Texture upload");
-            textureGenerator.HandleUpload(*graphicsContext, transferCommandList);
+            const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(transferCommandList);
+            textureGenerator.HandleUpload(*graphicsContext, transferEncoder);
+            graphicsContext->EndTransferPass(transferEncoder);
         }
 
         clayContext.BeginLayout(graphicsContext->GetPresentFrameBufferSize());
@@ -285,13 +287,16 @@ s32 main(s32 argc, const char** argv)
 
         const RenderPassHandle currentPass = renderPassHandles[graphicsContext->GetCurrentPresentImageIndex()];
         const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(renderCommandList, currentPass);
-        clayContext.EndLayout(*graphicsContext, transferCommandList, renderEncoder);
+        const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(transferCommandList);
 
-        uiCube.Render(*graphicsContext, transferCommandList, renderEncoder, contentScale);
+        clayContext.EndLayout(*graphicsContext, transferEncoder, renderEncoder);
+
+        uiCube.Render(*graphicsContext, transferEncoder, renderEncoder, contentScale);
         graphicsContext->EndRenderPass(renderEncoder);
 
-        msdfAtlasManager.FlushLoads(*graphicsContext, transferCommandList);
+        msdfAtlasManager.FlushLoads(*graphicsContext, transferEncoder);
 
+        graphicsContext->EndTransferPass(transferEncoder);
         graphicsContext->EndGraphicsCommandList(transferCommandList);
         graphicsContext->EndGraphicsCommandList(renderCommandList);
     }

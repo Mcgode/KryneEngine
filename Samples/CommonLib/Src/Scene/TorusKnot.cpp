@@ -193,7 +193,9 @@ namespace KryneEngine::Samples
         m_meshDirty = false;
     }
 
-    void TorusKnot::ProcessTransfers(GraphicsContext* _graphicsContext, CommandListHandle _commandList)
+    void TorusKnot::ProcessTransfers(
+        GraphicsContext* _graphicsContext,
+        const TransferCommandEncoderHandle _transferEncoder) const
     {
         if (_graphicsContext->GetFrameId() != m_transferFrameId)
         {
@@ -232,13 +234,15 @@ namespace KryneEngine::Samples
                 .m_buffer = m_transferBuffer,
             }
         };
-        _graphicsContext->PlaceMemoryBarriers(_commandList, {
-            .m_placementType = BarrierPlacementType::IntraEncoder,
-            .m_bufferBarriers = initBarriers,
-        });
+        _graphicsContext->PlaceMemoryBarriers(
+            _transferEncoder,
+            {
+                .m_placementType = BarrierPlacementType::IntraEncoder,
+                .m_bufferBarriers = initBarriers,
+            });
 
         _graphicsContext->CopyBuffer(
-            _commandList,
+            _transferEncoder,
             {
                 .m_copySize = m_indexBufferSize,
                 .m_bufferSrc = m_transferBuffer,
@@ -246,7 +250,7 @@ namespace KryneEngine::Samples
                 .m_offsetSrc = 0,
             });
         _graphicsContext->CopyBuffer(
-            _commandList,
+            _transferEncoder,
             {
                 .m_copySize = m_vertexBufferSize,
                 .m_bufferSrc = m_transferBuffer,
@@ -270,10 +274,12 @@ namespace KryneEngine::Samples
                 .m_buffer = m_vertexBuffer,
             }
         };
-        _graphicsContext->PlaceMemoryBarriers(_commandList, {
-            .m_placementType = BarrierPlacementType::Producer,
-            .m_bufferBarriers = postCopyBufferBarriers,
-        });
+        _graphicsContext->PlaceMemoryBarriers(
+            _transferEncoder,
+            {
+                .m_placementType = BarrierPlacementType::Producer,
+                .m_bufferBarriers = postCopyBufferBarriers,
+            });
     }
 
     void TorusKnot::RenderGBuffer(

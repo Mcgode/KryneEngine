@@ -107,9 +107,9 @@ namespace KryneEngine::Modules::GraphicsUtils
 
     void DynamicBuffer::PrepareBuffers(
         GraphicsContext* _graphicsContext,
-        CommandListHandle _commandLine,
+        const TransferCommandEncoderHandle _transferEncoder,
         const BarrierAccessFlags _accessFlags,
-        const u8 _frameIndex)
+        const u8 _frameIndex) const
     {
         if (m_gpuBuffer == GenPool::kInvalidHandle)
         {
@@ -123,7 +123,7 @@ namespace KryneEngine::Modules::GraphicsUtils
                 }
             };
 
-            _graphicsContext->PlaceMemoryBarriers(_commandLine, {
+            _graphicsContext->PlaceMemoryBarriers(_transferEncoder, {
                 .m_placementType = BarrierPlacementType::Producer,
                 .m_bufferBarriers = memoryBarrier
             });
@@ -154,13 +154,13 @@ namespace KryneEngine::Modules::GraphicsUtils
                     }
                 };
 
-                _graphicsContext->PlaceMemoryBarriers(_commandLine, {
+                _graphicsContext->PlaceMemoryBarriers(_transferEncoder, {
                     .m_placementType = BarrierPlacementType::IntraEncoder,
                     .m_bufferBarriers = memoryBarriers,
                 });
             }
 
-            _graphicsContext->CopyBuffer(_commandLine, params);
+            _graphicsContext->CopyBuffer(_transferEncoder, params);
 
             {
                 const BufferMemoryBarrier memoryBarrier[1] {
@@ -173,7 +173,7 @@ namespace KryneEngine::Modules::GraphicsUtils
                     }
                 };
 
-                _graphicsContext->PlaceMemoryBarriers(_commandLine, {
+                _graphicsContext->PlaceMemoryBarriers(_transferEncoder, {
                     .m_placementType = BarrierPlacementType::Producer,
                     .m_bufferBarriers = memoryBarrier,
                 });

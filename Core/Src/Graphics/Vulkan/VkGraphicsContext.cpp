@@ -1175,7 +1175,7 @@ namespace KryneEngine
     }
 
     void VkGraphicsContext::SetTextureData(
-        const CommandListHandle _commandList,
+        const TransferCommandEncoderHandle _transferEncoder,
         const BufferHandle _stagingBuffer,
         const TextureHandle _dstTexture,
         const TextureMemoryFootprint& _footprint,
@@ -1184,8 +1184,8 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("VkGraphicsContext::SetTextureData");
 
-        VkBuffer* stagingBuffer = m_resources.m_buffers.Get(_stagingBuffer.m_handle);
-        VkImage* dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
+        const VkBuffer* stagingBuffer = m_resources.m_buffers.Get(_stagingBuffer.m_handle);
+        const VkImage* dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
 
         // Map data
         {
@@ -1209,17 +1209,17 @@ namespace KryneEngine
             .bufferRowLength = GetByteSizePerBlock(ToVkFormat(_footprint.m_format)) < _footprint.m_rowPitchAlignment ? _footprint.m_lineByteAlignedSize : 0,
             .bufferImageHeight = 0, // Set entry to 0 to mark data as tightly packed.
             .imageSubresource = {
-                .aspectMask = VkHelperFunctions::RetrieveAspectMask(_subResourceIndex.m_planeSlice),
+                .aspectMask = RetrieveAspectMask(_subResourceIndex.m_planeSlice),
                 .mipLevel = _subResourceIndex.m_mipIndex,
                 .baseArrayLayer = _subResourceIndex.m_arraySlice,
                 .layerCount = 1,
             },
-            .imageOffset = { 0, 0, 0 },
-            .imageExtent = { _footprint.m_width, _footprint.m_height, _footprint.m_depth },
+            .imageOffset = { .x = 0, .y = 0, .z = 0 },
+            .imageExtent = { .width = _footprint.m_width, .height = _footprint.m_height, .depth = _footprint.m_depth },
         };
 
         vkCmdCopyBufferToImage(
-            reinterpret_cast<CommandList>(_commandList),
+            static_cast<CommandList>(_transferEncoder.m_handle),
             *stagingBuffer,
             *dstTexture,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -1228,7 +1228,7 @@ namespace KryneEngine
     }
 
     void VkGraphicsContext::SetTextureRegionData(
-        const CommandListHandle _commandList,
+        const TransferCommandEncoderHandle _transferEncoder,
         const BufferSpan _srcBuffer,
         const TextureHandle _dstTexture,
         const TextureMemoryFootprint& _footprint,
@@ -1236,12 +1236,12 @@ namespace KryneEngine
         const uint3& _regionOffset,
         const uint3& _regionSize)
     {
-        VkBuffer* srcBuffer = m_resources.m_buffers.Get(_srcBuffer.m_buffer.m_handle);
-        VkImage* dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
+        const VkBuffer* srcBuffer = m_resources.m_buffers.Get(_srcBuffer.m_buffer.m_handle);
+        const VkImage* dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
 
         KE_ASSERT(srcBuffer != nullptr && dstTexture != nullptr);
 
-        VkBufferImageCopy region {
+        const VkBufferImageCopy region {
             .bufferOffset = _srcBuffer.m_offset,
             // Only mark as tightly packed if the pixel element size is greater or equal to optimal alignment.
             .bufferRowLength = GetByteSizePerBlock(ToVkFormat(_footprint.m_format)) < _footprint.m_rowPitchAlignment ? _footprint.m_lineByteAlignedSize : 0,
@@ -1252,11 +1252,15 @@ namespace KryneEngine
                 .baseArrayLayer = _subresourceIndex.m_arraySlice,
                 .layerCount = 1,
             },
-            .imageOffset = { static_cast<s32>(_regionOffset.x), static_cast<s32>(_regionOffset.y), static_cast<s32>(_regionOffset.z) },
-            .imageExtent = { _regionSize.x, _regionSize.y, _regionSize.z },
+            .imageOffset = {
+                .x = static_cast<s32>(_regionOffset.x),
+                .y = static_cast<s32>(_regionOffset.y),
+                .z = static_cast<s32>(_regionOffset.z)
+            },
+            .imageExtent = { .width = _regionSize.x, .height = _regionSize.y, .depth = _regionSize.z },
         };
         vkCmdCopyBufferToImage(
-            static_cast<CommandList>(_commandList),
+            static_cast<CommandList>(_transferEncoder.m_handle),
             *srcBuffer,
             *dstTexture,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -1311,12 +1315,14 @@ namespace KryneEngine
         _mapping.m_ptr = nullptr;
     }
 
-    void VkGraphicsContext::CopyBuffer(const CommandListHandle _commandList, const BufferCopyParameters& _params)
+    void VkGraphicsContext::CopyBuffer(
+        const TransferCommandEncoderHandle _transferEncoder,
+        const BufferCopyParameters& _params)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::CopyBuffer");
 
-        VkBuffer* bufferSrc = m_resources.m_buffers.Get(_params.m_bufferSrc.m_handle);
-        VkBuffer* bufferDst = m_resources.m_buffers.Get(_params.m_bufferDst.m_handle);
+        const VkBuffer* bufferSrc = m_resources.m_buffers.Get(_params.m_bufferSrc.m_handle);
+        const VkBuffer* bufferDst = m_resources.m_buffers.Get(_params.m_bufferDst.m_handle);
         VERIFY_OR_RETURN_VOID(bufferSrc != nullptr && bufferDst != nullptr);
 
         const VkBufferCopy region {
@@ -1325,7 +1331,7 @@ namespace KryneEngine
             .size = _params.m_copySize,
         };
 
-        vkCmdCopyBuffer(reinterpret_cast<CommandList>(_commandList), *bufferSrc, *bufferDst, 1, &region);
+        vkCmdCopyBuffer(static_cast<CommandList>(_transferEncoder.m_handle), *bufferSrc, *bufferDst, 1, &region);
     }
 
     void VkGraphicsContext::PlaceMemoryBarriers(

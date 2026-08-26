@@ -98,14 +98,20 @@ void MainFunc(void* _pAllocator)
             ImGui::ShowDemoWindow(&open);
         }
 
-        imGuiContext.PrepareToRenderFrame(graphicsContext, commandList);
+        {
+            TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList);
+            imGuiContext.PrepareToRenderFrame(graphicsContext, transferEncoder);
+            graphicsContext->EndTransferPass(transferEncoder);
+        }
 
-        const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-        const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
+        {
+            const u8 index = graphicsContext->GetCurrentPresentImageIndex();
+            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
 
-        imGuiContext.RenderFrame(graphicsContext, renderEncoder);
+            imGuiContext.RenderFrame(graphicsContext, renderEncoder);
 
-        graphicsContext->EndRenderPass(renderEncoder);
+            graphicsContext->EndRenderPass(renderEncoder);
+        }
 
         graphicsContext->EndGraphicsCommandList(commandList);
     }

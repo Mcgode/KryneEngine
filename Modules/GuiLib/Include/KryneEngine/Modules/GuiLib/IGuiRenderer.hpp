@@ -24,7 +24,7 @@ namespace KryneEngine::Modules::GuiLib
 
         virtual void EndLayoutAndRender(
             GraphicsContext& _graphicsContext,
-            CommandListHandle _transferCommandList,
+            TransferCommandEncoderHandle _transferEncoder,
             RenderCommandEncoderHandle _renderEncoder) = 0;
     };
 } // namespace KryneEngine

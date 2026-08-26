@@ -232,7 +232,7 @@ UiCube::UiCube(
 
 void UiCube::Render(
     GraphicsContext& _graphicsContext,
-    CommandListHandle _transferCommandList,
+    TransferCommandEncoderHandle _transferEncoder,
     RenderCommandEncoderHandle _renderEncoder,
     const float _contentScale)
 {
@@ -240,21 +240,25 @@ void UiCube::Render(
     {
         if (m_transferFrameId == ~0u)
         {
-            _graphicsContext.CopyBuffer(_transferCommandList, {
-                .m_copySize = sizeof(positions),
-                .m_bufferSrc = m_transferBuffer,
-                .m_bufferDst = m_vertexBuffer,
-                .m_offsetSrc = 0,
-                .m_offsetDst = 0,
-            });
+            _graphicsContext.CopyBuffer(
+                _transferEncoder,
+                {
+                    .m_copySize = sizeof(positions),
+                    .m_bufferSrc = m_transferBuffer,
+                    .m_bufferDst = m_vertexBuffer,
+                    .m_offsetSrc = 0,
+                    .m_offsetDst = 0,
+                });
 
-            _graphicsContext.CopyBuffer(_transferCommandList, {
-                .m_copySize = sizeof(indices),
-                .m_bufferSrc = m_transferBuffer,
-                .m_bufferDst = m_indexBuffer,
-                .m_offsetSrc = sizeof(positions),
-                .m_offsetDst = 0,
-            });
+            _graphicsContext.CopyBuffer(
+                _transferEncoder,
+                {
+                    .m_copySize = sizeof(indices),
+                    .m_bufferSrc = m_transferBuffer,
+                    .m_bufferDst = m_indexBuffer,
+                    .m_offsetSrc = sizeof(positions),
+                    .m_offsetDst = 0,
+                });
 
             m_transferFrameId = _graphicsContext.GetFrameId();
         }
@@ -290,14 +294,14 @@ void UiCube::Render(
     const auto model = Math::ComputeTransformMatrix<float4x4>(position, rotation, float3(1));
 
     {
-        m_constantBuffer.PrepareBuffers(&_graphicsContext, _transferCommandList, BarrierAccessFlags::ConstantBuffer, frameIndex);
+        m_constantBuffer.PrepareBuffers(&_graphicsContext, _transferEncoder, BarrierAccessFlags::ConstantBuffer, frameIndex);
 
         auto* data = static_cast<UiCubeData*>(m_constantBuffer.Map(&_graphicsContext, frameIndex));
 
         data->m_mvpMatrix = projection * model;
 
         m_constantBuffer.Unmap(&_graphicsContext);
-        m_constantBuffer.PrepareBuffers(&_graphicsContext, _transferCommandList, BarrierAccessFlags::ConstantBuffer, frameIndex);
+        m_constantBuffer.PrepareBuffers(&_graphicsContext, _transferEncoder, BarrierAccessFlags::ConstantBuffer, frameIndex);
     }
 
     {
@@ -405,6 +409,6 @@ void UiCube::Render(
                 .fontSize = 32,
             }));
         }
-        m_guiContexts[i].EndLayout(_graphicsContext, _transferCommandList, _renderEncoder);
+        m_guiContexts[i].EndLayout(_graphicsContext, _transferEncoder, _renderEncoder);
     }
 }

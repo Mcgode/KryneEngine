@@ -215,6 +215,12 @@ namespace KryneEngine::Modules::RenderGraph
                 _jobData->m_passExecutionData.m_graphicsContext->BeginComputePass(
                     _jobData->m_passExecutionData.m_commandList);
             }
+            else if (pass.m_type == PassType::Transfer)
+            {
+                _jobData->m_passExecutionData.m_transferEncoder =
+                    _jobData->m_passExecutionData.m_graphicsContext->BeginTransferPass(
+                        _jobData->m_passExecutionData.m_commandList);
+            }
 
             if (pass.m_type == PassType::Render && GraphicsContext::RenderPassNeedsUsageDeclaration()
                 || pass.m_type == PassType::Compute && GraphicsContext::ComputePassNeedsUsageDeclaration())
@@ -238,6 +244,11 @@ namespace KryneEngine::Modules::RenderGraph
             {
                 _jobData->m_passExecutionData.m_graphicsContext->EndComputePass(
                     _jobData->m_passExecutionData.m_commandList);
+            }
+            else if (pass.m_type == PassType::Transfer)
+            {
+                _jobData->m_passExecutionData.m_graphicsContext->EndTransferPass(
+                    _jobData->m_passExecutionData.m_transferEncoder);
             }
 
             _jobData->m_passExecutionData.m_graphicsContext->PopDebugMarker(

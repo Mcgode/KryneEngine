@@ -472,7 +472,7 @@ namespace KryneEngine::Modules::GuiLib
 
     void BasicGuiRenderer::EndLayoutAndRender(
         GraphicsContext& _graphicsContext,
-        CommandListHandle _transferCommandList,
+        TransferCommandEncoderHandle _transferEncoder,
         RenderCommandEncoderHandle _renderEncoder)
     {
         KE_ZoneScopedFunction("BasicGuiRenderer::EndLayoutAndRender");
@@ -486,7 +486,8 @@ namespace KryneEngine::Modules::GuiLib
 
             memcpy(m_commonConstantBuffer.Map(&_graphicsContext, frameIndex), &m_viewportConstants, sizeof(ViewportConstants));
             m_commonConstantBuffer.Unmap(&_graphicsContext);
-            m_commonConstantBuffer.PrepareBuffers(&_graphicsContext, _transferCommandList, BarrierAccessFlags::ConstantBuffer, frameIndex);
+            m_commonConstantBuffer.PrepareBuffers(
+                &_graphicsContext, _transferEncoder, BarrierAccessFlags::ConstantBuffer, frameIndex);
 
             const DescriptorSetWriteInfo::DescriptorData descriptorData { .m_handle = m_commonConstantBufferViews[frameIndex].m_handle };
             const DescriptorSetWriteInfo writes[] = {
@@ -899,7 +900,7 @@ namespace KryneEngine::Modules::GuiLib
         {
             KE_ZoneScoped("Upload instance data");
             m_instanceDataBuffer.Unmap(&_graphicsContext);
-            m_instanceDataBuffer.PrepareBuffers(&_graphicsContext, _transferCommandList, BarrierAccessFlags::VertexBuffer, frameIndex);
+            m_instanceDataBuffer.PrepareBuffers(&_graphicsContext, _transferEncoder, BarrierAccessFlags::VertexBuffer, frameIndex);
         }
     }
 

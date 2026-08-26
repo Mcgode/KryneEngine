@@ -876,16 +876,16 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetTextureData(
-        CommandListHandle _commandList,
-        BufferHandle _stagingBuffer,
-        TextureHandle _dstTexture,
+        const TransferCommandEncoderHandle _transferEncoder,
+        const BufferHandle _stagingBuffer,
+        const TextureHandle _dstTexture,
         const TextureMemoryFootprint& _footprint,
         const SubResourceIndexing& _subResourceIndex,
         const void* _data)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetTextureData");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
 
         ID3D12Resource** stagingTexture = m_resources.m_buffers.Get(_stagingBuffer.m_handle);
         ID3D12Resource** dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
@@ -943,15 +943,15 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetTextureRegionData(
-        CommandListHandle _commandList,
-        BufferSpan _srcBuffer,
-        TextureHandle _dstTexture,
+        const TransferCommandEncoderHandle _transferEncoder,
+        const BufferSpan _srcBuffer,
+        const TextureHandle _dstTexture,
         const TextureMemoryFootprint& _footprint,
         const SubResourceIndexing& _subresourceIndex,
         const uint3& _regionOffset,
         const uint3& _regionSize)
     {
-        auto commandList = static_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
 
         ID3D12Resource** srcBuffer = m_resources.m_buffers.Get(_srcBuffer.m_buffer.m_handle);
         ID3D12Resource** dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
@@ -1027,11 +1027,13 @@ namespace KryneEngine
         _mapping.m_ptr = nullptr;
     }
 
-    void Dx12GraphicsContext::CopyBuffer(CommandListHandle _commandList, const BufferCopyParameters& _params)
+    void Dx12GraphicsContext::CopyBuffer(
+        const TransferCommandEncoderHandle _transferEncoder,
+        const BufferCopyParameters& _params)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::CopyBuffer");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_transferEncoder.m_handle);
 
         ID3D12Resource** bufferSrc = m_resources.m_buffers.Get(_params.m_bufferSrc.m_handle);
         ID3D12Resource** bufferDst = m_resources.m_buffers.Get(_params.m_bufferDst.m_handle);

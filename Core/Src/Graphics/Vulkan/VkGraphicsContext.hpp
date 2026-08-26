@@ -171,14 +171,14 @@ namespace KryneEngine
         void EndTransferPass(const TransferCommandEncoderHandle _utilEncoder) override {}
 
         void SetTextureData(
-            CommandListHandle _commandList,
+            TransferCommandEncoderHandle _transferEncoder,
             BufferHandle _stagingBuffer,
             TextureHandle _dstTexture,
             const TextureMemoryFootprint& _footprint,
             const SubResourceIndexing& _subResourceIndex,
             const void* _data) override;
         void SetTextureRegionData(
-            CommandListHandle _commandList,
+            TransferCommandEncoderHandle _transferEncoder,
             BufferSpan _srcBuffer,
             TextureHandle _dstTexture,
             const TextureMemoryFootprint& _footprint,
@@ -188,7 +188,7 @@ namespace KryneEngine
 
         void MapBuffer(BufferMapping& _mapping) override;
         void UnmapBuffer(BufferMapping& _mapping) override;
-        void CopyBuffer(CommandListHandle _commandList, const BufferCopyParameters& _params) override;
+        void CopyBuffer(TransferCommandEncoderHandle _transferEncoder, const BufferCopyParameters& _params) override;
 
         void PlaceMemoryBarriers(CommandEncoderHandle _commandEncoder, const MemoryBarriers& _barriers) override;
 

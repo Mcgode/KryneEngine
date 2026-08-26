@@ -513,7 +513,7 @@ namespace KryneEngine
         /**
          * @brief Uploads texture data for a single subresource from a staging buffer.
          *
-         * @param _commandList The command list in which to record the copy operation.
+         * @param _transferEncoder The command encoder in which to record the copy operation.
          * @param _stagingBuffer The staging buffer containing the source data, previously created with
          * #CreateStagingBuffer and filled via #MapBuffer/#UnmapBuffer.
          * @param _dstTexture The destination texture to upload the data to.
@@ -522,7 +522,7 @@ namespace KryneEngine
          * @param _data A pointer to the raw data to copy into the staging buffer before the upload.
          */
         virtual void SetTextureData(
-            CommandListHandle _commandList,
+            TransferCommandEncoderHandle _transferEncoder,
             BufferHandle _stagingBuffer,
             TextureHandle _dstTexture,
             const TextureMemoryFootprint& _footprint,
@@ -532,7 +532,7 @@ namespace KryneEngine
         /**
          * @brief Uploads a specific region of a texture subresource from a buffer, for partial updates.
          *
-         * @param _commandList The command list in which to record the copy operation.
+         * @param _transferEncoder The command encoder in which to record the copy operation.
          * @param _srcBuffer The source buffer span containing the data to upload.
          * @param _dstTexture The destination texture to upload the data to.
          * @param _footprint The memory footprint of the subresource being updated.
@@ -541,7 +541,7 @@ namespace KryneEngine
          * @param _regionSize The size, in texels, of the region to update.
          */
         virtual void SetTextureRegionData(
-            CommandListHandle _commandList,
+            TransferCommandEncoderHandle _transferEncoder,
             BufferSpan _srcBuffer,
             TextureHandle _dstTexture,
             const TextureMemoryFootprint& _footprint,
@@ -567,10 +567,10 @@ namespace KryneEngine
         /**
          * @brief Copies data between buffers using a GPU command.
          *
-         * @param _commandList The command list in which to record the copy operation.
+         * @param _transferEncoder The command encoder in which to record the copy operation.
          * @param _params The parameters describing the source, destination and range of the copy.
          */
-        virtual void CopyBuffer(CommandListHandle _commandList, const BufferCopyParameters& _params) = 0;
+        virtual void CopyBuffer(TransferCommandEncoderHandle _transferEncoder, const BufferCopyParameters& _params) = 0;
 
         /**
          * @brief Indicates whether the current graphics API supports per-resource (non-global) memory barriers.

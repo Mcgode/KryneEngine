@@ -225,6 +225,7 @@ void PrepareBuffers(
             // command buffers for each trivial operation, and group them into one single buffer.
 
             CommandListHandle commandList = _graphicsContext.BeginGraphicsCommandList();
+            TransferCommandEncoderHandle transferEncoder = _graphicsContext.BeginTransferPass(commandList);
 
             {
                 KE_GpuZoneScoped(&_graphicsContext, _graphicsContext.GetProfilerContext(), commandList, "PrepareBuffers");
@@ -252,20 +253,22 @@ void PrepareBuffers(
                         .m_buffer = _indexBuffer,
                     }
                 };
-                _graphicsContext.PlaceMemoryBarriers(commandList, {
-                    .m_placementType = BarrierPlacementType::IntraEncoder,
-                    .m_bufferBarriers = beforeBarriers,
-                });
+                _graphicsContext.PlaceMemoryBarriers(
+                    commandList,
+                    {
+                        .m_placementType = BarrierPlacementType::IntraEncoder,
+                        .m_bufferBarriers = beforeBarriers,
+                    });
 
                 _graphicsContext.CopyBuffer(
-                    commandList,
+                    transferEncoder,
                     {
                         .m_copySize = _vertexBufferView.m_size,
                         .m_bufferSrc = _stagingBuffer,
                         .m_bufferDst = _vertexBuffer,
                     });
                 _graphicsContext.CopyBuffer(
-                    commandList,
+                    transferEncoder,
                     {
                         .m_copySize = _indexBufferView.m_size,
                         .m_bufferSrc = _stagingBuffer,
@@ -289,12 +292,15 @@ void PrepareBuffers(
                         .m_buffer = _indexBuffer,
                     }
                 };
-                _graphicsContext.PlaceMemoryBarriers(commandList, {
-                    .m_placementType = BarrierPlacementType::Producer,
-                    .m_bufferBarriers = postCopyBarriers,
-                });
+                _graphicsContext.PlaceMemoryBarriers(
+                    commandList,
+                    {
+                        .m_placementType = BarrierPlacementType::Producer,
+                        .m_bufferBarriers = postCopyBarriers,
+                    });
             }
 
+            _graphicsContext.EndTransferPass(transferEncoder);
             _graphicsContext.EndGraphicsCommandList(commandList);
         }
     }
