@@ -574,9 +574,11 @@ namespace KryneEngine
             _params.m_copySize);
     }
 
-    void MetalGraphicsContext::PlaceMemoryBarriers(const CommandListHandle _commandList, const MemoryBarriers& _barriers)
+    void MetalGraphicsContext::PlaceMemoryBarriers(
+        const CommandEncoderHandle _commandEncoder,
+        const MemoryBarriers& _barriers)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_commandEncoder.m_handle);
 
         if (commandList->m_type == CommandListData::EncoderType::None)
         {

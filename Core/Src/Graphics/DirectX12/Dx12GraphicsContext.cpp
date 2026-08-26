@@ -1046,12 +1046,12 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::PlaceMemoryBarriers(
-        CommandListHandle _commandList,
+        const CommandEncoderHandle _commandEncoder,
         const MemoryBarriers& _barriers)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::PlaceMemoryBarriers");
 
-        auto commandList = reinterpret_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_commandEncoder.m_handle);
 
         using namespace Dx12Converters;
 

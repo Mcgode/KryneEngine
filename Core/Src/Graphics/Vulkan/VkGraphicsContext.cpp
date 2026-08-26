@@ -1328,7 +1328,9 @@ namespace KryneEngine
         vkCmdCopyBuffer(reinterpret_cast<CommandList>(_commandList), *bufferSrc, *bufferDst, 1, &region);
     }
 
-    void VkGraphicsContext::PlaceMemoryBarriers(CommandListHandle _commandList, const MemoryBarriers& _barriers)
+    void VkGraphicsContext::PlaceMemoryBarriers(
+        const CommandEncoderHandle _commandEncoder,
+        const MemoryBarriers& _barriers)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::PlaceMemoryBarriers");
 
@@ -1407,7 +1409,7 @@ namespace KryneEngine
                 .pImageMemoryBarriers = imageMemoryBarriers.Data(),
             };
 
-            m_vkCmdPipelineBarrier2KHR(static_cast<CommandList>(_commandList), &dependencyInfo);
+            m_vkCmdPipelineBarrier2KHR(static_cast<CommandList>(_commandEncoder.m_handle), &dependencyInfo);
         }
         else
         {
@@ -1521,7 +1523,7 @@ namespace KryneEngine
                 }
 
                 vkCmdPipelineBarrier(
-                    static_cast<CommandList>(_commandList),
+                    static_cast<CommandList>(_commandEncoder.m_handle),
                     ToVkPipelineStageFlagBits(src, true),
                     ToVkPipelineStageFlagBits(dst, false),
                     0,

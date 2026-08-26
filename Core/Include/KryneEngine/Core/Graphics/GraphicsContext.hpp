@@ -583,12 +583,17 @@ namespace KryneEngine
         /**
          * @brief Inserts GPU memory barriers to synchronize resource access between operations.
          *
-         * @param _commandList The command list in which to record the barriers.
+         * @param _commandEncoder The command list in which to record the barriers.
          * @param _barriers The memory barriers to insert.
          *
          * @see SupportsNonGlobalBarriers
          */
-        virtual void PlaceMemoryBarriers(CommandListHandle _commandList, const MemoryBarriers& _barriers) = 0;
+        virtual void PlaceMemoryBarriers(CommandEncoderHandle _commandEncoder, const MemoryBarriers& _barriers) = 0;
+
+        [[deprecated]] void PlaceMemoryBarriers(CommandListHandle _commandList, const MemoryBarriers& _barriers)
+        {
+            PlaceMemoryBarriers(CommandEncoderHandle { _commandList }, _barriers);
+        }
 
         /**
          * @brief Indicates whether the current graphics API requires explicit resource usage declaration

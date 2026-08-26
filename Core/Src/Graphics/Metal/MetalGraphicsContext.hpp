@@ -143,7 +143,7 @@ namespace KryneEngine
 
         void CopyBuffer(CommandListHandle _commandList, const BufferCopyParameters& _params) override;;
 
-        void PlaceMemoryBarriers(CommandListHandle _commandList, const MemoryBarriers& _barriers) override;
+        void PlaceMemoryBarriers(CommandEncoderHandle _commandEncoder, const MemoryBarriers& _barriers) override;
 
         void DeclarePassTextureViewUsage(
             CommandListHandle _commandList,
