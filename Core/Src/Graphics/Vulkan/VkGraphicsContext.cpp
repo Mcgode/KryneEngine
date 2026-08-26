@@ -1786,22 +1786,24 @@ namespace KryneEngine
             _desc.m_instanceOffset);
     }
 
-    void VkGraphicsContext::SetComputePipeline(const CommandListHandle _commandList, const ComputePipelineHandle _pipeline)
+    void VkGraphicsContext::SetComputePipeline(
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const ComputePipelineHandle _pipeline)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::SetComputePipeline");
 
-        VkPipeline* pPipeline = m_resources.m_pipelines.Get(_pipeline.m_handle);
+        const VkPipeline* pPipeline = m_resources.m_pipelines.Get(_pipeline.m_handle);
 
         VERIFY_OR_RETURN_VOID(pPipeline != nullptr);
 
         vkCmdBindPipeline(
-            reinterpret_cast<CommandList>(_commandList),
+            static_cast<CommandList>(_computeEncoder.m_handle),
             VK_PIPELINE_BIND_POINT_COMPUTE,
             *pPipeline);
     }
 
     void VkGraphicsContext::SetComputeDescriptorSetsWithOffset(
-        const CommandListHandle _commandList,
+        const ComputeCommandEncoderHandle _computeEncoder,
         const PipelineLayoutHandle _layout,
         const eastl::span<const DescriptorSetHandle> _sets,
         const u32 _offset)
@@ -1810,7 +1812,7 @@ namespace KryneEngine
 
         const u8 frameIndex = m_frameId % m_frameContextCount;
 
-        VkPipelineLayout* pLayout = m_resources.m_pipelineLayouts.Get(_layout.m_handle);
+        const VkPipelineLayout* pLayout = m_resources.m_pipelineLayouts.Get(_layout.m_handle);
         VERIFY_OR_RETURN_VOID(pLayout != nullptr);
 
         for (auto i = 0; i < _sets.size(); i++)
@@ -1819,7 +1821,7 @@ namespace KryneEngine
             const u64 offset = m_frameContextCount * _sets[i].m_handle.m_index + frameIndex;
 
             vkCmdBindDescriptorSets(
-                reinterpret_cast<CommandList>(_commandList),
+                static_cast<CommandList>(_computeEncoder.m_handle),
                 VK_PIPELINE_BIND_POINT_COMPUTE,
                 *pLayout,
                 i + _offset,
@@ -1831,7 +1833,9 @@ namespace KryneEngine
     }
 
     void VkGraphicsContext::SetComputePushConstant(
-        const CommandListHandle _commandList, const PipelineLayoutHandle _layout, const eastl::span<const u32> _data)
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const PipelineLayoutHandle _layout,
+        const eastl::span<const u32> _data)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::SetComputePushConstant");
 
@@ -1840,7 +1844,7 @@ namespace KryneEngine
         VERIFY_OR_RETURN_VOID(!pColdData->m_pushConstants.empty());
 
         vkCmdPushConstants(
-            reinterpret_cast<CommandList>(_commandList),
+            static_cast<CommandList>(_computeEncoder.m_handle),
             *pLayout,
             VkHelperFunctions::ToVkShaderStageFlags(pColdData->m_pushConstants[0].m_visibility),
             (pColdData->m_pushConstants[0].m_offset) * sizeof(u32),
@@ -1848,12 +1852,15 @@ namespace KryneEngine
             _data.data());
     }
 
-    void VkGraphicsContext::Dispatch(const CommandListHandle _commandList, const uint3 _threadGroupCount, uint3)
+    void VkGraphicsContext::Dispatch(
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const uint3 _threadGroupCount,
+        const uint3 /* _threadGroupSize */)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::Dispatch");
 
         vkCmdDispatch(
-            reinterpret_cast<CommandList>(_commandList),
+            static_cast<CommandList>(_computeEncoder.m_handle),
             _threadGroupCount.x,
             _threadGroupCount.y,
             _threadGroupCount.z);

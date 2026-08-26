@@ -848,21 +848,21 @@ namespace KryneEngine
         /**
          * @brief Binds a compute pipeline for use by subsequent dispatch calls.
          *
-         * @param _commandList The command list in which to record the pipeline binding.
+         * @param _computeEncoder The command list in which to record the pipeline binding.
          * @param _pipeline The compute pipeline to bind, previously created with #CreateComputePipeline.
          */
-        virtual void SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline) = 0;
+        virtual void SetComputePipeline(ComputeCommandEncoderHandle _computeEncoder, ComputePipelineHandle _pipeline) = 0;
 
         /**
          * @brief Binds a set of descriptor sets for use by the compute pipeline, starting at a given offset.
          *
-         * @param _commandList The command list in which to record the descriptor set bindings.
+         * @param _computeEncoder The command encoder in which to record the descriptor set bindings.
          * @param _layout The pipeline layout describing the descriptor set slots to bind to.
          * @param _sets The descriptor sets to bind.
          * @param _offset The index of the first descriptor set slot (in `_layout`) to bind to.
          */
         virtual void SetComputeDescriptorSetsWithOffset(
-            CommandListHandle _commandList,
+            ComputeCommandEncoderHandle _computeEncoder,
             PipelineLayoutHandle _layout,
             eastl::span<const DescriptorSetHandle> _sets,
             u32 _offset) = 0;
@@ -870,41 +870,41 @@ namespace KryneEngine
         /**
          * @brief Binds a set of descriptor sets for use by the compute pipeline, starting at slot 0.
          *
-         * @param _commandList The command list in which to record the descriptor set bindings.
+         * @param _computeEncoder The command encoder in which to record the descriptor set bindings.
          * @param _layout The pipeline layout describing the descriptor set slots to bind to.
          * @param _sets The descriptor sets to bind.
          *
          * @see SetComputeDescriptorSetsWithOffset
          */
         void SetComputeDescriptorSets(
-            CommandListHandle _commandList,
+            ComputeCommandEncoderHandle _computeEncoder,
             PipelineLayoutHandle _layout,
             eastl::span<const DescriptorSetHandle> _sets)
         {
-            SetComputeDescriptorSetsWithOffset(_commandList, _layout, _sets, 0);
+            SetComputeDescriptorSetsWithOffset(_computeEncoder, _layout, _sets, 0);
         }
 
         /**
          * @brief Sets push constant data for the compute pipeline stage.
          *
-         * @param _commandList The command list in which to record the push constant update.
+         * @param _computeEncoder The command list in which to record the push constant update.
          * @param _layout The pipeline layout describing the push constant range to update.
          * @param _data The raw push constant data to set.
          */
         virtual void SetComputePushConstant(
-            CommandListHandle _commandList,
+            ComputeCommandEncoderHandle _computeEncoder,
             PipelineLayoutHandle _layout,
             eastl::span<const u32> _data) = 0;
 
         /**
          * @brief Records a compute dispatch call.
          *
-         * @param _commandList The command list in which to record the dispatch call.
+         * @param _computeEncoder The command encoder in which to record the dispatch call.
          * @param _threadGroupCount The number of thread groups to dispatch, along each axis.
          * @param _threadGroupSize The size of a single thread group, along each axis, as expected by the
          * bound compute shader.
          */
-        virtual void Dispatch(CommandListHandle _commandList, uint3 _threadGroupCount, uint3 _threadGroupSize) = 0;
+        virtual void Dispatch(ComputeCommandEncoderHandle _computeEncoder, uint3 _threadGroupCount, uint3 _threadGroupSize) = 0;
 
         /**
          * @brief Inserts a debug marker into the command list to assist with GPU profiling and debugging.

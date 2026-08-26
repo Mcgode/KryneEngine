@@ -971,25 +971,25 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetComputePipeline(
-        const CommandListHandle _commandList, const ComputePipelineHandle _pipeline)
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const ComputePipelineHandle _pipeline)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Compute);
         auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
 
-        MetalResources::ComputePsoHotData* hot = m_resources.m_computePso.Get(_pipeline.m_handle);
+        const MetalResources::ComputePsoHotData* hot = m_resources.m_computePso.Get(_pipeline.m_handle);
         encoder->setComputePipelineState(hot->m_pso);
     }
 
     void MetalGraphicsContext::SetComputeDescriptorSetsWithOffset(
-        const CommandListHandle _commandList,
+        const ComputeCommandEncoderHandle _computeEncoder,
         const PipelineLayoutHandle _layout,
         const eastl::span<const DescriptorSetHandle> _sets,
         const u32 _offset)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Compute);
-        auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
         auto* argumentTable = static_cast<MTL4::ArgumentTable*>(commandList->m_userData);
         KE_ASSERT(argumentTable != nullptr);
 
@@ -1013,9 +1013,11 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::SetComputePushConstant(
-        const CommandListHandle _commandList, const PipelineLayoutHandle _layout, const eastl::span<const u32> _data)
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const PipelineLayoutHandle _layout,
+        const eastl::span<const u32> _data)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Compute);
         auto* argumentTable = static_cast<MTL4::ArgumentTable*>(commandList->m_userData);
         KE_ASSERT(argumentTable != nullptr);
@@ -1031,9 +1033,11 @@ namespace KryneEngine
     }
 
     void MetalGraphicsContext::Dispatch(
-        const CommandListHandle _commandList, const uint3 _threadGroupCount, const uint3 _threadGroupSize)
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const uint3 _threadGroupCount,
+        const uint3 _threadGroupSize)
     {
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Compute);
         auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
 

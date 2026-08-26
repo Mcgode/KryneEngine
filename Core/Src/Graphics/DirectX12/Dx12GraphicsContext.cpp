@@ -1480,11 +1480,13 @@ namespace KryneEngine
             _desc.m_instanceOffset);
     }
 
-    void Dx12GraphicsContext::SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline)
+    void Dx12GraphicsContext::SetComputePipeline(
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const ComputePipelineHandle _pipeline)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetComputePipeline");
 
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
 
         KE_ASSERT(_pipeline != GenPool::kInvalidHandle);
         ID3D12PipelineState** pPso = m_resources.m_pipelineStateObjects.Get(_pipeline.m_handle);
@@ -1496,14 +1498,14 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetComputeDescriptorSetsWithOffset(
-        CommandListHandle _commandList,
-        PipelineLayoutHandle _layout,
-        eastl::span<const DescriptorSetHandle> _sets,
-        u32 _offset)
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const PipelineLayoutHandle _layout,
+        const eastl::span<const DescriptorSetHandle> _sets,
+        const u32 _offset)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetComputeDescriptorSetsWithOffset");
 
-        const auto commandList = static_cast<CommandList>(_commandList);
+        const auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
         m_descriptorSetManager.SetComputeDescriptorSets(
             commandList,
             _sets,
@@ -1513,13 +1515,13 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::SetComputePushConstant(
-        CommandListHandle _commandList,
-        PipelineLayoutHandle _layout,
-        eastl::span<const u32> _data)
+        const ComputeCommandEncoderHandle _computeEncoder,
+        const PipelineLayoutHandle _layout,
+        const eastl::span<const u32> _data)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetComputePushConstant");
 
-        auto commandList = static_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
 
         u32* offset = m_resources.m_pipelineLayouts.GetCold(_layout.m_handle);
         VERIFY_OR_RETURN_VOID(offset != nullptr);
@@ -1533,13 +1535,13 @@ namespace KryneEngine
     }
 
     void Dx12GraphicsContext::Dispatch(
-        CommandListHandle _commandList,
+        const ComputeCommandEncoderHandle _computeEncoder,
         const uint3 _threadGroupCount,
         const uint3 _threadGroupSize)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::Dispatch");
 
-        auto commandList = static_cast<CommandList>(_commandList);
+        auto commandList = static_cast<CommandList>(_computeEncoder.m_handle);
 
         commandList->Dispatch(_threadGroupCount.x, _threadGroupCount.y, _threadGroupCount.z);
     }

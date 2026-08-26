@@ -193,18 +193,18 @@ namespace KryneEngine
         void DrawInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc) override;
         void DrawIndexedInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawIndexedInstancedDesc& _desc) override;
 
-        void SetComputePipeline(CommandListHandle _commandList, ComputePipelineHandle _pipeline) override;
+        void SetComputePipeline(ComputeCommandEncoderHandle _computeEncoder, ComputePipelineHandle _pipeline) override;
         void SetComputeDescriptorSetsWithOffset(
-            CommandListHandle _commandList,
+            ComputeCommandEncoderHandle _computeEncoder,
             PipelineLayoutHandle _layout,
             eastl::span<const DescriptorSetHandle> _sets,
             u32 _offset) override;
         void SetComputePushConstant(
-            CommandListHandle _commandList,
+            ComputeCommandEncoderHandle _computeEncoder,
             PipelineLayoutHandle _layout,
             eastl::span<const u32> _data) override;
 
-        void Dispatch(CommandListHandle _commandList, uint3 _threadGroupCount, uint3 _threadGroupSize) override;
+        void Dispatch(ComputeCommandEncoderHandle _computeEncoder, uint3 _threadGroupCount, uint3 _threadGroupSize) override;
 
         void PushDebugMarker(
             CommandListHandle _commandList,
