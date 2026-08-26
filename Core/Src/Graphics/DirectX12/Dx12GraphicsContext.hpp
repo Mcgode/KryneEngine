@@ -117,14 +117,13 @@ namespace KryneEngine
         void EndGraphicsCommandList(CommandListHandle _commandList) override;
 
         [[nodiscard]] RenderCommandEncoderHandle BeginRenderPass(
-            CommandListHandle _commandList,
-            RenderPassHandle _renderPass) override;
+            CommandListHandle _commandList, RenderPassHandle _renderPass, eastl::string_view _debugName) override;
         void EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder) override;
 
-        ComputeCommandEncoderHandle BeginComputePass(CommandListHandle _commandList) override { return { _commandList }; }
+        ComputeCommandEncoderHandle BeginComputePass(CommandListHandle _commandList, eastl::string_view _debugName) override { return { _commandList }; }
         void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) override {}
 
-        TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList) override { return { _commandList }; }
+        TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList, eastl::string_view _debugName) override { return { _commandList }; }
         void EndTransferPass(const TransferCommandEncoderHandle _utilEncoder) override {}
 
         void SetTextureData(

@@ -1142,8 +1142,10 @@ namespace KryneEngine
             reinterpret_cast<CommandList>(_commandList));
     }
 
-    RenderCommandEncoderHandle VkGraphicsContext::BeginRenderPass(const CommandListHandle _commandList,
-        const RenderPassHandle _renderPass)
+    RenderCommandEncoderHandle VkGraphicsContext::BeginRenderPass(
+        const CommandListHandle _commandList,
+        const RenderPassHandle _renderPass,
+        const eastl::string_view /* _debugName */)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::BeginRenderPass");
 

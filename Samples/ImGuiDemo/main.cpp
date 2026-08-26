@@ -99,14 +99,14 @@ void MainFunc(void* _pAllocator)
         }
 
         {
-            TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList);
+            TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList, "Transfer pass");
             imGuiContext.PrepareToRenderFrame(graphicsContext, transferEncoder);
             graphicsContext->EndTransferPass(transferEncoder);
         }
 
         {
             const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
+            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index], "Render pass");
 
             imGuiContext.RenderFrame(graphicsContext, renderEncoder);
 

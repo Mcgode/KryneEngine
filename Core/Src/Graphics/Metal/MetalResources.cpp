@@ -392,10 +392,6 @@ namespace KryneEngine
             coldData->m_depthStencilFormat = TextureFormat::NoFormat;
         }
 
-#if !defined(KE_FINAL)
-        hotData->m_debugName = _desc.m_debugName;
-#endif
-
         return { handle };
     }
 

@@ -565,7 +565,8 @@ namespace KryneEngine
 
     RenderCommandEncoderHandle Dx12GraphicsContext::BeginRenderPass(
         CommandListHandle _commandList,
-        const RenderPassHandle _renderPass)
+        const RenderPassHandle _renderPass,
+        const eastl::string_view /* _debugName */)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::BeginRenderPass");
 

@@ -336,10 +336,16 @@ namespace KryneEngine
 
     RenderCommandEncoderHandle MetalGraphicsContext::BeginRenderPass(
         const CommandListHandle _commandList,
-        const RenderPassHandle _handle)
+        const RenderPassHandle _handle,
+        const eastl::string_view _debugName)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
         VERIFY_OR_RETURN(commandList != nullptr, { nullptr });
+
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::None);
+        KE_ASSERT(commandList->m_encoder == nullptr);
+
+        KE_AUTO_RELEASE_POOL;
 
         const MetalResources::RenderPassHotData* rpHot = m_resources.m_renderPasses.Get(_handle.m_handle);
         VERIFY_OR_RETURN(rpHot != nullptr, { nullptr });
@@ -354,18 +360,15 @@ namespace KryneEngine
                 ->setTexture(rtvHot->m_texture);
         }
 
-        // Leaving dangling encoders is expected behaviour.
-        // This allows same command type batching, avoiding encoder re-creation
-        KE_ASSERT_FATAL(commandList->m_encoder == nullptr || commandList->m_type != CommandListData::EncoderType::Render);
         commandList->ResetEncoder(CommandListData::EncoderType::Render);
-
-        KE_AUTO_RELEASE_POOL;
-
         MTL4::RenderCommandEncoder* encoder = commandList->m_commandBuffer->renderCommandEncoder(rpHot->m_descriptor)->retain();
 
 #if !defined(KE_FINAL)
-        auto* string = NS::String::string(rpHot->m_debugName.c_str(), NS::UTF8StringEncoding);
-        commandList->m_encoder->setLabel(string);
+        if (!_debugName.empty())
+        {
+            const NS::String* string = NS::String::string(_debugName.data(), NS::UTF8StringEncoding);
+            encoder->setLabel(string);
+        }
 #endif
 
         RenderState* renderState = m_allocator.New<RenderState>();
@@ -400,20 +403,25 @@ namespace KryneEngine
         commandList->ResetEncoder();
     }
 
-    ComputeCommandEncoderHandle MetalGraphicsContext::BeginComputePass(const CommandListHandle _commandList)
+    ComputeCommandEncoderHandle MetalGraphicsContext::BeginComputePass(const CommandListHandle _commandList, eastl::string_view _debugName)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
-        KE_ASSERT(commandList->m_type != CommandListData::EncoderType::Render);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::None);
+        KE_ASSERT(commandList->m_encoder == nullptr);
 
         KE_AUTO_RELEASE_POOL;
 
         commandList->ResetEncoder(CommandListData::EncoderType::Compute);
-        auto* encoder = reinterpret_cast<MTL4::ComputeCommandEncoder*>(commandList->m_encoder.get());
-        if (commandList->m_encoder == nullptr)
+        MTL4::ComputeCommandEncoder* encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
+        commandList->m_encoder = encoder;
+
+#if !defined(KE_FINAL)
+        if (!_debugName.empty())
         {
-            encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
-            commandList->m_encoder = encoder;
+            const NS::String* string = NS::String::string(_debugName.data(), NS::UTF8StringEncoding);
+            encoder->setLabel(string);
         }
+#endif
 
         MTL4::ArgumentTableDescriptor* descriptor = MTL4::ArgumentTableDescriptor::alloc()->init();
         descriptor->setMaxBufferBindCount(MetalConstants::kDefaultArgumentTableSize);
@@ -438,18 +446,24 @@ namespace KryneEngine
         commandList->ResetEncoder();
     }
 
-    TransferCommandEncoderHandle MetalGraphicsContext::BeginTransferPass(const CommandListHandle _commandList)
+    TransferCommandEncoderHandle MetalGraphicsContext::BeginTransferPass(const CommandListHandle _commandList, eastl::string_view _debugName)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
-        KE_ASSERT(commandList->m_type != CommandListData::EncoderType::Render);
+        KE_ASSERT(commandList->m_type == CommandListData::EncoderType::None);
+        KE_ASSERT(commandList->m_encoder == nullptr);
 
         KE_AUTO_RELEASE_POOL;
 
         commandList->ResetEncoder(CommandListData::EncoderType::Transfer);
-        if (commandList->m_encoder == nullptr)
+        commandList->m_encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
+
+#if !defined(KE_FINAL)
+        if (!_debugName.empty())
         {
-            commandList->m_encoder = commandList->m_commandBuffer->computeCommandEncoder()->retain();
+            const NS::String* string = NS::String::string(_debugName.data(), NS::UTF8StringEncoding);
+            commandList->m_encoder->setLabel(string);
         }
+#endif
 
         return { _commandList };
     }

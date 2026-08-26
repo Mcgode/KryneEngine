@@ -54,7 +54,7 @@ namespace KryneEngine::Tests::Graphics
         // -----------------------------------------------------------------------
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
-        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList);
+        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList, {});
 
         {
             BufferMapping srcMapping { srcBuffer, sizeof(payload) };
@@ -167,7 +167,7 @@ namespace KryneEngine::Tests::Graphics
         // -----------------------------------------------------------------------
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
-        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList);
+        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList, {});
 
         {
             BufferMapping srcMapping { srcBuffer, sizeof(payload) };
@@ -322,7 +322,7 @@ namespace KryneEngine::Tests::Graphics
         // -----------------------------------------------------------------------
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
-        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList);
+        TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList, {});
 
         {
             BufferMapping srcMapping { srcBuffer, sizeof(payload) };

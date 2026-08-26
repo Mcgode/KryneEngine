@@ -182,22 +182,24 @@ namespace KryneEngine::Modules::RenderGraph
 
                 _jobData->m_passExecutionData.m_renderEncoder =
                     _jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
-                        _jobData->m_passExecutionData.m_commandList,
-                        it->second);
+                        _jobData->m_passExecutionData.m_commandList, it->second,
+                        pass.m_name.m_string);
                 encoder = _jobData->m_passExecutionData.m_renderEncoder;
             }
             else if (pass.m_type == PassType::Compute)
             {
                 _jobData->m_passExecutionData.m_computeEncoder =
                     _jobData->m_passExecutionData.m_graphicsContext->BeginComputePass(
-                        _jobData->m_passExecutionData.m_commandList);
+                        _jobData->m_passExecutionData.m_commandList,
+                        pass.m_name.m_string);
                 encoder = _jobData->m_passExecutionData.m_computeEncoder;
             }
             else if (pass.m_type == PassType::Transfer)
             {
                 _jobData->m_passExecutionData.m_transferEncoder =
                     _jobData->m_passExecutionData.m_graphicsContext->BeginTransferPass(
-                        _jobData->m_passExecutionData.m_commandList);
+                        _jobData->m_passExecutionData.m_commandList,
+                        pass.m_name.m_string);
                 encoder = _jobData->m_passExecutionData.m_transferEncoder;
             }
 

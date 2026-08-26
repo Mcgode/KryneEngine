@@ -478,12 +478,14 @@ namespace KryneEngine
          *
          * @param _commandList The command list in which to record the render pass begin.
          * @param _handle The render pass to begin, previously created with #CreateRenderPass.
+         * @param _debugName
          *
          * @return The encoder for all the render pass related commands.
          */
         [[nodiscard]] virtual RenderCommandEncoderHandle BeginRenderPass(
             CommandListHandle _commandList,
-            RenderPassHandle _handle) = 0;
+            RenderPassHandle _handle,
+            eastl::string_view _debugName) = 0;
 
         /**
          * @brief Ends the render pass previously started with #BeginRenderPass, applying store operations.
@@ -496,10 +498,13 @@ namespace KryneEngine
          * @brief Begins a compute pass in the given command list.
          *
          * @param _commandList The command list in which to record the compute pass begin.
+         * @param _debugName
          *
          * @return The encoder for all the compute pass related commands.
          */
-        virtual ComputeCommandEncoderHandle BeginComputePass(CommandListHandle _commandList) = 0;
+        virtual ComputeCommandEncoderHandle BeginComputePass(
+            CommandListHandle _commandList,
+            eastl::string_view _debugName) = 0;
 
         /**
          * @brief Ends the compute pass previously started with #BeginComputePass.
@@ -508,7 +513,10 @@ namespace KryneEngine
          */
         virtual void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) = 0;
 
-        virtual TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList) = 0;
+        virtual TransferCommandEncoderHandle BeginTransferPass(
+            CommandListHandle _commandList,
+            eastl::string_view _debugName) = 0;
+
         virtual void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) = 0;
 
         /**

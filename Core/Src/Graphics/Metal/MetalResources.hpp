@@ -156,10 +156,6 @@ namespace KryneEngine
                 u8 m_index;
             };
             eastl::fixed_vector<SystemRtv, 1> m_systemRtvs;
-
-#if !defined(KE_FINAL)
-            eastl::string m_debugName;
-#endif
         };
 
         struct RenderPassColdData
