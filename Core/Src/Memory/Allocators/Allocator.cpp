@@ -9,6 +9,10 @@
 #include "KryneEngine/Core/Platform/StdAlloc.hpp"
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
 
+#if !defined(KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS)
+#   define KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS 0
+#endif
+
 namespace KryneEngine
 {
     IAllocator::IAllocator(const char* _name, const bool _customProfiling)
@@ -25,14 +29,14 @@ namespace KryneEngine
             ptr =  m_allocator->Allocate(_size, 0);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
             if (!m_allocator->IsCustomProfiling())
-                TracyAllocN(ptr, _size, m_allocator->GetName());
+                TracyAllocNS(ptr, _size, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS, m_allocator->GetName());
 #endif
         }
         else
         {
             ptr = StdAlloc::Malloc(_size);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
-           TracyAlloc(ptr, _size);
+           TracyAllocS(ptr, _size, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS);
 #endif
         }
         return ptr;
@@ -46,14 +50,14 @@ namespace KryneEngine
             ptr = m_allocator->Allocate(_size, _alignment);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
             if (!m_allocator->IsCustomProfiling())
-                TracyAllocN(ptr, _size, m_allocator->GetName());
+                TracyAllocNS(ptr, _size, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS, m_allocator->GetName());
 #endif
         }
         else
         {
             ptr = StdAlloc::MemAlign(_size, _alignment);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
-            TracyAlloc(ptr, _size);
+            TracyAllocS(ptr, _size, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS);
 #endif
         }
         return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + _alignmentOffset);
@@ -66,14 +70,14 @@ namespace KryneEngine
             m_allocator->Free(_ptr, _size);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
             if (!m_allocator->IsCustomProfiling())
-                TracyFreeN(_ptr, m_allocator->GetName());
+                TracyFreeNS(_ptr, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS, m_allocator->GetName());
 #endif
         }
         else
         {
             StdAlloc::Free(_ptr);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
-            TracyFree(_ptr);
+            TracyFreeS(_ptr, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS);
 #endif
         }
     }
