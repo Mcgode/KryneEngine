@@ -143,4 +143,17 @@ namespace KryneEngine
 #   error Unsupported graphics API
 #endif
     }
+
+    bool GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers()
+    {
+#if defined(KE_GRAPHICS_API_VK)
+        return true;
+#elif defined(KE_GRAPHICS_API_DX12)
+        return true;
+#elif defined(KE_GRAPHICS_API_MTL)
+        return false;
+#else
+#   error Unsupported graphics API
+#endif
+    }
 }

@@ -594,6 +594,14 @@ namespace KryneEngine
         [[nodiscard]] static bool SupportsPerResourceBarriers();
 
         /**
+         * @brief Indicates whether the current graphics API automatically places attachment memory barriers for render
+         * passes
+         *
+         * @return `true` if attachment barriers are automatically placed, `false` if they must be manually inserted
+         */
+        [[nodiscard]] static bool RenderPassesAutomaticallyPlaceAttachmentBarriers();
+
+        /**
          * @brief Inserts GPU memory barriers to synchronize resource access between operations.
          *
          * @param _commandEncoder The command list in which to record the barriers.
