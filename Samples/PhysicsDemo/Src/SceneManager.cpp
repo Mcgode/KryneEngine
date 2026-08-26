@@ -23,7 +23,13 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_drawInstanceManager(_allocator, _graphicsContext)
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
             , m_gameFramesQueue(_allocator, 3)
-    {}
+    {
+        m_gBufferPasDispatcher = m_drawInstanceManager.CreatePassDispatcher(
+            _graphicsContext,
+            &m_materialManager,
+            static_cast<u8>(PassTypes::GBufferPass),
+            "GBuffer pass dispatcher");
+    }
 
     void SceneManager::Process(const float _deltaTime)
     {

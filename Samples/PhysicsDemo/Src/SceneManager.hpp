@@ -38,6 +38,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         DrawInstanceManager m_drawInstanceManager;
         MaterialManager m_materialManager;
 
+        PassDispatcher* m_gBufferPasDispatcher = nullptr;
+
         u64 m_gameFrameId = 0;
         SpscQueue<u64> m_gameFramesQueue;
 
