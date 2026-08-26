@@ -69,7 +69,7 @@ jobs:
         Core_Memory_UnitTests
         Core_Platform_UnitTests
         Core_Threads_UnitTests
-        Core_Graphics_UnitTest
+        Core_Graphics_UnitTests
     
     - name: Upload Core Unit tests
       uses: actions/upload-artifact@v7
