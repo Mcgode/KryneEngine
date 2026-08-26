@@ -118,4 +118,20 @@ namespace KryneEngine::Samples
 
         return m_passDescriptorSetLayout;
     }
+
+    PassDispatcher* DrawInstanceManager::CreatePassDispatcher(
+        GraphicsContext& _graphicsContext,
+        const MaterialManager* _materialManager,
+        const u8 _passType,
+        const eastl::string_view _debugName)
+    {
+        auto* ptr = m_allocator.Allocate<PassDispatcher>();
+        new (ptr) PassDispatcher(this, _materialManager, _graphicsContext, _passType, _debugName);
+        return ptr;
+    }
+
+    void DrawInstanceManager::DestroyPassDispatcher(PassDispatcher* _passDispatcher) const
+    {
+        m_allocator.Delete(_passDispatcher);
+    }
 } // namespace KryneEngine::Samples

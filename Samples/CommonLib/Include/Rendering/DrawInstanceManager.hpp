@@ -40,6 +40,14 @@ namespace KryneEngine::Samples
 
         [[nodiscard]] DescriptorSetLayoutHandle GetPassDescriptorSetLayout(GraphicsContext& _graphicsContext);
 
+        [[nodiscard]] PassDispatcher* CreatePassDispatcher(
+            GraphicsContext& _graphicsContext,
+            const MaterialManager* _materialManager,
+            u8 _passType,
+            eastl::string_view _debugName);
+
+        void DestroyPassDispatcher(PassDispatcher* _passDispatcher) const;
+
     private:
         AllocatorInstance m_allocator;
 

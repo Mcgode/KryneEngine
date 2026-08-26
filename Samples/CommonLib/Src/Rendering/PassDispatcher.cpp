@@ -14,6 +14,8 @@
 
 namespace KryneEngine::Samples
 {
+    PassDispatcher::~PassDispatcher() = default;
+
     void PassDispatcher::PrepareDispatch(
         const float4x4& _viewMatrix,
         const float4x4& _projectionMatrix,

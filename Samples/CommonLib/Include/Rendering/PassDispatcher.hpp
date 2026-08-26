@@ -33,6 +33,8 @@ namespace KryneEngine::Samples
             float4x4 m_projectionMatrix;
         };
 
+        ~PassDispatcher();
+
         void PrepareDispatch(
             const float4x4& _viewMatrix,
             const float4x4& _projectionMatrix,
