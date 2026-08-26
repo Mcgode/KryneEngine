@@ -40,14 +40,13 @@ namespace KryneEngine::Samples::RenderGraphDemo
         const uint2 viewportSize = _passExecutionData.m_graphicsContext->GetPresentFrameBufferSize();
         FullscreenPassCommon::Render(
             _passExecutionData.m_graphicsContext,
-            _passExecutionData.m_commandList,
+            _passExecutionData.m_renderEncoder,
             viewportSize.x,
             viewportSize.y,
             0.f,
             m_pso,
             m_pipelineLayout,
-            { &m_sceneConstantsDescriptorSet, 1 }
-        );
+            {&m_sceneConstantsDescriptorSet, 1});
     }
 
     void SkyPass::CreatePso(GraphicsContext* _graphicsContext, RenderPassHandle _renderPass)

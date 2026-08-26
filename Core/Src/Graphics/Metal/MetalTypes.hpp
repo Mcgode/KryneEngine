@@ -17,13 +17,13 @@ namespace KryneEngine
         enum class EncoderType
         {
             Render,
-            Blit,
             Compute,
+            Transfer,
             None
         };
 
-        MTL::CommandBuffer* m_commandBuffer { nullptr };
-        NsPtr<MTL::CommandEncoder> m_encoder { nullptr };
+        MTL4::CommandBuffer* m_commandBuffer { nullptr };
+        NsPtr<MTL4::CommandEncoder> m_encoder { nullptr };
         EncoderType m_type = EncoderType::None;
         void* m_userData = nullptr;
 
@@ -52,9 +52,11 @@ namespace KryneEngine
         u64 m_gpuReference = 0;
         u64 m_cpuReference = 0;
 
-        [[nodiscard]] u64 ConvertGpuTimestamp(u64 _gpuTimestamp) const
+        [[nodiscard]] u64 ConvertGpuTimestamp(const u64 _gpuTimestamp) const
         {
-            return m_cpuReference + static_cast<u64>(static_cast<double>(_gpuTimestamp - m_gpuReference) * m_gpuFrequency);
+            if (_gpuTimestamp == 0)
+                return 0;
+            return m_cpuReference + static_cast<u64>(static_cast<double>(_gpuTimestamp - m_gpuReference) / m_gpuFrequency);
         }
     };
 }

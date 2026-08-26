@@ -18,7 +18,7 @@ namespace KryneEngine::Samples
         const float4x4& _viewMatrix,
         const float4x4& _projectionMatrix,
         GraphicsContext& _graphicsContext,
-        CommandListHandle _transferCommandList)
+        const TransferCommandEncoderHandle _transferEncoder)
     {
         m_dispatchData.emplace();
         m_dispatchData->m_models.set_allocator(m_drawInstanceManager->m_allocator);
@@ -80,7 +80,7 @@ namespace KryneEngine::Samples
 
             m_instanceBuffer.PrepareBuffers(
                 &_graphicsContext,
-                _transferCommandList,
+                _transferEncoder,
                 BarrierAccessFlags::VertexBuffer,
                 _graphicsContext.GetCurrentFrameContextIndex());
         }
@@ -97,7 +97,7 @@ namespace KryneEngine::Samples
             m_constantBuffer.Unmap(&_graphicsContext);
             m_constantBuffer.PrepareBuffers(
                 &_graphicsContext,
-                _transferCommandList,
+                _transferEncoder,
                 BarrierAccessFlags::ConstantBuffer,
                 _graphicsContext.GetCurrentFrameContextIndex());
         }
@@ -127,7 +127,7 @@ namespace KryneEngine::Samples
         }
     }
 
-    void PassDispatcher::Dispatch(GraphicsContext& _graphicsContext, CommandListHandle _renderCommandList)
+    void PassDispatcher::Dispatch(GraphicsContext& _graphicsContext, const RenderCommandEncoderHandle _renderEncoder)
     {
         const DynamicArray<u64> sortedModels(m_drawInstanceManager->m_allocator, m_dispatchData->m_models.size());
         eastl::copy(m_dispatchData->m_models.begin(), m_dispatchData->m_models.end(), sortedModels.begin());
@@ -158,20 +158,20 @@ namespace KryneEngine::Samples
             const MaterialManager::MaterialPipeline* materialPipeline = m_materialManager->GetMaterialPipeline(
                 model.m_material, m_passType);
 
-            _graphicsContext.SetIndexBuffer(_renderCommandList, model.m_indexBuffer, false);
+            _graphicsContext.SetIndexBuffer(_renderEncoder, model.m_indexBuffer, false);
 
             const BufferSpan vertexBuffers[2] = {
                 model.m_vertexBuffer,
                 instanceVertexBuffer,
             };
-            _graphicsContext.SetVertexBuffers(_renderCommandList, vertexBuffers);
+            _graphicsContext.SetVertexBuffers(_renderEncoder, vertexBuffers);
 
-            _graphicsContext.SetGraphicsPipeline(_renderCommandList, materialPipeline->m_pipeline);
+            _graphicsContext.SetGraphicsPipeline(_renderEncoder, materialPipeline->m_pipeline);
 
             if (currentLayout != materialPipeline->m_pipelineLayout)
             {
                 _graphicsContext.SetGraphicsDescriptorSetsWithOffset(
-                    _renderCommandList,
+                    _renderEncoder,
                     materialPipeline->m_pipelineLayout,
                     { &m_passDescriptorSet, 1 },
                     0);
@@ -181,7 +181,7 @@ namespace KryneEngine::Samples
             if (materialPipeline->m_descriptorSets[0] != GenPool::kInvalidHandle)
             {
                 _graphicsContext.SetGraphicsDescriptorSetsWithOffset(
-                    _renderCommandList,
+                    _renderEncoder,
                     currentLayout,
                     {
                         &materialPipeline->m_descriptorSets[0],
@@ -190,7 +190,7 @@ namespace KryneEngine::Samples
                     1);
             }
 
-            _graphicsContext.DrawIndexedInstanced(_renderCommandList, {
+            _graphicsContext.DrawIndexedInstanced(_renderEncoder, {
                 .m_elementCount = model.m_vertexCount,
                 .m_instanceCount = model.m_instanceCount,
                 .m_indexOffset = model.m_indexOffset,

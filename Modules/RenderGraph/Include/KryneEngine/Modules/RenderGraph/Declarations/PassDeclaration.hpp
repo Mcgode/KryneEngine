@@ -26,8 +26,11 @@ namespace KryneEngine::Modules::RenderGraph
 
     struct PassExecutionData
     {
-        GraphicsContext* m_graphicsContext;
-        CommandListHandle m_commandList;
+        GraphicsContext* m_graphicsContext = nullptr;
+        CommandListHandle m_commandList = nullptr;
+        RenderCommandEncoderHandle m_renderEncoder {};
+        ComputeCommandEncoderHandle m_computeEncoder {};
+        TransferCommandEncoderHandle m_transferEncoder {};
     };
 
     struct PassDeclaration
@@ -36,6 +39,7 @@ namespace KryneEngine::Modules::RenderGraph
         explicit PassDeclaration(PassType _type, size_t _id);
 
         using ExecuteFunction = eastl::function<void(RenderGraph&, PassExecutionData&)>;
+        using TransferFunction = eastl::function<void(GraphicsContext*, TransferCommandEncoderHandle)>;
         using RenderPassCallBack = eastl::function<void(GraphicsContext*, RenderPassHandle)>;
 
         [[nodiscard]] u64 GetRenderPassHash();
@@ -52,7 +56,7 @@ namespace KryneEngine::Modules::RenderGraph
 
         /// @brief An optional callback for executing code before the pass is executed.
         /// Called before any Compute or Render pass is started, allowing for last minute transfer commands.
-        ExecuteFunction m_prePassExecuteFunction = nullptr;
+        TransferFunction m_prePassTransferFunction = nullptr;
 
         /// @brief A callback for passing the render pass handle for this pass before any execution is done.
         /// Useful for PSO creation.
@@ -73,7 +77,7 @@ namespace KryneEngine::Modules::RenderGraph
         PassDeclarationBuilder& ReadDependency(const Dependency& _dependency);
         PassDeclarationBuilder& WriteDependency(const Dependency& _dependency);
         PassDeclarationBuilder& SetExecuteFunction(PassDeclaration::ExecuteFunction&& _function);
-        PassDeclarationBuilder& SetPrePassExecuteFunction(PassDeclaration::ExecuteFunction&& _function);
+        PassDeclarationBuilder& SetPrePassTransferFunction(PassDeclaration::TransferFunction&& _function);
         PassDeclarationBuilder& SetRenderPassCallback(PassDeclaration::RenderPassCallBack&& _callback);
     };
 } // namespace KryneEngine::Module::RenderGraph

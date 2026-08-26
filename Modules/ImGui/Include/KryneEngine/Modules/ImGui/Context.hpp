@@ -73,9 +73,9 @@ namespace KryneEngine::Modules::ImGui
          * @brief Prepares the rendering context for a new frame by updating the vertex and index buffers.
          *
          * @param _graphicsContext The graphics context used for rendering.
-         * @param _commandList The command list used for uploading the buffers and texture regions.
+         * @param _transferEncoder The command list used for uploading the buffers and texture regions.
          */
-        void PrepareToRenderFrame(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+        void PrepareToRenderFrame(GraphicsContext* _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
 
         /**
          * @brief Renders a frame using the provided graphics context and command list.
@@ -83,9 +83,9 @@ namespace KryneEngine::Modules::ImGui
          * This function is responsible for rendering the ImGui UI for a single frame.
          *
          * @param _graphicsContext The graphics context used for rendering.
-         * @param _commandList The command list used for rendering.
+         * @param _renderEncoder The command list used for rendering.
          */
-        void RenderFrame(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+        void RenderFrame(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
 
         /**
          * @brief A helper function to convert a texture view / sampler set into an ImTextureID.

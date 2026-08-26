@@ -54,7 +54,7 @@ void MainFunc(void* _pAllocator)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::DirectX12_1;
     appInfo.m_applicationName += " - DirectX 12";
 #elif defined(KE_GRAPHICS_API_MTL)
-    appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_3;
+    appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
     Window mainWindow(appInfo, allocator);
@@ -98,14 +98,20 @@ void MainFunc(void* _pAllocator)
             ImGui::ShowDemoWindow(&open);
         }
 
-        imGuiContext.PrepareToRenderFrame(graphicsContext, commandList);
+        {
+            TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList, "Transfer pass");
+            imGuiContext.PrepareToRenderFrame(graphicsContext, transferEncoder);
+            graphicsContext->EndTransferPass(transferEncoder);
+        }
 
-        const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-        graphicsContext->BeginRenderPass(commandList, renderPassHandles[index]);
+        {
+            const u8 index = graphicsContext->GetCurrentPresentImageIndex();
+            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index], "Render pass");
 
-        imGuiContext.RenderFrame(graphicsContext, commandList);
+            imGuiContext.RenderFrame(graphicsContext, renderEncoder);
 
-        graphicsContext->EndRenderPass(commandList);
+            graphicsContext->EndRenderPass(renderEncoder);
+        }
 
         graphicsContext->EndGraphicsCommandList(commandList);
     }

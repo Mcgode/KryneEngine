@@ -21,7 +21,7 @@ namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
 
     void Render(
         GraphicsContext* _graphicsContext,
-        CommandListHandle _commandList,
+        RenderCommandEncoderHandle _renderEncoder,
         u32 _width,
         u32 _height,
         float _fullscreenDepth,

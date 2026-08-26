@@ -31,6 +31,7 @@ namespace KryneEngine
     {
         friend class MetalGraphicsContext;
         friend class MetalArgumentBufferManager;
+        friend class ByteUploader;
 
     public:
         explicit MetalResources(AllocatorInstance _allocator);
@@ -40,6 +41,9 @@ namespace KryneEngine
 
     private:
         [[nodiscard]] AllocatorInstance GetAllocator() const;
+
+        NS::SharedPtr<MTL::ResidencySet> m_residencySet;
+        SpinLock m_residencySetLock;
 
     public:
         BufferHandle CreateBuffer(MTL::Device& _device, const BufferCreateDesc& _desc);
@@ -144,7 +148,7 @@ namespace KryneEngine
     private:
         struct RenderPassHotData
         {
-            MTL::RenderPassDescriptor* m_descriptor;
+            MTL4::RenderPassDescriptor* m_descriptor;
 
             struct SystemRtv
             {
@@ -152,10 +156,6 @@ namespace KryneEngine
                 u8 m_index;
             };
             eastl::fixed_vector<SystemRtv, 1> m_systemRtvs;
-
-#if !defined(KE_FINAL)
-            eastl::string m_debugName;
-#endif
         };
 
         struct RenderPassColdData

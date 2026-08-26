@@ -43,7 +43,7 @@ int main()
     appInfo.m_api = GraphicsCommon::Api::DirectX12_1;
     appInfo.m_applicationName += " - DirectX 12";
 #elif defined(KE_GRAPHICS_API_MTL)
-    appInfo.m_api = GraphicsCommon::Api::Metal_3;
+    appInfo.m_api = GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
     Window mainWindow(appInfo, allocator);
@@ -144,13 +144,13 @@ int main()
         builder
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("ImGui pass")
-                .SetPrePassExecuteFunction([imGuiContext](RenderGraph::RenderGraph&, const RenderGraph::PassExecutionData& _executionData)
+                .SetPrePassTransferFunction([imGuiContext](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
                 {
-                    imGuiContext->PrepareToRenderFrame(_executionData.m_graphicsContext, _executionData.m_commandList);
+                    imGuiContext->PrepareToRenderFrame(_graphicsContext, _transferEncoder);
                 })
                 .SetExecuteFunction([imGuiContext](RenderGraph::RenderGraph&, const RenderGraph::PassExecutionData& _executionData)
                 {
-                    imGuiContext->RenderFrame(_executionData.m_graphicsContext, _executionData.m_commandList);
+                    imGuiContext->RenderFrame(_executionData.m_graphicsContext, _executionData.m_renderEncoder);
                 })
                 .AddColorAttachment(swapChainRtv)
                     .SetClearColor({ 1.f, 0.f, 1.f, 1.f })

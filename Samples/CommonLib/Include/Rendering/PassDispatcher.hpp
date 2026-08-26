@@ -37,9 +37,9 @@ namespace KryneEngine::Samples
             const float4x4& _viewMatrix,
             const float4x4& _projectionMatrix,
             GraphicsContext& _graphicsContext,
-            CommandListHandle _transferCommandList);
+            TransferCommandEncoderHandle _transferEncoder);
 
-        void Dispatch(GraphicsContext& _graphicsContext, CommandListHandle _renderCommandList);
+        void Dispatch(GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
 
     protected:
         PassDispatcher(

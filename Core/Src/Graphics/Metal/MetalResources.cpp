@@ -66,6 +66,11 @@ namespace KryneEngine
         KE_ASSERT_FATAL(bufferHot->m_buffer != nullptr);
         bufferCold->m_options = options;
 
+        {
+            const auto lock = m_residencySetLock.AutoLock();
+            m_residencySet->addAllocation(bufferHot->m_buffer);
+        }
+
 #if !defined(KE_FINAL)
         NS::String* label = NS::String::string(_desc.m_desc.m_debugName.c_str(), NS::UTF8StringEncoding);
         bufferHot->m_buffer->setLabel(label);
@@ -79,6 +84,10 @@ namespace KryneEngine
         BufferHotData hotData;
         if (m_buffers.Free(_buffer.m_handle, &hotData))
         {
+            {
+                const auto lock = m_residencySetLock.AutoLock();
+                m_residencySet->removeAllocation(hotData.m_buffer);
+            }
             hotData.m_buffer->release();
             return true;
         }
@@ -106,6 +115,11 @@ namespace KryneEngine
         hot->m_texture = _device.newTexture(desc.get());
         hot->m_isSystemTexture = false;
 
+        {
+            const auto lock = m_residencySetLock.AutoLock();
+            m_residencySet->addAllocation(hot->m_texture);
+        }
+
 #if !defined(KE_FINAL)
         NS::String* label = NS::String::string(_desc.m_desc.m_debugName.c_str(), NS::UTF8StringEncoding);
         hot->m_texture->setLabel(label);
@@ -128,6 +142,10 @@ namespace KryneEngine
         TextureHotData textureHot;
         if (m_textures.Free(_handle.m_handle, &textureHot))
         {
+            {
+                const auto lock = m_residencySetLock.AutoLock();
+                m_residencySet->removeAllocation(textureHot.m_texture);
+            }
             textureHot.m_texture->release();
             return true;
         }
@@ -311,7 +329,7 @@ namespace KryneEngine
         const GenPool::Handle handle = m_renderPasses.Allocate();
 
         auto [hotData, coldData] = m_renderPasses.GetAll(handle);
-        hotData->m_descriptor = MTL::RenderPassDescriptor::alloc()->init();
+        hotData->m_descriptor = MTL4::RenderPassDescriptor::alloc()->init();
 
         coldData->m_colorFormats.clear(true);
 
@@ -373,10 +391,6 @@ namespace KryneEngine
         {
             coldData->m_depthStencilFormat = TextureFormat::NoFormat;
         }
-
-#if !defined(KE_FINAL)
-        hotData->m_debugName = _desc.m_debugName;
-#endif
 
         return { handle };
     }

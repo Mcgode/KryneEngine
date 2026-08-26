@@ -58,7 +58,7 @@ s32 main(s32 argc, const char** argv)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::DirectX12_1;
     appInfo.m_applicationName += " - DirectX 12";
 #elif defined(KE_GRAPHICS_API_MTL)
-    appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_3;
+    appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
     Window mainWindow(appInfo, allocator);
@@ -129,7 +129,9 @@ s32 main(s32 argc, const char** argv)
 
         {
             KE_ZoneScoped("Texture upload");
-            textureGenerator.HandleUpload(*graphicsContext, transferCommandList);
+            const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(transferCommandList, "Texture upload pass");
+            textureGenerator.HandleUpload(*graphicsContext, transferEncoder);
+            graphicsContext->EndTransferPass(transferEncoder);
         }
 
         clayContext.BeginLayout(graphicsContext->GetPresentFrameBufferSize());
@@ -284,14 +286,17 @@ s32 main(s32 argc, const char** argv)
         }
 
         const RenderPassHandle currentPass = renderPassHandles[graphicsContext->GetCurrentPresentImageIndex()];
-        graphicsContext->BeginRenderPass(renderCommandList, currentPass);
-        clayContext.EndLayout(*graphicsContext, transferCommandList, renderCommandList);
+        const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(renderCommandList, currentPass, "UI render pass");
+        const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(transferCommandList, "UI transfer pass");
 
-        uiCube.Render(*graphicsContext, transferCommandList, renderCommandList, contentScale);
-        graphicsContext->EndRenderPass(renderCommandList);
+        clayContext.EndLayout(*graphicsContext, transferEncoder, renderEncoder);
 
-        msdfAtlasManager.FlushLoads(*graphicsContext, transferCommandList);
+        uiCube.Render(*graphicsContext, transferEncoder, renderEncoder, contentScale);
+        graphicsContext->EndRenderPass(renderEncoder);
 
+        msdfAtlasManager.FlushLoads(*graphicsContext, transferEncoder);
+
+        graphicsContext->EndTransferPass(transferEncoder);
         graphicsContext->EndGraphicsCommandList(transferCommandList);
         graphicsContext->EndGraphicsCommandList(renderCommandList);
     }

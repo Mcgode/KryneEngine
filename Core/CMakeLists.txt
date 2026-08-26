@@ -220,6 +220,8 @@ elseif (GraphicsApi STREQUAL "MTL")
                 Src/Graphics/Metal/MetalArgumentBufferManager.hpp
                 Src/Graphics/Metal/Helpers/RenderState.hpp
                 Src/Graphics/Metal/MetalConstants.hpp
+                Src/Graphics/Metal/Helpers/ByteUploader.cpp
+                Src/Graphics/Metal/Helpers/ByteUploader.hpp
         )
 endif()
 

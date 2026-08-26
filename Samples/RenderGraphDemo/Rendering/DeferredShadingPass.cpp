@@ -161,13 +161,13 @@ namespace KryneEngine::Samples::RenderGraphDemo
         const uint2 viewportSize = _passExecutionData.m_graphicsContext->GetPresentFrameBufferSize();
         FullscreenPassCommon::Render(
             _passExecutionData.m_graphicsContext,
-            _passExecutionData.m_commandList,
+            _passExecutionData.m_renderEncoder,
             viewportSize.x,
             viewportSize.y,
             1.f,
             m_pso,
             m_pipelineLayout,
-            { &m_sceneConstantsDescriptorSet, 2 }); // Both handles are contiguous in memory
+            {&m_sceneConstantsDescriptorSet, 2}); // Both handles are contiguous in memory
     }
 
     void DeferredShadingPass::CreatePso(GraphicsContext* _graphicsContext, RenderPassHandle _renderPass)

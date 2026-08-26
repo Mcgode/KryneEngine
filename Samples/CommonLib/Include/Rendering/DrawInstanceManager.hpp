@@ -36,7 +36,7 @@ namespace KryneEngine::Samples
             u32 _maxInstances = 131'072);
         ~DrawInstanceManager();
 
-        void UpdateGpuData(GraphicsContext& _graphicsContext, CommandListHandle _commandList);
+        void UpdateGpuData(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
 
         [[nodiscard]] DescriptorSetLayoutHandle GetPassDescriptorSetLayout(GraphicsContext& _graphicsContext);
 

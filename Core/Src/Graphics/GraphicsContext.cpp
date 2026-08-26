@@ -131,7 +131,7 @@ namespace KryneEngine
         return { GenPool::kUndefinedHandle };
     }
 
-    bool GraphicsContext::SupportsNonGlobalBarriers()
+    bool GraphicsContext::SupportsPerResourceBarriers()
     {
 #if defined(KE_GRAPHICS_API_VK)
         return true;
@@ -144,27 +144,14 @@ namespace KryneEngine
 #endif
     }
 
-    bool GraphicsContext::RenderPassNeedsUsageDeclaration()
+    bool GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers()
     {
 #if defined(KE_GRAPHICS_API_VK)
-        return false;
-#elif defined(KE_GRAPHICS_API_DX12)
-        return false;
-#elif defined(KE_GRAPHICS_API_MTL)
         return true;
-#else
-#   error Unsupported graphics API
-#endif
-    }
-
-    bool GraphicsContext::ComputePassNeedsUsageDeclaration()
-    {
-#if defined(KE_GRAPHICS_API_VK)
-        return false;
 #elif defined(KE_GRAPHICS_API_DX12)
-        return false;
-#elif defined(KE_GRAPHICS_API_MTL)
         return true;
+#elif defined(KE_GRAPHICS_API_MTL)
+        return false;
 #else
 #   error Unsupported graphics API
 #endif

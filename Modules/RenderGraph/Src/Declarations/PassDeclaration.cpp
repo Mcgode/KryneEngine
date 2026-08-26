@@ -68,9 +68,9 @@ namespace KryneEngine::Modules::RenderGraph
         return *this;
     }
 
-    PassDeclarationBuilder& PassDeclarationBuilder::SetPrePassExecuteFunction(PassDeclaration::ExecuteFunction&& _function)
+    PassDeclarationBuilder& PassDeclarationBuilder::SetPrePassTransferFunction(PassDeclaration::TransferFunction&& _function)
     {
-        m_item.m_prePassExecuteFunction = _function;
+        m_item.m_prePassTransferFunction = _function;
         return *this;
     }
 

@@ -46,7 +46,7 @@ namespace KryneEngine::Modules::TextRendering
 
         GlyphRegion GetGlyphRegion(Font* _font, u32 _unicodeCodepoint, u32 _fontSize = 0);
 
-        void FlushLoads(GraphicsContext& _graphicsContext, CommandListHandle _transfer);
+        void FlushLoads(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
 
         FontManager* GetFontManager() const { return m_fontManager; }
 

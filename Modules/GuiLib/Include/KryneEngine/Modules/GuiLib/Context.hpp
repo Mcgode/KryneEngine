@@ -47,8 +47,8 @@ namespace KryneEngine::Modules::GuiLib
             const float4x4& _projectionMatrix = float4x4());
         void EndLayout(
             GraphicsContext& _graphicsContext,
-            CommandListHandle _transferCommandList,
-            CommandListHandle _renderCommandList);
+            TransferCommandEncoderHandle _transferEncoder,
+            RenderCommandEncoderHandle _renderEncoder);
 
         void* RegisterTextureRegion(TextureRegion&& _region);
 

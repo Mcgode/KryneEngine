@@ -6,8 +6,11 @@
 
 #pragma once
 
+#include <Metal/MTL4ArgumentTable.hpp>
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
+#include "NsPtr.hpp"
+
 
 namespace KryneEngine
 {
@@ -35,8 +38,7 @@ namespace KryneEngine
         BufferSpan m_indexBufferView {};
         bool m_indexBufferIsU16 = false;
         InputAssemblyDesc::PrimitiveTopology m_topology {};
-        eastl::fixed_vector<BufferSpan, 4> m_vertexBuffers;
-
-        explicit RenderState(const AllocatorInstance _allocator): m_vertexBuffers { _allocator } {}
+        NsPtr<MTL4::ArgumentTable> m_vertexArgumentTable {};
+        NsPtr<MTL4::ArgumentTable> m_fragmentArgumentTable {};
     };
 }

@@ -48,7 +48,7 @@ int main()
     appInfo.m_api = GraphicsCommon::Api::DirectX12_1;
     appInfo.m_applicationName += " - DirectX 12";
 #elif defined(KE_GRAPHICS_API_MTL)
-    appInfo.m_api = GraphicsCommon::Api::Metal_3;
+    appInfo.m_api = GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
     Window mainWindow(appInfo, allocator);
@@ -363,7 +363,7 @@ int main()
                     .SetExecuteFunction([&sceneManager](const auto& _, const auto& _passData)
                         {
                             KE_ZoneScoped("Render GBuffer");
-                            sceneManager.RenderGBuffer(_passData.m_graphicsContext, _passData.m_commandList);
+                            sceneManager.RenderGBuffer(_passData.m_graphicsContext, _passData.m_renderEncoder);
                         })
                     .AddColorAttachment(gBufferAlbedoRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
@@ -508,7 +508,7 @@ int main()
                                              RenderGraph::RenderGraph& _renderGraph,
                                              RenderGraph::PassExecutionData& _passData)
             {
-                imGuiContext->RenderFrame(graphicsContext, _passData.m_commandList);
+                imGuiContext->RenderFrame(graphicsContext, _passData.m_renderEncoder);
             };
 
             builder

@@ -66,7 +66,9 @@ namespace KryneEngine::Samples
 
     DrawInstanceManager::~DrawInstanceManager() = default;
 
-    void DrawInstanceManager::UpdateGpuData(GraphicsContext& _graphicsContext, CommandListHandle _commandList)
+    void DrawInstanceManager::UpdateGpuData(
+        GraphicsContext& _graphicsContext,
+        const TransferCommandEncoderHandle _transferEncoder)
     {
         void* dstBuffer = m_instanceDataBuffer.Map(&_graphicsContext, _graphicsContext.GetCurrentFrameContextIndex());
 
@@ -88,7 +90,7 @@ namespace KryneEngine::Samples
         m_instanceDataBuffer.Unmap(&_graphicsContext);
         m_instanceDataBuffer.PrepareBuffers(
             &_graphicsContext,
-            _commandList,
+            _transferEncoder,
             BarrierAccessFlags::ShaderResource,
             _graphicsContext.GetCurrentFrameContextIndex());
     }

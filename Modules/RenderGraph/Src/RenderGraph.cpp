@@ -168,79 +168,102 @@ namespace KryneEngine::Modules::RenderGraph
 
             const PassDeclaration& pass = _jobData->m_renderGraph->m_builder->m_declaredPasses[i];
 
-            KE_GpuZoneScopedF(
-                _jobData->m_passExecutionData.m_graphicsContext,
-                _jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
-                _jobData->m_passExecutionData.m_commandList,
-                "%s",
-                pass.m_name.m_string.c_str());
-
             const std::chrono::time_point start = std::chrono::steady_clock::now();
             _jobData->m_passExecutionData.m_graphicsContext->PushDebugMarker(
                 _jobData->m_passExecutionData.m_commandList,
                 pass.m_name.m_string,
                 ColorPalette::kWhite);
 
-            if (GraphicsContext::SupportsNonGlobalBarriers())
+            if (pass.m_prePassTransferFunction)
             {
-                const ResourceStateTracker::PassBarriers barriers = _jobData->m_renderGraph->m_resourceStateTracker->GetPassBarriers(i);
-                if (!barriers.m_bufferMemoryBarriers.empty() || !barriers.m_textureMemoryBarriers.empty())
-                {
-                    KE_GpuZoneScoped(
-                        _jobData->m_passExecutionData.m_graphicsContext,
-                        _jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
-                        _jobData->m_passExecutionData.m_commandList,
-                        "Dispatching memory barriers");
-                    _jobData->m_passExecutionData.m_graphicsContext->PlaceMemoryBarriers(
-                        _jobData->m_passExecutionData.m_commandList,
-                        {},
-                        barriers.m_bufferMemoryBarriers,
-                        barriers.m_textureMemoryBarriers);
-                }
+                GraphicsContext* graphicsContext = _jobData->m_passExecutionData.m_graphicsContext;
+#if defined(KE_FINAL)
+                const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+                    _jobData->m_passExecutionData.m_commandList, {});
+#else
+                char name[256];
+                snprintf(name, sizeof(name), "%s (Pre-pass transfer", pass.m_name.m_string.c_str());
+                const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+                    _jobData->m_passExecutionData.m_commandList, name);
+#endif
+                pass.m_prePassTransferFunction(_jobData->m_passExecutionData.m_graphicsContext, transferEncoder);
+                graphicsContext->EndTransferPass(transferEncoder);
             }
 
-            if (pass.m_prePassExecuteFunction != nullptr)
-            {
-                pass.m_prePassExecuteFunction(*_jobData->m_renderGraph, _jobData->m_passExecutionData);
-            }
-
+            CommandEncoderHandle encoder;
             if (pass.m_type == PassType::Render)
             {
                 auto it = _jobData->m_renderGraph->m_renderPassCache.find(pass.m_renderPassHash.value());
                 KE_ASSERT(it != _jobData->m_renderGraph->m_renderPassCache.end());
 
-                _jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
-                    _jobData->m_passExecutionData.m_commandList,
-                    it->second);
+                _jobData->m_passExecutionData.m_renderEncoder =
+                    _jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
+                        _jobData->m_passExecutionData.m_commandList, it->second,
+                        pass.m_name.m_string);
+                encoder = _jobData->m_passExecutionData.m_renderEncoder;
             }
             else if (pass.m_type == PassType::Compute)
             {
-                _jobData->m_passExecutionData.m_graphicsContext->BeginComputePass(
-                    _jobData->m_passExecutionData.m_commandList);
+                _jobData->m_passExecutionData.m_computeEncoder =
+                    _jobData->m_passExecutionData.m_graphicsContext->BeginComputePass(
+                        _jobData->m_passExecutionData.m_commandList,
+                        pass.m_name.m_string);
+                encoder = _jobData->m_passExecutionData.m_computeEncoder;
             }
-
-            if (pass.m_type == PassType::Render && GraphicsContext::RenderPassNeedsUsageDeclaration()
-                || pass.m_type == PassType::Compute && GraphicsContext::ComputePassNeedsUsageDeclaration())
+            else if (pass.m_type == PassType::Transfer)
             {
-                _jobData->m_renderGraph->HandleResourceUsage(
-                    _jobData->m_passExecutionData.m_graphicsContext,
-                    _jobData->m_passExecutionData.m_commandList,
-                    pass);
+                _jobData->m_passExecutionData.m_transferEncoder =
+                    _jobData->m_passExecutionData.m_graphicsContext->BeginTransferPass(
+                        _jobData->m_passExecutionData.m_commandList,
+                        pass.m_name.m_string);
+                encoder = _jobData->m_passExecutionData.m_transferEncoder;
             }
-            // TODO: handle usage as well when compute passes are set up
 
-            KE_ASSERT(pass.m_executeFunction != nullptr);
-            pass.m_executeFunction(*_jobData->m_renderGraph, _jobData->m_passExecutionData);
+            {
+                KE_GpuZoneScopedF(
+                   _jobData->m_passExecutionData.m_graphicsContext,
+                   _jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
+                   _jobData->m_passExecutionData.m_commandList,
+                   "%s",
+                   pass.m_name.m_string.c_str());
+
+                {
+                    const ResourceStateTracker::PassBarriers barriers = _jobData->m_renderGraph->m_resourceStateTracker->GetPassBarriers(i);
+                    if (!barriers.m_bufferMemoryBarriers.empty() || !barriers.m_textureMemoryBarriers.empty())
+                    {
+                        KE_GpuZoneScoped(
+                            _jobData->m_passExecutionData.m_graphicsContext,
+                            _jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
+                            _jobData->m_passExecutionData.m_commandList,
+                            "Dispatching memory barriers");
+                        _jobData->m_passExecutionData.m_graphicsContext->PlaceMemoryBarriers(
+                            encoder,
+                            {
+                                .m_placementType = BarrierPlacementType::Consumer,
+                                .m_bufferBarriers = barriers.m_bufferMemoryBarriers,
+                                .m_textureBarriers = barriers.m_textureMemoryBarriers,
+                            });
+                    }
+                }
+
+                KE_ASSERT(pass.m_executeFunction != nullptr);
+                pass.m_executeFunction(*_jobData->m_renderGraph, _jobData->m_passExecutionData);
+            }
 
             if (pass.m_type == PassType::Render)
             {
                 _jobData->m_passExecutionData.m_graphicsContext->EndRenderPass(
-                    _jobData->m_passExecutionData.m_commandList);
+                    _jobData->m_passExecutionData.m_renderEncoder);
             }
             else if (pass.m_type == PassType::Compute)
             {
                 _jobData->m_passExecutionData.m_graphicsContext->EndComputePass(
-                    _jobData->m_passExecutionData.m_commandList);
+                    _jobData->m_passExecutionData.m_computeEncoder);
+            }
+            else if (pass.m_type == PassType::Transfer)
+            {
+                _jobData->m_passExecutionData.m_graphicsContext->EndTransferPass(
+                    _jobData->m_passExecutionData.m_transferEncoder);
             }
 
             _jobData->m_passExecutionData.m_graphicsContext->PopDebugMarker(
@@ -308,61 +331,5 @@ namespace KryneEngine::Modules::RenderGraph
     void RenderGraph::ResetRenderPassCache()
     {
         m_renderPassCache.clear();
-    }
-
-    void RenderGraph::HandleResourceUsage(
-        GraphicsContext* _graphicsContext,
-        CommandListHandle _commandList,
-        const PassDeclaration& _pass)
-    {
-        eastl::vector<TextureViewHandle> textureViews;
-        eastl::vector<BufferViewHandle> bufferViews;
-
-        const auto markUsage = [&](const auto& _dependencies, BufferViewAccessType _bufferAccessType, TextureViewAccessType _textureAccessType)
-        {
-            textureViews.clear();
-            textureViews.reserve(_dependencies.size());
-
-            bufferViews.clear();
-            bufferViews.reserve(_dependencies.size());
-
-            for (const auto& dependency : _dependencies)
-            {
-                const Resource& resource = m_registry->GetResource(dependency.m_resource);
-
-                switch (resource.m_type)
-                {
-                case ResourceType::TextureView:
-                    textureViews.push_back(resource.m_textureViewData.m_textureView);
-                    break;
-                case ResourceType::BufferView:
-                    bufferViews.push_back(resource.m_bufferViewData.m_bufferView);
-                    break;
-                case ResourceType::Dummy:
-                    break;
-                default:
-                    KE_ERROR("Unhandled resource type");
-                    break;
-                }
-            }
-
-            _graphicsContext->DeclarePassTextureViewUsage(
-                _commandList,
-                textureViews,
-                _textureAccessType);
-            _graphicsContext->DeclarePassBufferViewUsage(
-                _commandList,
-                bufferViews,
-                _bufferAccessType);
-        };
-
-        markUsage(
-            _pass.m_readDependencies,
-            BufferViewAccessType::Read,
-            TextureViewAccessType::Read); // Don't differentiate between read and constant here.
-        markUsage(
-            _pass.m_writeDependencies,
-            BufferViewAccessType::Write,
-            TextureViewAccessType::Write);
     }
 } // namespace KryneEngine::Modules::RenderGraph
