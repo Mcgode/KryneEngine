@@ -18,7 +18,7 @@ jobs:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: xcode-27
+    runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v6
@@ -65,11 +65,11 @@ jobs:
       run: >
         cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target
         Core_Common_UnitTests
-        Core_Graphics_UnitTests
         Core_Math_UnitTests
         Core_Memory_UnitTests
         Core_Platform_UnitTests
         Core_Threads_UnitTests
+      # Core_Graphics_UnitTests - Disabled, as Github-hosted runner does not provide a Metal 4 interface.
     
     - name: Upload Core Unit tests
       uses: actions/upload-artifact@v7
