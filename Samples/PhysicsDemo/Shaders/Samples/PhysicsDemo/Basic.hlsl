@@ -55,7 +55,7 @@ FsOutput MainFs(FsInput _input)
 {
     FsOutput output;
 
-    output.albedo = float4(0.5f.xxx, 1);
+    output.albedo = float4(0.5f.xxxÈ, 1);
     output.normal = float4(normalize(_input.normal) * 0.5f + 0.5f, 0.f);
 
     return output;
