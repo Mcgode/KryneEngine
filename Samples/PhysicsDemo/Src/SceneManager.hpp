@@ -6,14 +6,23 @@
 
 #pragma once
 
-#include "KryneEngine/Core/Memory/Containers/SpscQueue.hpp"
 #include "Rendering/DrawInstanceManager.hpp"
 #include "Rendering/MaterialManager.hpp"
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
-#include <KryneEngine/Core/Threads/FibersManager.hpp>
+#include <KryneEngine/Core/Memory/Containers/SpscQueue.hpp>
 #include <box3d/box3d.h>
 
+
+namespace KryneEngine
+{
+    class FibersManager;
+
+    namespace Modules::RenderGraph
+    {
+        class RenderGraph;
+    }
+}
 
 namespace KryneEngine::Samples::PhysicsDemo
 {
@@ -29,6 +38,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         void Process(float _deltaTime);
 
         void GameLoop();
+
+        void InitPso(GraphicsContext& _graphicsContext, Modules::RenderGraph::RenderGraph& _renderGraph);
 
     private:
         AllocatorInstance m_allocator;
@@ -46,5 +57,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         float m_physicsTimeStep = 1.0f / 60.0f;
         s32 m_physicsSubSteps = 4;
         float m_timeProgress = 0.0f;
+
+        MaterialHandle m_defaultMaterial {};
     };
 }
