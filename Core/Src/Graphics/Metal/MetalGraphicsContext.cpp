@@ -305,6 +305,13 @@ namespace KryneEngine
             : uint2(1);
     }
 
+    TextureFormat MetalGraphicsContext::GetPresentTextureFormat()
+    {
+        return m_appInfo.m_features.m_present
+            ? MetalConverters::FromPixelFormat(m_swapChain.GetPixelFormat())
+            : TextureFormat::NoFormat;
+    }
+
     RenderPassHandle MetalGraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)
     {
         return m_resources.CreateRenderPassDescriptor(_desc);

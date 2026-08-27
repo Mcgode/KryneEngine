@@ -16,6 +16,7 @@ namespace KryneEngine::MetalConverters
 {
     [[nodiscard]] size_t GetPixelByteSize(TextureFormat _format);
     [[nodiscard]] MTL::PixelFormat ToPixelFormat(TextureFormat _format);
+    [[nodiscard]] TextureFormat FromPixelFormat(MTL::PixelFormat _format);
 
     [[nodiscard]] MTL::SamplerMinMagFilter GetMinMagFilter(SamplerDesc::Filter _filter);
     [[nodiscard]] MTL::SamplerMipFilter GetMipFilter(SamplerDesc::Filter _filter);
