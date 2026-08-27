@@ -32,11 +32,13 @@ VsOutput MainVs(const in VsInput _input)
     VsOutput output;
 
     const InstanceData data = instanceData[_input.instanceId];
-    const float4x4 worldMat = UnpackTransform(data);
 
-    output.normal = mul(float4(_input.normal, 0.f), worldMat).xyz;
+    float3 position = _input.position;
+    float3 normal = _input.normal;
+    ApplyTransform(data, position, normal);
 
-    output.position = mul(mul(float4(_input.position, 1.f), worldMat), passData.m_viewProjectionMatrix);
+    output.normal = normal;
+    output.position = mul(float4(position, 1.f), passData.m_viewProjectionMatrix);
 
     return output;
 }
@@ -55,7 +57,7 @@ FsOutput MainFs(FsInput _input)
 {
     FsOutput output;
 
-    output.albedo = float4(0.5f.xxxÈ, 1);
+    output.albedo = float4(0.5f.xxx, 1);
     output.normal = float4(normalize(_input.normal) * 0.5f + 0.5f, 0.f);
 
     return output;
