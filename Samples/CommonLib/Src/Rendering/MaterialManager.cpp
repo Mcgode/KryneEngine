@@ -62,6 +62,15 @@ namespace KryneEngine::Samples
         return { value };
     }
 
+    void MaterialManager::SetPipelineLayout(
+        const MaterialHandle _material,
+        const u8 _passType,
+        const PipelineLayoutHandle _pipelineLayout) const
+    {
+        const size_t index = _passType * m_maxMaterialCount + _material.m_index;
+        m_pipelines[index].m_pipelineLayout = _pipelineLayout;
+    }
+
     void MaterialManager::SetGraphicsPipeline(
         const MaterialHandle _material,
         const u8 _passType,

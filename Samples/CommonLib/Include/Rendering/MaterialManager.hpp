@@ -57,10 +57,13 @@ namespace KryneEngine::Samples
 
         [[nodiscard]] u16 GetPassTypeCount() const { return m_passTypeCount; }
 
-         MaterialHandle RegisterMaterial();
+        MaterialHandle RegisterMaterial();
+
+        void SetPipelineLayout(MaterialHandle _material, u8 _passType, PipelineLayoutHandle _pipelineLayout) const;
 
         void SetGraphicsPipeline(MaterialHandle _material, u8 _passType, GraphicsPipelineHandle _pipeline) const;
         [[nodiscard]] GraphicsPipelineHandle GetGraphicsPipeline(MaterialHandle _material, u8 _passType) const;
+
 
         [[nodiscard]] const MaterialPipeline* GetMaterialPipeline(MaterialHandle _material, u8 _passType) const;
 
