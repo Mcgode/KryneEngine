@@ -46,7 +46,7 @@ def main():
 
         include_variable = ''
         if include_list != "None":
-            for directory in include_list.split(';'):
+            for directory in include_list.split('%%'):
                 include_variable += f'-I "{os.path.relpath(directory, working_dir)}" '
         writer.variable("includes", include_variable)
 

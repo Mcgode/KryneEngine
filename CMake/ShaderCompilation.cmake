@@ -91,6 +91,10 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
         set(SHADER_INCLUDE_LIST "None")
     endif ()
 
+    # Flatten the list into a single argument: a raw ';' would be interpreted as a command
+    # separator by the shell when more than one shader library is linked.
+    string(REPLACE ";" "%%" SHADER_INCLUDE_LIST "${SHADER_INCLUDE_LIST}")
+
     set(COMMANDS_FILE "${BUILD_OUTPUT_DIR}/build.ninja")
     set(WORKING_DIR ${BUILD_OUTPUT_DIR})
 
