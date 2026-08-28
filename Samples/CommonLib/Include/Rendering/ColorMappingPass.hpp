@@ -11,7 +11,7 @@
 
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     class ColorMappingPass
     {

@@ -17,15 +17,17 @@
 #include <KryneEngine/Modules/RenderGraph/Resource.hpp>
 #include <KryneEngine/Modules/RenderGraph/ImGuiDebugWindow.hpp>
 
-#include "Rendering/ColorMappingPass.hpp"
-#include "Rendering/DeferredShadingPass.hpp"
+#include <Rendering/ColorMappingPass.hpp>
+#include <Rendering/DeferredShadingPass.hpp>
+#include <Rendering/SkyPass.hpp>
+
 #include "Rendering/DeferredShadowPass.hpp"
 #include "Rendering/GiPass.hpp"
-#include "Rendering/SkyPass.hpp"
 #include "Scene/SceneManager.hpp"
 
 using namespace KryneEngine;
 using namespace KryneEngine::Modules;
+using namespace KryneEngine::Samples;
 using namespace KryneEngine::Samples::RenderGraphDemo;
 
 int main()

@@ -4,14 +4,14 @@
  * @date 03/04/2025.
  */
 
-#include "DeferredShadingPass.hpp"
-#include "FullscreenPassCommon.hpp"
+#include "Rendering/DeferredShadingPass.hpp"
+#include "Rendering/FullscreenPassCommon.hpp"
 
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include <fstream>
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
 
     DeferredShadingPass::DeferredShadingPass(AllocatorInstance _allocator)
@@ -180,7 +180,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             m_allocator,
             _renderTargets,
             m_pipelineLayout,
-            "Shaders/Samples/RenderGraphDemo/DeferredShading_DeferredShadingMain",
+            "Shaders/Samples/CommonLib/DeferredShading_DeferredShadingMain",
             "DeferredShadingMain",
             false);
     }

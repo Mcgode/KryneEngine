@@ -4,14 +4,14 @@
  * @date 10/04/2025.
  */
 
-#include "FullscreenPassCommon.hpp"
+#include "Rendering/FullscreenPassCommon.hpp"
 
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include <fstream>
 
-namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
+namespace KryneEngine::Samples::FullscreenPassCommon
 {
     GraphicsPipelineHandle CreatePso(
         GraphicsContext* _graphicsContext,
@@ -41,7 +41,7 @@ namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
             return handle;
         };
 
-        ShaderModuleHandle vsModule = createShaderModule("Shaders/Samples/RenderGraphDemo/FullScreenVS_FullScreenMain", vsByteCode);
+        ShaderModuleHandle vsModule = createShaderModule("Shaders/Samples/CommonLib/FullScreenVS_FullScreenMain", vsByteCode);
         ShaderModuleHandle fsModule = createShaderModule(_fsShader, fsByteCode);
 
         const ShaderStage stages[] {

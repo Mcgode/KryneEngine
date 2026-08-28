@@ -13,7 +13,7 @@ namespace KryneEngine
     struct RenderTargetSetDesc;
 }
 
-namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
+namespace KryneEngine::Samples::FullscreenPassCommon
 {
     [[nodiscard]] extern GraphicsPipelineHandle CreatePso(
         GraphicsContext* _graphicsContext,

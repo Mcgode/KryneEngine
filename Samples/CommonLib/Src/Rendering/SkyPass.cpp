@@ -4,12 +4,12 @@
  * @date 10/04/2025.
  */
 
-#include "SkyPass.hpp"
+#include "Rendering/SkyPass.hpp"
 
-#include "FullscreenPassCommon.hpp"
+#include "Rendering/FullscreenPassCommon.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     SkyPass::SkyPass(AllocatorInstance _allocator)
         : m_allocator(_allocator)
@@ -59,7 +59,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             m_allocator,
             _renderTargets,
             m_pipelineLayout,
-            "Shaders/Samples/RenderGraphDemo/Sky/SkyRender_SkyMain",
+            "Shaders/Samples/CommonLib/Sky/SkyRender_SkyMain",
             "SkyMain",
             true);
     }

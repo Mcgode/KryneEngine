@@ -4,13 +4,13 @@
  * @date 30/04/2025.
  */
 
-#include "ColorMappingPass.hpp"
+#include "Rendering/ColorMappingPass.hpp"
 
-#include "FullscreenPassCommon.hpp"
+#include "Rendering/FullscreenPassCommon.hpp"
 
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     ColorMappingPass::ColorMappingPass(AllocatorInstance _allocator)
         : m_allocator(_allocator)
@@ -116,7 +116,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             m_allocator,
             _renderTargets,
             m_pipelineLayout,
-            "Shaders/Samples/RenderGraphDemo/ColorMapping_ColorMappingMain",
+            "Shaders/Samples/CommonLib/ColorMapping_ColorMappingMain",
             "ColorMappingMain",
             false);
     }
