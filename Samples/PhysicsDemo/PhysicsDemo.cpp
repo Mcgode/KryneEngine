@@ -4,6 +4,7 @@
  * @date 18/08/2026.
  */
 
+#include "Src/RenderTargetFormats.hpp"
 #include "Src/SceneManager.hpp"
 
 
@@ -14,6 +15,7 @@
 #include <KryneEngine/Modules/Box3D/Context.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
+#include <KryneEngine/Modules/RenderGraph/Descriptors/RenderTargetViewDesc.hpp>
 #include <KryneEngine/Modules/RenderGraph/Registry.hpp>
 #include <KryneEngine/Modules/RenderGraph/RenderGraph.hpp>
 
@@ -98,6 +100,146 @@ int main()
                 graphicsContext->GetPresentRenderTargetView(i),
                 swapChainTextures[i],
                 nameTmp.sprintf("Swap chain RTV %d", i));
+        }
+    }
+
+    SimplePoolHandle
+        gBufferAlbedo,
+        gBufferAlbedoView,
+        gBufferAlbedoRtv,
+        gBufferNormal,
+        gBufferNormalView,
+        gBufferNormalRtv,
+        gBufferDepth,
+        gBufferDepthView,
+        gBufferDepthRtv,
+        hdr,
+        hdrView,
+        hdrRtv;
+
+    {
+        {
+            const TextureDesc desc {
+                .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                .m_format = kGBufferAlbedoFormat,
+#if !defined(KE_FINAL)
+                .m_debugName = "GBuffer Albedo",
+#endif
+            };
+            gBufferAlbedo = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
+                .m_desc = desc,
+                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(desc),
+                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
+           });
+
+            gBufferAlbedoView = renderGraph.GetRegistry().CreateTextureView(
+                graphicsContext,
+                gBufferAlbedo,
+                {
+                    .m_format = kGBufferAlbedoFormat,
+                },
+                "GBuffer Albedo view");
+
+            gBufferAlbedoRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+                graphicsContext,
+                RenderGraph::RenderTargetViewDesc {
+                    .m_textureResource = gBufferAlbedo,
+                    .m_format = kGBufferAlbedoFormat,
+                },
+                "GBuffer Albedo RTV");
+        }
+
+        {
+            const TextureDesc desc {
+                .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                .m_format = kGBufferNormalFormat,
+#if !defined(KE_FINAL)
+                .m_debugName = "GBuffer Normal",
+#endif
+            };
+            gBufferNormal = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
+                .m_desc = desc,
+                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(desc),
+                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
+            });
+
+            gBufferNormalView = renderGraph.GetRegistry().CreateTextureView(
+                graphicsContext,
+                gBufferNormal,
+                {
+                    .m_format = kGBufferNormalFormat,
+                },
+                "GBuffer Normal view");
+
+            gBufferNormalRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+                graphicsContext,
+                RenderGraph::RenderTargetViewDesc {
+                    .m_textureResource = gBufferNormal,
+                    .m_format = kGBufferNormalFormat,
+                },
+                "GBuffer Normal RTV");
+        }
+
+        {
+            const TextureDesc desc {
+                .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                .m_format = kGBufferDepthFormat,
+#if !defined(KE_FINAL)
+                .m_debugName = "GBuffer Depth",
+#endif
+            };
+            gBufferDepth = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
+                .m_desc = desc,
+                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(desc),
+                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
+            });
+
+            gBufferDepthView = renderGraph.GetRegistry().CreateTextureView(
+                graphicsContext,
+                gBufferDepth,
+                {
+                    .m_format = kGBufferDepthFormat,
+                },
+                "GBuffer Depth view");
+
+            gBufferDepthRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+                graphicsContext,
+                RenderGraph::RenderTargetViewDesc {
+                    .m_textureResource = gBufferDepth,
+                    .m_format = kGBufferDepthFormat,
+                },
+                "GBuffer Depth RTV");
+        }
+
+        {
+            const TextureDesc desc {
+                .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                .m_format = kHdrFormat,
+#if !defined(KE_FINAL)
+                .m_debugName = "HDR"
+#endif
+            };
+            hdr = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
+                .m_desc = desc,
+                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(desc),
+                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
+            });
+
+            hdrView = renderGraph.GetRegistry().CreateTextureView(
+                graphicsContext,
+                hdr,
+                {
+                    .m_format = kHdrFormat,
+                },
+                "HDR view");
+
+            hdrRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+                graphicsContext,
+                RenderGraph::RenderTargetViewDesc {
+                    .m_textureResource = hdr,
+                    .m_format = kHdrFormat,
+                },
+                "HDR RTV");
         }
     }
 

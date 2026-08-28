@@ -17,4 +17,6 @@ namespace KryneEngine::Samples::PhysicsDemo
     static constexpr auto kGBufferDepthFormat = TextureFormat::D32F;
 
     static constexpr auto kShadowFormat = TextureFormat::D16;
+
+    static constexpr auto kHdrFormat = TextureFormat::RGBA16_Float;
 }
