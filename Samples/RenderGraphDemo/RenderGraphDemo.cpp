@@ -17,9 +17,9 @@
 #include <KryneEngine/Modules/RenderGraph/Resource.hpp>
 #include <KryneEngine/Modules/RenderGraph/ImGuiDebugWindow.hpp>
 
-#include <Rendering/ColorMappingPass.hpp>
-#include <Rendering/DeferredShadingPass.hpp>
-#include <Rendering/SkyPass.hpp>
+#include <Rendering/Fullscreen/ColorMappingPass.hpp>
+#include <Rendering/Fullscreen/DeferredShadingPass.hpp>
+#include <Rendering/Fullscreen/SkyPass.hpp>
 
 #include "Rendering/DeferredShadowPass.hpp"
 #include "Rendering/GiPass.hpp"

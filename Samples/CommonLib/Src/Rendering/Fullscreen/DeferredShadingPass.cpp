@@ -4,8 +4,8 @@
  * @date 03/04/2025.
  */
 
-#include "Rendering/DeferredShadingPass.hpp"
-#include "Rendering/FullscreenPassCommon.hpp"
+#include "Rendering/Fullscreen/DeferredShadingPass.hpp"
+#include "Rendering/Fullscreen/FullscreenPassCommon.hpp"
 
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"

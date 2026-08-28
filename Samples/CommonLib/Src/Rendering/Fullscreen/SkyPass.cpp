@@ -4,9 +4,9 @@
  * @date 10/04/2025.
  */
 
-#include "Rendering/SkyPass.hpp"
+#include "Rendering/Fullscreen/SkyPass.hpp"
 
-#include "Rendering/FullscreenPassCommon.hpp"
+#include "Rendering/Fullscreen/FullscreenPassCommon.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 
 namespace KryneEngine::Samples

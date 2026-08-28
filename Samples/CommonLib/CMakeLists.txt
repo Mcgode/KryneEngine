@@ -15,14 +15,14 @@ add_library(Samples_CommonLib STATIC
         Include/Rendering/MaterialManager.hpp
         Src/Rendering/PassDispatcher.cpp
         Include/Rendering/PassDispatcher.hpp
-        Src/Rendering/FullscreenPassCommon.cpp
-        Include/Rendering/FullscreenPassCommon.hpp
-        Src/Rendering/SkyPass.cpp
-        Include/Rendering/SkyPass.hpp
-        Src/Rendering/DeferredShadingPass.cpp
-        Include/Rendering/DeferredShadingPass.hpp
-        Src/Rendering/ColorMappingPass.cpp
-        Include/Rendering/ColorMappingPass.hpp
+        Src/Rendering/Fullscreen/FullscreenPassCommon.cpp
+        Include/Rendering/Fullscreen/FullscreenPassCommon.hpp
+        Src/Rendering/Fullscreen/SkyPass.cpp
+        Include/Rendering/Fullscreen/SkyPass.hpp
+        Src/Rendering/Fullscreen/DeferredShadingPass.cpp
+        Include/Rendering/Fullscreen/DeferredShadingPass.hpp
+        Src/Rendering/Fullscreen/ColorMappingPass.cpp
+        Include/Rendering/Fullscreen/ColorMappingPass.hpp
 )
 
 target_include_directories(Samples_CommonLib PUBLIC Include)

@@ -4,9 +4,9 @@
  * @date 30/04/2025.
  */
 
-#include "Rendering/ColorMappingPass.hpp"
+#include "Rendering/Fullscreen/ColorMappingPass.hpp"
 
-#include "Rendering/FullscreenPassCommon.hpp"
+#include "Rendering/Fullscreen/FullscreenPassCommon.hpp"
 
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 

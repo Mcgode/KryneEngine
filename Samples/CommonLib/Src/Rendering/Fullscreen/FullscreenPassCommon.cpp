@@ -4,7 +4,7 @@
  * @date 10/04/2025.
  */
 
-#include "Rendering/FullscreenPassCommon.hpp"
+#include "Rendering/Fullscreen/FullscreenPassCommon.hpp"
 
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
