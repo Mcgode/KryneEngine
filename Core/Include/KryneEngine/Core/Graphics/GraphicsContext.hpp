@@ -437,6 +437,15 @@ namespace KryneEngine
          */
         [[nodiscard]] virtual uint2 GetPresentFrameBufferSize() = 0;
 
+        /**
+         * @brief Retrieves the texture format of the swap chain's present images.
+         *
+         * @details
+         * This is the format that render target views obtained from #GetPresentRenderTargetView expect, and
+         * that render passes and graphics pipelines writing to the swap chain must be compatible with.
+         *
+         * @return The `TextureFormat` of the presentation images.
+         */
         [[nodiscard]] virtual TextureFormat GetPresentTextureFormat() = 0;
 
         /**
@@ -480,7 +489,7 @@ namespace KryneEngine
          *
          * @param _commandList The command list in which to record the render pass begin.
          * @param _handle The render pass to begin, previously created with #CreateRenderPass.
-         * @param _debugName
+         * @param _debugName A label identifying the render pass in GPU debugging and profiling tools.
          *
          * @return The encoder for all the render pass related commands.
          */
@@ -500,7 +509,7 @@ namespace KryneEngine
          * @brief Begins a compute pass in the given command list.
          *
          * @param _commandList The command list in which to record the compute pass begin.
-         * @param _debugName
+         * @param _debugName A label identifying the compute pass in GPU debugging and profiling tools.
          *
          * @return The encoder for all the compute pass related commands.
          */
@@ -515,10 +524,24 @@ namespace KryneEngine
          */
         virtual void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) = 0;
 
+        /**
+         * @brief Begins a transfer (copy/upload) pass in the given command list.
+         *
+         * @param _commandList The command list in which to record the transfer pass begin.
+         * @param _debugName A label identifying the transfer pass in GPU debugging and profiling tools.
+         *
+         * @return The encoder for all the transfer pass related commands (see #CopyBuffer, #SetTextureData,
+         * #SetTextureRegionData).
+         */
         virtual TransferCommandEncoderHandle BeginTransferPass(
             CommandListHandle _commandList,
             eastl::string_view _debugName) = 0;
 
+        /**
+         * @brief Ends the transfer pass previously started with #BeginTransferPass.
+         *
+         * @param _utilEncoder The transfer command encoder associated with the transfer pass.
+         */
         virtual void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) = 0;
 
         /**
@@ -1004,14 +1027,25 @@ namespace KryneEngine
          * @brief Records a GPU timestamp query in the given command list.
          *
          * @param _commandList The command list in which to record the timestamp.
-         * @param _placement
-         * @param _placement
+         * @param _placement Whether the timestamp is written when the GPU reaches the start of the pipe
+         * (`TimestampPlacement::StartOfPipe`) or once all prior work has finished (`TimestampPlacement::EndOfPipe`).
          *
          * @return A handle to the recorded timestamp, to be resolved later with #GetResolvedTimestamp
          * or #GetResolvedTimestamps.
          */
         virtual TimestampHandle PutTimestamp(CommandListHandle _commandList, TimestampPlacement _placement) = 0;
 
+        /**
+         * @brief Records a GPU timestamp query at the start of the pipe.
+         *
+         * @details
+         * Convenience overload equivalent to `PutTimestamp(_commandList, TimestampPlacement::StartOfPipe)`.
+         *
+         * @param _commandList The command list in which to record the timestamp.
+         *
+         * @return A handle to the recorded timestamp, to be resolved later with #GetResolvedTimestamp
+         * or #GetResolvedTimestamps.
+         */
         [[nodiscard]] TimestampHandle PutTimestamp(CommandListHandle _commandList)
         {
             return PutTimestamp(_commandList, TimestampPlacement::StartOfPipe);
