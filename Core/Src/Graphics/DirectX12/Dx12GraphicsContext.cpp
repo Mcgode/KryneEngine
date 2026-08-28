@@ -535,6 +535,13 @@ namespace KryneEngine
         return m_swapChain.GetBackBufferIndex();
     }
 
+    TextureFormat Dx12GraphicsContext::GetPresentTextureFormat()
+    {
+        return m_appInfo.m_features.m_present
+            ? m_swapChain.GetPresentTextureFormat()
+            : TextureFormat::NoFormat;
+    }
+
     RenderPassHandle Dx12GraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)
     {
         return m_resources.CreateRenderPass(_desc);

@@ -11,16 +11,18 @@
 #include "Graphics/Vulkan/VkDescriptorSetManager.hpp"
 #include "KryneEngine/Core/Common/Utils/Alignment.hpp"
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
+#include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
+#include "KryneEngine/Core/Graphics/RenderPass.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/RenderTargetView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
-#include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
-#include "KryneEngine/Core/Graphics/RenderPass.hpp"
+#include "KryneEngine/Core/Math/Hashing.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
+#include "KryneEngine/Core/Memory/Containers//FlatHashMap.inl"
 
 namespace KryneEngine
 {
-    VkResources::VkResources(AllocatorInstance _allocator)
+    VkResources::VkResources(const AllocatorInstance _allocator)
         : m_buffers(_allocator)
         , m_textures(_allocator)
         , m_imageViews(_allocator)
@@ -31,6 +33,7 @@ namespace KryneEngine
         , m_shaderModules(_allocator)
         , m_pipelineLayouts(_allocator)
         , m_pipelines(_allocator)
+        , m_dummyRenderPasses(_allocator, 32)
     {}
 
     VkResources::~VkResources() = default;
@@ -959,8 +962,8 @@ namespace KryneEngine
 
         // Render Pass
 
-        RenderPassData* pRenderPassData = m_renderPasses.Get(_desc.m_renderPass.m_handle);
-        VERIFY_OR_RETURN(pRenderPassData != nullptr, { GenPool::kInvalidHandle });
+        VkRenderPass renderPass = GetDummyRenderPass(_device, _desc.m_renderTargets);
+        VERIFY_OR_RETURN(renderPass != VK_NULL_HANDLE, { GenPool::kInvalidHandle });
 
         // Pipeline creation
 
@@ -977,7 +980,7 @@ namespace KryneEngine
             .pColorBlendState = &blendStateCreateInfo,
             .pDynamicState = &dynamicStateCreateInfo,
             .layout = *pLayout,
-            .renderPass = pRenderPassData->m_renderPass,
+            .renderPass = renderPass,
             .subpass = 0,
         };
 
@@ -1084,4 +1087,81 @@ namespace KryneEngine
 
         return imageView;
     }
-}
+
+    VkRenderPass VkResources::GetDummyRenderPass(VkDevice _device, RenderTargetSetDesc _desc)
+    {
+        const auto lock = m_dummyRenderPassLock.AutoLock();
+
+        const u64 hash = Hashing::Hash64(_desc);
+        const auto it = m_dummyRenderPasses.Find(hash);
+        if (it != m_dummyRenderPasses.end())
+        {
+            return it->second;
+        }
+
+        VkAttachmentDescription attachments[RenderPassDesc::kMaxSupportedColorAttachments + 1];
+        VkAttachmentReference references[RenderPassDesc::kMaxSupportedColorAttachments];
+        VkAttachmentReference depthRef = {};
+
+        for (u32 i = 0; i < _desc.m_numColorAttachments; i++)
+        {
+            attachments[i] = {
+                .flags = 0,
+                .format = VkHelperFunctions::ToVkFormat(_desc.m_colorFormats[i]),
+                .samples = static_cast<VkSampleCountFlagBits>(static_cast<u32>(_desc.m_sampleCount)),
+                .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                .finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+            };
+
+            references[i] = {
+                .attachment = i,
+                .layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+            };
+        }
+        u32 attachmentCount = _desc.m_numColorAttachments;
+        if (_desc.m_depthStencilFormat != TextureFormat::NoFormat)
+        {
+            attachments[attachmentCount] = {
+                .flags = 0,
+                .format = VkHelperFunctions::ToVkFormat(_desc.m_depthStencilFormat),
+                .samples = static_cast<VkSampleCountFlagBits>(static_cast<u32>(_desc.m_sampleCount)),
+                .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            };
+
+            depthRef = {
+                .attachment = attachmentCount++,
+                .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            };
+        }
+
+        const  VkSubpassDescription subpassDescription {
+            .flags = 0,
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .colorAttachmentCount = _desc.m_numColorAttachments,
+            .pColorAttachments = references,
+            .pDepthStencilAttachment = _desc.m_depthStencilFormat != TextureFormat::NoFormat ? &depthRef : nullptr
+    };
+
+        const VkRenderPassCreateInfo createInfo {
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+            .flags = 0,
+            .attachmentCount = attachmentCount,
+            .pAttachments = attachments,
+            .subpassCount = 1,
+            .pSubpasses = &subpassDescription,
+        };
+
+        VkRenderPass dummyPass;
+        VkAssert(vkCreateRenderPass(_device, &createInfo, nullptr, &dummyPass));
+
+        m_dummyRenderPasses.Emplace({ hash, dummyPass });
+        return dummyPass;
+    }
+} // namespace KryneEngine

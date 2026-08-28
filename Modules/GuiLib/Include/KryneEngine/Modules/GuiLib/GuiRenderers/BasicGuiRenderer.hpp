@@ -26,7 +26,7 @@ namespace KryneEngine::Modules::GuiLib
         BasicGuiRenderer(
             AllocatorInstance _allocator,
             GraphicsContext* _graphicsContext,
-            RenderPassHandle _renderPass,
+            TextureFormat _targetFormat,
             SamplerHandle _defaultSampler = { GenPool::kInvalidHandle });
 
         void SetAtlasManager(TextRendering::MsdfAtlasManager* _atlasManager) { m_atlasManager = _atlasManager; }

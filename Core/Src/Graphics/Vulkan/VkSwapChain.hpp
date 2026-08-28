@@ -66,6 +66,7 @@ namespace KryneEngine
             DynamicArray<RenderTargetViewHandle> m_renderTargetViews;
             DynamicArray<VkSemaphore> m_imageAvailableSemaphores;
             uint2 m_framebufferSize {};
+            VkFormat m_format = VK_FORMAT_UNDEFINED;
 
             explicit SwapChainData(const AllocatorInstance _allocator)
                 : m_renderTargetTextures(_allocator)

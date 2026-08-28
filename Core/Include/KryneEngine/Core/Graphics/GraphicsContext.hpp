@@ -437,6 +437,8 @@ namespace KryneEngine
          */
         [[nodiscard]] virtual uint2 GetPresentFrameBufferSize() = 0;
 
+        [[nodiscard]] virtual TextureFormat GetPresentTextureFormat() = 0;
+
         /**
          * @brief Creates a render pass object, describing a set of attachments and their load/store operations.
          *

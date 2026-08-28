@@ -16,7 +16,7 @@ namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
     GraphicsPipelineHandle CreatePso(
         GraphicsContext* _graphicsContext,
         const AllocatorInstance _allocator,
-        const RenderPassHandle _renderPass,
+        const RenderTargetSetDesc& _renderTargets,
         const PipelineLayoutHandle _pipelineLayout,
         const char* _fsShader,
         const char* _fsFunctionName,
@@ -64,7 +64,7 @@ namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
                 .m_depthWrite = false,
                 .m_depthCompare = DepthStencilStateDesc::CompareOp::GreaterEqual
             },
-            .m_renderPass = _renderPass,
+            .m_renderTargets = _renderTargets,
             .m_pipelineLayout = _pipelineLayout,
 #if !defined(KE_FINAL)
             .m_debugName = "DeferredShadingPSO",

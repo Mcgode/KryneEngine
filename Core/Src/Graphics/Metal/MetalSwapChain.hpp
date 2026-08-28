@@ -47,6 +47,11 @@ namespace KryneEngine
             return {  m_metalLayer->drawableSize().width, m_metalLayer->drawableSize().height };
         }
 
+        [[nodiscard]] MTL::PixelFormat GetPixelFormat() const
+        {
+            return m_metalLayer->pixelFormat();
+        }
+
     private:
         CA::MetalLayer* m_metalLayer;
         NsPtr<CA::MetalDrawable> m_drawable;

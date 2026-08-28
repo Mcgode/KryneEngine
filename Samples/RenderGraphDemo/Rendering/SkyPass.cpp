@@ -49,7 +49,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             {&m_sceneConstantsDescriptorSet, 1});
     }
 
-    void SkyPass::CreatePso(GraphicsContext* _graphicsContext, RenderPassHandle _renderPass)
+    void SkyPass::CreatePso(GraphicsContext* _graphicsContext, const RenderTargetSetDesc& _renderTargets)
     {
         if (m_pso != GenPool::kInvalidHandle)
             return;
@@ -57,7 +57,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         m_pso = FullscreenPassCommon::CreatePso(
             _graphicsContext,
             m_allocator,
-            _renderPass,
+            _renderTargets,
             m_pipelineLayout,
             "Shaders/Samples/RenderGraphDemo/Sky/SkyRender_SkyMain",
             "SkyMain",

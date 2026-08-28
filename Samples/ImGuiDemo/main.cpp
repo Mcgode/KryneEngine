@@ -79,7 +79,7 @@ void MainFunc(void* _pAllocator)
         renderPassHandles[i] = graphicsContext->CreateRenderPass(desc);
     }
 
-    KEModules::ImGui::Context imGuiContext { &mainWindow, renderPassHandles[0], allocator };
+    KEModules::ImGui::Context imGuiContext { &mainWindow, graphicsContext->GetPresentTextureFormat(), allocator };
 
     // You can set up ImGui specific config after the context has been created.
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;

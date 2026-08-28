@@ -164,6 +164,7 @@ namespace KryneEngine
             m_currentSwapChain->m_renderTargetTextures.Resize(imageCount);
             m_currentSwapChain->m_renderTargetViews.Resize(imageCount);
             m_currentSwapChain->m_imageAvailableSemaphores.Resize(imageCount);
+            m_currentSwapChain->m_format = selectedSurfaceFormat.format;
             for (auto i = 0u; i < imageCount; i++)
             {
                 const auto textureHandle = _resources.RegisterTexture(images[i], {extent.width, extent.height, 1});
@@ -268,6 +269,7 @@ namespace KryneEngine
             m_nextSwapChain->m_renderTargetTextures.Resize(imageCount);
             m_nextSwapChain->m_renderTargetViews.Resize(imageCount);
             m_nextSwapChain->m_imageAvailableSemaphores.Resize(imageCount);
+            m_nextSwapChain->m_format = m_reCreateInfo.imageFormat;
 
             char name[256];
 #if !defined(KE_FINAL)

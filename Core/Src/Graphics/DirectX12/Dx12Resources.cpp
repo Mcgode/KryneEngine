@@ -553,7 +553,6 @@ namespace KryneEngine
                 .m_cpuHandle = cpuDescriptorHandle,
                 .m_resource = _desc.m_texture,
             };
-            *m_renderTargetViews.GetCold(handle) = Dx12Converters::ToDx12Format(_desc.m_format);
 
             return { handle };
         }
@@ -614,10 +613,9 @@ namespace KryneEngine
                     m_dsvDescriptorSize);
             _device->CreateDepthStencilView(*texture, &dsvDesc, cpuDescriptorHandle);
 
-            auto [hot, cold] = m_depthStencilViews.GetAll(handle);
+            auto* hot = m_depthStencilViews.Get(handle);
             hot->m_cpuHandle = cpuDescriptorHandle;
             hot->m_resource = _desc.m_texture;
-            *cold = Dx12Converters::ToDx12Format(_desc.m_format);
 
             handle.m_index |= kDsvFlag;
             return { handle };
@@ -1005,9 +1003,7 @@ namespace KryneEngine
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC desc {};
 
-        VERIFY_OR_RETURN(_desc.m_renderPass != GenPool::kInvalidHandle, { GenPool::kInvalidHandle });
-        const RenderPassDesc* renderPassDesc = m_renderPasses.Get(_desc.m_renderPass.m_handle);
-        VERIFY_OR_RETURN(renderPassDesc != nullptr, { GenPool::kInvalidHandle });
+        const RenderTargetSetDesc& renderTargets = _desc.m_renderTargets;
 
         // Set root signature
         {
@@ -1150,7 +1146,7 @@ namespace KryneEngine
         }
 
         // Depth stencil desc
-        if (renderPassDesc->m_depthStencilAttachment.has_value())
+        if (renderTargets.m_depthStencilFormat != TextureFormat::NoFormat)
         {
             desc.DepthStencilState.DepthEnable = _desc.m_depthStencil.m_depthTest;
             desc.DepthStencilState.DepthWriteMask = _desc.m_depthStencil.m_depthWrite
@@ -1240,34 +1236,26 @@ namespace KryneEngine
             }
         }
 
-        // Render pass
+        // Render target set
         {
-            desc.NumRenderTargets = renderPassDesc->m_colorAttachments.size();
+            KE_ASSERT_FATAL(renderTargets.m_numColorAttachments <= RenderPassDesc::kMaxSupportedColorAttachments);
+            KE_ASSERT_FATAL(renderTargets.m_numColorAttachments == _desc.m_colorBlending.m_attachments.size());
+
+            desc.NumRenderTargets = renderTargets.m_numColorAttachments;
 
             for (auto i = 0u; i < desc.NumRenderTargets; i++)
             {
-                const GenPool::Handle handle = renderPassDesc->m_colorAttachments[i].m_rtv.m_handle;
-                VERIFY_OR_RETURN(handle != GenPool::kInvalidHandle && (handle.m_index & kDsvFlag) == 0, { GenPool::kInvalidHandle });
-                auto* pRtvFormat = m_renderTargetViews.GetCold(handle);
-                VERIFY_OR_RETURN(pRtvFormat != nullptr, { GenPool::kInvalidHandle });
-
-                desc.RTVFormats[i] = *pRtvFormat;
+                desc.RTVFormats[i] = Dx12Converters::ToDx12Format(renderTargets.m_colorFormats[i]);
             }
 
-            if (renderPassDesc->m_depthStencilAttachment.has_value())
+            if (renderTargets.m_depthStencilFormat != TextureFormat::NoFormat)
             {
-                GenPool::Handle handle = renderPassDesc->m_depthStencilAttachment.value().m_rtv.m_handle;
-                VERIFY_OR_RETURN(handle != GenPool::kInvalidHandle && (handle.m_index & kDsvFlag) != 0, { GenPool::kInvalidHandle });
-                handle.m_index &= ~kDsvFlag;
-                auto* pDsvFormat = m_depthStencilViews.GetCold(handle);
-                VERIFY_OR_RETURN(pDsvFormat != nullptr, { GenPool::kInvalidHandle });
-
-                desc.DSVFormat = *pDsvFormat;
+                desc.DSVFormat = Dx12Converters::ToDx12Format(renderTargets.m_depthStencilFormat);
             }
         }
 
         desc.SampleDesc = {
-            .Count = 1,
+            .Count = static_cast<u8>(renderTargets.m_sampleCount),
             .Quality = 0,
         };
 

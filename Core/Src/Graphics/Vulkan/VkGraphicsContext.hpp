@@ -152,6 +152,7 @@ namespace KryneEngine
         [[nodiscard]] TextureHandle GetPresentTexture(u8 _swapChainIndex) override;
         [[nodiscard]] u32 GetCurrentPresentImageIndex() const override;
         [[nodiscard]] uint2 GetPresentFrameBufferSize() override;
+        [[nodiscard]] TextureFormat GetPresentTextureFormat() override;
 
         [[nodiscard]] RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc) override;
         bool DestroyRenderPass(RenderPassHandle _handle) override;

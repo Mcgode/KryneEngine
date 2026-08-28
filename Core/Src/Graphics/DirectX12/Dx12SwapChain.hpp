@@ -39,11 +39,18 @@ namespace KryneEngine
 
         void Destroy(Dx12Resources& _resources);
 
+        [[nodiscard]] TextureFormat GetPresentTextureFormat() const
+        {
+            return m_presentFormat;
+        }
+
     private:
         ComPtr<IDXGISwapChain3> m_swapChain;
 
         DynamicArray<TextureHandle> m_renderTargetTextures;
         DynamicArray<RenderTargetViewHandle> m_renderTargetViews;
+
+        TextureFormat m_presentFormat = TextureFormat::NoFormat;
 
         u8 m_currentFrame;
     };

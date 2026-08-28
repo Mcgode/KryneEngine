@@ -57,11 +57,6 @@ namespace KryneEngine::Modules::RenderGraph
         /// @brief An optional callback for executing code before the pass is executed.
         /// Called before any Compute or Render pass is started, allowing for last minute transfer commands.
         TransferFunction m_prePassTransferFunction = nullptr;
-
-        /// @brief A callback for passing the render pass handle for this pass before any execution is done.
-        /// Useful for PSO creation.
-        /// Only called for Render type passes.
-        RenderPassCallBack m_renderPassCallback = nullptr;
     };
 
     class Builder;
@@ -78,7 +73,6 @@ namespace KryneEngine::Modules::RenderGraph
         PassDeclarationBuilder& WriteDependency(const Dependency& _dependency);
         PassDeclarationBuilder& SetExecuteFunction(PassDeclaration::ExecuteFunction&& _function);
         PassDeclarationBuilder& SetPrePassTransferFunction(PassDeclaration::TransferFunction&& _function);
-        PassDeclarationBuilder& SetRenderPassCallback(PassDeclaration::RenderPassCallBack&& _callback);
     };
 } // namespace KryneEngine::Module::RenderGraph
 
