@@ -181,9 +181,9 @@ namespace KryneEngine::Modules::RenderGraph
 
     SimplePoolHandle Registry::CreateTextureView(
         GraphicsContext* _graphicsContext,
-        SimplePoolHandle _texture,
+        const SimplePoolHandle _texture,
         const KryneEngine::TextureViewDesc& _desc,
-        eastl::string_view _name)
+        const eastl::string_view _name)
     {
         Resource& resource = m_resources.Get(_texture);
 
@@ -197,10 +197,13 @@ namespace KryneEngine::Modules::RenderGraph
                 .m_textureView = _graphicsContext->CreateTextureView(desc),
                 .m_textureResource = _texture,
             },
+#if !defined(KE_FINAL)
+            .m_name = _name.data(),
+#endif
         });
     }
 
-    SimplePoolHandle Registry::GetUnderlyingResource(SimplePoolHandle _resource) const
+    SimplePoolHandle Registry::GetUnderlyingResource(const SimplePoolHandle _resource) const
     {
         const Resource& resource = m_resources.Get(_resource);
 
@@ -218,6 +221,7 @@ namespace KryneEngine::Modules::RenderGraph
         case ResourceType::Dummy:
             return _resource;
         }
+        return ~0ull;
     }
 
     const Resource& Registry::GetResource(SimplePoolHandle _resource) const
