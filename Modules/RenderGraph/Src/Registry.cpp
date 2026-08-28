@@ -198,7 +198,7 @@ namespace KryneEngine::Modules::RenderGraph
                 .m_textureResource = _texture,
             },
 #if !defined(KE_FINAL)
-            .m_name = _name.data(),
+            .m_name { _name },
 #endif
         });
     }
