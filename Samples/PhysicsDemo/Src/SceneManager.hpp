@@ -39,7 +39,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         void GameLoop();
 
-        void InitPso(GraphicsContext& _graphicsContext, Modules::RenderGraph::RenderGraph& _renderGraph);
+        void InitPso(GraphicsContext& _graphicsContext);
 
     private:
         AllocatorInstance m_allocator;

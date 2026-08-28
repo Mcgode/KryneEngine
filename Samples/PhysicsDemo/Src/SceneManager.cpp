@@ -8,6 +8,7 @@
 
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include "PassTypes.hpp"
+#include "RenderTargetFormats.hpp"
 
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
@@ -81,7 +82,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         }
     }
 
-    void SceneManager::InitPso(GraphicsContext& _graphicsContext, Modules::RenderGraph::RenderGraph& _renderGraph)
+    void SceneManager::InitPso(GraphicsContext& _graphicsContext)
     {
         const auto readShaderFile = [this](const eastl::string_view _filePath) -> eastl::span<char>
         {
@@ -125,15 +126,6 @@ namespace KryneEngine::Samples::PhysicsDemo
         }
         m_materialManager.SetPipelineLayout(m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineLayout);
         m_materialManager.SetPipelineLayout(m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineLayout);
-
-        RenderPassHandle gbufferDummy, shadowDummy;
-        {
-            Modules::RenderGraph::PassDeclaration gbufferDummyPass(Modules::RenderGraph::PassType::Render, 0);
-            Modules::RenderGraph::PassDeclarationBuilder(gbufferDummyPass, nullptr)
-                .SetName("GBuffer pass")
-                .AddColorAttachment()
-
-        }
 
         GraphicsPipelineHandle defaultPipelineGBuffer, defaultPipelineShadow;
         {
@@ -196,7 +188,11 @@ namespace KryneEngine::Samples::PhysicsDemo
                 .m_colorBlending = {
                     .m_attachments = { ColorAttachmentBlendDesc {}, ColorAttachmentBlendDesc {} },
                 },
-                .m_renderPass = {},
+                .m_renderTargets = {
+                    .m_numColorAttachments = 2,
+                    .m_colorFormats = { kGBufferAlbedoFormat, kGBufferNormalFormat },
+                    .m_depthStencilFormat = kGBufferDepthFormat,
+                },
                 .m_pipelineLayout = defaultPipelineLayout,
 #if !defined(KE_FINAL)
                 .m_debugName = "Default GBuffer PSO",

@@ -3,6 +3,7 @@ add_executable(PhysicsDemo
         Src/SceneManager.cpp
         Src/SceneManager.hpp
         Src/PassTypes.hpp
+        Src/RenderTargetFormats.hpp
 )
 
 target_link_libraries(PhysicsDemo

@@ -113,22 +113,9 @@ int main()
         {
             KE_ZoneScoped("Init ImGui context");
 
-            // Even if it's a dummy pass, the generated render pass should match signature with the one in the render
-            // graph for the ImGui pass, so it will be reused there.
-
-            RenderGraph::PassDeclaration imguiDummyPass(RenderGraph::PassType::Render, 0);
-            RenderGraph::PassDeclarationBuilder(imguiDummyPass, nullptr)
-                .SetName("ImGui pass")
-                .AddColorAttachment(swapChainRtvs[0])
-                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
-                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
-                    .Done();
-            imguiDummyPass.m_colorAttachments[0].m_layoutBefore = TextureLayout::ColorAttachment;
-            imguiDummyPass.m_colorAttachments[0].m_layoutAfter = TextureLayout::ColorAttachment;
-
             imGuiContext = allocator.New<Modules::ImGui::Context>(
                 &mainWindow,
-                renderGraph.FetchRenderPass(*graphicsContext, imguiDummyPass),
+                graphicsContext->GetPresentTextureFormat(),
                 allocator);
         }
 
