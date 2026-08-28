@@ -23,7 +23,7 @@ public:
         AllocatorInstance _allocator,
         GraphicsContext& _graphicsContext,
         Modules::TextRendering::FontManager* _fontManager,
-        RenderPassHandle _renderPass,
+        TextureFormat _targetFormat,
         Modules::TextRendering::MsdfAtlasManager* _atlasManager);
 
     void Render(

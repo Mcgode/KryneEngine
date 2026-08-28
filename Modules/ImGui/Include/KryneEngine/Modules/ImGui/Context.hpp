@@ -36,14 +36,14 @@ namespace KryneEngine::Modules::ImGui
          * It also sets up the ImGuiIO data structure and initializes the vertex and index dynamic buffers.
          *
          * @param _window The Window object associated with the Context.
-         * @param _renderPass The RenderPassHandle object used for building the ImGui PSO.
+         * @param _targetFormat The render target texture format, used for building the ImGui PSO.
          * @param _allocator The memory allocator instance for this context
          * @param _vsBytecode An optional argument to use if you load the vertex shader bytecode externally
          * @param _fsBytecode An optional argument to use if you load the fragment shader bytecode externally
          */
         Context(
             Window* _window,
-            RenderPassHandle _renderPass,
+            TextureFormat _targetFormat,
             AllocatorInstance _allocator,
             eastl::span<char> _vsBytecode = {},
             eastl::span<char> _fsBytecode = {});
@@ -138,7 +138,7 @@ namespace KryneEngine::Modules::ImGui
 
         void InitPso(
             GraphicsContext* _graphicsContext,
-            RenderPassHandle _renderPass,
+            TextureFormat _targetFormat,
             eastl::span<char> _externalVsBytecode,
             eastl::span<char> _externalFsBytecode);
     };

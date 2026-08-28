@@ -109,6 +109,7 @@ namespace KryneEngine
         [[nodiscard]] RenderTargetViewHandle GetPresentRenderTargetView(u8 _index) override;
         [[nodiscard]] TextureHandle GetPresentTexture(u8 _swapChainIndex) override;
         [[nodiscard]] u32 GetCurrentPresentImageIndex() const override;
+        [[nodiscard]] TextureFormat GetPresentTextureFormat() override;
 
         RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc) override;
         bool DestroyRenderPass(RenderPassHandle _renderPass) override;

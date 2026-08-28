@@ -14,6 +14,7 @@
 #include "KryneEngine/Core/Common/BitUtils.hpp"
 #include "KryneEngine/Core/Common/Types.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
+#include "RenderPass.hpp"
 
 namespace KryneEngine
 {
@@ -344,6 +345,16 @@ namespace KryneEngine
         bool m_useVertexLayout = true;
     };
 
+    struct RenderTargetSetDesc
+    {
+        u8 m_numColorAttachments = 0;
+        MultisamplingSampleCount m_sampleCount = MultisamplingSampleCount::One;
+        TextureFormat m_colorFormats[RenderPassDesc::kMaxSupportedColorAttachments] {};
+        TextureFormat m_depthStencilFormat = TextureFormat::NoFormat;
+    };
+    // Ensure that the struct is tightly packed, for consistent hashing results
+    static_assert(sizeof(RenderTargetSetDesc) == offsetof(RenderTargetSetDesc, m_depthStencilFormat) + sizeof(RenderTargetSetDesc::m_depthStencilFormat));
+
     struct GraphicsPipelineDesc
     {
         eastl::span<const ShaderStage> m_stages {};
@@ -352,7 +363,7 @@ namespace KryneEngine
         RasterStateDesc m_rasterState {};
         ColorBlendingDesc m_colorBlending {};
         DepthStencilStateDesc m_depthStencil {};
-        RenderPassHandle m_renderPass { GenPool::kInvalidHandle };
+        RenderTargetSetDesc m_renderTargets {};
         PipelineLayoutHandle m_pipelineLayout { GenPool::kInvalidHandle };
 
 #if !defined(KE_FINAL)

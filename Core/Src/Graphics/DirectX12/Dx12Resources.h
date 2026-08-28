@@ -133,8 +133,8 @@ namespace KryneEngine
         GenerationalPool<CD3DX12_CPU_DESCRIPTOR_HANDLE> m_samplers;
         GenerationalPool<TextureViewHotData, TextureViewColdData> m_textureViews;
         GenerationalPool<BufferViewHotData, BufferViewColdData> m_bufferViews;
-        GenerationalPool<RtvHotData, DXGI_FORMAT> m_renderTargetViews;
-        GenerationalPool<RtvHotData, DXGI_FORMAT> m_depthStencilViews;
+        GenerationalPool<RtvHotData> m_renderTargetViews;
+        GenerationalPool<RtvHotData> m_depthStencilViews;
         GenerationalPool<RenderPassDesc> m_renderPasses;
         GenerationalPool<PipelineLayoutHotData, u32> m_pipelineLayouts;
         GenerationalPool<D3D12_SHADER_BYTECODE> m_shaderBytecodes;

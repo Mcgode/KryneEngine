@@ -13,6 +13,7 @@
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include "KryneEngine/Core/Graphics/Texture.hpp"
+#include "KryneEngine/Core/Memory/Containers/FlatHashMap.hpp"
 
 namespace KryneEngine
 {
@@ -100,7 +101,7 @@ namespace KryneEngine
 #endif
 
         // Default constructor and destructor, but moved implementation to cpp for .inl linking
-        VkResources(AllocatorInstance _allocator);
+        explicit VkResources(AllocatorInstance _allocator);
         ~VkResources();
 
         void FlushPools();
@@ -155,7 +156,7 @@ namespace KryneEngine
         bool DestroyComputePipeline(ComputePipelineHandle _pipeline, VkDevice _device);
 
     private:
-        VmaAllocator m_allocator;
+        VmaAllocator m_allocator {};
 
         [[nodiscard]] VkImageView CreateImageView(
             VkDevice _device,
@@ -168,5 +169,10 @@ namespace KryneEngine
             u32 _mipCount,
             u32 _arrayStart,
             u32 _arraySize);
+
+        FlatHashMap<u64, VkRenderPass> m_dummyRenderPasses;
+        SpinLock m_dummyRenderPassLock;
+
+        VkRenderPass GetDummyRenderPass(VkDevice _device, RenderTargetSetDesc _desc);
     };
 } // KryneEngine

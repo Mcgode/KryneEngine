@@ -8,12 +8,17 @@
 
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 
+namespace KryneEngine
+{
+    struct RenderTargetSetDesc;
+}
+
 namespace KryneEngine::Samples::RenderGraphDemo::FullscreenPassCommon
 {
     [[nodiscard]] extern GraphicsPipelineHandle CreatePso(
         GraphicsContext* _graphicsContext,
         AllocatorInstance _allocator,
-        RenderPassHandle _renderPass,
+        const RenderTargetSetDesc& _renderTargets,
         PipelineLayoutHandle _pipelineLayout,
         const char* _fsShader,
         const char* _fsFunctionName,

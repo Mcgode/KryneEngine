@@ -83,6 +83,10 @@ namespace KryneEngine
             m_renderTargetTextures.Resize(imageCount);
             m_renderTargetViews.Resize(imageCount);
 
+            m_presentFormat = displayInfo.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled
+                    ? TextureFormat::BGRA8_UNorm
+                    : TextureFormat::BGRA8_sRGB;
+
             ID3D12Resource* renderTargetTexture = nullptr;
             for (u32 i = 0; i < imageCount; i++)
             {
@@ -95,9 +99,7 @@ namespace KryneEngine
 
                 const RenderTargetViewDesc rtvDesc {
                     .m_texture = textureHandle,
-                    .m_format = displayInfo.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled
-                            ? TextureFormat::BGRA8_UNorm
-                            : TextureFormat::BGRA8_sRGB
+                    .m_format = m_presentFormat,
                 };
                 m_renderTargetViews.Init(i, _resources.CreateRenderTargetView(rtvDesc, _device));
             }

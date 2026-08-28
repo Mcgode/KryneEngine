@@ -8,6 +8,7 @@
 
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/Handles.hpp"
+#include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include "KryneEngine/Core/Math/Matrix.hpp"
 #include <KryneEngine/Core/Math/Quaternion.hpp>
 
@@ -20,7 +21,7 @@ namespace KryneEngine::Samples
 
         void BuildPso(
             GraphicsContext* _graphicsContext,
-            RenderPassHandle _renderPass,
+            const RenderTargetSetDesc& _renderTargets,
             DescriptorSetLayoutHandle _descriptorSetLayout);
 
         void Process(GraphicsContext* _graphicsContext);

@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
+
+
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 
 namespace KryneEngine::Samples::RenderGraphDemo
@@ -32,7 +35,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
 
         void Render(const Modules::RenderGraph::RenderGraph&, const Modules::RenderGraph::PassExecutionData& _passExecutionData);
 
-        void CreatePso(GraphicsContext* _graphicsContext, RenderPassHandle _renderPass);
+        void CreatePso(GraphicsContext* _graphicsContext, const RenderTargetSetDesc& _renderTargets);
 
     private:
         AllocatorInstance m_allocator;

@@ -1120,6 +1120,13 @@ namespace KryneEngine
             : uint2 { 1 };
     }
 
+    TextureFormat VkGraphicsContext::GetPresentTextureFormat()
+    {
+        return m_appInfo.m_features.m_present
+            ? FromVkFormat(m_swapChain.GetSwapChain(m_frameId)->m_format)
+            : TextureFormat::NoFormat;
+    }
+
     RenderPassHandle VkGraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)
     {
         return m_resources.CreateRenderPass(_desc, m_device);

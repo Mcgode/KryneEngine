@@ -83,6 +83,11 @@ int main()
         hdrRtv,
         hdrView;
 
+    constexpr auto gbufferAlbedoFormat = TextureFormat::RGBA8_UNorm;
+    constexpr auto gbufferNormalFormat = TextureFormat::RGBA8_UNorm; // TODO: Implement RGB10A2 format support
+    constexpr auto gbufferDepthFormat = TextureFormat::D32F;
+    constexpr auto hdrFormat = TextureFormat::RGBA16_Float;
+
     DynamicArray<SimplePoolHandle> swapChainTextures(allocator, graphicsContext->GetFrameContextCount());
     DynamicArray<SimplePoolHandle> swapChainRtvs(allocator, graphicsContext->GetFrameContextCount());
 
@@ -109,7 +114,7 @@ int main()
             {
                 .m_desc = {
                     .m_dimensions = dimensions,
-                    .m_format = TextureFormat::RGBA8_UNorm,
+                    .m_format = gbufferAlbedoFormat,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer albedo",
 #endif
@@ -120,20 +125,20 @@ int main()
             graphicsContext,
             RenderGraph::RenderTargetViewDesc {
                 .m_textureResource = gBufferAlbedo,
-                .m_format = TextureFormat::RGBA8_UNorm,
+                .m_format = gbufferAlbedoFormat,
             },
             "GBuffer albedo RTV");
         gBufferAlbedoView = renderGraph.GetRegistry().CreateTextureView(
             graphicsContext,
             gBufferAlbedo,
-            { .m_format = TextureFormat::RGBA8_UNorm });
+            { .m_format = gbufferAlbedoFormat });
 
         gBufferNormal = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
             {
                 .m_desc = {
                     .m_dimensions = dimensions,
-                    .m_format = TextureFormat::RGBA8_UNorm, // TODO: Implement RGB10A2 format support
+                    .m_format = gbufferNormalFormat,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer normal",
 #endif
@@ -144,20 +149,20 @@ int main()
             graphicsContext,
             RenderGraph::RenderTargetViewDesc {
                 .m_textureResource = gBufferNormal,
-                .m_format = TextureFormat::RGBA8_UNorm, // TODO: Implement RGB10A2 format support
+                .m_format = gbufferNormalFormat,
             },
             "GBuffer normal RTV");
         gBufferNormalView = renderGraph.GetRegistry().CreateTextureView(
             graphicsContext,
             gBufferNormal,
-            { .m_format = TextureFormat::RGBA8_UNorm });
+            { .m_format = gbufferNormalFormat });
 
         gBufferDepth = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
             {
                 .m_desc = {
                     .m_dimensions = dimensions,
-                    .m_format = TextureFormat::D32F,
+                    .m_format = gbufferDepthFormat,
                     .m_planes = TexturePlane::Depth,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer depth"
@@ -169,14 +174,14 @@ int main()
             graphicsContext,
             RenderGraph::RenderTargetViewDesc {
                 .m_textureResource = gBufferDepth,
-                .m_format = TextureFormat::D32F,
+                .m_format = gbufferDepthFormat,
                 .m_plane = TexturePlane::Depth,
             },
             "GBuffer depth RTV");
         gBufferDepthView = renderGraph.GetRegistry().CreateTextureView(
             graphicsContext,
             gBufferDepth,
-            { .m_format = TextureFormat::D32F, .m_plane = TexturePlane::Depth });
+            { .m_format = gbufferDepthFormat, .m_plane = TexturePlane::Depth });
 
         deferredShadow = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
@@ -218,14 +223,14 @@ int main()
                 .m_format = TextureFormat::RGBA16_Float,
                 .m_accessType = TextureViewAccessType::ReadWrite,
             },
-            "Deferred GI SRV");;
+            "Deferred GI SRV");
 
         hdr = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
             {
                 .m_desc = {
                     .m_dimensions = dimensions,
-                    .m_format = TextureFormat::RGBA16_Float,
+                    .m_format = hdrFormat,
 #if !defined(KE_FINAL)
                     .m_debugName = "HDR render texture",
 #endif
@@ -236,45 +241,15 @@ int main()
             graphicsContext,
             RenderGraph::RenderTargetViewDesc {
                 .m_textureResource = hdr,
-                .m_format = TextureFormat::RGBA16_Float,
+                .m_format = hdrFormat,
             },
             "HDR render RTV");
         hdrView = renderGraph.GetRegistry().CreateTextureView(
             graphicsContext,
             hdr,
-            { .m_format = TextureFormat::RGBA16_Float },
+            { .m_format = hdrFormat },
             "HDR render SRV"
         );
-    }
-
-    // Init scene PSOs
-    {
-        RenderGraph::PassDeclaration gBufferDummyPass(Modules::RenderGraph::PassType::Render, 0);
-        RenderGraph::PassDeclarationBuilder(gBufferDummyPass, nullptr)
-            .SetName("GBuffer pass")
-            .AddColorAttachment(gBufferAlbedoRtv)
-                .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
-                .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
-                .Done()
-            .AddColorAttachment(gBufferNormalRtv)
-                .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
-                .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
-                .Done()
-            .SetDepthAttachment(gBufferDepthRtv)
-                .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Clear)
-                .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
-                .SetClearDepthStencil(0.f, 0)
-                .Done();
-        gBufferDummyPass.m_colorAttachments[0].m_layoutBefore = TextureLayout::ColorAttachment;
-        gBufferDummyPass.m_colorAttachments[0].m_layoutAfter = TextureLayout::ShaderResource;
-        gBufferDummyPass.m_colorAttachments[1].m_layoutBefore = TextureLayout::ColorAttachment;
-        gBufferDummyPass.m_colorAttachments[1].m_layoutAfter = TextureLayout::ShaderResource;
-        gBufferDummyPass.m_depthAttachment.value().m_layoutBefore = TextureLayout::DepthStencilAttachment;
-        gBufferDummyPass.m_depthAttachment.value().m_layoutAfter = TextureLayout::ShaderResource;
-
-        sceneManager.PreparePsos(
-            graphicsContext,
-            renderGraph.FetchRenderPass(*graphicsContext, gBufferDummyPass));
     }
 
     deferredShadowPass.Initialize(
@@ -305,28 +280,34 @@ int main()
         sceneManager.GetDescriptorSetLayout(),
         renderGraph.GetRegistry().GetResource(hdrView).m_textureViewData.m_textureView);
 
+    sceneManager.PreparePsos(graphicsContext, {
+        .m_numColorAttachments = 2,
+        .m_colorFormats = { gbufferAlbedoFormat, gbufferNormalFormat },
+        .m_depthStencilFormat = gbufferDepthFormat,
+    });
+    deferredShadingPass.CreatePso(graphicsContext, {
+        .m_numColorAttachments = 1,
+        .m_colorFormats = { hdrFormat },
+    });
+    skyPass.CreatePso(graphicsContext, {
+        .m_numColorAttachments = 1,
+        .m_colorFormats = { hdrFormat },
+        .m_depthStencilFormat = gbufferDepthFormat,
+    });
+    colorMappingPass.CreatePso(graphicsContext, {
+        .m_numColorAttachments = 1,
+        .m_colorFormats = { graphicsContext->GetPresentTextureFormat() },
+    });
+
     do
     {
         if (imGuiContext == nullptr)
         {
             KE_ZoneScoped("Init ImGui context");
 
-            // Even if it's a dummy pass, the generated render pass should match signature with the one in the render
-            // graph for the ImGui pass, so it will be reused there.
-
-            RenderGraph::PassDeclaration imguiDummyPass(Modules::RenderGraph::PassType::Render, 0);
-            RenderGraph::PassDeclarationBuilder(imguiDummyPass, nullptr)
-                .SetName("ImGui pass")
-                .AddColorAttachment(swapChainRtvs[0])
-                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
-                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
-                    .Done();
-            imguiDummyPass.m_colorAttachments[0].m_layoutBefore = TextureLayout::ColorAttachment;
-            imguiDummyPass.m_colorAttachments[0].m_layoutAfter = TextureLayout::ColorAttachment;
-
             imGuiContext = allocator.New<Modules::ImGui::Context>(
                 &mainWindow,
-                renderGraph.FetchRenderPass(*graphicsContext, imguiDummyPass),
+                graphicsContext->GetPresentTextureFormat(),
                 allocator);
         }
 
@@ -430,7 +411,6 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Deferred shading pass")
-                    .SetRenderPassCallback([&deferredShadingPass](auto* _graphicsContext, RenderPassHandle _renderPass) { deferredShadingPass.CreatePso(_graphicsContext, _renderPass); })
                     .SetExecuteFunction([&deferredShadingPass](const auto& _, const auto& _passData) { deferredShadingPass.Render(_, _passData); })
                     .AddColorAttachment(hdrRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
@@ -471,7 +451,6 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Sky pass")
-                    .SetRenderPassCallback([&skyPass](auto* _graphicsContext, RenderPassHandle _renderPass) { skyPass.CreatePso(_graphicsContext, _renderPass); })
                     .SetExecuteFunction([&skyPass](const auto& _renderGraph, const auto& _passData) { skyPass.Render(_renderGraph, _passData); })
                     .AddColorAttachment(hdrRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
@@ -485,7 +464,6 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Color mapping pass")
-                    .SetRenderPassCallback([&colorMappingPass](auto* _graphicsContext, auto _renderPass) { colorMappingPass.CreatePso(_graphicsContext, _renderPass); })
                     .SetExecuteFunction([&colorMappingPass](const auto& _renderGraph, const auto& _passData) { colorMappingPass.Render(_renderGraph, _passData); })
                     .AddColorAttachment(swapChainRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)

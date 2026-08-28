@@ -331,8 +331,6 @@ namespace KryneEngine
         auto [hotData, coldData] = m_renderPasses.GetAll(handle);
         hotData->m_descriptor = MTL4::RenderPassDescriptor::alloc()->init();
 
-        coldData->m_colorFormats.clear(true);
-
         hotData->m_systemRtvs.set_overflow_allocator(GetAllocator());
         for (auto i = 0u; i < _desc.m_colorAttachments.size(); i++)
         {
@@ -356,8 +354,6 @@ namespace KryneEngine
                 attachmentDesc.m_clearColor.g,
                 attachmentDesc.m_clearColor.b,
                 attachmentDesc.m_clearColor.a));
-
-            coldData->m_colorFormats.push_back(rtvColdData->m_pixelFormat);
         }
 
         if (_desc.m_depthStencilAttachment.has_value())
@@ -384,12 +380,6 @@ namespace KryneEngine
                 attachment->setStoreAction(MetalConverters::GetMetalStoreOperation(attachmentDesc.m_stencilStoreOperation));
                 attachment->setClearStencil(attachmentDesc.m_stencilClearValue);
             }
-
-            coldData->m_depthStencilFormat = rtvCold->m_pixelFormat;
-        }
-        else
-        {
-            coldData->m_depthStencilFormat = TextureFormat::NoFormat;
         }
 
         return { handle };
@@ -398,11 +388,9 @@ namespace KryneEngine
     bool MetalResources::DestroyRenderPassDescriptor(RenderPassHandle _handle)
     {
         RenderPassHotData data;
-        RenderPassColdData coldData;
-        if (m_renderPasses.Free(_handle.m_handle, &data, &coldData))
+        if (m_renderPasses.Free(_handle.m_handle, &data))
         {
             data.m_descriptor->release();
-            coldData.m_colorFormats.clear();
             return true;
         }
         return false;
@@ -534,20 +522,21 @@ namespace KryneEngine
             hot->m_staticState.m_depthClip = _desc.m_rasterState.m_depthClip;
         }
 
-        const RenderPassColdData* passCold = m_renderPasses.GetCold(_desc.m_renderPass.m_handle);
-        KE_ASSERT_FATAL(passCold->m_colorFormats.size() == _desc.m_colorBlending.m_attachments.size());
+        KE_ASSERT_FATAL(_desc.m_renderTargets.m_numColorAttachments == _desc.m_colorBlending.m_attachments.size());
+
+        descriptor->setSampleCount(static_cast<u8>(_desc.m_renderTargets.m_sampleCount));
 
         // Set up color attachments and blend state
         {
             hot->m_staticState.m_blendFactor = _desc.m_colorBlending.m_blendFactor;
             hot->m_dynamicBlendFactor = _desc.m_colorBlending.m_dynamicBlendFactor;
 
-            for (size_t i = 0; i < passCold->m_colorFormats.size(); i++)
+            for (size_t i = 0; i < _desc.m_renderTargets.m_numColorAttachments; i++)
             {
                 const ColorAttachmentBlendDesc& blendDesc = _desc.m_colorBlending.m_attachments[i];
                 MTL::RenderPipelineColorAttachmentDescriptor* attachment = descriptor->colorAttachments()->object(i);
 
-                attachment->setPixelFormat(MetalConverters::ToPixelFormat(passCold->m_colorFormats[i]));
+                attachment->setPixelFormat(MetalConverters::ToPixelFormat(_desc.m_renderTargets.m_colorFormats[i]));
                 attachment->setWriteMask(MetalConverters::GetColorWriteMask(blendDesc.m_writeMask));
 
                 attachment->setBlendingEnabled(blendDesc.m_blendEnable);
@@ -563,15 +552,15 @@ namespace KryneEngine
         }
 
         // Set depth stencil format
-        if (passCold->m_depthStencilFormat != TextureFormat::NoFormat)
+        if (_desc.m_renderTargets.m_depthStencilFormat != TextureFormat::NoFormat)
         {
-            switch (passCold->m_depthStencilFormat)
+            switch (_desc.m_renderTargets.m_depthStencilFormat)
             {
             case TextureFormat::D16:
             case TextureFormat::D24S8:
             case TextureFormat::D32F:
             case TextureFormat::D32FS8:
-                descriptor->setDepthAttachmentPixelFormat(MetalConverters::ToPixelFormat(passCold->m_depthStencilFormat));
+                descriptor->setDepthAttachmentPixelFormat(MetalConverters::ToPixelFormat(_desc.m_renderTargets.m_depthStencilFormat));
                 break;
             default:
                 KE_ERROR("Unsupported format");
