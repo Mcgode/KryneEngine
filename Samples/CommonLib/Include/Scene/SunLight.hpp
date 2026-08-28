@@ -8,7 +8,7 @@
 
 #include <KryneEngine/Core/Math/Vector.hpp>
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     class SunLight
     {

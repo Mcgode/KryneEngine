@@ -16,8 +16,8 @@
 #include <KryneEngine/Modules/RenderGraph/Registry.hpp>
 
 #include "../../CommonLib/Include/Scene/TorusKnot.hpp"
-#include "OrbitCamera.hpp"
-#include "SunLight.hpp"
+#include <Scene/OrbitCamera.hpp>
+#include <Scene/SunLight.hpp>
 
 namespace KryneEngine::Samples::RenderGraphDemo
 {

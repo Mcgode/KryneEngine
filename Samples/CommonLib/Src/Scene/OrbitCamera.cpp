@@ -4,7 +4,7 @@
  * @date 23/03/2025.
  */
 
-#include "OrbitCamera.hpp"
+#include "Scene/OrbitCamera.hpp"
 
 #include <KryneEngine/Core/Math/CoordinateSystem.hpp>
 #include <KryneEngine/Core/Math/Projection.hpp>
@@ -17,7 +17,7 @@
 #include <math.h>
 #include <cmath>
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     OrbitCamera::OrbitCamera(InputManager* _inputManager, float _aspectRatio)
         : m_aspectRatio(_aspectRatio)

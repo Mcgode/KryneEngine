@@ -4,11 +4,11 @@
  * @date 29/03/2025.
  */
 
-#include "SunLight.hpp"
+#include "Scene/SunLight.hpp"
 
 #include <imgui.h>
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     SunLight::SunLight()
     {

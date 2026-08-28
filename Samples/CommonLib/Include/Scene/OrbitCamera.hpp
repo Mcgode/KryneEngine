@@ -10,7 +10,7 @@
 #include <KryneEngine/Core/Math/Quaternion.hpp>
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
 
-namespace KryneEngine::Samples::RenderGraphDemo
+namespace KryneEngine::Samples
 {
     class OrbitCamera
     {

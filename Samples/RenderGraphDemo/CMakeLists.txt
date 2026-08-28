@@ -4,10 +4,6 @@ add_executable(RenderGraphDemo
         RenderGraphDemo.cpp
         Scene/SceneManager.cpp
         Scene/SceneManager.hpp
-        Scene/OrbitCamera.cpp
-        Scene/OrbitCamera.hpp
-        Scene/SunLight.cpp
-        Scene/SunLight.hpp
         Rendering/DeferredShadowPass.cpp
         Rendering/DeferredShadowPass.hpp
         Rendering/GiPass.cpp
