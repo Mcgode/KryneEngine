@@ -159,13 +159,13 @@ namespace KryneEngine::Modules::GuiLib
     BasicGuiRenderer::BasicGuiRenderer(
         AllocatorInstance _allocator,
         GraphicsContext* _graphicsContext,
-        RenderPassHandle _renderPass,
+        const TextureFormat _targetFormat,
         SamplerHandle _defaultSampler)
-        : m_instanceDataBuffer(_allocator)
-        , m_commonConstantBuffer(_allocator)
-        , m_commonConstantBufferViews(_allocator)
-        , m_texturesDescriptorSets(_allocator)
-        , m_defaultSampler(_defaultSampler)
+            : m_instanceDataBuffer(_allocator)
+            , m_commonConstantBuffer(_allocator)
+            , m_commonConstantBufferViews(_allocator)
+            , m_texturesDescriptorSets(_allocator)
+            , m_defaultSampler(_defaultSampler)
     {
         KE_ZoneScoped("BasicGuiRenderer initialization");
 
@@ -327,7 +327,10 @@ namespace KryneEngine::Modules::GuiLib
                 .m_depthTest = false,
                 .m_depthWrite = false,
             },
-            .m_renderPass =  _renderPass,
+            .m_renderTargets = {
+                .m_numColorAttachments = 1,
+                .m_colorFormats = { _targetFormat },
+            },
             .m_pipelineLayout = m_commonPipelineLayout,
         };
 

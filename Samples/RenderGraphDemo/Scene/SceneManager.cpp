@@ -138,12 +138,9 @@ namespace KryneEngine::Samples::RenderGraphDemo
 
     SceneManager::~SceneManager() = default;
 
-    void SceneManager::PreparePsos(GraphicsContext* _graphicsContext, RenderPassHandle _dummyGBufferRenderPass)
+    void SceneManager::PreparePsos(GraphicsContext* _graphicsContext, const RenderTargetSetDesc& _renderTargets) const
     {
-        m_torusKnot->BuildPso(
-            _graphicsContext,
-            _dummyGBufferRenderPass,
-            m_sceneDescriptorSetLayout);
+        m_torusKnot->BuildPso(_graphicsContext, _renderTargets, m_sceneDescriptorSetLayout);
     }
 
     void SceneManager::DeclareDataTransferPass(

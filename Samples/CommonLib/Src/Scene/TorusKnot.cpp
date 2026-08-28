@@ -30,8 +30,8 @@ namespace KryneEngine::Samples
 
     void TorusKnot::BuildPso(
         GraphicsContext* _graphicsContext,
-        RenderPassHandle _renderPass,
-        DescriptorSetLayoutHandle _descriptorSetLayout)
+        const RenderTargetSetDesc& _renderTargets,
+        const DescriptorSetLayoutHandle _descriptorSetLayout)
     {
         const auto createShaderModule = [&](const auto& _path) -> ShaderModuleHandle
         {
@@ -100,7 +100,7 @@ namespace KryneEngine::Samples
             .m_depthStencil = {
                 .m_depthCompare = DepthStencilStateDesc::CompareOp::Greater // Use reverse depth
             },
-            .m_renderPass = _renderPass,
+            .m_renderTargets = _renderTargets,
             .m_pipelineLayout = m_pipelineLayout,
 #if !defined(KE_FINAL)
             .m_debugName = "TorusKnotPSO",

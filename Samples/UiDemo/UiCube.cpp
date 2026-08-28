@@ -41,7 +41,7 @@ UiCube::UiCube(
     AllocatorInstance _allocator,
     GraphicsContext& _graphicsContext,
     Modules::TextRendering::FontManager* _fontManager,
-    RenderPassHandle _renderPass,
+    const TextureFormat _targetFormat,
     Modules::TextRendering::MsdfAtlasManager* _atlasManager)
         : m_allocator(_allocator)
         , m_guiContexts(_allocator, 6)
@@ -208,7 +208,10 @@ UiCube::UiCube(
                 .m_depthTest = false,
                 .m_depthWrite = false,
             },
-            .m_renderPass =  _renderPass,
+            .m_renderTargets = {
+                .m_numColorAttachments = 1,
+                .m_colorFormats = { _targetFormat }
+            },
             .m_pipelineLayout = m_pipelineLayout,
         };
 
@@ -223,7 +226,7 @@ UiCube::UiCube(
     for (u32 i = 0; i < 6; ++i)
     {
         m_guiContexts.Init(i, _allocator, _fontManager);
-        new (m_guiRenderers.Data() + i) Modules::GuiLib::BasicGuiRenderer(_allocator, &_graphicsContext, _renderPass);
+        new (m_guiRenderers.Data() + i) Modules::GuiLib::BasicGuiRenderer(_allocator, &_graphicsContext, _targetFormat);
         m_guiContexts[i].Initialize(&m_guiRenderers[i], m_uiViewportSize);
         m_guiRenderers[i].SetAtlasManager(_atlasManager);
     }

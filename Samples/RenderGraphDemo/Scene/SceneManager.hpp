@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include "KryneEngine/Modules/ImGui/Context.hpp"
 #include <KryneEngine/Core/Memory/UniquePtr.hpp>
 #include <KryneEngine/Modules/GraphicsUtils/DynamicBuffer.hpp>
@@ -44,9 +45,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             Modules::RenderGraph::Registry& _registry);
         ~SceneManager();
 
-        void PreparePsos(
-            GraphicsContext* _graphicsContext,
-            RenderPassHandle _dummyGBufferRenderPass);
+        void PreparePsos(GraphicsContext* _graphicsContext, const RenderTargetSetDesc& _renderTargets) const;
 
         void DeclareDataTransferPass(
             const GraphicsContext* _graphicsContext,

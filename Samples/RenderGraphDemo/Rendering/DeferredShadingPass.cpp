@@ -170,7 +170,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             {&m_sceneConstantsDescriptorSet, 2}); // Both handles are contiguous in memory
     }
 
-    void DeferredShadingPass::CreatePso(GraphicsContext* _graphicsContext, RenderPassHandle _renderPass)
+    void DeferredShadingPass::CreatePso(GraphicsContext* _graphicsContext, const RenderTargetSetDesc& _renderTargets)
     {
         if (m_pso != GenPool::kInvalidHandle)
             return;
@@ -178,7 +178,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         m_pso = FullscreenPassCommon::CreatePso(
             _graphicsContext,
             m_allocator,
-            _renderPass,
+            _renderTargets,
             m_pipelineLayout,
             "Shaders/Samples/RenderGraphDemo/DeferredShading_DeferredShadingMain",
             "DeferredShadingMain",

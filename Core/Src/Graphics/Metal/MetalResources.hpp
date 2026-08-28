@@ -158,13 +158,7 @@ namespace KryneEngine
             eastl::fixed_vector<SystemRtv, 1> m_systemRtvs;
         };
 
-        struct RenderPassColdData
-        {
-            eastl::fixed_vector<TextureFormat, RenderPassDesc::kMaxSupportedColorAttachments, false> m_colorFormats;
-            TextureFormat m_depthStencilFormat;
-        };
-
-        GenerationalPool<RenderPassHotData, RenderPassColdData> m_renderPasses;
+        GenerationalPool<RenderPassHotData> m_renderPasses;
 
     public:
         ShaderModuleHandle LoadLibrary(MTL::Device& _device, void* _bytecode, size_t _size);

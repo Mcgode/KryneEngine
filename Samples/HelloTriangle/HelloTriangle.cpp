@@ -48,8 +48,7 @@ void PreparePso(
     ShaderModuleHandle& _vsModule,
     ShaderModuleHandle& _psModule,
     PipelineLayoutHandle& _layout,
-    GraphicsPipelineHandle& _pso,
-    RenderPassHandle _renderPass)
+    GraphicsPipelineHandle& _pso)
 {
     // Load shader bytecode
     {
@@ -129,7 +128,10 @@ void PreparePso(
                 }
             },
             .m_depthStencil = { .m_depthTest = false, .m_depthWrite = false },
-            .m_renderPass = _renderPass,
+            .m_renderTargets = {
+                .m_numColorAttachments = 1,
+                .m_colorFormats = { _graphicsContext.GetPresentTextureFormat() },
+            },
             .m_pipelineLayout = _layout,
 #if !defined(KE_FINAL)
             .m_debugName = "Triangle PSO",
@@ -335,7 +337,7 @@ int main()
 
     // Prepare resources
     PrepareRenderPasses(*graphicsContext, renderPassHandles);
-    PreparePso(*graphicsContext, vsBytecode, psBytecode, vsModule, psModule, trianglePipelineLayout, trianglePso, renderPassHandles[0]);
+    PreparePso(*graphicsContext, vsBytecode, psBytecode, vsModule, psModule, trianglePipelineLayout, trianglePso);
     PrepareBuffers(*graphicsContext, stagingBuffer, vertexBuffer, indexBuffer, vertexBufferView, indexBufferView);
 
     const u64 stagingFrame = graphicsContext->GetFrameId();

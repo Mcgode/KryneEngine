@@ -92,11 +92,7 @@ namespace KryneEngine::Modules::RenderGraph
                 // Make sure to cache the render pass.
                 if (pass.m_type == PassType::Render)
                 {
-                    RenderPassHandle renderPass = FetchRenderPass(_graphicsContext, pass);
-                    if (pass.m_renderPassCallback != nullptr)
-                    {
-                        pass.m_renderPassCallback(&_graphicsContext, renderPass);
-                    }
+                    FetchRenderPass(_graphicsContext, pass);
                 }
 
                 // Reserve entry in map, so that duration saving is thread-safe

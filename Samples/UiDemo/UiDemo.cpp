@@ -107,7 +107,7 @@ s32 main(s32 argc, const char** argv)
     Modules::GuiLib::BasicGuiRenderer guiRenderer {
         allocatorInstance,
         graphicsContext,
-        renderPassHandles[0],
+        graphicsContext->GetPresentTextureFormat(),
         sampler
     };
     guiRenderer.SetAtlasManager(&msdfAtlasManager);
@@ -115,7 +115,7 @@ s32 main(s32 argc, const char** argv)
         &guiRenderer,
         graphicsContext->GetPresentFrameBufferSize());
 
-    UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, renderPassHandles[0], &msdfAtlasManager };
+    UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, graphicsContext->GetPresentTextureFormat(), &msdfAtlasManager };
 
     do
     {

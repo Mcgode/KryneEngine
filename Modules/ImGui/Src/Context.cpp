@@ -37,7 +37,7 @@ namespace KryneEngine::Modules::ImGui
 
     Context::Context(
         Window* _window,
-        const RenderPassHandle _renderPass,
+        const TextureFormat _targetFormat,
         AllocatorInstance _allocator,
         const eastl::span<char> _vsBytecode,
         const eastl::span<char> _fsBytecode)
@@ -99,7 +99,7 @@ namespace KryneEngine::Modules::ImGui
 
         m_input = _allocator.New<Input>(_window);
 
-        InitPso(graphicsContext, _renderPass, _vsBytecode, _fsBytecode);
+        InitPso(graphicsContext, _targetFormat, _vsBytecode, _fsBytecode);
 
         m_timePoint = eastl::chrono::steady_clock::now();
 
@@ -685,9 +685,9 @@ namespace KryneEngine::Modules::ImGui
 
     void Context::InitPso(
         GraphicsContext* _graphicsContext,
-        RenderPassHandle _renderPass,
-        eastl::span<char> _externalVsBytecode,
-        eastl::span<char> _externalFsBytecode)
+        const TextureFormat _targetFormat,
+        const eastl::span<char> _externalVsBytecode,
+        const eastl::span<char> _externalFsBytecode)
     {
         KE_ZoneScopedFunction("Modules::ImGui::Context_InitPso");
 
@@ -787,7 +787,10 @@ namespace KryneEngine::Modules::ImGui
                     .m_depthWrite = false,
                     .m_depthCompare = DepthStencilStateDesc::CompareOp::Always,
                 },
-                .m_renderPass = _renderPass,
+                .m_renderTargets = {
+                    .m_numColorAttachments = 1,
+                    .m_colorFormats = { _targetFormat },
+                },
                 .m_pipelineLayout = m_pipelineLayout,
 #if !defined(KE_FINAL)
                 .m_debugName = "ImGui_Render_PSO",
