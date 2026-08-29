@@ -119,16 +119,14 @@ int main()
 
     {
         {
-            const TextureDesc desc {
-                .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
-                .m_format = kGBufferAlbedoFormat,
-#if !defined(KE_FINAL)
-                .m_debugName = "GBuffer Albedo",
-#endif
-            };
             gBufferAlbedo = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
-                .m_desc = desc,
-                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(desc),
+                .m_desc = {
+                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_format = kGBufferAlbedoFormat,
+#if !defined(KE_FINAL)
+                    .m_debugName = "GBuffer Albedo",
+#endif
+                },
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
            });
 
@@ -150,16 +148,14 @@ int main()
         }
 
         {
-            const TextureDesc desc {
-                .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
-                .m_format = kGBufferNormalFormat,
-#if !defined(KE_FINAL)
-                .m_debugName = "GBuffer Normal",
-#endif
-            };
             gBufferNormal = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
-                .m_desc = desc,
-                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(desc),
+                .m_desc = {
+                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_format = kGBufferNormalFormat,
+#if !defined(KE_FINAL)
+                    .m_debugName = "GBuffer Normal",
+#endif
+                },
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
             });
 
@@ -181,17 +177,16 @@ int main()
         }
 
         {
-            const TextureDesc desc {
-                .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
-                .m_format = kGBufferDepthFormat,
-#if !defined(KE_FINAL)
-                .m_debugName = "GBuffer Depth",
-#endif
-            };
             gBufferDepth = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
-                .m_desc = desc,
-                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(desc),
-                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
+                .m_desc = {
+                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_format = kGBufferDepthFormat,
+                    .m_planes = TexturePlane::Depth,
+#if !defined(KE_FINAL)
+                    .m_debugName = "GBuffer Depth",
+#endif
+                },
+                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::DepthStencilTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
             });
 
             gBufferDepthView = renderGraph.GetRegistry().CreateTextureView(
@@ -212,16 +207,14 @@ int main()
         }
 
         {
-            const TextureDesc desc {
-                .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
-                .m_format = kHdrFormat,
-#if !defined(KE_FINAL)
-                .m_debugName = "HDR"
-#endif
-            };
             hdr = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
-                .m_desc = desc,
-                .m_footprintPerSubResource = graphicsContext->FetchTextureSubResourcesMemoryFootprints(desc),
+                .m_desc = {
+                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_format = kHdrFormat,
+#if !defined(KE_FINAL)
+                    .m_debugName = "HDR"
+#endif
+                },
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::SampledImage | MemoryUsage::ReadImage,
             });
 
