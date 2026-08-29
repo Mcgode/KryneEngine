@@ -113,6 +113,8 @@ int main()
         gBufferDepth,
         gBufferDepthView,
         gBufferDepthRtv,
+        deferredShadows,
+        deferredShadowsView,
         hdr,
         hdrView,
         hdrRtv;
@@ -204,6 +206,27 @@ int main()
                     .m_format = kGBufferDepthFormat,
                 },
                 "GBuffer Depth RTV");
+        }
+
+        {
+            deferredShadows = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
+                .m_desc = {
+                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_format = kDeferredShadowsFormat,
+#if !defined(KE_FINAL)
+                    .m_debugName = "Deferred shadows"
+#endif
+                },
+                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::ReadWriteImage,
+            });
+            deferredShadowsView = renderGraph.GetRegistry().CreateTextureView(
+                graphicsContext,
+                deferredShadows,
+                {
+                    .m_format = kDeferredShadowsFormat,
+                    .m_accessType = TextureViewAccessType::ReadWrite,
+                },
+                "Deferred shadows view");
         }
 
         {

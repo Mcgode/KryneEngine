@@ -18,5 +18,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
     static constexpr auto kShadowFormat = TextureFormat::D16;
 
+    static constexpr auto kDeferredShadowsFormat = TextureFormat::R8_UNorm;
+
     static constexpr auto kHdrFormat = TextureFormat::RGBA16_Float;
 }
