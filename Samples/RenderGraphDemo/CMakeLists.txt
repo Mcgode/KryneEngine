@@ -4,6 +4,8 @@ add_executable(RenderGraphDemo
         RenderGraphDemo.cpp
         Scene/SceneManager.cpp
         Scene/SceneManager.hpp
+        Scene/TorusKnot.cpp
+        Scene/TorusKnot.hpp
         Rendering/DeferredShadowPass.cpp
         Rendering/DeferredShadowPass.hpp
         Rendering/GiPass.cpp

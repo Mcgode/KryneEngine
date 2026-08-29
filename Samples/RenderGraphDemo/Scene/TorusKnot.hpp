@@ -12,7 +12,7 @@
 #include "KryneEngine/Core/Math/Matrix.hpp"
 #include <KryneEngine/Core/Math/Quaternion.hpp>
 
-namespace KryneEngine::Samples
+namespace KryneEngine::Samples::RenderGraphDemo
 {
     class TorusKnot
     {

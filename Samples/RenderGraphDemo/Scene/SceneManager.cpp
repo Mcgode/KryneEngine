@@ -15,7 +15,8 @@
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 #include <KryneEngine/Modules/RenderGraph/Registry.hpp>
 
-#include "Scene/TorusKnot.hpp"
+#include "TorusKnot.hpp"
+
 #include "Rendering/Fullscreen/FullscreenPassConstants.hpp"
 #include <Scene/OrbitCamera.hpp>
 #include <Scene/SunLight.hpp>

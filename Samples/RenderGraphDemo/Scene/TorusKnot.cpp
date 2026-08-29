@@ -4,7 +4,7 @@
  * @date 12/03/2025.
  */
 
-#include "../../Include/Scene/TorusKnot.hpp"
+#include "TorusKnot.hpp"
 
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
@@ -20,9 +20,9 @@
 #include <math.h>
 #include <cmath>
 
-#include "../../Include/Scene/TorusKnotMeshGenerator.hpp"
+#include <Scene/TorusKnotMeshGenerator.hpp>
 
-namespace KryneEngine::Samples
+namespace KryneEngine::Samples::RenderGraphDemo
 {
     TorusKnot::TorusKnot(AllocatorInstance _allocator)
         : m_allocator(_allocator)

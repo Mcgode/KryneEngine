@@ -28,13 +28,14 @@ namespace KryneEngine::Modules
 
 namespace KryneEngine::Samples
 {
-    class TorusKnot;
     class OrbitCamera;
     class SunLight;
 }
 
 namespace KryneEngine::Samples::RenderGraphDemo
 {
+    class TorusKnot;
+
     class SceneManager
     {
     public:
