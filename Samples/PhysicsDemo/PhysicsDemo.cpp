@@ -288,6 +288,95 @@ int main()
 
         builder
             .DeclarePass(RenderGraph::PassType::Render)
+                .SetName("GBuffer pass")
+                .AddColorAttachment(gBufferAlbedoRtv)
+                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
+                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                    .Done()
+                .AddColorAttachment(gBufferAlbedoRtv)
+                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
+                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                    .Done()
+                .SetDepthAttachment(gBufferDepthRtv)
+                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Clear)
+                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                    .SetClearDepthStencil(0.f)
+                    .Done()
+                .Done()
+            .DeclarePass(RenderGraph::PassType::Compute)
+                .SetName("Deferred shadows pass")
+                .ReadDependency({
+                    .m_resource = gBufferDepthView,
+                    .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
+                    .m_planes = TexturePlane::Depth,
+                })
+                .WriteDependency({
+                    .m_resource = deferredShadows,
+                    .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::UnorderedAccess,
+                    .m_targetLayout = TextureLayout::UnorderedAccess,
+                })
+                .Done()
+            .DeclarePass(RenderGraph::PassType::Render)
+                .SetName("Deferred shading pass")
+                .AddColorAttachment(hdrRtv)
+                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
+                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                    .Done()
+                .ReadDependency({
+                    .m_resource = gBufferAlbedoView,
+                    .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
+                })
+                .ReadDependency({
+                    .m_resource = gBufferNormalView,
+                    .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
+                })
+                .ReadDependency({
+                    .m_resource = gBufferDepthView,
+                    .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
+                    .m_planes = TexturePlane::Depth,
+                })
+                .ReadDependency({
+                    .m_resource = deferredShadows,
+                    .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
+                })
+                .Done()
+            .DeclarePass(RenderGraph::PassType::Render)
+                .SetName("Sky pass")
+                .AddColorAttachment(hdrRtv)
+                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
+                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                    .Done()
+                .SetDepthAttachment(gBufferDepthRtv)
+                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
+                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::DontCare)
+                    .SetReadOnlyDepthStencil()
+                    .Done()
+                .Done()
+            .DeclarePass(RenderGraph::PassType::Render)
+                .SetName("Color mapping pass")
+                .AddColorAttachment(swapChainRtv)
+                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
+                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                    .Done()
+                .ReadDependency({
+                    .m_resource = hdr,
+                    .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
+                })
+                .Done()
+            .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("ImGui pass")
                 .SetPrePassTransferFunction([imGuiContext](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
                 {
