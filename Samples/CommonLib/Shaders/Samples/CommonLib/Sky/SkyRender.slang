@@ -7,7 +7,7 @@
 #include "Platform.hlsl"
 #include "Math/CoordinateTransforms.hlsl"
 #include "Math/Quaternion.hlsl"
-#include "../FrameData.hlsl"
+#include "../FullscreenPassConstants.hlsl"
 
 struct Input {
     float4 screenPosition: SV_Position;
@@ -17,7 +17,7 @@ struct Output {
     float4 color: SV_Target0;
 };
 
-vkBinding(0, 0) ConstantBuffer<FrameData> SceneConstants;
+vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> SceneConstants;
 
 struct Ray
 {

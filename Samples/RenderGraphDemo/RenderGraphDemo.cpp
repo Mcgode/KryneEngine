@@ -68,12 +68,12 @@ int main()
     ColorMappingPass colorMappingPass { allocator };
 
     SimplePoolHandle
-        gBufferAlbedo,
-        gBufferAlbedoRtv,
-        gBufferAlbedoView,
-        gBufferNormal,
-        gBufferNormalRtv,
-        gBufferNormalView,
+        gBuffer0,
+        gBuffer0Rtv,
+        gBuffer0View,
+        gBuffer1,
+        gBuffer1Rtv,
+        gBuffer1View,
         gBufferDepth,
         gBufferDepthRtv,
         gBufferDepthView,
@@ -85,8 +85,8 @@ int main()
         hdrRtv,
         hdrView;
 
-    constexpr auto gbufferAlbedoFormat = TextureFormat::RGBA8_UNorm;
-    constexpr auto gbufferNormalFormat = TextureFormat::RGBA8_UNorm; // TODO: Implement RGB10A2 format support
+    constexpr auto gbuffer0Format = TextureFormat::RGBA8_UNorm;
+    constexpr auto gbuffer1Format = TextureFormat::RGBA8_UNorm;
     constexpr auto gbufferDepthFormat = TextureFormat::D32F;
     constexpr auto hdrFormat = TextureFormat::RGBA16_Float;
 
@@ -111,53 +111,53 @@ int main()
                 name.sprintf("Swapchain RTV %u", i));
         }
 
-        gBufferAlbedo = renderGraph.GetRegistry().CreateRawTexture(
+        gBuffer0 = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
             {
                 .m_desc = {
                     .m_dimensions = dimensions,
-                    .m_format = gbufferAlbedoFormat,
+                    .m_format = gbuffer0Format,
 #if !defined(KE_FINAL)
-                    .m_debugName = "GBuffer albedo",
+                    .m_debugName = "GBuffer 0",
 #endif
                 },
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::ReadImage | MemoryUsage::SampledImage,
             });
-        gBufferAlbedoRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+        gBuffer0Rtv = renderGraph.GetRegistry().CreateRenderTargetView(
             graphicsContext,
             RenderGraph::RenderTargetViewDesc {
-                .m_textureResource = gBufferAlbedo,
-                .m_format = gbufferAlbedoFormat,
+                .m_textureResource = gBuffer0,
+                .m_format = gbuffer0Format,
             },
-            "GBuffer albedo RTV");
-        gBufferAlbedoView = renderGraph.GetRegistry().CreateTextureView(
+            "GBuffer 0 RTV");
+        gBuffer0View = renderGraph.GetRegistry().CreateTextureView(
             graphicsContext,
-            gBufferAlbedo,
-            { .m_format = gbufferAlbedoFormat });
+            gBuffer0,
+            { .m_format = gbuffer0Format });
 
-        gBufferNormal = renderGraph.GetRegistry().CreateRawTexture(
+        gBuffer1 = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
             {
                 .m_desc = {
                     .m_dimensions = dimensions,
-                    .m_format = gbufferNormalFormat,
+                    .m_format = gbuffer1Format,
 #if !defined(KE_FINAL)
-                    .m_debugName = "GBuffer normal",
+                    .m_debugName = "GBuffer 1",
 #endif
                 },
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::ReadImage | MemoryUsage::SampledImage,
             });
-        gBufferNormalRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+        gBuffer1Rtv = renderGraph.GetRegistry().CreateRenderTargetView(
             graphicsContext,
             RenderGraph::RenderTargetViewDesc {
-                .m_textureResource = gBufferNormal,
-                .m_format = gbufferNormalFormat,
+                .m_textureResource = gBuffer1,
+                .m_format = gbuffer1Format,
             },
-            "GBuffer normal RTV");
-        gBufferNormalView = renderGraph.GetRegistry().CreateTextureView(
+            "GBuffer 1 RTV");
+        gBuffer1View = renderGraph.GetRegistry().CreateTextureView(
             graphicsContext,
-            gBufferNormal,
-            { .m_format = gbufferNormalFormat });
+            gBuffer1,
+            { .m_format = gbuffer1Format });
 
         gBufferDepth = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
@@ -262,15 +262,15 @@ int main()
     giPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout(),
-        renderGraph.GetRegistry().GetResource(gBufferAlbedoView).m_textureViewData.m_textureView,
-        renderGraph.GetRegistry().GetResource(gBufferNormalView).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer0View).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer1View).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(gBufferDepthView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView);
     deferredShadingPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout(),
-        renderGraph.GetRegistry().GetResource(gBufferAlbedoView).m_textureViewData.m_textureView,
-        renderGraph.GetRegistry().GetResource(gBufferNormalView).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer0View).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer1View).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(gBufferDepthView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredShadowView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView);
@@ -284,7 +284,7 @@ int main()
 
     sceneManager.PreparePsos(graphicsContext, {
         .m_numColorAttachments = 2,
-        .m_colorFormats = { gbufferAlbedoFormat, gbufferNormalFormat },
+        .m_colorFormats = { gbuffer0Format, gbuffer1Format },
         .m_depthStencilFormat = gbufferDepthFormat,
     });
     deferredShadingPass.CreatePso(graphicsContext, {
@@ -348,11 +348,11 @@ int main()
                             KE_ZoneScoped("Render GBuffer");
                             sceneManager.RenderGBuffer(_passData.m_graphicsContext, _passData.m_renderEncoder);
                         })
-                    .AddColorAttachment(gBufferAlbedoRtv)
+                    .AddColorAttachment(gBuffer0Rtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                         .Done()
-                    .AddColorAttachment(gBufferNormalRtv)
+                    .AddColorAttachment(gBuffer1Rtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                         .Done()
@@ -386,13 +386,13 @@ int main()
                     .SetExecuteFunction([&giPass](const auto&, const auto& _passData) { giPass.Render(_passData); })
                     .ReadDependency(frameCBufferReadDep)
                     .ReadDependency({
-                        .m_resource = gBufferAlbedoView,
+                        .m_resource = gBuffer0View,
                         .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
                     })
                     .ReadDependency({
-                        .m_resource = gBufferNormalView,
+                        .m_resource = gBuffer1View,
                         .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
@@ -420,13 +420,13 @@ int main()
                         .Done()
                     .ReadDependency(frameCBufferReadDep)
                     .ReadDependency({
-                        .m_resource = gBufferAlbedoView,
+                        .m_resource = gBuffer0View,
                         .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
                     })
                     .ReadDependency({
-                        .m_resource = gBufferNormalView,
+                        .m_resource = gBuffer1View,
                         .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,

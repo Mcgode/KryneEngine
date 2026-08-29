@@ -8,12 +8,14 @@
 #include "Lighting/PbrBsdf.hlsl"
 #include "Math/CoordinateTransforms.hlsl"
 #include "Math/Quaternion.hlsl"
-#include "FrameData.hlsl"
+#include "FullscreenPassConstants.hlsl"
 
-vkBinding(0, 0) ConstantBuffer<FrameData> frameData : register(b0, space0);
+vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> constants : register(b0, space0);
 
-vkBinding(0, 1) Texture2D<float4> gBufferAlbedo : register(t0, space1);
-vkBinding(1, 1) Texture2D<float4> gBufferNormal : register(t1, space1);
+// GBuffer0: rgb = albedo, a = roughness
+vkBinding(0, 1) Texture2D<float4> gBuffer0 : register(t0, space1);
+// GBuffer1: rgb = encoded world normal, a = metalness
+vkBinding(1, 1) Texture2D<float4> gBuffer1 : register(t1, space1);
 vkBinding(2, 1) Texture2D<float4> gBufferDepth : register(t2, space1);
 vkBinding(3, 1) Texture2D<float4> deferredShadows : register(t3, space1);
 vkBinding(4, 1) Texture2D<float4> gBufferLight : register(t4, space1);
@@ -32,14 +34,14 @@ FsOutput DeferredShadingMain(const in FsInput _input)
 {
     FsOutput _output;
 
-    const float2 resolution = frameData.m_screenResolution;
+    const float2 resolution = constants.m_screenResolution;
     const float2 ndc = ScreenSpaceToNdc(_input.position.xy, resolution);
 
     const float aspect = resolution.x / resolution.y;
     const float3 cameraV = float3(
-        ndc.x * aspect * frameData.m_tanHalfFov,
+        ndc.x * aspect * constants.m_tanHalfFov,
         1.0f,
-        ndc.y * frameData.m_tanHalfFov
+        ndc.y * constants.m_tanHalfFov
     );
 
     uint2 pixelCoords = uint2(_input.position.xy);
@@ -48,30 +50,35 @@ FsOutput DeferredShadingMain(const in FsInput _input)
     if (depthSs == 0)
         discard;
 
-    const float depthV = frameData.m_depthLinearizationConstants.x / (depthSs + frameData.m_depthLinearizationConstants.y);
+    const float depthV = constants.m_depthLinearizationConstants.x / (depthSs + constants.m_depthLinearizationConstants.y);
     const float3 positionV = depthV * cameraV;
 
-    const float4 vsToWsQuaternion = Quaternion::Conjugate(frameData.m_cameraQuaternion);
-    const float3 positionW = Quaternion::Apply(vsToWsQuaternion, positionV - frameData.m_cameraTranslation);
+    const float4 vsToWsQuaternion = Quaternion::Conjugate(constants.m_cameraQuaternion);
+    const float3 positionW = Quaternion::Apply(vsToWsQuaternion, positionV - constants.m_cameraTranslation);
 
     const float3 cameraW = Quaternion::Apply(vsToWsQuaternion, normalize(cameraV));
-    const float3 normalW = gBufferNormal.Load(int3(pixelCoords, 0)).rgb * 2.f - 1.f;
-    const float3 albedo = gBufferAlbedo.Load(int3(pixelCoords, 0)).rgb;
+    const float4 gBuffer0Sample = gBuffer0.Load(int3(pixelCoords, 0));
+    const float4 gBuffer1Sample = gBuffer1.Load(int3(pixelCoords, 0));
 
-    float3 directLighting = saturate(dot(normalW, -frameData.m_sunLightDirection)) * frameData.m_sunDiffuse;
+    const float3 normalW = gBuffer1Sample.rgb * 2.f - 1.f;
+    const float3 albedo = gBuffer0Sample.rgb;
+    const float roughness = gBuffer0Sample.a;
+    const float metalness = gBuffer1Sample.a;
+
+    float3 directLighting = saturate(dot(normalW, -constants.m_sunLightDirection)) * constants.m_sunDiffuse;
     const float shadow = deferredShadows.Load(int3(pixelCoords, 0)).r;
     directLighting *= shadow;
 
-    const float3 diffuseColor = albedo * (1.f - frameData.m_torusMetalness);
-    const float3 specularColor = lerp(0.04f.xxx, albedo, frameData.m_torusMetalness.xxx);
+    const float3 diffuseColor = albedo * (1.f - metalness);
+    const float3 specularColor = lerp(0.04f.xxx, albedo, metalness.xxx);
 
     const float3 diffuse = diffuseColor * (directLighting + gBufferLight.Load(int3(pixelCoords, 0)).rgb);
     const float3 specular = directLighting * BRDFSpecularGGX(
-        -frameData.m_sunLightDirection,
+        -constants.m_sunLightDirection,
         cameraW,
         normalW,
         specularColor,
-        frameData.m_torusRoughness);
+        roughness);
 
     _output.color.xyz = diffuse + specular;
 

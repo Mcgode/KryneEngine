@@ -36,16 +36,18 @@ typedef VsOutput FsInput;
 
 struct FsOutput
 {
-    float4 albedo: SV_TARGET0;
-    float4 normal: SV_TARGET1;
+    // GBuffer0: rgb = albedo, a = roughness
+    float4 gBuffer0: SV_TARGET0;
+    // GBuffer1: rgb = encoded world normal, a = metalness
+    float4 gBuffer1: SV_TARGET1;
 };
 
 FsOutput MainFs(FsInput _input)
 {
     FsOutput output;
 
-    output.albedo = float4(frameData.m_torusAlbedo, 0.f);
-    output.normal = float4(normalize(_input.normal) * 0.5f + 0.5f, 0.f);
+    output.gBuffer0 = float4(frameData.m_torusAlbedo, frameData.m_torusRoughness);
+    output.gBuffer1 = float4(normalize(_input.normal) * 0.5f + 0.5f, frameData.m_torusMetalness);
 
     return output;
 }

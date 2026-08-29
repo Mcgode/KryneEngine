@@ -15,7 +15,8 @@
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 #include <KryneEngine/Modules/RenderGraph/Registry.hpp>
 
-#include "../../CommonLib/Include/Scene/TorusKnot.hpp"
+#include "Scene/TorusKnot.hpp"
+#include "Rendering/Fullscreen/FullscreenPassConstants.hpp"
 #include <Scene/OrbitCamera.hpp>
 #include <Scene/SunLight.hpp>
 
@@ -23,6 +24,10 @@ namespace KryneEngine::Samples::RenderGraphDemo
 {
     struct alignas(16) SceneConstants
     {
+        // Shared with the fullscreen passes; must stay first so the buffer can also be bound as a
+        // `FullscreenPassConstants` constant buffer. Keep in sync with FrameData.hlsl.
+        FullscreenPassConstants m_fullscreen;
+
         float4x4 m_torusKnotModel;
 
         float4x4 m_viewProjection;
@@ -32,25 +37,16 @@ namespace KryneEngine::Samples::RenderGraphDemo
         float3 m_torusKnotAlbedo;
         u32 m_torusKnotQ;
 
-        float3 m_sunLightDirection;
         u32 m_torusKnotP;
-
-        float3 m_sunDiffuse;
-        float m_tanHalfFov;
-
-        float2 m_screenResolution;
-        float2 m_depthLinearizationConstants;
-
-        float4 m_cameraQuaternion;
-
-        float3 m_cameraTranslation;
         float m_torusKnotTubeRadius;
-
         float m_torusKnotRadius;
         float m_torusRoughness;
+
         float m_torusMetalness;
-        u32 m_padding[1];
+        u32 m_padding[3];
     };
+    static_assert(offsetof(SceneConstants, m_torusKnotModel) == sizeof(FullscreenPassConstants));
+    static_assert(sizeof(SceneConstants) == 320, "SceneConstants must match FrameData.hlsl");
 
     SceneManager::SceneManager(
         AllocatorInstance _allocator,
@@ -98,19 +94,9 @@ namespace KryneEngine::Samples::RenderGraphDemo
                 });
         }
 
-        const DescriptorBindingDesc bindings[] {
-            {
-                .m_type = DescriptorBindingDesc::Type::ConstantBuffer,
-                .m_visibility = ShaderVisibility::All
-            }
-        };
-        const DescriptorSetDesc sceneDesc = {
-            .m_bindings = bindings
-        };
-
-        m_sceneDescriptorSetIndices.resize(sceneDesc.m_bindings.size());
-        m_sceneDescriptorSetLayout = graphicsContext->CreateDescriptorSetLayout(
-            sceneDesc,
+        m_sceneDescriptorSetIndices.resize(1);
+        m_sceneDescriptorSetLayout = FullscreenPassCommon::CreateConstantsDescriptorSetLayout(
+            graphicsContext,
             m_sceneDescriptorSetIndices.data());
 
         m_sceneDescriptorSets.Resize(m_sceneCbvs.Size());
@@ -183,7 +169,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             _graphicsContext,
             _graphicsContext->GetCurrentFrameContextIndex()));
 
-        sceneConstants->m_screenResolution = float2(m_windowSize);
+        sceneConstants->m_fullscreen.m_screenResolution = float2(m_windowSize);
 
         sceneConstants->m_torusKnotModel = m_torusKnot->GetModelMatrix();
         sceneConstants->m_torusKnotInverseWorldMatrix = m_torusKnot->GetModelMatrix().Inverse();
@@ -195,16 +181,16 @@ namespace KryneEngine::Samples::RenderGraphDemo
         sceneConstants->m_torusRoughness = m_torusKnot->GetRoughness();
         sceneConstants->m_torusMetalness = m_torusKnot->GetMetalness();
 
-        sceneConstants->m_sunLightDirection = m_sunLight->GetDirection();
-        sceneConstants->m_sunDiffuse = m_sunLight->GetDiffuse();
+        sceneConstants->m_fullscreen.m_sunLightDirection = m_sunLight->GetDirection();
+        sceneConstants->m_fullscreen.m_sunDiffuse = m_sunLight->GetDiffuse();
 
-        sceneConstants->m_tanHalfFov = tanf(m_orbitCamera->GetFov() * 0.5f);
+        sceneConstants->m_fullscreen.m_tanHalfFov = tanf(m_orbitCamera->GetFov() * 0.5f);
         sceneConstants->m_viewProjection = m_orbitCamera->GetProjectionViewMatrix();
-        sceneConstants->m_cameraTranslation = m_orbitCamera->GetViewTranslation();
+        sceneConstants->m_fullscreen.m_cameraTranslation = m_orbitCamera->GetViewTranslation();
 
         const Math::Quaternion& rotation = m_orbitCamera->GetViewRotation();
-        sceneConstants->m_cameraQuaternion = float4(rotation.x, rotation.y, rotation.z, rotation.w);
-        sceneConstants->m_depthLinearizationConstants = m_orbitCamera->GetDepthLinearizeConstants();
+        sceneConstants->m_fullscreen.m_cameraQuaternion = float4(rotation.x, rotation.y, rotation.z, rotation.w);
+        sceneConstants->m_fullscreen.m_depthLinearizationConstants = m_orbitCamera->GetDepthLinearizeConstants();
 
         m_sceneConstantsBuffer.Unmap(_graphicsContext);
     }

@@ -17,6 +17,8 @@ add_library(Samples_CommonLib STATIC
         Include/Rendering/PassDispatcher.hpp
         Src/Rendering/Fullscreen/FullscreenPassCommon.cpp
         Include/Rendering/Fullscreen/FullscreenPassCommon.hpp
+        Src/Rendering/Fullscreen/FullscreenPassConstants.cpp
+        Include/Rendering/Fullscreen/FullscreenPassConstants.hpp
         Src/Rendering/Fullscreen/SkyPass.cpp
         Include/Rendering/Fullscreen/SkyPass.hpp
         Src/Rendering/Fullscreen/DeferredShadingPass.cpp

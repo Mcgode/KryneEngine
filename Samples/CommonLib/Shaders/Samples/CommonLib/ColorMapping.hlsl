@@ -6,9 +6,9 @@
 
 #include "Platform.hlsl"
 #include "ToneMapping.hlsl"
-#include "FrameData.hlsl"
+#include "FullscreenPassConstants.hlsl"
 
-vkBinding(0, 0) ConstantBuffer<FrameData> frameData: register(b0, space0);
+vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> constants: register(b0, space0);
 
 vkBinding(0, 1) Texture2D<float4> inputColor: register(t0, space1);
 
