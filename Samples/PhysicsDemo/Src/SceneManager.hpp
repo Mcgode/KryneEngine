@@ -39,7 +39,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             FibersManager* _fibersManager,
             b3WorldId _world);
 
-        void Process(float _deltaTime);
+        void Process(GraphicsContext* _graphicsContext, float _deltaTime);
 
         void GameLoop();
 
@@ -51,6 +51,10 @@ namespace KryneEngine::Samples::PhysicsDemo
             TextureViewHandle _gBufferDepthView,
             TextureViewHandle _deferredShadowsView,
             TextureViewHandle _hdrView);
+
+        [[nodiscard]] DeferredShadingPass& GetDeferredShadingPass() { return m_deferredShadingPass; }
+        [[nodiscard]] SkyPass& GetSkyPass() { return m_skyPass; }
+        [[nodiscard]] ColorMappingPass& GetColorPass() { return m_colorMappingPass; }
 
     private:
         AllocatorInstance m_allocator;

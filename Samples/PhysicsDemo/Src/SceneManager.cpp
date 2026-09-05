@@ -43,7 +43,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         m_defaultMaterial = m_materialManager.RegisterMaterial();
     }
 
-    void SceneManager::Process(const float _deltaTime)
+    void SceneManager::Process(GraphicsContext* _graphicsContext, const float _deltaTime)
     {
         KE_ZoneScopedFunction("SceneManager::Process");
 
@@ -66,6 +66,28 @@ namespace KryneEngine::Samples::PhysicsDemo
                 .m_function = [this](u16) { GameLoop(); },
                 .m_priority = FiberJob::Priority::High,
             });
+
+        // Update fullscreen passes
+        {
+            const DescriptorSetWriteInfo::DescriptorData descriptorData[] = {
+                {
+                    .m_handle = m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()].m_handle,
+                }
+            };
+
+            const DescriptorSetWriteInfo writeInfo[] = {
+                {
+                    .m_index = m_fullscreenPassesCbIdx,
+                    .m_descriptorData = descriptorData,
+                }
+            };
+
+            _graphicsContext->UpdateDescriptorSet(m_fullscreenDescriptorSet, writeInfo, true);
+
+            m_deferredShadingPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
+            m_skyPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
+            m_colorMappingPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
+        }
     }
 
     void SceneManager::GameLoop()

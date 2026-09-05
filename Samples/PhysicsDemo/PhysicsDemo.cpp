@@ -307,7 +307,7 @@ int main()
     {
         auto timePoint = std::chrono::high_resolution_clock::now();
         const double deltaTime = std::chrono::duration<double> { timePoint - lastFrameTimePoint }.count();
-        sceneManager.Process(deltaTime);
+        sceneManager.Process(graphicsContext, static_cast<float>(deltaTime));
         lastFrameTimePoint = timePoint;
 
         if (imGuiContext == nullptr)
@@ -336,7 +336,7 @@ int main()
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .Done()
-                .AddColorAttachment(gBuffer0Rtv)
+                .AddColorAttachment(gBuffer1Rtv)
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .Done()
@@ -405,7 +405,10 @@ int main()
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
                 })
-                .SetExecuteFunction([](const auto&, const auto&) { /* TODO*/ })
+                .SetExecuteFunction([&sceneManager](const auto& _renderGraph, const auto& _executionPass)
+                {
+                    sceneManager.GetDeferredShadingPass().Render(_renderGraph, _executionPass);
+                })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("Sky pass")
@@ -418,7 +421,10 @@ int main()
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::DontCare)
                     .SetReadOnlyDepthStencil()
                     .Done()
-                .SetExecuteFunction([](const auto&, const auto&) { /* TODO*/ })
+                .SetExecuteFunction([&sceneManager](const auto& _renderGraph, const auto& _executionPass)
+                {
+                    sceneManager.GetSkyPass().Render(_renderGraph, _executionPass);
+                })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("Color mapping pass")
@@ -432,7 +438,10 @@ int main()
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
                 })
-                .SetExecuteFunction([](const auto&, const auto&) { /* TODO*/ })
+                .SetExecuteFunction([&sceneManager](const auto& _renderGraph, const auto& _executionPass)
+                {
+                    sceneManager.GetColorPass().Render(_renderGraph, _executionPass);
+                })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("ImGui pass")
