@@ -104,6 +104,7 @@ int main()
     }
 
     SimplePoolHandle
+        fullscreenConstants,
         gBuffer0,
         gBuffer0View,
         gBuffer0Rtv,
@@ -123,6 +124,8 @@ int main()
         hdrRtv;
 
     {
+        fullscreenConstants = renderGraph.GetRegistry().RegisterDummy("Fullscreen Constants");
+
         {
             gBuffer0 = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
@@ -330,6 +333,14 @@ int main()
         ::ImGui::ShowDemoWindow();
 
         builder
+            .DeclarePass(RenderGraph::PassType::Transfer)
+                .SetName("Upload fullscreen constants")
+                .WriteDependency({ .m_resource = fullscreenConstants })
+                .SetExecuteFunction([&sceneManager](const auto&, const auto& _executionData)
+                {
+                    sceneManager.UpdateFullscreenConstantsBuffer(_executionData.m_graphicsContext, _executionData.m_transferEncoder);
+                })
+                .Done()
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("GBuffer pass")
                 .AddColorAttachment(gBuffer0Rtv)
@@ -374,26 +385,27 @@ int main()
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .Done()
+                .ReadDependency({ .m_resource = fullscreenConstants })
                 .ReadDependency({
-                    .m_resource = gBuffer0View,
+                    .m_resource = gBuffer0,
                     .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
                 })
                 .ReadDependency({
-                    .m_resource = gBuffer1View,
+                    .m_resource = gBuffer1,
                     .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
                 })
                 .ReadDependency({
-                    .m_resource = gBuffer2View,
+                    .m_resource = gBuffer2,
                     .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
                 })
                 .ReadDependency({
-                    .m_resource = gBufferDepthView,
+                    .m_resource = gBufferDepth,
                     .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
@@ -421,6 +433,7 @@ int main()
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::DontCare)
                     .SetReadOnlyDepthStencil()
                     .Done()
+                .ReadDependency({ .m_resource = fullscreenConstants })
                 .SetExecuteFunction([&sceneManager](const auto& _renderGraph, const auto& _executionPass)
                 {
                     sceneManager.GetSkyPass().Render(_renderGraph, _executionPass);
@@ -432,6 +445,7 @@ int main()
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .Done()
+                .ReadDependency({ .m_resource = fullscreenConstants })
                 .ReadDependency({
                     .m_resource = hdr,
                     .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,

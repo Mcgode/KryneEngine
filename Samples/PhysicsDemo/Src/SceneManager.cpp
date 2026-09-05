@@ -358,4 +358,33 @@ namespace KryneEngine::Samples::PhysicsDemo
             });
         }
     }
+
+    void SceneManager::UpdateFullscreenConstantsBuffer(
+        GraphicsContext* _graphicsContext,
+        const TransferCommandEncoderHandle _transferEncoder)
+    {
+        auto* constants = static_cast<FullscreenPassConstants*>(m_fullscreenConstantsBuffer.Map(
+                _graphicsContext,
+                _graphicsContext->GetCurrentFrameContextIndex()));
+
+        constants->m_cameraQuaternion = float4(m_orbitCamera->GetViewRotation());
+
+        constants->m_cameraTranslation = m_orbitCamera->GetViewTranslation();
+        constants->m_tanHalfFov = std::tan(m_orbitCamera->GetFov() * 0.5f);
+
+        constants->m_screenResolution = float2(_graphicsContext->GetPresentFrameBufferSize());
+        constants->m_depthLinearizationConstants = m_orbitCamera->GetDepthLinearizeConstants();
+
+        constants->m_sunLightDirection = m_sunLight->GetDirection();
+
+        constants->m_sunDiffuse = m_sunLight->GetDiffuse();
+
+        m_fullscreenConstantsBuffer.Unmap(_graphicsContext);
+
+        m_fullscreenConstantsBuffer.PrepareBuffers(
+            _graphicsContext,
+            _transferEncoder,
+            BarrierAccessFlags::ConstantBuffer,
+            _graphicsContext->GetCurrentFrameContextIndex());
+    }
 } // namespace KryneEngine::Samples::PhysicsDemo

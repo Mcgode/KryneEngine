@@ -13,6 +13,7 @@
 #include "Rendering/MaterialManager.hpp"
 
 #include <KryneEngine/Core/Common/Types.hpp>
+#include <KryneEngine/Core/Math/Vector.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 #include <KryneEngine/Core/Memory/Containers/SpscQueue.hpp>
 #include <box3d/box3d.h>
@@ -21,10 +22,17 @@
 namespace KryneEngine
 {
     class FibersManager;
+    class Window;
 
     namespace Modules::RenderGraph
     {
         class RenderGraph;
+    }
+
+    namespace Samples
+    {
+        class OrbitCamera;
+        class SunLight;
     }
 }
 
@@ -53,6 +61,10 @@ namespace KryneEngine::Samples::PhysicsDemo
             TextureViewHandle _gBufferDepthView,
             TextureViewHandle _deferredShadowsView,
             TextureViewHandle _hdrView);
+
+        void UpdateFullscreenConstantsBuffer(
+            GraphicsContext* _graphicsContext,
+            TransferCommandEncoderHandle _transferEncoder);
 
         [[nodiscard]] DeferredShadingPass& GetDeferredShadingPass() { return m_deferredShadingPass; }
         [[nodiscard]] SkyPass& GetSkyPass() { return m_skyPass; }
