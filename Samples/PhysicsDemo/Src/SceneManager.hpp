@@ -7,7 +7,11 @@
 #pragma once
 
 #include "Rendering/DrawInstanceManager.hpp"
+#include "Rendering/Fullscreen/ColorMappingPass.hpp"
+#include "Rendering/Fullscreen/DeferredShadingPass.hpp"
+#include "Rendering/Fullscreen/SkyPass.hpp"
 #include "Rendering/MaterialManager.hpp"
+
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 #include <KryneEngine/Core/Memory/Containers/SpscQueue.hpp>
@@ -39,7 +43,14 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         void GameLoop();
 
-        void InitPso(GraphicsContext& _graphicsContext);
+        void InitPso(
+            GraphicsContext& _graphicsContext,
+            TextureViewHandle _gBuffer0View,
+            TextureViewHandle _gBuffer1View,
+            TextureViewHandle _gBuffer2View,
+            TextureViewHandle _gBufferDepthView,
+            TextureViewHandle _deferredShadowsView,
+            TextureViewHandle _hdrView);
 
     private:
         AllocatorInstance m_allocator;
@@ -59,5 +70,12 @@ namespace KryneEngine::Samples::PhysicsDemo
         float m_timeProgress = 0.0f;
 
         MaterialHandle m_defaultMaterial {};
+
+        DescriptorSetLayoutHandle m_fullscreenPassesLayout {};
+        u32 m_fullscreenPassesCbIdx = 0;
+        DeferredShadingPass m_deferredShadingPass;
+        SkyPass m_skyPass;
+        ColorMappingPass m_colorMappingPass;
+
     };
 }

@@ -28,6 +28,9 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_drawInstanceManager(_allocator, _graphicsContext)
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
             , m_gameFramesQueue(_allocator, 3)
+            , m_deferredShadingPass(_allocator)
+            , m_skyPass(_allocator)
+            , m_colorMappingPass(_allocator)
     {
         m_gBufferPassDispatcher = m_drawInstanceManager.CreatePassDispatcher(
             _graphicsContext,
@@ -82,129 +85,188 @@ namespace KryneEngine::Samples::PhysicsDemo
         }
     }
 
-    void SceneManager::InitPso(GraphicsContext& _graphicsContext)
+    void SceneManager::InitPso(
+        GraphicsContext& _graphicsContext,
+        const TextureViewHandle _gBuffer0View,
+        const TextureViewHandle _gBuffer1View,
+        const TextureViewHandle _gBuffer2View,
+        const TextureViewHandle _gBufferDepthView,
+        TextureViewHandle _deferredShadowsView,
+        const TextureViewHandle _hdrView)
     {
-        const auto readShaderFile = [this](const eastl::string_view _filePath) -> eastl::span<char>
+        // Default material PSOs
         {
-            std::ifstream file(_filePath.data(), std::ios::binary);
-            KE_ASSERT(file);
+            const auto readShaderFile = [this](const eastl::string_view _filePath) -> eastl::span<char>
+            {
+                std::ifstream file(_filePath.data(), std::ios::binary);
+                KE_ASSERT(file);
 
-            file.seekg(0, std::ios::end);
-            const std::streamsize size = file.tellg();
-            file.seekg(0, std::ios::beg);
+                file.seekg(0, std::ios::end);
+                const std::streamsize size = file.tellg();
+                file.seekg(0, std::ios::beg);
 
-            auto* buffer = static_cast<char*>(m_allocator.allocate(size));
-            if (!file.read(buffer, size)) return {};
+                auto* buffer = static_cast<char*>(m_allocator.allocate(size));
+                if (!file.read(buffer, size)) return {};
 
-            file.close();
+                file.close();
 
-            return { buffer, static_cast<size_t>(size) };
-        };
+                return { buffer, static_cast<size_t>(size) };
+            };
 
-        eastl::span<char> vertexBytecode, fragmentBytecode;
-        ShaderModuleHandle vertexShader, fragmentShader;
-        {
-            char path[256];
-            snprintf(path, sizeof(path), "Shaders/Samples/PhysicsDemo/Basic_MainVs.%s", GraphicsContext::GetShaderFileExtension());
-            vertexBytecode = readShaderFile(path);
-            snprintf(path, sizeof(path), "Shaders/Samples/PhysicsDemo/Basic_MainFs.%s", GraphicsContext::GetShaderFileExtension());
-            fragmentBytecode = readShaderFile(path);
+            eastl::span<char> vertexBytecode, fragmentBytecode;
+            ShaderModuleHandle vertexShader, fragmentShader;
+            {
+                char path[256];
+                snprintf(path, sizeof(path), "Shaders/Samples/PhysicsDemo/Basic_MainVs.%s", GraphicsContext::GetShaderFileExtension());
+                vertexBytecode = readShaderFile(path);
+                snprintf(path, sizeof(path), "Shaders/Samples/PhysicsDemo/Basic_MainFs.%s", GraphicsContext::GetShaderFileExtension());
+                fragmentBytecode = readShaderFile(path);
 
-            vertexShader = _graphicsContext.RegisterShaderModule(vertexBytecode.data(), vertexBytecode.size());
-            fragmentShader = _graphicsContext.RegisterShaderModule(fragmentBytecode.data(), fragmentBytecode.size());
+                vertexShader = _graphicsContext.RegisterShaderModule(vertexBytecode.data(), vertexBytecode.size());
+                fragmentShader = _graphicsContext.RegisterShaderModule(fragmentBytecode.data(), fragmentBytecode.size());
+            }
+
+            PipelineLayoutHandle defaultPipelineLayout;
+            {
+                const DescriptorSetLayoutHandle sets[] = {
+                    m_drawInstanceManager.GetPassDescriptorSetLayout(_graphicsContext)
+                };
+
+                defaultPipelineLayout = _graphicsContext.CreatePipelineLayout({
+                    .m_descriptorSets = sets,
+                });
+            }
+            m_materialManager.SetPipelineLayout(m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineLayout);
+            m_materialManager.SetPipelineLayout(m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineLayout);
+
+            GraphicsPipelineHandle defaultPipelineGBuffer, defaultPipelineShadow;
+            {
+                const ShaderStage shaderStages[2] = {
+                    {
+                        .m_shaderModule = vertexShader,
+                        .m_stage = ShaderStage::Stage::Vertex,
+                        .m_entryPoint = "MainVs",
+                    },
+                    {
+                        .m_shaderModule = fragmentShader,
+                        .m_stage = ShaderStage::Stage::Fragment,
+                        .m_entryPoint = "MainFs",
+                    }
+                };
+
+                constexpr VertexLayoutElement vertexLayoutElements[] = {
+                    {
+                        .m_semanticName = VertexLayoutElement::SemanticName::Position,
+                        .m_bindingIndex = 0,
+                        .m_format = TextureFormat::RGB32_Float,
+                        .m_offset = 0,
+                        .m_location = 0,
+                    },
+                    {
+                        .m_semanticName = VertexLayoutElement::SemanticName::Normal,
+                        .m_bindingIndex = 0,
+                        .m_format = TextureFormat::RGB32_Float,
+                        .m_offset = sizeof(float3),
+                        .m_location = 1,
+                    },
+                    {
+                        .m_semanticName = VertexLayoutElement::SemanticName::BoneIndices,
+                        .m_bindingIndex = 1,
+                        .m_format = TextureFormat::R32_UInt,
+                        .m_offset = 0,
+                        .m_location = 2,
+                    }
+                };
+
+                constexpr VertexBindingDesc vertexBindings[] {
+                    {
+                        .m_stride = sizeof(float3) * 2,
+                        .m_binding = 0,
+                        .m_inputRate = VertexInputRate::Vertex,
+                    },
+                    {
+                        .m_stride = sizeof(u32),
+                        .m_binding = 1,
+                        .m_inputRate = VertexInputRate::Instance,
+                    }
+                };
+
+                defaultPipelineGBuffer = _graphicsContext.CreateGraphicsPipeline({
+                    .m_stages = shaderStages,
+                    .m_vertexInput = {
+                        .m_elements = vertexLayoutElements,
+                        .m_bindings = vertexBindings,
+                    },
+                    .m_colorBlending = {
+                        .m_attachments = { ColorAttachmentBlendDesc {}, ColorAttachmentBlendDesc {}, ColorAttachmentBlendDesc {} },
+                    },
+                    .m_renderTargets = {
+                        .m_numColorAttachments = 3,
+                        .m_colorFormats = { kGBuffer0Format, kGBuffer1Format, kGBuffer2Format },
+                        .m_depthStencilFormat = kGBufferDepthFormat,
+                    },
+                    .m_pipelineLayout = defaultPipelineLayout,
+    #if !defined(KE_FINAL)
+                    .m_debugName = "Default GBuffer PSO",
+    #endif
+                });
+
+                defaultPipelineShadow = _graphicsContext.CreateGraphicsPipeline({
+                    .m_stages = { shaderStages, 1 },
+                    .m_vertexInput = {
+                        .m_elements = vertexLayoutElements,
+                        .m_bindings = vertexBindings,
+                    },
+                    .m_renderTargets = {
+                        .m_numColorAttachments = 0,
+                        .m_depthStencilFormat = kShadowFormat,
+                    },
+                    .m_pipelineLayout = defaultPipelineLayout,
+    #if !defined(KE_FINAL)
+                    .m_debugName = "Default Shadow PSO",
+    #endif
+                });
+            }
+            m_materialManager.SetGraphicsPipeline(m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineGBuffer);
+            m_materialManager.SetGraphicsPipeline(m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineShadow);
+
+            _graphicsContext.FreeShaderModule(fragmentShader);
+            _graphicsContext.FreeShaderModule(vertexShader);
+            m_allocator.deallocate(fragmentBytecode.data(), fragmentBytecode.size_bytes());
+            m_allocator.deallocate(vertexBytecode.data(), vertexBytecode.size_bytes());
         }
 
-        PipelineLayoutHandle defaultPipelineLayout;
+        // Fullscreen passes
         {
-            const DescriptorSetLayoutHandle sets[] = {
-                m_drawInstanceManager.GetPassDescriptorSetLayout(_graphicsContext)
-            };
+            {
+                constexpr DescriptorBindingDesc bindings[] = {
+                    {
+                        .m_type = DescriptorBindingDesc::Type::ConstantBuffer,
+                        .m_visibility = ShaderVisibility::Fragment,
+                    }
+                };
+                m_fullscreenPassesLayout = _graphicsContext.CreateDescriptorSetLayout({
+                   .m_bindings = bindings,
+                }, &m_fullscreenPassesCbIdx);
+            }
 
-            defaultPipelineLayout = _graphicsContext.CreatePipelineLayout({
-                .m_descriptorSets = sets,
-            });
+            m_deferredShadingPass.Initialize(
+                &_graphicsContext,
+                m_fullscreenPassesLayout,
+                _gBuffer0View,
+                _gBuffer1View,
+                _gBufferDepthView,
+                _deferredShadowsView,
+                _gBuffer2View);
+
+            m_skyPass.Initialize(
+                &_graphicsContext,
+                m_fullscreenPassesLayout);
+
+            m_colorMappingPass.Initialize(
+                &_graphicsContext,
+                m_fullscreenPassesLayout,
+                _hdrView);
         }
-        m_materialManager.SetPipelineLayout(m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineLayout);
-        m_materialManager.SetPipelineLayout(m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineLayout);
-
-        GraphicsPipelineHandle defaultPipelineGBuffer, defaultPipelineShadow;
-        {
-            const ShaderStage shaderStages[2] = {
-                {
-                    .m_shaderModule = vertexShader,
-                    .m_stage = ShaderStage::Stage::Vertex,
-                    .m_entryPoint = "MainVs",
-                },
-                {
-                    .m_shaderModule = fragmentShader,
-                    .m_stage = ShaderStage::Stage::Fragment,
-                    .m_entryPoint = "MainFs",
-                }
-            };
-
-            constexpr VertexLayoutElement vertexLayoutElements[] = {
-                {
-                    .m_semanticName = VertexLayoutElement::SemanticName::Position,
-                    .m_bindingIndex = 0,
-                    .m_format = TextureFormat::RGB32_Float,
-                    .m_offset = 0,
-                    .m_location = 0,
-                },
-                {
-                    .m_semanticName = VertexLayoutElement::SemanticName::Normal,
-                    .m_bindingIndex = 0,
-                    .m_format = TextureFormat::RGB32_Float,
-                    .m_offset = sizeof(float3),
-                    .m_location = 1,
-                },
-                {
-                    .m_semanticName = VertexLayoutElement::SemanticName::BoneIndices,
-                    .m_bindingIndex = 1,
-                    .m_format = TextureFormat::R32_UInt,
-                    .m_offset = 0,
-                    .m_location = 2,
-                }
-            };
-
-            constexpr VertexBindingDesc vertexBindings[] {
-                {
-                    .m_stride = sizeof(float3) * 2,
-                    .m_binding = 0,
-                    .m_inputRate = VertexInputRate::Vertex,
-                },
-                {
-                    .m_stride = sizeof(u32),
-                    .m_binding = 1,
-                    .m_inputRate = VertexInputRate::Instance,
-                }
-            };
-
-            defaultPipelineGBuffer = _graphicsContext.CreateGraphicsPipeline({
-                .m_stages = shaderStages,
-                .m_vertexInput = {
-                    .m_elements = vertexLayoutElements,
-                    .m_bindings = vertexBindings,
-                },
-                .m_colorBlending = {
-                    .m_attachments = { ColorAttachmentBlendDesc {}, ColorAttachmentBlendDesc {} },
-                },
-                .m_renderTargets = {
-                    .m_numColorAttachments = 2,
-                    .m_colorFormats = { kGBufferAlbedoFormat, kGBufferNormalFormat },
-                    .m_depthStencilFormat = kGBufferDepthFormat,
-                },
-                .m_pipelineLayout = defaultPipelineLayout,
-#if !defined(KE_FINAL)
-                .m_debugName = "Default GBuffer PSO",
-#endif
-            });
-        }
-        m_materialManager.SetGraphicsPipeline(m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineGBuffer);
-        m_materialManager.SetGraphicsPipeline(m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineShadow);
-
-        _graphicsContext.FreeShaderModule(fragmentShader);
-        _graphicsContext.FreeShaderModule(vertexShader);
-        m_allocator.deallocate(fragmentBytecode.data(), fragmentBytecode.size_bytes());
-        m_allocator.deallocate(vertexBytecode.data(), vertexBytecode.size_bytes());
     }
 } // namespace KryneEngine::Samples::PhysicsDemo
