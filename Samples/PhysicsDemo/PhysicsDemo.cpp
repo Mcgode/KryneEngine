@@ -228,6 +228,7 @@ int main()
                 gBufferDepth,
                 {
                     .m_format = kGBufferDepthFormat,
+                    .m_plane = TexturePlane::Depth,
                 },
                 "GBuffer Depth view");
 
@@ -236,6 +237,7 @@ int main()
                 RenderGraph::RenderTargetViewDesc {
                     .m_textureResource = gBufferDepth,
                     .m_format = kGBufferDepthFormat,
+                    .m_plane = TexturePlane::Depth,
                 },
                 "GBuffer Depth RTV");
         }
