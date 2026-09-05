@@ -258,15 +258,28 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _gBufferDepthView,
                 _deferredShadowsView,
                 _gBuffer2View);
+            m_deferredShadingPass.CreatePso(&_graphicsContext, {
+                .m_numColorAttachments = 1,
+                .m_colorFormats = { kHdrFormat },
+            });
 
             m_skyPass.Initialize(
                 &_graphicsContext,
                 m_fullscreenPassesLayout);
+            m_skyPass.CreatePso(&_graphicsContext, {
+                .m_numColorAttachments = 1,
+                .m_colorFormats = { kHdrFormat },
+                .m_depthStencilFormat = kGBufferDepthFormat,
+            });
 
             m_colorMappingPass.Initialize(
                 &_graphicsContext,
                 m_fullscreenPassesLayout,
                 _hdrView);
+            m_colorMappingPass.CreatePso(&_graphicsContext, {
+                .m_numColorAttachments = 1,
+                .m_colorFormats = { _graphicsContext.GetPresentTextureFormat() },
+            });
         }
     }
 } // namespace KryneEngine::Samples::PhysicsDemo
