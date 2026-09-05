@@ -305,11 +305,6 @@ int main()
     auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
     do
     {
-        auto timePoint = std::chrono::high_resolution_clock::now();
-        const double deltaTime = std::chrono::duration<double> { timePoint - lastFrameTimePoint }.count();
-        sceneManager.Process(graphicsContext, static_cast<float>(deltaTime));
-        lastFrameTimePoint = timePoint;
-
         if (imGuiContext == nullptr)
         {
             KE_ZoneScoped("Init ImGui context");
@@ -321,6 +316,11 @@ int main()
         }
 
         imGuiContext->NewFrame(&mainWindow);
+
+        auto timePoint = std::chrono::high_resolution_clock::now();
+        const double deltaTime = std::chrono::duration<double> { timePoint - lastFrameTimePoint }.count();
+        sceneManager.Process(graphicsContext, static_cast<float>(deltaTime));
+        lastFrameTimePoint = timePoint;
 
         RenderGraph::Builder& builder = renderGraph.BeginFrame(*graphicsContext);
 
