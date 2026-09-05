@@ -313,6 +313,7 @@ namespace KryneEngine::Modules::RenderGraph
             desc.m_depthStencilAttachment.value().m_finalLayout = attachment.m_layoutAfter;
             desc.m_depthStencilAttachment.value().m_rtv = m_registry->GetRenderTargetView(attachment.m_rtv);
             desc.m_depthStencilAttachment.value().m_clearColor = float4(attachment.m_clearDepth, 0.0f, 0.0f, 0.0f);
+            desc.m_depthStencilAttachment.value().m_readOnly = attachment.m_readOnly;
         }
 
 #if !defined(KE_FINAL)
