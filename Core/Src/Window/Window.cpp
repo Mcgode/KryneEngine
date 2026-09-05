@@ -8,6 +8,16 @@
 
 #include <GLFW/glfw3.h>
 
+#if defined(_WIN32)
+#   define GLFW_EXPOSE_NATIVE_WIN32
+#elif defined(__APPLE__)
+#   define GLFW_EXPOSE_NATIVE_COCOA
+#elif defined(__linux__)
+#   define GLFW_EXPOSE_NATIVE_X11
+#   define GLFW_EXPOSE_NATIVE_WAYLAND
+#endif
+#include <GLFW/glfw3native.h>
+
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
 #include "KryneEngine/Core/Window/Input/InputManager.hpp"
@@ -75,6 +85,29 @@ namespace KryneEngine
         glfwPollEvents();
 
         return !glfwWindowShouldClose(m_glfwWindow);
+    }
+
+    NativeWindowHandle Window::GetNativeHandle() const
+    {
+#if defined(_WIN32)
+        return { static_cast<void*>(glfwGetWin32Window(m_glfwWindow)), nullptr };
+#elif defined(__APPLE__)
+        return { static_cast<void*>(glfwGetCocoaWindow(m_glfwWindow)), nullptr };
+#elif defined(__linux__)
+        if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND)
+        {
+            return {
+                static_cast<void*>(glfwGetWaylandWindow(m_glfwWindow)),
+                static_cast<void*>(glfwGetWaylandDisplay()),
+            };
+        }
+        return {
+            reinterpret_cast<void*>(static_cast<uintptr_t>(glfwGetX11Window(m_glfwWindow))),
+            static_cast<void*>(glfwGetX11Display()),
+        };
+#else
+        return {};
+#endif
     }
 
     uint2 Window::GetFramebufferSize() const

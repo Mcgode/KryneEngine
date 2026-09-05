@@ -150,6 +150,7 @@ set(ThreadsSrc
 
 set(WindowSrc
         Src/Window/Window.cpp Include/KryneEngine/Core/Window/Window.hpp
+        Include/KryneEngine/Core/Window/NativeWindowHandle.hpp
         Src/Window/Input/InputManager.cpp Include/KryneEngine/Core/Window/Input/InputManager.hpp
         Include/KryneEngine/Core/Window/Input/KeyInputEvent.hpp
         Include/KryneEngine/Core/Window/GLFW/Input/KeyInputEvent.hpp

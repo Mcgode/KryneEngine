@@ -13,6 +13,7 @@
 #include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
 #include "KryneEngine/Core/Threads/LightweightMutex.hpp"
+#include "KryneEngine/Core/Window/NativeWindowHandle.hpp"
 
 struct GLFWwindow;
 
@@ -31,6 +32,9 @@ namespace KryneEngine
 
         [[nodiscard]] bool WaitForEvents();
         [[nodiscard]] GLFWwindow* GetGlfwWindow() const { return m_glfwWindow; }
+
+        /// @brief Retrieves the native OS handles backing this window (see @ref NativeWindowHandle).
+        [[nodiscard]] NativeWindowHandle GetNativeHandle() const;
         [[nodiscard]] GraphicsContext* GetGraphicsContext() const { return m_graphicsContext; }
         [[nodiscard]] InputManager* GetInputManager() const { return m_inputManager; }
 
