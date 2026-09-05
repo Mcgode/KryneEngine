@@ -167,7 +167,7 @@ Output SkyMain(Input _input)
 
     const Ray rayW = { eyePosW, cameraW };
 
-    output.color = float4(GetIncidentLight(rayW), 1);
+    output.color = float4(GetIncidentLight(rayW) * pi, 1);
 
     return output;
 }
