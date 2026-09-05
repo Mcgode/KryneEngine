@@ -9,6 +9,7 @@
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include "PassTypes.hpp"
 #include "RenderTargetFormats.hpp"
+#include "Rendering/Fullscreen/FullscreenPassConstants.hpp"
 
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
@@ -28,6 +29,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_drawInstanceManager(_allocator, _graphicsContext)
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
             , m_gameFramesQueue(_allocator, 3)
+            , m_fullscreenConstantsBuffer(_allocator)
             , m_deferredShadingPass(_allocator)
             , m_skyPass(_allocator)
             , m_colorMappingPass(_allocator)
@@ -91,7 +93,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         const TextureViewHandle _gBuffer1View,
         const TextureViewHandle _gBuffer2View,
         const TextureViewHandle _gBufferDepthView,
-        TextureViewHandle _deferredShadowsView,
+        const TextureViewHandle _deferredShadowsView,
         const TextureViewHandle _hdrView)
     {
         // Default material PSOs
@@ -248,6 +250,37 @@ namespace KryneEngine::Samples::PhysicsDemo
                 m_fullscreenPassesLayout = _graphicsContext.CreateDescriptorSetLayout({
                    .m_bindings = bindings,
                 }, &m_fullscreenPassesCbIdx);
+            }
+
+            m_fullscreenDescriptorSet = _graphicsContext.CreateDescriptorSet(m_fullscreenPassesLayout);
+
+            m_fullscreenConstantsBuffer.Init(
+                &_graphicsContext,
+                {
+                    .m_desc = {
+                        .m_size = sizeof(FullscreenPassConstants),
+#if !defined(KE_FINAL)
+                        .m_debugName = "FullscreenConstants",
+#endif
+                    },
+                    .m_usage = MemoryUsage::StageEveryFrame_UsageType | MemoryUsage::TransferDstBuffer | MemoryUsage::ConstantBuffer,
+                },
+                _graphicsContext.GetFrameContextCount());
+
+            m_fullscreenConstantsBufferViews = m_allocator.Allocate<BufferViewHandle>(_graphicsContext.GetFrameContextCount());
+            for (u32 i = 0; i < _graphicsContext.GetFrameContextCount(); i++)
+            {
+                char name[256];
+                snprintf(name, sizeof(name), "FullscreenConstantsBufferView_%u", i);
+                m_fullscreenConstantsBufferViews[i] = _graphicsContext.CreateBufferView({
+                    .m_buffer = m_fullscreenConstantsBuffer.GetBuffer(i),
+                    .m_size = sizeof(FullscreenPassConstants),
+                    .m_stride = sizeof(FullscreenPassConstants),
+                    .m_accessType = BufferViewAccessType::Constant,
+#if !defined(KE_FINAL)
+                    .m_debugName = name,
+#endif
+                });
             }
 
             m_deferredShadingPass.Initialize(

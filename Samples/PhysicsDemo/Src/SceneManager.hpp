@@ -73,6 +73,10 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         DescriptorSetLayoutHandle m_fullscreenPassesLayout {};
         u32 m_fullscreenPassesCbIdx = 0;
+        DescriptorSetHandle m_fullscreenDescriptorSet {};
+        Modules::GraphicsUtils::DynamicBuffer m_fullscreenConstantsBuffer;
+        BufferViewHandle* m_fullscreenConstantsBufferViews = nullptr;
+
         DeferredShadingPass m_deferredShadingPass;
         SkyPass m_skyPass;
         ColorMappingPass m_colorMappingPass;
