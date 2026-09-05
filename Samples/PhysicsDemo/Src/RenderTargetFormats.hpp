@@ -12,8 +12,9 @@
 
 namespace KryneEngine::Samples::PhysicsDemo
 {
-    static constexpr auto kGBufferAlbedoFormat = TextureFormat::RGBA8_UNorm;
-    static constexpr auto kGBufferNormalFormat = TextureFormat::RGBA8_UNorm;
+    static constexpr auto kGBuffer0Format = TextureFormat::RGBA8_UNorm;
+    static constexpr auto kGBuffer1Format = TextureFormat::RGBA8_UNorm;
+    static constexpr auto kGBuffer2Format = TextureFormat::RGB16_Float;
     static constexpr auto kGBufferDepthFormat = TextureFormat::D32F;
 
     static constexpr auto kShadowFormat = TextureFormat::D16;
