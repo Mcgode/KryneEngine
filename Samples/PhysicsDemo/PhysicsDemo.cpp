@@ -78,7 +78,7 @@ int main()
         }
     }
 
-    SceneManager sceneManager(allocator, *graphicsContext, &fibersManager, world);
+    SceneManager sceneManager(allocator, mainWindow, &fibersManager, world);
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 

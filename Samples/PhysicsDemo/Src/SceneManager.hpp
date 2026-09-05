@@ -35,9 +35,11 @@ namespace KryneEngine::Samples::PhysicsDemo
     public:
         SceneManager(
             AllocatorInstance _allocator,
-            GraphicsContext& _graphicsContext,
+            const Window& _window,
             FibersManager* _fibersManager,
             b3WorldId _world);
+
+        ~SceneManager();
 
         void Process(GraphicsContext* _graphicsContext, float _deltaTime);
 
@@ -63,6 +65,9 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         DrawInstanceManager m_drawInstanceManager;
         MaterialManager m_materialManager;
+
+        OrbitCamera* m_orbitCamera = nullptr;
+        SunLight* m_sunLight = nullptr;
 
         PassDispatcher* m_gBufferPassDispatcher = nullptr;
 

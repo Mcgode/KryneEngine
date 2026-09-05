@@ -13,20 +13,23 @@
 
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
+#include <KryneEngine/Core/Window/Window.hpp>
 #include <KryneEngine/Modules/RenderGraph/Declarations/PassDeclaration.hpp>
+#include <Scene/OrbitCamera.hpp>
+#include <Scene/SunLight.hpp>
 #include <fstream>
 
 namespace KryneEngine::Samples::PhysicsDemo
 {
     SceneManager::SceneManager(
         const AllocatorInstance _allocator,
-        GraphicsContext& _graphicsContext,
+        const Window& _window,
         FibersManager* _fibersManager,
         const b3WorldId _world)
             : m_allocator(_allocator)
             , m_fibersManager(_fibersManager)
             , m_world(_world)
-            , m_drawInstanceManager(_allocator, _graphicsContext)
+            , m_drawInstanceManager(_allocator, *_window.GetGraphicsContext())
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
             , m_gameFramesQueue(_allocator, 3)
             , m_fullscreenConstantsBuffer(_allocator)
@@ -34,13 +37,28 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_skyPass(_allocator)
             , m_colorMappingPass(_allocator)
     {
+        GraphicsContext& graphicsContext = *_window.GetGraphicsContext();
+
         m_gBufferPassDispatcher = m_drawInstanceManager.CreatePassDispatcher(
-            _graphicsContext,
+            graphicsContext,
             &m_materialManager,
             static_cast<u8>(PassTypes::GBufferPass),
             "GBuffer pass dispatcher");
 
         m_defaultMaterial = m_materialManager.RegisterMaterial();
+
+        const uint2 windowSize = graphicsContext.GetPresentFrameBufferSize();
+        const float aspectRatio = static_cast<float>(windowSize.x) / static_cast<float>(windowSize.y);
+        m_orbitCamera = m_allocator.New<OrbitCamera>(_window.GetInputManager(), aspectRatio);
+        m_sunLight = m_allocator.New<SunLight>();
+    }
+
+    SceneManager::~SceneManager()
+    {
+        if (m_fullscreenConstantsBufferViews != nullptr)
+            m_allocator.deallocate(m_fullscreenConstantsBufferViews);
+        m_allocator.Delete(m_sunLight);
+        m_allocator.Delete(m_orbitCamera);
     }
 
     void SceneManager::Process(GraphicsContext* _graphicsContext, const float _deltaTime)
@@ -66,6 +84,9 @@ namespace KryneEngine::Samples::PhysicsDemo
                 .m_function = [this](u16) { GameLoop(); },
                 .m_priority = FiberJob::Priority::High,
             });
+
+        m_orbitCamera->Process();
+        m_sunLight->Process();
 
         // Update fullscreen passes
         {
