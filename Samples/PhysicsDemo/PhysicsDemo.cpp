@@ -291,6 +291,15 @@ int main()
         }
     }
 
+    sceneManager.InitPso(
+        *graphicsContext,
+        renderGraph.GetRegistry().GetTextureView(gBuffer0View),
+        renderGraph.GetRegistry().GetTextureView(gBuffer1View),
+        renderGraph.GetRegistry().GetTextureView(gBuffer2View),
+        renderGraph.GetRegistry().GetTextureView(gBufferDepthView),
+        renderGraph.GetRegistry().GetTextureView(deferredShadowsView),
+        renderGraph.GetRegistry().GetTextureView(hdrView));
+
     auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
     do
     {
