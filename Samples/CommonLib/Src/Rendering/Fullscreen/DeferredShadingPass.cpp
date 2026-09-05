@@ -14,7 +14,7 @@
 namespace KryneEngine::Samples
 {
 
-    DeferredShadingPass::DeferredShadingPass(AllocatorInstance _allocator)
+    DeferredShadingPass::DeferredShadingPass(const AllocatorInstance _allocator)
         : m_allocator(_allocator)
     {
         static_assert(
@@ -25,18 +25,18 @@ namespace KryneEngine::Samples
 
     void DeferredShadingPass::Initialize(
         GraphicsContext* _graphicsContext,
-        DescriptorSetLayoutHandle _sceneConstantsDescriptorSetLayout,
-        TextureViewHandle _gBuffer0,
-        TextureViewHandle _gBuffer1,
-        TextureViewHandle _gBufferDepth,
-        TextureViewHandle _deferredShadows,
-        TextureViewHandle _gBufferAmbient)
+        const DescriptorSetLayoutHandle _sceneConstantsDescriptorSetLayout,
+        const TextureViewHandle _gBuffer0,
+        const TextureViewHandle _gBuffer1,
+        const TextureViewHandle _gBufferDepth,
+        const TextureViewHandle _deferredShadows,
+        const TextureViewHandle _gBufferAmbient)
     {
         u32 indices[5];
 
         // Create texture descriptor set layout
         {
-            const DescriptorBindingDesc bindings[] {
+            constexpr DescriptorBindingDesc bindings[] {
                 // Albedo
                 {
                     .m_type = DescriptorBindingDesc::Type::SampledTexture,
