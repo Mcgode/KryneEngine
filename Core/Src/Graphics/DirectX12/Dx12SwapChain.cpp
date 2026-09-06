@@ -7,10 +7,6 @@
 
 #include "Graphics/DirectX12/Dx12SwapChain.hpp"
 
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
-
 #include "Graphics/DirectX12/Dx12GraphicsContext.hpp"
 #include "Graphics/DirectX12/HelperFunctions.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/RenderTargetView.hpp"
@@ -58,8 +54,11 @@ namespace KryneEngine
         swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         swapChainDesc.SampleDesc.Count = 1; // Disable MultiSampling
 
+        const NativeWindowHandle nativeWindow = _processWindow->GetNativeHandle();
+        KE_ASSERT(nativeWindow.m_kind == NativeWindowHandle::Kind::Win32);
+        const HWND hwndWindow = static_cast<HWND>(nativeWindow.m_windowHandle);
+
         ComPtr<IDXGISwapChain1> swapChain;
-        auto hwndWindow = glfwGetWin32Window(_processWindow->GetGlfwWindow());
         Dx12Assert(_factory->CreateSwapChainForHwnd(
             _directQueue,
             hwndWindow,

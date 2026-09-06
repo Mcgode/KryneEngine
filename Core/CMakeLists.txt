@@ -169,6 +169,7 @@ if (GraphicsApi STREQUAL "VK")
                 Src/Graphics/Vulkan/VkSwapChain.hpp
                 Src/Graphics/Vulkan/VkSurface.cpp
                 Src/Graphics/Vulkan/VkSurface.hpp
+                Src/Graphics/Vulkan/VkSurfacePlatform.hpp
                 Src/Graphics/Vulkan/CommonStructures.hpp
                 Src/Graphics/Vulkan/VkHeaders.hpp
                 Src/Graphics/Vulkan/VkFrameContext.cpp
@@ -181,6 +182,11 @@ if (GraphicsApi STREQUAL "VK")
                 Src/Graphics/Vulkan/VkDescriptorSetManager.cpp
                 Src/Graphics/Vulkan/VkDescriptorSetManager.hpp
         )
+        if (APPLE)
+                list(APPEND GraphicsFiles Src/Graphics/Vulkan/VkSurfacePlatform.mm)
+        else ()
+                list(APPEND GraphicsFiles Src/Graphics/Vulkan/VkSurfacePlatform.cpp)
+        endif ()
 elseif(GraphicsApi STREQUAL "DX12")
         set(GraphicsFiles ${GraphicsCommonFiles}
                 Src/Graphics/DirectX12/Dx12GraphicsContext.cpp
@@ -248,6 +254,13 @@ if (GraphicsApi STREQUAL "VK")
 
         message(STATUS "Vulkan lib: " ${Vulkan_LIBRARIES})
         target_link_libraries(KryneEngine_Core ${Vulkan_LIBRARIES} VulkanMemoryAllocator)
+
+        if (APPLE)
+                # VkSurfacePlatform.mm attaches a CAMetalLayer to the native NSView.
+                find_library(QUARTZCORE_FRAMEWORK QuartzCore)
+                find_library(APPKIT_FRAMEWORK AppKit)
+                target_link_libraries(KryneEngine_Core ${QUARTZCORE_FRAMEWORK} ${APPKIT_FRAMEWORK})
+        endif ()
 elseif(GraphicsApi STREQUAL "DX12")
         message(STATUS "Linking DirectX12 libs")
         target_link_libraries(KryneEngine_Core d3d12 dxgi d3dcompiler dxguid DirectX-Headers D3D12MemoryAllocator)

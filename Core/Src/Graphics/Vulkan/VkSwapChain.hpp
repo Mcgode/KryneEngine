@@ -14,8 +14,6 @@
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
 
-struct GLFWwindow;
-
 namespace KryneEngine
 {
     class VkSurface;
@@ -33,7 +31,7 @@ namespace KryneEngine
                     VkDevice _device,
                     const VkSurface &_surface,
                     VkResources &_resources,
-                    GLFWwindow *_window,
+                    uint2 _framebufferSize,
                     const VkCommonStructures::QueueIndices &_queueIndices,
                     u64 _currentFrameIndex);
 
@@ -43,7 +41,7 @@ namespace KryneEngine
             VkDevice _device,
             const VkSurface& _surface,
             VkResources& _resources,
-            GLFWwindow* _window,
+            uint2 _framebufferSize,
             const VkCommonStructures::QueueIndices &_queueIndices, u64 _frameId);
 
         void AcquireNextImage(VkDevice _device, u8 _frameIndex);

@@ -6,9 +6,8 @@
 
 #include "Graphics/Vulkan/VkSurface.hpp"
 
-#include <GLFW/glfw3.h>
-
 #include "Graphics/Vulkan/HelperFunctions.hpp"
+#include "Graphics/Vulkan/VkSurfacePlatform.hpp"
 
 namespace KryneEngine
 {
@@ -18,13 +17,10 @@ namespace KryneEngine
         m_capabilities.m_presentModes.SetAllocator(_allocator);
     }
 
-    void VkSurface::Init(VkInstance _instance, GLFWwindow *_window)
+    void VkSurface::Init(VkInstance _instance, const NativeWindowHandle& _nativeWindow)
     {
         KE_ZoneScopedFunction("VkSurface::VkSurface");
-        VkAssert(glfwCreateWindowSurface(_instance,
-                                         _window,
-                                         nullptr,
-                                         reinterpret_cast<VkSurfaceKHR*>(&m_surface)));
+        m_surface = VkSurfacePlatform::Create(_instance, _nativeWindow);
     }
 
     VkSurface::~VkSurface()

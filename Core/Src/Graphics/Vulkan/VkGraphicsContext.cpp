@@ -10,7 +10,6 @@
 #include <regex>
 #include <EASTL/algorithm.h>
 #include <EASTL/vector_map.h>
-#include <GLFW/glfw3.h>
 
 #include "Graphics/Vulkan/HelperFunctions.hpp"
 #include "Graphics/Vulkan/VkDebugHandler.hpp"
@@ -172,7 +171,7 @@ namespace KryneEngine
 
         if (m_appInfo.m_features.m_present)
         {
-            m_surface.Init(m_instance, _window->GetGlfwWindow());
+            m_surface.Init(m_instance, _window->GetNativeHandle());
         }
 
         _SelectPhysicalDevice();
@@ -223,7 +222,7 @@ namespace KryneEngine
                     m_device,
                     m_surface,
                     m_resources,
-                    _window->GetGlfwWindow(),
+                    _window->GetFramebufferSize(),
                     m_queueIndices,
                     m_frameId);
 
@@ -458,10 +457,40 @@ namespace KryneEngine
     eastl::vector<const char *> VkGraphicsContext::RetrieveRequiredExtensionNames(
         const GraphicsCommon::ApplicationInfo& _appInfo, const bool _validationLayersEnabled)
     {
-        u32 glfwCount;
-        const char** ppGlfwExtensions = glfwGetRequiredInstanceExtensions(&glfwCount);
+        eastl::vector<const char *> result(m_allocator);
 
-        eastl::vector<const char *> result(ppGlfwExtensions, ppGlfwExtensions + glfwCount, m_allocator);
+        // WSI surface extensions (previously provided by glfwGetRequiredInstanceExtensions).
+        // The platform-specific one is only added when actually present, so a build that
+        // supports both X11 and Wayland can run under either at runtime.
+        if (_appInfo.m_features.m_present)
+        {
+            result.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+
+            DynamicArray<VkExtensionProperties> availableExtensions;
+            VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateInstanceExtensionProperties, nullptr);
+            const auto has = [&availableExtensions](const char* _name)
+            {
+                return eastl::any_of(
+                    availableExtensions.begin(),
+                    availableExtensions.end(),
+                    [_name](const VkExtensionProperties& _p) { return strcmp(_p.extensionName, _name) == 0; });
+            };
+
+            for (const char* surfaceExtension : {
+#if defined(_WIN32)
+                     VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+#elif defined(__APPLE__)
+                     VK_EXT_METAL_SURFACE_EXTENSION_NAME,
+#elif defined(__linux__)
+                     VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+                     VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
+#endif
+                 })
+            {
+                if (has(surfaceExtension))
+                    result.push_back(surfaceExtension);
+            }
+        }
 
         if (_validationLayersEnabled)
         {
@@ -950,7 +979,7 @@ namespace KryneEngine
             m_device,
             m_surface,
             m_resources,
-            _window->GetGlfwWindow(),
+            _window->GetFramebufferSize(),
             m_queueIndices,
             m_frameId);
     }

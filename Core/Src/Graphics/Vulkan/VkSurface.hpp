@@ -8,8 +8,7 @@
 
 #include "Graphics/Vulkan/CommonStructures.hpp"
 #include "Graphics/Vulkan/VkHeaders.hpp"
-
-struct GLFWwindow;
+#include "KryneEngine/Core/Window/NativeWindowHandle.hpp"
 
 namespace KryneEngine
 {
@@ -25,7 +24,7 @@ namespace KryneEngine
 
         explicit VkSurface(AllocatorInstance _allocator);
 
-        void Init(VkInstance _instance, GLFWwindow *_window);
+        void Init(VkInstance _instance, const NativeWindowHandle& _nativeWindow);
 
         virtual ~VkSurface();
 

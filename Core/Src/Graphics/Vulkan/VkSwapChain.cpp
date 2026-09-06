@@ -6,8 +6,6 @@
 
 #include "Graphics/Vulkan/VkSwapChain.hpp"
 
-#include <GLFW/glfw3.h>
-
 #include "Graphics/Vulkan/HelperFunctions.hpp"
 #include "Graphics/Vulkan/VkDebugHandler.hpp"
 #include "Graphics/Vulkan/VkResources.hpp"
@@ -25,7 +23,7 @@ namespace KryneEngine
     void VkSwapChain::Init(
             const GraphicsCommon::ApplicationInfo &_appInfo,
             VkDevice _device, const VkSurface &_surface,
-            VkResources &_resources, GLFWwindow *_window,
+            VkResources &_resources, uint2 _framebufferSize,
             const VkCommonStructures::QueueIndices &_queueIndices,
             u64 _currentFrameIndex)
     {
@@ -83,12 +81,9 @@ namespace KryneEngine
         }
         else
         {
-            s32 width, height;
-            glfwGetFramebufferSize(_window, &width, &height);
-
             extent = VkExtent2D {
-                static_cast<u32>(width),
-                static_cast<u32>(height)
+                _framebufferSize.x,
+                _framebufferSize.y
             };
 
             extent.width = eastl::clamp(extent.width,
@@ -201,7 +196,7 @@ namespace KryneEngine
         const VkDevice _device,
         const VkSurface& _surface,
         VkResources& _resources,
-        GLFWwindow* _window,
+        uint2 _framebufferSize,
         const VkCommonStructures::QueueIndices& _queueIndices,
         const u64 _frameId)
     {
@@ -225,12 +220,9 @@ namespace KryneEngine
         }
         else
         {
-            s32 width, height;
-            glfwGetFramebufferSize(_window, &width, &height);
-
             extent = VkExtent2D {
-                static_cast<u32>(width),
-                static_cast<u32>(height)
+                _framebufferSize.x,
+                _framebufferSize.y
             };
 
             extent.width = eastl::clamp(extent.width,

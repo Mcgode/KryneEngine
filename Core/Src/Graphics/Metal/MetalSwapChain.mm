@@ -6,10 +6,7 @@
 
 #include "Graphics/Metal/MetalSwapChain.hpp"
 
-#include <GLFW/glfw3.h>
-#define GLFW_EXPOSE_NATIVE_COCOA
-#include <GLFW/glfw3native.h>
-
+#include <AppKit/AppKit.h>
 #include <QuartzCore/CAMetalLayer.h>
 #include <EASTL/fixed_string.h>
 
@@ -27,7 +24,9 @@ namespace KryneEngine
         MetalResources& _resources,
         u8 _initialFrameIndex)
     {
-        auto* metalWindow = static_cast<NSWindow*>(glfwGetCocoaWindow(_window->GetGlfwWindow()));
+        const NativeWindowHandle nativeWindow = _window->GetNativeHandle();
+        KE_ASSERT(nativeWindow.m_kind == NativeWindowHandle::Kind::Cocoa);
+        auto* metalWindow = (__bridge NSWindow*)nativeWindow.m_windowHandle;
 
         CAMetalLayer* metalLayer = [CAMetalLayer layer];
         metalLayer.device = (__bridge id<MTLDevice>)&_device;

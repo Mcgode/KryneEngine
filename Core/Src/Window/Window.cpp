@@ -89,19 +89,22 @@ namespace KryneEngine
 
     NativeWindowHandle Window::GetNativeHandle() const
     {
+        using Kind = NativeWindowHandle::Kind;
 #if defined(_WIN32)
-        return { static_cast<void*>(glfwGetWin32Window(m_glfwWindow)), nullptr };
+        return { Kind::Win32, static_cast<void*>(glfwGetWin32Window(m_glfwWindow)), nullptr };
 #elif defined(__APPLE__)
-        return { static_cast<void*>(glfwGetCocoaWindow(m_glfwWindow)), nullptr };
+        return { Kind::Cocoa, static_cast<void*>(glfwGetCocoaWindow(m_glfwWindow)), nullptr };
 #elif defined(__linux__)
         if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND)
         {
             return {
+                Kind::Wayland,
                 static_cast<void*>(glfwGetWaylandWindow(m_glfwWindow)),
                 static_cast<void*>(glfwGetWaylandDisplay()),
             };
         }
         return {
+            Kind::Xlib,
             reinterpret_cast<void*>(static_cast<uintptr_t>(glfwGetX11Window(m_glfwWindow))),
             static_cast<void*>(glfwGetX11Display()),
         };
