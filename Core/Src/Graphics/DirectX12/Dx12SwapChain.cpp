@@ -10,7 +10,6 @@
 #include "Graphics/DirectX12/Dx12GraphicsContext.hpp"
 #include "Graphics/DirectX12/HelperFunctions.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/RenderTargetView.hpp"
-#include "KryneEngine/Core/Window/Window.hpp"
 
 namespace KryneEngine
 {
@@ -26,7 +25,7 @@ namespace KryneEngine
 
     void Dx12SwapChain::Init(
         const GraphicsCommon::ApplicationInfo &_appInfo,
-        const Window* _processWindow,
+        const SwapChainDesc& _desc,
         IDXGIFactory4 *_factory,
         ID3D12Device *_device,
         ID3D12CommandQueue *_directQueue,
@@ -34,29 +33,23 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12SwapChain::Dx12SwapChain");
 
-        const auto& displayInfo = _appInfo.m_displayOptions;
-
-        u32 imageCount = 2;
-        if (displayInfo.m_tripleBuffering != GraphicsCommon::SoftEnable::Disabled)
-        {
-            imageCount++;
-        }
+        // Strict: the buffering mode dictates the image count.
+        const u32 imageCount = static_cast<u32>(_appInfo.m_bufferingMode);
 
         // sRGB format is set by the RTV
         const auto format = DXGI_FORMAT_B8G8R8A8_UNORM;
 
         DXGI_SWAP_CHAIN_DESC1 swapChainDesc {};
         swapChainDesc.BufferCount = imageCount;
-        swapChainDesc.Width = displayInfo.m_width * _processWindow->GetDpiScale().x;
-        swapChainDesc.Height = displayInfo.m_height * _processWindow->GetDpiScale().x;
+        swapChainDesc.Width = _desc.m_dimensions.x;
+        swapChainDesc.Height = _desc.m_dimensions.y;
         swapChainDesc.Format = format;
         swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         swapChainDesc.SampleDesc.Count = 1; // Disable MultiSampling
 
-        const NativeWindowHandle nativeWindow = _processWindow->GetNativeHandle();
-        KE_ASSERT(nativeWindow.m_kind == NativeWindowHandle::Kind::Win32);
-        const HWND hwndWindow = static_cast<HWND>(nativeWindow.m_windowHandle);
+        KE_ASSERT(_desc.m_nativeWindow.m_kind == NativeWindowHandle::Kind::Win32);
+        const HWND hwndWindow = static_cast<HWND>(_desc.m_nativeWindow.m_windowHandle);
 
         ComPtr<IDXGISwapChain1> swapChain;
         Dx12Assert(_factory->CreateSwapChainForHwnd(
@@ -82,7 +75,7 @@ namespace KryneEngine
             m_renderTargetTextures.Resize(imageCount);
             m_renderTargetViews.Resize(imageCount);
 
-            m_presentFormat = displayInfo.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled
+            m_presentFormat = _desc.m_displayOptions.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled
                     ? TextureFormat::BGRA8_UNorm
                     : TextureFormat::BGRA8_sRGB;
 

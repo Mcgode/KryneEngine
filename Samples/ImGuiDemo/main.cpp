@@ -57,8 +57,14 @@ void MainFunc(void* _pAllocator)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
-    Window mainWindow(appInfo, allocator);
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    const GraphicsCommon::DisplayOptions displayOptions {};
+    Window mainWindow(appInfo.m_applicationName, displayOptions, allocator);
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow.GetNativeHandle(),
+        .m_dimensions = mainWindow.GetFramebufferSize(),
+        .m_displayOptions = displayOptions,
+    });
 
     DynamicArray<RenderPassHandle> renderPassHandles(allocator);
     renderPassHandles.Resize(graphicsContext->GetFrameContextCount());
@@ -79,19 +85,19 @@ void MainFunc(void* _pAllocator)
         renderPassHandles[i] = graphicsContext->CreateRenderPass(desc);
     }
 
-    KEModules::ImGui::Context imGuiContext { &mainWindow, graphicsContext->GetPresentTextureFormat(), allocator };
+    KEModules::ImGui::Context imGuiContext { &mainWindow, graphicsContext, graphicsContext->GetPresentTextureFormat(), allocator };
 
     // You can set up ImGui specific config after the context has been created.
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::GetIO().Fonts->AddFontDefaultVector();
 
-    do
+    while (mainWindow.WaitForEvents())
     {
         KE_ZoneScoped("Main loop");
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
 
-        imGuiContext.NewFrame(&mainWindow);
+        imGuiContext.NewFrame(&mainWindow, graphicsContext);
 
         {
             static bool open;
@@ -114,17 +120,21 @@ void MainFunc(void* _pAllocator)
         }
 
         graphicsContext->EndGraphicsCommandList(commandList);
+
+        graphicsContext->EndFrame();
     }
-    while (graphicsContext->EndFrame());
 
     graphicsContext->WaitForLastFrame();
 
-    imGuiContext.Shutdown(&mainWindow);
+    imGuiContext.Shutdown(&mainWindow, graphicsContext);
 
     for (auto handle: renderPassHandles)
     {
         graphicsContext->DestroyRenderPass(handle);
     }
+
+    graphicsContext->DestroySwapChain(swapChain);
+    GraphicsContext::Destroy(graphicsContext);
 }
 
 int main()

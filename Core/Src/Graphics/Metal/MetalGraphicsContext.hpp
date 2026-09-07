@@ -41,8 +41,7 @@ namespace KryneEngine
     public:
         MetalGraphicsContext(
             AllocatorInstance _allocator,
-            const GraphicsCommon::ApplicationInfo& _appInfo,
-            Window* _window);
+            const GraphicsCommon::ApplicationInfo& _appInfo);
 
         ~MetalGraphicsContext();
 
@@ -62,6 +61,7 @@ namespace KryneEngine
         NsPtr<MTL4::CommandQueue> m_ioQueue;
 
         u8 m_frameContextCount;
+        bool m_swapChainActive = false;
         DynamicArray<MetalFrameContext> m_frameContexts;
 
         bool m_calibrateCpuGpuClocks = false;
@@ -76,7 +76,9 @@ namespace KryneEngine
         void WaitForFrame(u64 _frameId) const override;
 
     public:
-        bool ResizeSwapChain(Window* _window) override;
+        [[nodiscard]] SwapChainHandle CreateSwapChain(const SwapChainDesc& _desc) override;
+        void DestroySwapChain(SwapChainHandle _handle) override;
+        bool ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize) override;
 
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
         [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;

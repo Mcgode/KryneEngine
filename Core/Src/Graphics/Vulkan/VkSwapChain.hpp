@@ -11,6 +11,7 @@
 
 #include "Graphics/Vulkan/CommonStructures.hpp"
 #include "Graphics/Vulkan/VkHeaders.hpp"
+#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
 
@@ -31,7 +32,7 @@ namespace KryneEngine
                     VkDevice _device,
                     const VkSurface &_surface,
                     VkResources &_resources,
-                    uint2 _framebufferSize,
+                    const SwapChainDesc& _desc,
                     const VkCommonStructures::QueueIndices &_queueIndices,
                     u64 _currentFrameIndex);
 
@@ -41,7 +42,7 @@ namespace KryneEngine
             VkDevice _device,
             const VkSurface& _surface,
             VkResources& _resources,
-            uint2 _framebufferSize,
+            const SwapChainDesc& _desc,
             const VkCommonStructures::QueueIndices &_queueIndices, u64 _frameId);
 
         void AcquireNextImage(VkDevice _device, u8 _frameIndex);

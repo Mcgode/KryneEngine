@@ -23,7 +23,7 @@ namespace KryneEngine
     void VkSwapChain::Init(
             const GraphicsCommon::ApplicationInfo &_appInfo,
             VkDevice _device, const VkSurface &_surface,
-            VkResources &_resources, uint2 _framebufferSize,
+            VkResources &_resources, const SwapChainDesc& _desc,
             const VkCommonStructures::QueueIndices &_queueIndices,
             u64 _currentFrameIndex)
     {
@@ -32,7 +32,7 @@ namespace KryneEngine
         const auto& capabilities = _surface.GetCapabilities();
         KE_ASSERT(!capabilities.m_formats.Empty() && !capabilities.m_presentModes.Empty());
 
-        const auto displayOptions = _appInfo.m_displayOptions;
+        const auto& displayOptions = _desc.m_displayOptions;
 
         // Select appropriate format
         VkSurfaceFormatKHR selectedSurfaceFormat;
@@ -57,7 +57,7 @@ namespace KryneEngine
 
         // Select appropriate present mode
         VkPresentModeKHR selectedPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-        if (displayOptions.m_tripleBuffering != GraphicsCommon::SoftEnable::Disabled)
+        if (_appInfo.m_bufferingMode == GraphicsCommon::BufferingMode::Triple)
         {
             for (const auto& presentMode: capabilities.m_presentModes)
             {
@@ -67,9 +67,6 @@ namespace KryneEngine
                     break;
                 }
             }
-
-            KE_ASSERT(displayOptions.m_tripleBuffering == GraphicsCommon::SoftEnable::TryEnable
-                   || selectedPresentMode != VK_PRESENT_MODE_FIFO_KHR);
         }
 
         // Retrieve extent
@@ -82,8 +79,8 @@ namespace KryneEngine
         else
         {
             extent = VkExtent2D {
-                _framebufferSize.x,
-                _framebufferSize.y
+                _desc.m_dimensions.x,
+                _desc.m_dimensions.y
             };
 
             extent.width = eastl::clamp(extent.width,
@@ -94,17 +91,16 @@ namespace KryneEngine
                                          capabilities.m_surfaceCapabilities.maxImageExtent.height);
         }
 
-        u32 desiredImageCount = 2;
-        if (displayOptions.m_tripleBuffering != GraphicsCommon::SoftEnable::Disabled)
-        {
-            desiredImageCount++;
-        }
-        desiredImageCount = eastl::max(desiredImageCount, capabilities.m_surfaceCapabilities.minImageCount);
-        if (capabilities.m_surfaceCapabilities.minImageCount != 0)
-        {
-            desiredImageCount = eastl::min(desiredImageCount, capabilities.m_surfaceCapabilities.maxImageCount);
-        }
-        KE_ASSERT(desiredImageCount >= 3 || displayOptions.m_tripleBuffering != GraphicsCommon::SoftEnable::ForceEnabled);
+        // Strict: the buffering mode dictates the image count. A surface that cannot honour it is a hard error.
+        const u32 desiredImageCount = static_cast<u32>(_appInfo.m_bufferingMode);
+        KE_ASSERT_MSG(
+            desiredImageCount >= capabilities.m_surfaceCapabilities.minImageCount
+                && (capabilities.m_surfaceCapabilities.maxImageCount == 0
+                    || desiredImageCount <= capabilities.m_surfaceCapabilities.maxImageCount),
+            "Buffering mode requires %d swap chain images, surface supports [%d, %d]",
+            desiredImageCount,
+            capabilities.m_surfaceCapabilities.minImageCount,
+            capabilities.m_surfaceCapabilities.maxImageCount);
 
         eastl::vector<u32> queueFamilyIndices{};
         m_sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -196,7 +192,7 @@ namespace KryneEngine
         const VkDevice _device,
         const VkSurface& _surface,
         VkResources& _resources,
-        uint2 _framebufferSize,
+        const SwapChainDesc& _desc,
         const VkCommonStructures::QueueIndices& _queueIndices,
         const u64 _frameId)
     {
@@ -221,8 +217,8 @@ namespace KryneEngine
         else
         {
             extent = VkExtent2D {
-                _framebufferSize.x,
-                _framebufferSize.y
+                _desc.m_dimensions.x,
+                _desc.m_dimensions.y
             };
 
             extent.width = eastl::clamp(extent.width,

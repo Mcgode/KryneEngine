@@ -109,9 +109,8 @@ namespace KryneEngine
 
     VkGraphicsContext::VkGraphicsContext(
         const AllocatorInstance _allocator,
-        const GraphicsCommon::ApplicationInfo& _appInfo,
-        Window* _window)
-        : GraphicsContext(_allocator, _appInfo, _window)
+        const GraphicsCommon::ApplicationInfo& _appInfo)
+        : GraphicsContext(_allocator, _appInfo)
         , m_surface(_allocator)
         , m_swapChain(_allocator)
         , m_resources(_allocator)
@@ -169,11 +168,6 @@ namespace KryneEngine
             _SetupValidationLayersCallback();
         }
 
-        if (m_appInfo.m_features.m_present)
-        {
-            m_surface.Init(m_instance, _window->GetNativeHandle());
-        }
-
         _SelectPhysicalDevice();
 
         VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -185,11 +179,6 @@ namespace KryneEngine
         {
             m_gpuTimestampPeriod = physicalDeviceProperties.limits.timestampPeriod;
             m_supportsTimestampQueries = true;
-        }
-
-        if (m_appInfo.m_features.m_present)
-        {
-            m_surface.UpdateCapabilities(m_physicalDevice);
         }
 
         _CreateDevice();
@@ -215,28 +204,8 @@ namespace KryneEngine
         }
 #endif
 
-        if (m_appInfo.m_features.m_present)
-        {
-            m_swapChain.Init(
-                    m_appInfo,
-                    m_device,
-                    m_surface,
-                    m_resources,
-                    _window->GetFramebufferSize(),
-                    m_queueIndices,
-                    m_frameId);
-
-#if !defined(KE_FINAL)
-            m_swapChain.SetDebugHandler(m_debugHandler, m_device);
-#endif
-
-            m_frameContextCount = m_swapChain.m_currentSwapChain->m_renderTargetViews.Size();
-        }
-        else
-        {
-            // If no display, keep double buffering.
-            m_frameContextCount = 2;
-        }
+        // Frame context count is an explicit, strict choice — not negotiated against the swap chain.
+        m_frameContextCount = static_cast<u8>(m_appInfo.m_bufferingMode);
 
         {
             KE_ZoneScoped("Frame contexts init");
@@ -271,7 +240,7 @@ namespace KryneEngine
         }
         m_frameContexts.Clear();
 
-        if (m_appInfo.m_features.m_present)
+        if (m_swapChain.m_currentSwapChain != nullptr)
         {
             m_swapChain.Destroy(m_device, m_resources);
             m_surface.Destroy(m_instance);
@@ -329,6 +298,10 @@ namespace KryneEngine
     void VkGraphicsContext::InternalEndFrame()
     {
         KE_ZoneScopedFunction("VkGraphicsContext::EndFrame");
+
+        KE_ASSERT_MSG(
+            !m_appInfo.m_features.m_present || m_swapChain.m_currentSwapChain != nullptr,
+            "CreateSwapChain() must be called before the first presented EndFrame()");
 
         const u8 frameIndex = m_frameId % m_frameContextCount;
         auto& frameContext = m_frameContexts[frameIndex];
@@ -607,7 +580,7 @@ namespace KryneEngine
             bool suitable = true;
 
             auto placeholderQueueIndices = QueueIndices();
-            suitable &= _SelectQueues(m_appInfo, _physicalDevice, m_surface.GetSurface(), placeholderQueueIndices);
+            suitable &= _SelectQueues(m_appInfo, _physicalDevice, placeholderQueueIndices);
 
             for (const auto& extension: extensions)
             {
@@ -643,7 +616,6 @@ namespace KryneEngine
     bool VkGraphicsContext::_SelectQueues(
         const GraphicsCommon::ApplicationInfo &_appInfo,
         const VkPhysicalDevice &_physicalDevice,
-        const VkSurfaceKHR &_surface,
         QueueIndices &_indices)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::_SelectQueues");
@@ -740,33 +712,9 @@ namespace KryneEngine
             foundAll &= !_indices.m_computeQueueIndex.IsInvalid();
         }
 
-        if (features.m_present)
-        {
-            u8 topScore = 0;
-            s8 topIndex = QueueIndices::kInvalid;
-            for (s8 i = 0; i < familyProperties.Size(); i++)
-            {
-                const auto flags = familyProperties[i].queueFlags;
-                VkBool32 supported;
-                vkGetPhysicalDeviceSurfaceSupportKHR(_physicalDevice, i, _surface, &supported);
-                if (supported && GetIndexOfFamily(i) < familyProperties[i].queueCount)
-                {
-                    u8 score = 0;
-                    score += flags & VK_QUEUE_GRAPHICS_BIT ? 1 : 5;
-                    score += flags & VK_QUEUE_TRANSFER_BIT ? 1 : 4;
-                    score += flags & VK_QUEUE_COMPUTE_BIT ? 1 : 3;
-
-                    if (score > topScore)
-                    {
-                        topScore = score;
-                        topIndex = i;
-                    }
-                }
-            }
-            _indices.m_presentQueueIndex = {topIndex,
-                                            static_cast<s32>(GetIndexOfFamily(topIndex)++) };
-            foundAll &= !_indices.m_presentQueueIndex.IsInvalid();
-        }
+        // Presentation is done on the graphics queue: no dedicated
+        // present-only queue family exists on desktop, and this keeps device creation surface-free.
+        // m_presentQueueIndex is left invalid; m_presentQueue aliases m_graphicsQueue in _RetrieveQueues.
 
         return foundAll;
     }
@@ -778,7 +726,7 @@ namespace KryneEngine
         eastl::vector<VkDeviceQueueCreateInfo> queueCreateInfo(m_allocator);
         eastl::vector<eastl::vector<float>> queuePriorities(m_allocator);
 
-        KE_ASSERT(_SelectQueues(m_appInfo, m_physicalDevice, m_surface.GetSurface(), m_queueIndices));
+        KE_ASSERT(_SelectQueues(m_appInfo, m_physicalDevice, m_queueIndices));
         {
             const auto createQueueInfo = [&](const QueueIndices::Pair _index, const float _priority)
             {
@@ -813,7 +761,6 @@ namespace KryneEngine
             createQueueInfo(m_queueIndices.m_graphicsQueueIndex, 1.0);
             createQueueInfo(m_queueIndices.m_transferQueueIndex, 0.5);
             createQueueInfo(m_queueIndices.m_computeQueueIndex, 0.5);
-            createQueueInfo(m_queueIndices.m_presentQueueIndex, 1.0);
 
             for (u32 i = 0; i < queueCreateInfo.size(); i++)
             {
@@ -969,17 +916,60 @@ namespace KryneEngine
         RetrieveQueue(_queueIndices.m_graphicsQueueIndex, m_graphicsQueue);
         RetrieveQueue(_queueIndices.m_transferQueueIndex, m_transferQueue);
         RetrieveQueue(_queueIndices.m_computeQueueIndex, m_computeQueue);
-        RetrieveQueue(_queueIndices.m_presentQueueIndex, m_presentQueue);
+
+        // Present on the graphics queue.
+        m_presentQueue = m_graphicsQueue;
     }
 
-    bool VkGraphicsContext::ResizeSwapChain(Window* _window)
+    SwapChainHandle VkGraphicsContext::CreateSwapChain(const SwapChainDesc& _desc)
     {
+        KE_ASSERT_MSG(m_swapChain.m_currentSwapChain == nullptr, "VkGraphicsContext owns at most one swap chain");
+
+        m_swapChainDesc = _desc;
+
+        m_surface.Init(m_instance, _desc.m_nativeWindow);
+        m_surface.UpdateCapabilities(m_physicalDevice);
+
+        m_swapChain.Init(
+            m_appInfo,
+            m_device,
+            m_surface,
+            m_resources,
+            m_swapChainDesc,
+            m_queueIndices,
+            m_frameId);
+
+#if !defined(KE_FINAL)
+        m_swapChain.SetDebugHandler(m_debugHandler, m_device);
+#endif
+
+        KE_ASSERT_MSG(
+            m_swapChain.m_currentSwapChain->m_renderTargetViews.Size() == m_frameContextCount,
+            "Swap chain image count (%d) does not match the requested buffering mode (%d)",
+            m_swapChain.m_currentSwapChain->m_renderTargetViews.Size(),
+            m_frameContextCount);
+
+        return { { 0, 0 } };
+    }
+
+    void VkGraphicsContext::DestroySwapChain(SwapChainHandle _handle)
+    {
+        if (m_swapChain.m_currentSwapChain == nullptr)
+            return;
+
+        m_swapChain.Destroy(m_device, m_resources);
+        m_surface.Destroy(m_instance);
+    }
+
+    bool VkGraphicsContext::ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize)
+    {
+        m_swapChainDesc.m_dimensions = _newSize;
         m_surface.UpdateCapabilities(m_physicalDevice);
         return m_swapChain.RecreateSwapChain(
             m_device,
             m_surface,
             m_resources,
-            _window->GetFramebufferSize(),
+            m_swapChainDesc,
             m_queueIndices,
             m_frameId);
     }

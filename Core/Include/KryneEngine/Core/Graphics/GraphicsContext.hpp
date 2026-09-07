@@ -9,14 +9,23 @@
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
+#include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
 #include "KryneEngine/Core/Graphics/Texture.hpp"
+#include "KryneEngine/Core/Math/Vector.hpp"
+#include "KryneEngine/Core/Window/NativeWindowHandle.hpp"
 
 namespace KryneEngine
 {
-    namespace GraphicsCommon
+    /// @brief Parameters for @ref GraphicsContext::CreateSwapChain.
+    struct SwapChainDesc
     {
-        struct ApplicationInfo;
-    }
+        /// @brief The native OS window the swap chain presents to (see @ref Window::GetNativeHandle).
+        NativeWindowHandle m_nativeWindow;
+        /// @brief Framebuffer size, in pixels (the window's actual backing size).
+        uint2 m_dimensions;
+        /// @brief Presentation preferences (colour space, ...). See @ref GraphicsCommon::DisplayOptions.
+        GraphicsCommon::DisplayOptions m_displayOptions;
+    };
 
     struct BufferCopyParameters;
     struct BufferCreateDesc;
@@ -81,11 +90,13 @@ namespace KryneEngine
          *
          * @details
          * This factory method selects and initializes the appropriate graphics API implementation
-         * (Vulkan, DirectX 12 or Metal) based on `_appInfo`, creates the associated swap chain for `_window`,
-         * and performs an initial CPU/GPU clock calibration (see #CalibrateCpuGpuClocks).
+         * (Vulkan, DirectX 12 or Metal) based on `_appInfo`, and performs an initial CPU/GPU clock
+         * calibration (see #CalibrateCpuGpuClocks).
+         *
+         * The context is created without any presentation surface. When `_appInfo.m_features.m_present`
+         * is set, the caller must call #CreateSwapChain before rendering a presented frame.
          *
          * @param _appInfo Application and engine metadata, along with requested features and display options.
-         * @param _window The application's main window, used to create the presentation surface/swap chain.
          * @param _allocator The memory allocator instance to use for all resources created by this context.
          *
          * @return A pointer to the newly created `GraphicsContext`. Ownership is transferred to the caller,
@@ -93,7 +104,6 @@ namespace KryneEngine
          */
         static GraphicsContext* Create(
             const GraphicsCommon::ApplicationInfo& _appInfo,
-            Window* _window,
             AllocatorInstance _allocator);
 
         /**
@@ -139,13 +149,36 @@ namespace KryneEngine
          * @brief Finalizes the current frame and moves on to the next one.
          *
          * @details
-         * This submits any remaining recorded work, presents the swap chain image(s), and increments
-         * #GetFrameId. It should be called once per application update loop iteration, after all the
-         * frame's command lists have been recorded and ended.
+         * This submits any remaining recorded work, presents the swap chain image (if one exists), and
+         * increments #GetFrameId. It should be called once per application update loop iteration, after
+         * all the frame's command lists have been recorded and ended.
          *
-         * @return `true` if the frame was successfully ended, `false` otherwise.
+         * @note This no longer pumps window events — the application drives its `Window` /
+         * `WindowManager` message loop itself.
          */
-        bool EndFrame();
+        void EndFrame();
+
+        /**
+         * @brief Creates the presentation swap chain for a window.
+         *
+         * @details
+         * Must be called once after #Create when `ApplicationInfo::m_features::m_present` is set, before
+         * the first presented #EndFrame. The swap chain image count is dictated by
+         * `ApplicationInfo::m_bufferingMode`; a window/surface that cannot honour it is a hard error.
+         *
+         * @note Scoped-phase limitation: a context currently owns at most one swap chain.
+         */
+        [[nodiscard]] virtual SwapChainHandle CreateSwapChain(const SwapChainDesc& _desc) = 0;
+
+        /**
+         * @brief Destroys a swap chain previously created with #CreateSwapChain.
+         *
+         * @note The user is responsible for ensuring that the swap chain is not currently in use by the GPU.
+         */
+        virtual void DestroySwapChain(SwapChainHandle _handle) = 0;
+
+        /// @brief Recreates the swap chain's images at a new size (e.g. after a window resize).
+        virtual bool ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize) = 0;
 
         /**
          * @brief Blocks the calling thread until the previous frame has finished executing on the GPU.
@@ -209,19 +242,15 @@ namespace KryneEngine
          *
          * @param _allocator The memory allocator instance to use for all resources created by this context.
          * @param _appInfo Application and engine metadata, along with requested features and display options.
-         * @param _window The application's main window, used to create the presentation surface/swap chain.
          */
         GraphicsContext(
             AllocatorInstance _allocator,
-            const GraphicsCommon::ApplicationInfo& _appInfo,
-            Window* _window);
+            const GraphicsCommon::ApplicationInfo& _appInfo);
 
         /// @brief Application and engine metadata, along with requested features and display options.
         GraphicsCommon::ApplicationInfo m_appInfo;
         /// @brief The memory allocator instance used for all resources created by this context.
         AllocatorInstance m_allocator;
-        /// @brief The application's main window, associated with the presentation surface/swap chain.
-        Window* m_window;
 
         /// @brief The initial value of #m_frameId when the context is created.
         static constexpr u64 kInitialFrameId = 1;
@@ -244,22 +273,6 @@ namespace KryneEngine
         virtual void WaitForFrame(u64 _frameId) const = 0;
 
     public:
-        /**
-         * @brief Tries to resize the swap chain associated with the specified window.
-         *
-         * @details
-         * This method adjusts the swap chain's dimensions to match the updated size of the provided window.
-         * It is typically called in response to a window resize event or similar scenarios where the
-         * rendering surface needs to accommodate a new size.
-         *
-         * The process may fail to resize the swap chain because there is another resizing ongoing.
-         *
-         * @param _window A pointer to the window associated with the swap chain to be resized.
-         *
-         * @return Returns true if the swap chain was successfully resized; otherwise, false.
-         */
-        virtual bool ResizeSwapChain(Window* _window) = 0;
-
         /**
          * @brief Creates a GPU buffer according to the given description (size, usage, memory type, etc.).
          *

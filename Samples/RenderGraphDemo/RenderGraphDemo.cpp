@@ -51,13 +51,19 @@ int main()
     appInfo.m_api = GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
-    Window mainWindow(appInfo, allocator);
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    const GraphicsCommon::DisplayOptions displayOptions {};
+    Window mainWindow(appInfo.m_applicationName, displayOptions, allocator);
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow.GetNativeHandle(),
+        .m_dimensions = mainWindow.GetFramebufferSize(),
+        .m_displayOptions = displayOptions,
+    });
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 
     RenderGraph::RenderGraph renderGraph {};
-    SceneManager sceneManager(allocator, mainWindow, renderGraph.GetRegistry());
+    SceneManager sceneManager(allocator, mainWindow, graphicsContext, renderGraph.GetRegistry());
 
     DeferredShadowPass deferredShadowPass { allocator };
     GiPass giPass { allocator };
@@ -299,7 +305,7 @@ int main()
         .m_colorFormats = { graphicsContext->GetPresentTextureFormat() },
     });
 
-    do
+    while (mainWindow.WaitForEvents())
     {
         if (imGuiContext == nullptr)
         {
@@ -307,11 +313,12 @@ int main()
 
             imGuiContext = allocator.New<Modules::ImGui::Context>(
                 &mainWindow,
+                graphicsContext,
                 graphicsContext->GetPresentTextureFormat(),
                 allocator);
         }
 
-        imGuiContext->NewFrame(&mainWindow);
+        imGuiContext->NewFrame(&mainWindow, graphicsContext);
 
         {
             const DescriptorSetHandle sceneConstantsDescriptorSet =
@@ -516,14 +523,20 @@ int main()
 
             renderGraph.SubmitFrame(*graphicsContext, nullptr);
         }
+
+        graphicsContext->EndFrame();
     }
-    while (graphicsContext->EndFrame());
+
+    graphicsContext->WaitForLastFrame();
 
     if (imGuiContext)
     {
-        imGuiContext->Shutdown(&mainWindow);
+        imGuiContext->Shutdown(&mainWindow, graphicsContext);
         allocator.Delete(imGuiContext);
     }
+
+    graphicsContext->DestroySwapChain(swapChain);
+    GraphicsContext::Destroy(graphicsContext);
 
     return 0;
 }

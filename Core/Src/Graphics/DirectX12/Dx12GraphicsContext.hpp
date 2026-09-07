@@ -38,8 +38,7 @@ namespace KryneEngine
     public:
         explicit Dx12GraphicsContext(
             AllocatorInstance _allocator,
-            const GraphicsCommon::ApplicationInfo& _appInfo,
-            Window* _window);
+            const GraphicsCommon::ApplicationInfo& _appInfo);
 
         virtual ~Dx12GraphicsContext();
 
@@ -55,6 +54,7 @@ namespace KryneEngine
         void WaitForFrame(u64 _frameId) const override;
 
     private:
+        ComPtr<IDXGIFactory4> m_factory;
         ComPtr<ID3D12Device> m_device;
 
         ComPtr<ID3D12CommandQueue> m_directQueue;
@@ -105,6 +105,10 @@ namespace KryneEngine
 
         [[nodiscard]] RenderTargetViewHandle CreateRenderTargetView(const RenderTargetViewDesc& _desc) override;
         bool DestroyRenderTargetView(RenderTargetViewHandle _rtv) override;
+
+        [[nodiscard]] SwapChainHandle CreateSwapChain(const SwapChainDesc& _desc) override;
+        void DestroySwapChain(SwapChainHandle _handle) override;
+        bool ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize) override;
 
         [[nodiscard]] RenderTargetViewHandle GetPresentRenderTargetView(u8 _index) override;
         [[nodiscard]] TextureHandle GetPresentTexture(u8 _swapChainIndex) override;

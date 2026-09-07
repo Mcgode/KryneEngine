@@ -10,6 +10,7 @@
 
 #include "Graphics/Metal/MetalTypes.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
+#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
 #include "KryneEngine/Core/Memory/DynamicArray.hpp"
@@ -17,7 +18,6 @@
 namespace KryneEngine
 {
     class MetalResources;
-    class Window;
 
     class MetalSwapChain
     {
@@ -29,11 +29,11 @@ namespace KryneEngine
             AllocatorInstance _allocator,
             MTL::Device& _device,
             const GraphicsCommon::ApplicationInfo& _appInfo,
-            const Window* _window,
+            const SwapChainDesc& _desc,
             MetalResources& _resources,
             u8 _initialFrameIndex);
 
-        void Resize(Window* _window);
+        void Resize(uint2 _newSize);
 
         void UpdateNextDrawable(u8 _frameIndex, MetalResources& _resources);
 

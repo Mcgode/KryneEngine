@@ -18,13 +18,15 @@
 #endif
 #include <GLFW/glfw3native.h>
 
-#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
 #include "KryneEngine/Core/Window/Input/InputManager.hpp"
 
 namespace KryneEngine
 {
-    Window::Window(const GraphicsCommon::ApplicationInfo &_appInfo, const AllocatorInstance _allocator)
+    Window::Window(
+        const eastl::string_view& _title,
+        const GraphicsCommon::DisplayOptions& _displayOptions,
+        const AllocatorInstance _allocator)
         : m_allocator(_allocator)
         , m_windowFocusEventListeners(_allocator)
         , m_dpiChangeEventListeners(_allocator)
@@ -38,7 +40,7 @@ namespace KryneEngine
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        const auto& displayInfo = _appInfo.m_displayOptions;
+        const auto& displayInfo = _displayOptions;
 
         glfwWindowHint(GLFW_RESIZABLE, displayInfo.m_resizableWindow);
 
@@ -47,13 +49,11 @@ namespace KryneEngine
 
             m_glfwWindow = glfwCreateWindow(displayInfo.m_width,
                                             displayInfo.m_height,
-                                            _appInfo.m_applicationName.c_str(),
+                                            _title.data(),
                                             nullptr,
                                             nullptr);
         }
         glfwSetWindowUserPointer(m_glfwWindow, this);
-
-        m_graphicsContext = GraphicsContext::Create(_appInfo, this, _allocator);
 
         {
             KE_ZoneScoped("Input management init");
@@ -71,7 +71,6 @@ namespace KryneEngine
     Window::~Window()
     {
         m_allocator.Delete(m_inputManager);
-        GraphicsContext::Destroy(m_graphicsContext);
 
         glfwDestroyWindow(m_glfwWindow);
         glfwTerminate();

@@ -61,8 +61,14 @@ s32 main(s32 argc, const char** argv)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
-    Window mainWindow(appInfo, allocator);
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    const GraphicsCommon::DisplayOptions displayOptions {};
+    Window mainWindow(appInfo.m_applicationName, displayOptions, allocator);
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow.GetNativeHandle(),
+        .m_dimensions = mainWindow.GetFramebufferSize(),
+        .m_displayOptions = displayOptions,
+    });
 
     TextureGenerator textureGenerator { allocatorInstance, 33 };
     SamplerHandle sampler = graphicsContext->CreateSampler({
@@ -117,7 +123,7 @@ s32 main(s32 argc, const char** argv)
 
     UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, graphicsContext->GetPresentTextureFormat(), &msdfAtlasManager };
 
-    do
+    while (mainWindow.WaitForEvents())
     {
         KE_ZoneScoped("Render loop");
 
@@ -299,10 +305,12 @@ s32 main(s32 argc, const char** argv)
         graphicsContext->EndTransferPass(transferEncoder);
         graphicsContext->EndGraphicsCommandList(transferCommandList);
         graphicsContext->EndGraphicsCommandList(renderCommandList);
+
+        graphicsContext->EndFrame();
     }
-    while (graphicsContext->EndFrame());
 
     clayContext.Destroy();
+    graphicsContext->DestroySwapChain(swapChain);
     GraphicsContext::Destroy(graphicsContext);
 
     return 0;

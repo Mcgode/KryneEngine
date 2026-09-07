@@ -19,14 +19,16 @@ struct GLFWwindow;
 
 namespace KryneEngine
 {
-    class GraphicsContext;
     class InputManager;
 
     class Window
     {
     public:
 
-        explicit Window(const GraphicsCommon::ApplicationInfo& _appInfo, AllocatorInstance _allocator);
+        Window(
+            const eastl::string_view& _title,
+            const GraphicsCommon::DisplayOptions& _displayOptions,
+            AllocatorInstance _allocator);
 
         virtual ~Window();
 
@@ -35,7 +37,6 @@ namespace KryneEngine
 
         /// @brief Retrieves the native OS handles backing this window (see @ref NativeWindowHandle).
         [[nodiscard]] NativeWindowHandle GetNativeHandle() const;
-        [[nodiscard]] GraphicsContext* GetGraphicsContext() const { return m_graphicsContext; }
         [[nodiscard]] InputManager* GetInputManager() const { return m_inputManager; }
 
         uint2 GetFramebufferSize() const;
@@ -55,7 +56,6 @@ namespace KryneEngine
         AllocatorInstance m_allocator;
         GLFWwindow* m_glfwWindow;
 
-        GraphicsContext* m_graphicsContext;
         InputManager* m_inputManager;
 
         uint2 m_previousFramebufferSize;

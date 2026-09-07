@@ -40,6 +40,10 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("MetalGraphicsContext::EndFrame");
 
+        KE_ASSERT_MSG(
+            !m_appInfo.m_features.m_present || m_swapChainActive,
+            "CreateSwapChain() must be called before the first presented EndFrame()");
+
         // Finish current frame and commit
         {
             KE_ZoneScoped("Finish current frame and commit");
@@ -49,7 +53,7 @@ namespace KryneEngine
             const u8 frameIndex = m_frameId % m_frameContextCount;
             MetalFrameContext& frameContext = m_frameContexts[frameIndex];
 
-            if (m_appInfo.m_features.m_present)
+            if (m_swapChainActive)
             {
                 drawable = m_swapChain.GetDrawable();
                 m_graphicsQueue->wait(drawable);
@@ -89,7 +93,7 @@ namespace KryneEngine
 
             m_byteUploader->Reset(newFrameIndex);
 
-            if (m_appInfo.m_features.m_present)
+            if (m_swapChainActive)
             {
                 KE_ZoneScoped("Retrieve next drawable");
                 m_swapChain.UpdateNextDrawable(newFrameIndex, m_resources);
@@ -138,9 +142,32 @@ namespace KryneEngine
         }
     }
 
-    bool MetalGraphicsContext::ResizeSwapChain(Window* _window)
+    SwapChainHandle MetalGraphicsContext::CreateSwapChain(const SwapChainDesc& _desc)
     {
-        m_swapChain.Resize(_window);
+        KE_ASSERT_MSG(!m_swapChainActive, "MetalGraphicsContext owns at most one swap chain");
+
+        const u8 frameIndex = m_frameId % m_frameContextCount;
+        m_swapChain.Init(m_allocator, *m_device, m_appInfo, _desc, m_resources, frameIndex);
+        m_swapChainActive = true;
+
+        KE_ASSERT_MSG(
+            m_swapChain.m_textures.Size() == m_frameContextCount,
+            "Swap chain image count (%d) does not match the requested buffering mode (%d)",
+            m_swapChain.m_textures.Size(),
+            m_frameContextCount);
+
+        return { { 0, 0 } };
+    }
+
+    void MetalGraphicsContext::DestroySwapChain(SwapChainHandle _handle)
+    {
+        // MetalSwapChain has no explicit teardown; drawables/layer are released with the context.
+        m_swapChainActive = false;
+    }
+
+    bool MetalGraphicsContext::ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize)
+    {
+        m_swapChain.Resize(_newSize);
         return true;
     }
 

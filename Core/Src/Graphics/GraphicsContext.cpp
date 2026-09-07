@@ -9,7 +9,6 @@
 #include "KryneEngine/Core/Graphics/EnumHelpers.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
 #include "KryneEngine/Core/Profiling/TracyGpuProfilerContext.hpp"
-#include "KryneEngine/Core/Window/Window.hpp"
 
 #if defined(KE_GRAPHICS_API_VK)
 #   include "Graphics/Vulkan/VkGraphicsContext.hpp"
@@ -34,10 +33,9 @@ namespace KryneEngine
 
     GraphicsContext* GraphicsContext::Create(
         const GraphicsCommon::ApplicationInfo& _appInfo,
-        Window* _window,
         AllocatorInstance _allocator)
     {
-        auto* context = _allocator.New<Implementation>(_allocator, _appInfo, _window);
+        auto* context = _allocator.New<Implementation>(_allocator, _appInfo);
 #if defined(TRACY_ENABLE)
         context->m_profilerContext = context->m_allocator.New<TracyGpuProfilerContext>(
             _allocator, context->GetFrameContextCount());
@@ -54,18 +52,10 @@ namespace KryneEngine
         _context->m_allocator.Delete(reinterpret_cast<Implementation*>(_context));;
     }
 
-    bool GraphicsContext::EndFrame()
+    void GraphicsContext::EndFrame()
     {
         InternalEndFrame();
         m_frameId++;
-        if (m_window == nullptr)
-        {
-            return false;
-        }
-        else
-        {
-            return m_window->WaitForEvents();
-        }
     }
 
     const char* GraphicsContext::GetShaderFileExtension()
@@ -84,10 +74,8 @@ namespace KryneEngine
 
     GraphicsContext::GraphicsContext(
         AllocatorInstance _allocator,
-        const GraphicsCommon::ApplicationInfo& _appInfo,
-        Window* _window)
+        const GraphicsCommon::ApplicationInfo& _appInfo)
         : m_appInfo(_appInfo)
-        , m_window(_window)
         , m_allocator(_allocator)
         , m_frameId(kInitialFrameId)
     {}

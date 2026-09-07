@@ -37,6 +37,7 @@ namespace KryneEngine::Modules::ImGui
 
     Context::Context(
         Window* _window,
+        GraphicsContext* _graphicsContext,
         const TextureFormat _targetFormat,
         AllocatorInstance _allocator,
         const eastl::span<char> _vsBytecode,
@@ -51,7 +52,7 @@ namespace KryneEngine::Modules::ImGui
 
         m_context = ::ImGui::CreateContext();
 
-        GraphicsContext* graphicsContext = _window->GetGraphicsContext();
+        GraphicsContext* graphicsContext = _graphicsContext;
 
         ImGuiIO& io = ::ImGui::GetIO();
         io.BackendRendererUserData = nullptr;
@@ -118,11 +119,11 @@ namespace KryneEngine::Modules::ImGui
         KE_ASSERT_MSG(m_context == nullptr, "ImGui module was not shut down");
     }
 
-    void Context::Shutdown(Window* _window)
+    void Context::Shutdown(Window* _window, GraphicsContext* _graphicsContext)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextShutdown");
 
-        GraphicsContext* graphicsContext = _window->GetGraphicsContext();
+        GraphicsContext* graphicsContext = _graphicsContext;
 
         for (const auto& stagingBuffer: m_systemsTexturesStagingBuffers)
         {
@@ -172,7 +173,7 @@ namespace KryneEngine::Modules::ImGui
         m_context = nullptr;
     }
 
-    void Context::NewFrame(Window* _window)
+    void Context::NewFrame(Window* _window, GraphicsContext* _graphicsContext)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextNewFrame");
 
@@ -184,7 +185,7 @@ namespace KryneEngine::Modules::ImGui
             const float2 dpiScale { _window->GetDpiScale() };
             io.DisplayFramebufferScale = { dpiScale.x, dpiScale.y };
 
-            const float2 framebufferSize { _window->GetGraphicsContext()->GetPresentFrameBufferSize() };
+            const float2 framebufferSize { _graphicsContext->GetPresentFrameBufferSize() };
             io.DisplaySize = { framebufferSize.x / dpiScale.x, framebufferSize.y / dpiScale.y };
         }
 

@@ -26,9 +26,8 @@ namespace KryneEngine
 {
     Dx12GraphicsContext::Dx12GraphicsContext(
         AllocatorInstance _allocator,
-        const GraphicsCommon::ApplicationInfo& _appInfo,
-        Window* _window)
-        : GraphicsContext(_allocator, _appInfo, _window)
+        const GraphicsCommon::ApplicationInfo& _appInfo)
+        : GraphicsContext(_allocator, _appInfo)
         , m_swapChain(_allocator)
         , m_frameContexts(_allocator)
         , m_resources(_allocator)
@@ -56,27 +55,13 @@ namespace KryneEngine
 #endif
 
         Dx12Assert(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory4)));
+        m_factory = factory4;
 
         _CreateDevice(factory4.Get());
         _CreateCommandQueues();
 
-        if (m_appInfo.m_features.m_present)
-        {
-            m_swapChain.Init(
-                m_appInfo,
-                _window,
-                factory4.Get(),
-                m_device.Get(),
-                m_directQueue.Get(),
-                m_resources);
-
-            m_frameContextCount = m_swapChain.m_renderTargetViews.Size();
-        }
-        else
-        {
-            // If no display, remain on double buffering.
-            m_frameContextCount = 2;
-        }
+        // Frame context count is an explicit, strict choice — not negotiated against the swap chain.
+        m_frameContextCount = static_cast<u8>(m_appInfo.m_bufferingMode);
 
         m_resources.InitHeaps(m_device.Get());
 
@@ -157,7 +142,7 @@ namespace KryneEngine
 
         m_frameContexts.Clear();
 
-        if (m_appInfo.m_features.m_present)
+        if (m_swapChain.m_swapChain != nullptr)
         {
             m_swapChain.Destroy(m_resources);
         }
@@ -195,6 +180,10 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::EndFrame");
 
+        KE_ASSERT_MSG(
+            !m_appInfo.m_features.m_present || m_swapChain.m_swapChain != nullptr,
+            "CreateSwapChain() must be called before the first presented EndFrame()");
+
         const u8 frameIndex = m_frameId % m_frameContextCount;
 
         auto& frameContext = m_frameContexts[frameIndex];
@@ -230,7 +219,7 @@ namespace KryneEngine
         }
 
         // Present the frame (if applicable)
-        if (m_appInfo.m_features.m_present)
+        if (m_swapChain.m_swapChain != nullptr)
         {
             m_swapChain.Present();
         }
@@ -540,6 +529,42 @@ namespace KryneEngine
         return m_appInfo.m_features.m_present
             ? m_swapChain.GetPresentTextureFormat()
             : TextureFormat::NoFormat;
+    }
+
+    SwapChainHandle Dx12GraphicsContext::CreateSwapChain(const SwapChainDesc& _desc)
+    {
+        KE_ASSERT_MSG(m_swapChain.m_swapChain == nullptr, "Dx12GraphicsContext owns at most one swap chain");
+
+        m_swapChain.Init(
+            m_appInfo,
+            _desc,
+            m_factory.Get(),
+            m_device.Get(),
+            m_directQueue.Get(),
+            m_resources);
+
+        KE_ASSERT_MSG(
+            m_swapChain.m_renderTargetViews.Size() == m_frameContextCount,
+            "Swap chain image count (%d) does not match the requested buffering mode (%d)",
+            m_swapChain.m_renderTargetViews.Size(),
+            m_frameContextCount);
+
+        return { { 0, 0 } };
+    }
+
+    void Dx12GraphicsContext::DestroySwapChain(SwapChainHandle _handle)
+    {
+        if (m_swapChain.m_swapChain == nullptr)
+            return;
+
+        m_swapChain.Destroy(m_resources);
+    }
+
+    bool Dx12GraphicsContext::ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize)
+    {
+        // TODO: implement DXGI ResizeBuffers + RTV recreation (no callers yet in scoped phase 2).
+        KE_ERROR("Dx12GraphicsContext::ResizeSwapChain is not implemented");
+        return false;
     }
 
     RenderPassHandle Dx12GraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)

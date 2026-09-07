@@ -39,6 +39,39 @@ namespace KryneEngine::GraphicsCommon
         ForceEnabled
     };
 
+    /**
+     * @brief Number of frames the engine keeps in flight (and hence the swap chain image count).
+     *
+     * @details
+     * A strict, explicit choice — it drives `GraphicsContext::GetFrameContextCount()` and is *not*
+     * negotiated against window/surface capabilities. Creating a swap chain that cannot honour the
+     * requested count is a hard error. The underlying value is the count itself.
+     */
+    enum class BufferingMode : u8
+    {
+        Single = 1,
+        Double = 2,
+        Triple = 3,
+    };
+
+    /**
+     * @brief Window / presentation-surface preferences.
+     *
+     * @details
+     * Independent of @ref ApplicationInfo — the same struct is passed to window creation
+     * (size, decorations) and to @ref GraphicsContext::CreateSwapChain (colour space).
+     */
+    struct DisplayOptions
+    {
+        u16 m_width = 1280;
+        u16 m_height = 720;
+
+        SoftEnable m_sRgbPresent = SoftEnable::TryEnable;
+
+        bool m_fullscreen = false;
+        bool m_resizableWindow = false;
+    };
+
     struct ApplicationInfo
     {
         eastl::string m_applicationName = "Unnamed app";
@@ -46,6 +79,8 @@ namespace KryneEngine::GraphicsCommon
 
         Version m_engineVersion { 1, 0, 0 };
         Api m_api = Api::None;
+
+        BufferingMode m_bufferingMode = BufferingMode::Double;
 
         struct Features
         {
@@ -64,19 +99,6 @@ namespace KryneEngine::GraphicsCommon
             bool m_concurrentQueues = true;
         }
         m_features {};
-
-        struct DisplayOptions
-        {
-            u16 m_width = 1280;
-            u16 m_height = 720;
-
-            SoftEnable m_sRgbPresent = SoftEnable::TryEnable;
-            SoftEnable m_tripleBuffering = SoftEnable::TryEnable;
-
-            bool m_fullscreen = false;
-            bool m_resizableWindow = false;
-        }
-        m_displayOptions {};
 
         [[nodiscard]] bool IsVulkanApi() const
         {

@@ -43,6 +43,7 @@ namespace KryneEngine::Modules::ImGui
          */
         Context(
             Window* _window,
+            GraphicsContext* _graphicsContext,
             TextureFormat _targetFormat,
             AllocatorInstance _allocator,
             eastl::span<char> _vsBytecode = {},
@@ -59,7 +60,7 @@ namespace KryneEngine::Modules::ImGui
          *
          * @param _window The Window object associated with this Context, which indirectly owns the objects.
          */
-        void Shutdown(Window* _window);
+        void Shutdown(Window* _window, GraphicsContext* _graphicsContext);
 
         /**
          * Sets up the ImGui context for a new frame.
@@ -67,7 +68,7 @@ namespace KryneEngine::Modules::ImGui
          *
          * @param _window The Window object.
          */
-        void NewFrame(Window* _window);
+        void NewFrame(Window* _window, GraphicsContext* _graphicsContext);
 
         /**
          * @brief Prepares the rendering context for a new frame by updating the vertex and index buffers.

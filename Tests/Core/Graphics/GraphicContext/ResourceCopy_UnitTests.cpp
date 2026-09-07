@@ -24,7 +24,7 @@ namespace KryneEngine::Tests::Graphics
 
         ScopedAssertCatcher catcher;
         const GraphicsCommon::ApplicationInfo appInfo = DefaultAppInfo();
-        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
 
         constexpr size_t payload = 0x0123456789abcdef;
 
@@ -127,7 +127,7 @@ namespace KryneEngine::Tests::Graphics
 
         ScopedAssertCatcher catcher;
         const GraphicsCommon::ApplicationInfo appInfo = DefaultAppInfo();
-        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
 
         constexpr size_t payload = 0x0123456789abcdef;
 
@@ -272,7 +272,7 @@ namespace KryneEngine::Tests::Graphics
 
         ScopedAssertCatcher catcher;
         const GraphicsCommon::ApplicationInfo appInfo = DefaultAppInfo();
-        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
 
         constexpr size_t payload = 0x0123456789abcdef;
 

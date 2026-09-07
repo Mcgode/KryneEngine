@@ -8,12 +8,11 @@
 
 #include "Graphics/DirectX12/Dx12Headers.hpp"
 #include "Graphics/DirectX12/Dx12Resources.h"
+#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Memory/DynamicArray.hpp"
 
 namespace KryneEngine
 {
-    class Window;
-
     class Dx12SwapChain
     {
         friend class Dx12GraphicsContext;
@@ -24,7 +23,7 @@ namespace KryneEngine
 
         void Init(
             const GraphicsCommon::ApplicationInfo &_appInfo,
-            const Window* _processWindow,
+            const SwapChainDesc& _desc,
             IDXGIFactory4 *_factory,
             ID3D12Device *_device,
             ID3D12CommandQueue *_directQueue,

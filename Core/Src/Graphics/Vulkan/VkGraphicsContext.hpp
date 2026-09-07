@@ -40,8 +40,7 @@ namespace KryneEngine
     public:
         explicit VkGraphicsContext(
             AllocatorInstance _allocator,
-            const GraphicsCommon::ApplicationInfo& _appInfo,
-            Window* _window);
+            const GraphicsCommon::ApplicationInfo& _appInfo);
 
         virtual ~VkGraphicsContext();
 
@@ -65,6 +64,7 @@ namespace KryneEngine
 
         VkSurface m_surface;
         VkSwapChain m_swapChain;
+        SwapChainDesc m_swapChainDesc {};
 
         VkCommonStructures::QueueIndices m_queueIndices {};
         VkQueue m_graphicsQueue {};
@@ -115,14 +115,15 @@ namespace KryneEngine
         bool _SelectQueues(
             const GraphicsCommon::ApplicationInfo &_appInfo,
             const VkPhysicalDevice &_physicalDevice,
-            const VkSurfaceKHR &_surface,
             VkCommonStructures::QueueIndices &_indices);
 
         void _CreateDevice();
         void _RetrieveQueues(const VkCommonStructures::QueueIndices &_queueIndices);
 
     public:
-        bool ResizeSwapChain(Window* _window) override;
+        [[nodiscard]] SwapChainHandle CreateSwapChain(const SwapChainDesc& _desc) override;
+        void DestroySwapChain(SwapChainHandle _handle) override;
+        bool ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize) override;
 
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
         [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;

@@ -323,8 +323,14 @@ int main()
     appInfo.m_applicationName += " - Metal";
 #endif
 
-    Window mainWindow(appInfo, AllocatorInstance());
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    const GraphicsCommon::DisplayOptions displayOptions {};
+    Window mainWindow(appInfo.m_applicationName, displayOptions, AllocatorInstance());
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
+    const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow.GetNativeHandle(),
+        .m_dimensions = mainWindow.GetFramebufferSize(),
+        .m_displayOptions = displayOptions,
+    });
 
     // Declare resources
     DynamicArray<RenderPassHandle> renderPassHandles;
@@ -342,7 +348,7 @@ int main()
 
     const u64 stagingFrame = graphicsContext->GetFrameId();
 
-    do
+    while (mainWindow.WaitForEvents())
     {
         KE_ZoneScoped("Main loop");
 
@@ -385,6 +391,11 @@ int main()
         }
 
         graphicsContext->EndGraphicsCommandList(commandList);
+
+        graphicsContext->EndFrame();
     }
-    while (graphicsContext->EndFrame());
+
+    graphicsContext->WaitForLastFrame();
+    graphicsContext->DestroySwapChain(swapChain);
+    GraphicsContext::Destroy(graphicsContext);
 }
