@@ -598,11 +598,21 @@ namespace KryneEngine
     RenderCommandEncoderHandle Dx12GraphicsContext::BeginRenderPass(
         CommandListHandle _commandList,
         const RenderPassHandle _renderPass,
+            const MemoryBarriers& _barriers,
         const eastl::string_view /* _debugName */)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::BeginRenderPass");
 
         auto commandList = static_cast<CommandList>(_commandList);
+
+        // Resource barriers are illegal inside a D3D12 render pass, so pass-entry barriers
+        // (transitioning resources the pass will read) are recorded before BeginRenderPass.
+        if (!_barriers.m_globalBarriers.empty()
+            || !_barriers.m_bufferBarriers.empty()
+            || !_barriers.m_textureBarriers.empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, _barriers);
+        }
 
         const auto* desc = m_resources.m_renderPasses.Get(_renderPass.m_handle);
         VERIFY_OR_RETURN(desc != nullptr, { nullptr });
@@ -906,6 +916,24 @@ namespace KryneEngine
         PlaceMemoryBarriers(commandList, {}, {}, barriers);
 
         m_currentRenderPass = GenPool::kInvalidHandle;
+    }
+
+    ComputeCommandEncoderHandle Dx12GraphicsContext::BeginComputePass(
+        CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view /* _debugName */)
+    {
+        PlaceMemoryBarriers({ _commandList }, _barriers);
+        return { _commandList };
+    }
+
+    TransferCommandEncoderHandle Dx12GraphicsContext::BeginTransferPass(
+        CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view /* _debugName */)
+    {
+        PlaceMemoryBarriers({ _commandList }, _barriers);
+        return { _commandList };
     }
 
     void Dx12GraphicsContext::SetTextureData(

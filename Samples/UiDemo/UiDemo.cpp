@@ -135,7 +135,10 @@ s32 main(s32 argc, const char** argv)
 
         {
             KE_ZoneScoped("Texture upload");
-            const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(transferCommandList, "Texture upload pass");
+            const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+                transferCommandList,
+                {},
+                "Texture upload pass");
             textureGenerator.HandleUpload(*graphicsContext, transferEncoder);
             graphicsContext->EndTransferPass(transferEncoder);
         }
@@ -292,8 +295,15 @@ s32 main(s32 argc, const char** argv)
         }
 
         const RenderPassHandle currentPass = renderPassHandles[graphicsContext->GetCurrentPresentImageIndex()];
-        const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(renderCommandList, currentPass, "UI render pass");
-        const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(transferCommandList, "UI transfer pass");
+        const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
+            renderCommandList,
+            currentPass,
+            {},
+            "UI render pass");
+        const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+            transferCommandList,
+            {},
+            "UI transfer pass");
 
         clayContext.EndLayout(*graphicsContext, transferEncoder, renderEncoder);
 

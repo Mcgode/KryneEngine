@@ -227,7 +227,10 @@ void PrepareBuffers(
             // command buffers for each trivial operation, and group them into one single buffer.
 
             CommandListHandle commandList = _graphicsContext.BeginGraphicsCommandList();
-            TransferCommandEncoderHandle transferEncoder = _graphicsContext.BeginTransferPass(commandList, "Initial upload pass");
+            TransferCommandEncoderHandle transferEncoder = _graphicsContext.BeginTransferPass(
+                commandList,
+                {},
+                "Initial upload pass");
 
             {
                 KE_GpuZoneScoped(&_graphicsContext, _graphicsContext.GetProfilerContext(), commandList, "PrepareBuffers");
@@ -364,7 +367,11 @@ int main()
             KE_GpuZoneScoped(graphicsContext, graphicsContext->GetProfilerContext(), commandList, "Main loop");
 
             const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index], "Render pass");
+            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
+                commandList,
+                renderPassHandles[index],
+                {},
+                "Render pass");
 
             graphicsContext->SetVertexBuffers(renderEncoder, {&vertexBufferView, 1});
             graphicsContext->SetIndexBuffer(renderEncoder, indexBufferView, false);

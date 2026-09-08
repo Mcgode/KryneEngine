@@ -768,9 +768,17 @@ namespace KryneEngine
             }
         }
 
+        VkPhysicalDeviceFeatures supportedFeatures;
+        vkGetPhysicalDeviceFeatures(m_physicalDevice, &supportedFeatures);
+
         VkPhysicalDeviceFeatures features;
-        // Init struct data;
         memset(&features, VK_FALSE, sizeof(VkPhysicalDeviceFeatures));
+        // Enable a small baseline of shader features that common built-ins rely on, when available.
+        // `geometryShader` / `tessellationShader` also gate reading `SV_PrimitiveID` in a fragment
+        // shader without an actual geometry/tessellation stage (SPIR-V requires the capability).
+        features.geometryShader = supportedFeatures.geometryShader;
+        features.tessellationShader = supportedFeatures.tessellationShader;
+        features.samplerAnisotropy = supportedFeatures.samplerAnisotropy;
 
         const auto requiredExtensionsStrings = _GetRequiredDeviceExtensions();
         auto requiredExtensions = StringHelpers::RetrieveStringPointerContainer(requiredExtensionsStrings);
@@ -1171,6 +1179,7 @@ namespace KryneEngine
     RenderCommandEncoderHandle VkGraphicsContext::BeginRenderPass(
         const CommandListHandle _commandList,
         const RenderPassHandle _renderPass,
+        const MemoryBarriers& _barriers,
         const eastl::string_view /* _debugName */)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::BeginRenderPass");
@@ -1178,13 +1187,22 @@ namespace KryneEngine
         auto* renderPassData = m_resources.m_renderPasses.Get(_renderPass.m_handle);
         VERIFY_OR_RETURN(renderPassData != nullptr, { nullptr });
 
-        VkRenderPassBeginInfo beginInfo {
+        // Vulkan forbids pipeline barriers inside a render pass instance (without a self-dependency),
+        // so pass-entry barriers must be recorded before vkCmdBeginRenderPass.
+        if (!_barriers.m_globalBarriers.empty()
+            || !_barriers.m_bufferBarriers.empty()
+            || !_barriers.m_textureBarriers.empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, _barriers);
+        }
+
+        const VkRenderPassBeginInfo beginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPassData->m_renderPass,
             .framebuffer = renderPassData->m_framebuffer,
-            .renderArea = {
-                .offset = { 0, 0 },
-                .extent = { renderPassData->m_size.m_width, renderPassData->m_size.m_height }
+            .renderArea {
+                .offset { .x = 0, .y = 0 },
+                .extent{ .width = renderPassData->m_size.m_width, .height = renderPassData->m_size.m_height }
             },
             .clearValueCount = static_cast<u32>(renderPassData->m_clearValues.size()),
             .pClearValues = renderPassData->m_clearValues.data()
@@ -1200,6 +1218,24 @@ namespace KryneEngine
         KE_ZoneScopedFunction("VkGraphicsContext::EndRenderPass");
 
         vkCmdEndRenderPass(static_cast<CommandList>(_renderCommandEncoder.m_handle));
+    }
+
+    ComputeCommandEncoderHandle VkGraphicsContext::BeginComputePass(
+        const CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view /*_debugName*/)
+    {
+        PlaceMemoryBarriers({ _commandList }, _barriers);
+        return { _commandList };
+    }
+
+    TransferCommandEncoderHandle VkGraphicsContext::BeginTransferPass(
+        const CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view /* _debugName */)
+    {
+        PlaceMemoryBarriers({ _commandList }, _barriers);
+        return { _commandList };
     }
 
     void VkGraphicsContext::SetTextureData(

@@ -371,7 +371,8 @@ namespace KryneEngine
     RenderCommandEncoderHandle MetalGraphicsContext::BeginRenderPass(
         const CommandListHandle _commandList,
         const RenderPassHandle _handle,
-        const eastl::string_view _debugName)
+        const eastl::string_view _debugName,
+        const MemoryBarriers& _barriers)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
         VERIFY_OR_RETURN(commandList != nullptr, { nullptr });
@@ -425,6 +426,13 @@ namespace KryneEngine
         commandList->m_encoder = encoder;
         commandList->m_userData = renderState;
 
+        if (!_barriers.m_globalBarriers.empty()
+            || !_barriers.m_bufferBarriers.empty()
+            || !_barriers.m_textureBarriers.empty())
+        {
+            PlaceMemoryBarriers({ commandList }, _barriers);
+        }
+
         return { commandList };
     }
 
@@ -437,7 +445,10 @@ namespace KryneEngine
         commandList->ResetEncoder();
     }
 
-    ComputeCommandEncoderHandle MetalGraphicsContext::BeginComputePass(const CommandListHandle _commandList, eastl::string_view _debugName)
+    ComputeCommandEncoderHandle MetalGraphicsContext::BeginComputePass(
+        const CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view _debugName)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
         KE_ASSERT(commandList->m_type == CommandListData::EncoderType::None);
@@ -464,6 +475,13 @@ namespace KryneEngine
 
         commandList->m_userData = argumentTable;
 
+        if (!_barriers.m_globalBarriers.empty()
+           || !_barriers.m_bufferBarriers.empty()
+           || !_barriers.m_textureBarriers.empty())
+        {
+            PlaceMemoryBarriers({ commandList }, _barriers);
+        }
+
         return { _commandList };
     }
 
@@ -480,7 +498,10 @@ namespace KryneEngine
         commandList->ResetEncoder();
     }
 
-    TransferCommandEncoderHandle MetalGraphicsContext::BeginTransferPass(const CommandListHandle _commandList, eastl::string_view _debugName)
+    TransferCommandEncoderHandle MetalGraphicsContext::BeginTransferPass(
+        const CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view _debugName)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
         KE_ASSERT(commandList->m_type == CommandListData::EncoderType::None);
@@ -498,6 +519,13 @@ namespace KryneEngine
             commandList->m_encoder->setLabel(string);
         }
 #endif
+
+        if (!_barriers.m_globalBarriers.empty()
+           || !_barriers.m_bufferBarriers.empty()
+           || !_barriers.m_textureBarriers.empty())
+        {
+            PlaceMemoryBarriers({ commandList }, _barriers);
+        }
 
         return { _commandList };
     }

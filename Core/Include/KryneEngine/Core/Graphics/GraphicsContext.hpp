@@ -10,6 +10,7 @@
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
+#include "KryneEngine/Core/Graphics/MemoryBarriers.hpp"
 #include "KryneEngine/Core/Graphics/Texture.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
 #include "KryneEngine/Core/Window/NativeWindowHandle.hpp"
@@ -38,7 +39,6 @@ namespace KryneEngine
     struct DrawIndexedInstancedDesc;
     struct DrawInstancedDesc;
     struct GraphicsPipelineDesc;
-    struct MemoryBarriers;
     struct PipelineLayoutDesc;
     struct RenderTargetViewDesc;
     struct RenderPassDesc;
@@ -493,13 +493,15 @@ namespace KryneEngine
          *
          * @param _commandList The command list in which to record the render pass begin.
          * @param _handle The render pass to begin, previously created with #CreateRenderPass.
-         * @param _debugName
+         * @param _barriers Memory barriers related to the render pass, that must be executed before or at the start of it.
+         * @param _debugName A name for the pass, for debugging purposes.
          *
          * @return The encoder for all the render pass related commands.
          */
         [[nodiscard]] virtual RenderCommandEncoderHandle BeginRenderPass(
             CommandListHandle _commandList,
             RenderPassHandle _handle,
+            const MemoryBarriers& _barriers,
             eastl::string_view _debugName) = 0;
 
         /**
@@ -513,12 +515,13 @@ namespace KryneEngine
          * @brief Begins a compute pass in the given command list.
          *
          * @param _commandList The command list in which to record the compute pass begin.
-         * @param _debugName
+         * @param _debugName A name for the pass, for debugging purposes.
          *
          * @return The encoder for all the compute pass related commands.
          */
         virtual ComputeCommandEncoderHandle BeginComputePass(
             CommandListHandle _commandList,
+            const MemoryBarriers& _barriers,
             eastl::string_view _debugName) = 0;
 
         /**
@@ -530,6 +533,7 @@ namespace KryneEngine
 
         virtual TransferCommandEncoderHandle BeginTransferPass(
             CommandListHandle _commandList,
+            const MemoryBarriers& _barriers,
             eastl::string_view _debugName) = 0;
 
         virtual void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) = 0;
