@@ -7,9 +7,10 @@
 #pragma once
 
 #include <EASTL/span.h>
-#include "Enums.hpp"
-#include "Handles.hpp"
+
 #include "KryneEngine/Core/Common/BitUtils.hpp"
+#include "KryneEngine/Core/Graphics/Enums.hpp"
+#include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.hpp"
 
 namespace KryneEngine

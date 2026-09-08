@@ -4,6 +4,9 @@
  * @date 06/09/2026.
  */
 
+#pragma once
+
+
 // The Apple implementation lives in VkSurfacePlatform.mm (needs Objective-C to attach a CAMetalLayer).
 #if !defined(__APPLE__)
 

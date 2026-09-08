@@ -28,3 +28,23 @@
 #endif
 
 #include <vulkan/vulkan.h>
+
+// X11/Xlib.h (pulled in transitively via VK_USE_PLATFORM_XLIB_KHR) defines a bunch of
+// very common identifiers as macros (None, Bool, True, False, Status, Success, ...).
+// These clash with enum values and identifiers used throughout the engine, so undefine
+// them here right after Xlib.h has had a chance to declare its own API.
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+#   undef None
+#   undef Bool
+#   undef True
+#   undef False
+#   undef Status
+#   undef Success
+#   undef Always
+#   undef Button1
+#   undef Button2
+#   undef Button3
+#   undef Button4
+#   undef Button5
+#   undef Button6
+#endif
