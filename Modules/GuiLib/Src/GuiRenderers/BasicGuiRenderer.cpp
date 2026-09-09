@@ -612,8 +612,12 @@ namespace KryneEngine::Modules::GuiLib
         };
         _graphicsContext.SetVertexBuffers(_renderEncoder, {&bufferView, 1});
 
-        size_t texturesDescriptorSetIndex = 0;
-        const DescriptorSetHandle descriptorSets[] = { m_commonDescriptorSet, m_texturesDescriptorSets[0] };
+        // Use a sentinel value to enforce texture descriptor set bind only at the first textured draw. Some APIs don't
+        // retain a set bound while no pipeline is active.
+        static constexpr size_t kUnboundTexturesSet = ~static_cast<size_t>(0);
+        size_t texturesDescriptorSetIndex = kUnboundTexturesSet;
+
+        const DescriptorSetHandle descriptorSets[] = { m_commonDescriptorSet };
         _graphicsContext.SetGraphicsDescriptorSets(_renderEncoder, m_commonPipelineLayout, descriptorSets);
 
         eastl::fixed_vector<Rect, 16, false> scissors;
