@@ -1738,7 +1738,7 @@ namespace KryneEngine
 
         const VkViewport viewport {
             .x = static_cast<float>(_viewport.m_topLeftX),
-            .y = static_cast<float>(_viewport.m_height - _viewport.m_topLeftY),
+            .y = static_cast<float>(_viewport.m_height + _viewport.m_topLeftY),
             .width = static_cast<float>(_viewport.m_width),
             .height = -static_cast<float>(_viewport.m_height),
             .minDepth = _viewport.m_minDepth,
