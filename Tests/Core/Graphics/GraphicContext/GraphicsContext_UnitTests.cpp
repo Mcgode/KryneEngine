@@ -103,6 +103,10 @@ namespace KryneEngine::Tests::Graphics
         EXPECT_BINARY_EQ(appInfo.m_engineVersion, gAppInfo.m_engineVersion);
         EXPECT_EQ(appInfo.m_api, appInfo.m_api);
 
+
+        static_assert(
+            std::has_unique_object_representations_v<GraphicsCommon::ApplicationInfo::Features>,
+            "ApplicationInfo::Features must stay padding-free — it is byte-compared in the unit tests");
         EXPECT_BINARY_EQ(appInfo.m_features, gAppInfo.m_features);
 
         // -----------------------------------------------------------------------

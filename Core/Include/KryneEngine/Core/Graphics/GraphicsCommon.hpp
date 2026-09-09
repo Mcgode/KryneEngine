@@ -82,21 +82,14 @@ namespace KryneEngine::GraphicsCommon
 
         BufferingMode m_bufferingMode = BufferingMode::Double;
 
+        // Member order is chosen so the struct has no padding bytes: every `SoftEnable`/`bool`
+        // (all 1-byte) comes first and the 4-byte `m_gpuTimestampBufferCapacity` lands last on a
+        // natural boundary. This keeps the struct byte-comparable (see the unit tests).
         struct Features
         {
             SoftEnable m_validationLayers = SoftEnable::TryEnable;
             SoftEnable m_debugTags = SoftEnable::TryEnable;
             SoftEnable m_gpuTimestamps = SoftEnable::TryEnable;
-            u32 m_gpuTimestampBufferCapacity = 4'096;
-
-            bool m_graphics = true;
-            bool m_present = true;
-            bool m_transfer = true;
-            bool m_compute = true;
-
-            bool m_transferQueue = true;
-            bool m_asyncCompute = false;
-            bool m_concurrentQueues = true;
 
             /// @brief Enables geometry shaders. Also required to read `SV_PrimitiveID` in a fragment
             ///        shader without a geometry/tessellation stage (a SPIR-V capability requirement).
@@ -111,6 +104,17 @@ namespace KryneEngine::GraphicsCommon
             ///        and, when unavailable, fully populate every arrayed binding instead.
             ///        `ForceEnabled` asserts if unavailable, `TryEnable` silently falls back.
             SoftEnable m_partiallyBoundDescriptors = SoftEnable::Disabled;
+
+            bool m_graphics = true;
+            bool m_present = true;
+            bool m_transfer = true;
+            bool m_compute = true;
+
+            bool m_transferQueue = true;
+            bool m_asyncCompute = false;
+            bool m_concurrentQueues = true;
+
+            u32 m_gpuTimestampBufferCapacity = 4'096;
         }
         m_features {};
 
