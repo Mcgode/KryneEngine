@@ -326,7 +326,7 @@ int main()
                 allocator);
         }
 
-        imGuiContext->NewFrame(mainWindow, graphicsContext);
+        imGuiContext->NewFrame(mainWindow, graphicsContext, swapChain);
 
         {
             const DescriptorSetHandle sceneConstantsDescriptorSet =

@@ -23,7 +23,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         : m_aspectRatio(_aspectRatio)
     {
         m_mouseButtonInputCallbackId = _inputManager->RegisterMouseInputEventCallback(
-            [this](const MouseInputEvent& _event)
+            [this](Window*, const MouseInputEvent& _event)
             {
                 switch (_event.m_mouseButton)
                 {
@@ -39,7 +39,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             });
 
         m_cursorPositionCallbackId = _inputManager->RegisterCursorPosEventCallback(
-            [this](float _x, float _y)
+            [this](Window*, float _x, float _y)
             {
                 const float2 lastPosition = m_lastCursorPosition;
                 m_lastCursorPosition = { _x, _y };
@@ -47,7 +47,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
             });
 
         m_scrollCallbackId = _inputManager->RegisterScrollInputEventCallback(
-            [this](float _x, float _y)
+            [this](Window*, float _x, float _y)
             {
                 // TODO: Retrieve scrolling for zooming
             });

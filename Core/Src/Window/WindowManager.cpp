@@ -17,13 +17,20 @@
 
 namespace KryneEngine
 {
+    namespace
+    {
+        Window* ResolveWindow(GLFWwindow* _glfwWindow)
+        {
+            return static_cast<Window*>(glfwGetWindowUserPointer(_glfwWindow));
+        }
+    }
+
     WindowManager* WindowManager::s_instance = nullptr;
 
     WindowManager::WindowManager(const AllocatorInstance _allocator)
         : m_allocator(_allocator)
         , m_windows(_allocator)
-        , m_windowFocusEventListeners(_allocator)
-        , m_dpiChangeEventListeners(_allocator)
+        , m_monitors(_allocator)
     {
         KE_ZoneScopedFunction("WindowManager::WindowManager");
 
@@ -35,6 +42,9 @@ namespace KryneEngine
             glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
             glfwInit();
         }
+
+        glfwSetMonitorCallback(MonitorCallback);
+        RefreshMonitors();
 
         m_inputManager = m_allocator.New<InputManager>(m_allocator);
     }
@@ -48,6 +58,7 @@ namespace KryneEngine
 
         m_allocator.Delete(m_inputManager);
 
+        glfwSetMonitorCallback(nullptr);
         glfwTerminate();
 
         KE_ASSERT(s_instance == this);
@@ -89,7 +100,11 @@ namespace KryneEngine
         glfwSetCursorPosCallback(glfwWindow, CursorPosCallback);
         glfwSetMouseButtonCallback(glfwWindow, MouseButtonCallback);
         glfwSetScrollCallback(glfwWindow, ScrollCallback);
+        glfwSetCursorEnterCallback(glfwWindow, CursorEnterCallback);
         glfwSetWindowFocusCallback(glfwWindow, WindowFocusCallback);
+        glfwSetWindowPosCallback(glfwWindow, WindowPosCallback);
+        glfwSetWindowSizeCallback(glfwWindow, WindowSizeCallback);
+        glfwSetWindowCloseCallback(glfwWindow, WindowCloseCallback);
         glfwSetWindowContentScaleCallback(glfwWindow, ContentScaleCallback);
         glfwSetFramebufferSizeCallback(glfwWindow, FramebufferSizeCallback);
 
@@ -143,39 +158,47 @@ namespace KryneEngine
         return true;
     }
 
-    u32 WindowManager::RegisterWindowFocusEventCallback(eastl::function<void(bool)>&& _callback)
+    void WindowManager::RefreshMonitors()
     {
-        const auto lock = m_callbackMutex.AutoLock();
-        const u32 id = m_windowFocusEventCounter++;
-        m_windowFocusEventListeners.emplace(id, _callback);
-        return id;
+        KE_ZoneScopedFunction("WindowManager::RefreshMonitors");
+
+        int count = 0;
+        GLFWmonitor** monitors = glfwGetMonitors(&count);
+
+        m_monitors.clear();
+        m_monitors.reserve(static_cast<size_t>(count));
+        for (int i = 0; i < count; i++)
+        {
+            GLFWmonitor* monitor = monitors[i];
+
+            MonitorInfo info {};
+            glfwGetMonitorPos(monitor, &info.m_position.x, &info.m_position.y);
+
+            if (const GLFWvidmode* mode = glfwGetVideoMode(monitor))
+                info.m_size = { static_cast<u32>(mode->width), static_cast<u32>(mode->height) };
+
+            int wx, wy, ww, wh;
+            glfwGetMonitorWorkarea(monitor, &wx, &wy, &ww, &wh);
+            info.m_workAreaPosition = { wx, wy };
+            info.m_workAreaSize = { static_cast<u32>(ww), static_cast<u32>(wh) };
+
+            float sx, sy;
+            glfwGetMonitorContentScale(monitor, &sx, &sy);
+            info.m_dpiScale = sx;
+
+            m_monitors.push_back(info);
+        }
     }
 
-    void WindowManager::UnregisterWindowFocusEventCallback(u32 _id)
-    {
-        const auto lock = m_callbackMutex.AutoLock();
-        m_windowFocusEventListeners.erase(_id);
-    }
-
-    u32 WindowManager::RegisterDpiChangeEventCallback(eastl::function<void(const float2&)>&& _callback)
-    {
-        const auto lock = m_callbackMutex.AutoLock();
-        const u32 id = m_dpiChangeEventCounter++;
-        m_dpiChangeEventListeners.emplace(id, _callback);
-        return id;
-    }
-
-    void WindowManager::UnregisterDpiChangeEventCallback(u32 _id)
-    {
-        const auto lock = m_callbackMutex.AutoLock();
-        m_dpiChangeEventListeners.erase(_id);
-    }
+    // ---------------------------------------------------------------------------------------------
+    // GLFW callbacks
+    // ---------------------------------------------------------------------------------------------
 
     void WindowManager::KeyCallback(GLFWwindow* _window, s32 _key, s32 _scancode, s32 _action, s32 _mods)
     {
         KE_ZoneScopedFunction("WindowManager::KeyCallback");
 
-        s_instance->m_inputManager->OnKeyEvent(KeyInputEvent {
+        s_instance->m_inputManager->OnKeyEvent(ResolveWindow(_window), KeyInputEvent {
             .m_physicalKey = GLFW::ToInputPhysicalKeys(_key),
             .m_customCode = _scancode,
             .m_action = GLFW::ToInputEventAction(_action),
@@ -187,21 +210,22 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("WindowManager::TextCallback");
 
-        s_instance->m_inputManager->OnTextEvent(_codepoint);
+        s_instance->m_inputManager->OnTextEvent(ResolveWindow(_window), _codepoint);
     }
 
     void WindowManager::CursorPosCallback(GLFWwindow* _window, double _posX, double _posY)
     {
         KE_ZoneScopedFunction("WindowManager::CursorPosCallback");
 
-        s_instance->m_inputManager->OnCursorPosEvent(static_cast<float>(_posX), static_cast<float>(_posY));
+        s_instance->m_inputManager->OnCursorPosEvent(
+            ResolveWindow(_window), static_cast<float>(_posX), static_cast<float>(_posY));
     }
 
     void WindowManager::MouseButtonCallback(GLFWwindow* _window, s32 _button, s32 _action, s32 _mods)
     {
         KE_ZoneScopedFunction("WindowManager::MouseButtonCallback");
 
-        s_instance->m_inputManager->OnMouseButtonEvent(MouseInputEvent {
+        s_instance->m_inputManager->OnMouseButtonEvent(ResolveWindow(_window), MouseInputEvent {
             .m_mouseButton = GLFW::ToMouseInputButton(_button),
             .m_action = GLFW::ToInputEventAction(_action),
             .m_modifiers = GLFW::ToInputEventModifiers(_mods),
@@ -212,39 +236,61 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("WindowManager::ScrollCallback");
 
-        s_instance->m_inputManager->OnScrollEvent(static_cast<float>(_scrollX), static_cast<float>(_scrollY));
+        s_instance->m_inputManager->OnScrollEvent(
+            ResolveWindow(_window), static_cast<float>(_scrollX), static_cast<float>(_scrollY));
+    }
+
+    void WindowManager::CursorEnterCallback(GLFWwindow* _window, s32 _entered)
+    {
+        if (const auto& fn = s_instance->m_windowEventCallbacks.m_onCursorEnter)
+            fn(ResolveWindow(_window), _entered != 0);
     }
 
     void WindowManager::WindowFocusCallback(GLFWwindow* _window, s32 _focused)
     {
-        KE_ZoneScopedFunction("WindowManager::WindowFocusCallback");
+        if (const auto& fn = s_instance->m_windowEventCallbacks.m_onFocus)
+            fn(ResolveWindow(_window), _focused != 0);
+    }
 
-        const auto lock = s_instance->m_callbackMutex.AutoLock();
-        for (const auto& pair : s_instance->m_windowFocusEventListeners)
-        {
-            pair.second(_focused != 0);
-        }
+    void WindowManager::WindowPosCallback(GLFWwindow* _window, s32 _x, s32 _y)
+    {
+        if (const auto& fn = s_instance->m_windowEventCallbacks.m_onMove)
+            fn(ResolveWindow(_window), int2 { _x, _y });
+    }
+
+    void WindowManager::WindowSizeCallback(GLFWwindow* _window, s32 _width, s32 _height)
+    {
+        if (const auto& fn = s_instance->m_windowEventCallbacks.m_onResize)
+            fn(ResolveWindow(_window), uint2 { static_cast<u32>(_width), static_cast<u32>(_height) });
+    }
+
+    void WindowManager::WindowCloseCallback(GLFWwindow* _window)
+    {
+        if (const auto& fn = s_instance->m_windowEventCallbacks.m_onCloseRequest)
+            fn(ResolveWindow(_window));
     }
 
     void WindowManager::ContentScaleCallback(GLFWwindow* _window, float _xScale, float _yScale)
     {
-        KE_ZoneScopedFunction("WindowManager::ContentScaleCallback");
-
-        const auto lock = s_instance->m_callbackMutex.AutoLock();
-        for (const auto& pair : s_instance->m_dpiChangeEventListeners)
-        {
-            pair.second({ _xScale, _yScale });
-        }
+        if (const auto& fn = s_instance->m_windowEventCallbacks.m_onDpiChange)
+            fn(ResolveWindow(_window), float2 { _xScale, _yScale });
     }
 
     void WindowManager::FramebufferSizeCallback(GLFWwindow* _window, s32 _width, s32 _height)
     {
-        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
+        Window* window = ResolveWindow(_window);
         const uint2 size { static_cast<u32>(_width), static_cast<u32>(_height) };
         if (window->m_lastFramebufferSize != size)
         {
             window->m_resizePending = true;
             window->m_lastFramebufferSize = size;
         }
+    }
+
+    void WindowManager::MonitorCallback(GLFWmonitor*, s32)
+    {
+        s_instance->RefreshMonitors();
+        if (const auto& fn = s_instance->m_windowEventCallbacks.m_onMonitorsChanged)
+            fn();
     }
 } // namespace KryneEngine

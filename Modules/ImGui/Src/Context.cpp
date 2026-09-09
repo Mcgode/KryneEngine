@@ -7,6 +7,7 @@
 #include "KryneEngine/Modules/ImGui/Context.hpp"
 
 #include <fstream>
+#include <EASTL/fixed_vector.h>
 #include <imgui_internal.h>
 #include <KryneEngine/Core/Common/Utils/Alignment.hpp>
 #include <KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp>
@@ -18,6 +19,7 @@
 #include "KryneEngine/Core/Graphics/Texture.hpp"
 
 #include "Input.hpp"
+#include "ViewportBackend.hpp"
 
 
 namespace KryneEngine::Modules::ImGui
@@ -48,6 +50,9 @@ namespace KryneEngine::Modules::ImGui
             , m_setIndices(_allocator)
             , m_dynamicVertexBuffer(_allocator)
             , m_dynamicIndexBuffer(_allocator)
+            , m_targetFormat(_targetFormat)
+            , m_presentSwapChains(_allocator)
+            , m_viewportDrawOffsets(_allocator)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextContext");
 
@@ -56,8 +61,9 @@ namespace KryneEngine::Modules::ImGui
         GraphicsContext* graphicsContext = _graphicsContext;
 
         ImGuiIO& io = ::ImGui::GetIO();
-        io.BackendRendererUserData = nullptr;
+        io.BackendRendererUserData = this;
         io.BackendRendererName = "KryneEngineGraphics";
+        io.BackendPlatformName = "KryneEngineWindowManager";
         io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
         io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
         const float2 dpiScale = _window->GetDpiScale();
@@ -99,7 +105,7 @@ namespace KryneEngine::Modules::ImGui
                 graphicsContext->GetFrameContextCount());
         }
 
-        m_input = _allocator.New<Input>(_windowManager);
+        m_input = _allocator.New<Input>(_windowManager->GetInput());
 
         InitPso(graphicsContext, _targetFormat, _vsBytecode, _fsBytecode);
 
@@ -113,6 +119,9 @@ namespace KryneEngine::Modules::ImGui
             .m_debugName = eastl::string { "ImGui Default Sampler", _allocator },
 #endif
         });
+
+        m_viewportBackend = _allocator.New<ViewportBackend>(
+            this, _window, _windowManager, graphicsContext, _targetFormat, _allocator);
     }
 
     Context::~Context()
@@ -166,19 +175,26 @@ namespace KryneEngine::Modules::ImGui
             graphicsContext->DestroyDescriptorSetLayout(m_descriptorSetLayout);
         }
 
+        // Viewport backend teardown (destroys any secondary platform windows + swap chains).
+        m_setIndices.get_allocator().Delete(m_viewportBackend);
+        m_viewportBackend = nullptr;
+
         // Unregister input callbacks.
-        m_input->Shutdown(_windowManager);
+        m_input->Shutdown(_windowManager->GetInput());
         m_setIndices.get_allocator().Delete(m_input);
 
         ::ImGui::DestroyContext(m_context);
         m_context = nullptr;
     }
 
-    void Context::NewFrame(Window* _window, GraphicsContext* _graphicsContext)
+    void Context::NewFrame(Window* _window, GraphicsContext* _graphicsContext, const SwapChainHandle _mainSwapChain)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextNewFrame");
 
         ::ImGui::SetCurrentContext(m_context);
+
+        m_mainSwapChain = _mainSwapChain;
+        m_presentSwapChains.assign(1, _mainSwapChain);
 
         ImGuiIO& io = ::ImGui::GetIO();
 
@@ -189,6 +205,8 @@ namespace KryneEngine::Modules::ImGui
             const float2 framebufferSize { _window->GetFramebufferSize() };
             io.DisplaySize = { framebufferSize.x / dpiScale.x, framebufferSize.y / dpiScale.y };
         }
+
+        m_viewportBackend->NewFrame();
 
         const auto currentTimePoint =  eastl::chrono::steady_clock::now();
         const eastl::chrono::duration<double> interval = currentTimePoint - m_timePoint;
@@ -458,80 +476,124 @@ namespace KryneEngine::Modules::ImGui
 
         const u8 frameIndex = _graphicsContext->GetCurrentFrameContextIndex();
 
+        // Concatenate every viewport's vertices / indices into the shared dynamic buffers, recording
+        // each viewport's base offset so RenderDrawData / the viewport backend can address its slice.
+        m_viewportDrawOffsets.clear();
+        eastl::fixed_vector<const ImDrawData*, 8> viewportDrawData(m_setIndices.get_allocator());
+        u64 totalVertexCount = 0;
+        u64 totalIndexCount = 0;
+        for (ImGuiViewport* viewport : ::ImGui::GetPlatformIO().Viewports)
         {
-            const u64 vertexCount = drawData->TotalVtxCount;
+            const ImDrawData* viewportData = viewport->DrawData;
+            if (viewportData == nullptr || !viewportData->Valid || viewportData->CmdListsCount == 0)
+                continue;
 
-            const u64 desiredSize = sizeof(VertexEntry) * Alignment::NextPowerOfTwo(vertexCount);
+            m_viewportDrawOffsets[viewport->ID] = {
+                static_cast<u32>(totalVertexCount),
+                static_cast<u32>(totalIndexCount),
+            };
+            viewportDrawData.push_back(viewportData);
+            totalVertexCount += viewportData->TotalVtxCount;
+            totalIndexCount += viewportData->TotalIdxCount;
+        }
+
+        {
+            const u64 desiredSize = sizeof(VertexEntry) * eastl::max<u64>(1, Alignment::NextPowerOfTwo(totalVertexCount));
             if (m_dynamicVertexBuffer.GetSize(frameIndex) < desiredSize)
-            {
                 m_dynamicVertexBuffer.RequestResize(desiredSize);
-            }
 
             auto* vertexEntries = static_cast<VertexEntry*>(m_dynamicVertexBuffer.Map(_graphicsContext, frameIndex));
             u64 vertexIndex = 0;
-            for (auto i = 0u; i < drawData->CmdListsCount; i++)
+            for (const ImDrawData* viewportData : viewportDrawData)
             {
-                const ImDrawList* drawList = drawData->CmdLists[i];
-                for (auto j = 0; j < drawList->VtxBuffer.Size; j++)
+                for (auto i = 0; i < viewportData->CmdListsCount; i++)
                 {
-                    VertexEntry& entry = vertexEntries[vertexIndex];
-                    const ImDrawVert& vert = drawList->VtxBuffer[j];
-
-                    entry.m_position = { vert.pos.x, vert.pos.y };
-                    entry.m_uv = { vert.uv.x, vert.uv.y };
-                    entry.m_color = vert.col;
-
-                    vertexIndex++;
+                    const ImDrawList* drawList = viewportData->CmdLists[i];
+                    for (auto j = 0; j < drawList->VtxBuffer.Size; j++)
+                    {
+                        VertexEntry& entry = vertexEntries[vertexIndex++];
+                        const ImDrawVert& vert = drawList->VtxBuffer[j];
+                        entry.m_position = { vert.pos.x, vert.pos.y };
+                        entry.m_uv = { vert.uv.x, vert.uv.y };
+                        entry.m_color = vert.col;
+                    }
                 }
             }
             m_dynamicVertexBuffer.Unmap(_graphicsContext);
-
             m_dynamicVertexBuffer.PrepareBuffers(_graphicsContext, _transferEncoder, BarrierAccessFlags::VertexBuffer, frameIndex);
         }
 
         {
-            const u64 indexCount = drawData->TotalIdxCount;
-
-            const u64 desiredSize = sizeof(u32) * Alignment::NextPowerOfTwo(indexCount);
+            const u64 desiredSize = sizeof(u32) * eastl::max<u64>(1, Alignment::NextPowerOfTwo(totalIndexCount));
             if (m_dynamicIndexBuffer.GetSize(frameIndex) < desiredSize)
-            {
                 m_dynamicIndexBuffer.RequestResize(desiredSize);
-            }
 
             u32* indexBuffer = static_cast<u32*>(m_dynamicIndexBuffer.Map(_graphicsContext, frameIndex));
-            for (auto i = 0u; i < drawData->CmdListsCount; i++)
+            for (const ImDrawData* viewportData : viewportDrawData)
             {
-                const ImDrawList* drawList = drawData->CmdLists[i];
-                for (auto j = 0; j < drawList->IdxBuffer.Size; j++)
+                for (auto i = 0; i < viewportData->CmdListsCount; i++)
                 {
-                    indexBuffer[j] = drawList->IdxBuffer[j];
+                    const ImDrawList* drawList = viewportData->CmdLists[i];
+                    for (auto j = 0; j < drawList->IdxBuffer.Size; j++)
+                        indexBuffer[j] = drawList->IdxBuffer[j];
+                    indexBuffer += drawList->IdxBuffer.Size;
                 }
-                indexBuffer += drawList->IdxBuffer.Size;
             }
             m_dynamicIndexBuffer.Unmap(_graphicsContext);
-
             m_dynamicIndexBuffer.PrepareBuffers(_graphicsContext, _transferEncoder, BarrierAccessFlags::IndexBuffer, frameIndex);
+        }
+    }
+
+    void Context::GetViewportDrawOffsets(const ImGuiID _viewportId, u32& _firstVertex, u32& _firstIndex) const
+    {
+        const auto it = m_viewportDrawOffsets.find(_viewportId);
+        if (it != m_viewportDrawOffsets.end())
+        {
+            _firstVertex = it->second.first;
+            _firstIndex = it->second.second;
+        }
+        else
+        {
+            _firstVertex = 0;
+            _firstIndex = 0;
         }
     }
 
     void Context::RenderFrame(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder)
     {
-        KE_ZoneScopedFunction("Modules::ImGui::ContextRenderFrame");
+        u32 firstVertex = 0;
+        u32 firstIndex = 0;
+        GetViewportDrawOffsets(::ImGui::GetMainViewport()->ID, firstVertex, firstIndex);
+        RenderDrawData(_graphicsContext, _renderEncoder, ::ImGui::GetDrawData(), firstVertex, firstIndex);
+    }
 
-        ImDrawData* drawData = ::ImGui::GetDrawData();
+    void Context::RenderDrawData(
+        GraphicsContext* _graphicsContext,
+        RenderCommandEncoderHandle _renderEncoder,
+        const ImDrawData* drawData,
+        const u32 _firstVertex,
+        const u32 _firstIndex)
+    {
+        KE_ZoneScopedFunction("Modules::ImGui::ContextRenderDrawData");
 
-        if (drawData == nullptr)
+        if (drawData == nullptr || drawData->CmdListsCount == 0)
         {
             return;
         }
 
-        // Set viewport
+        const float framebufferWidth = drawData->DisplaySize.x * drawData->FramebufferScale.x;
+        const float framebufferHeight = drawData->DisplaySize.y * drawData->FramebufferScale.y;
+        if (framebufferWidth <= 0.f || framebufferHeight <= 0.f)
+        {
+            return;
+        }
+
+        // The hardware viewport always spans this framebuffer; the viewport's screen-space offset is
+        // folded into the push-constant translate and the scissor rect instead.
         {
             const Viewport viewport {
-                .m_topLeftX = static_cast<s32>(drawData->DisplayPos.x * drawData->FramebufferScale.x),
-                .m_topLeftY = static_cast<s32>(drawData->DisplayPos.y * drawData->FramebufferScale.y),
-                .m_width = static_cast<s32>(drawData->DisplaySize.x * drawData->FramebufferScale.x),
-                .m_height = static_cast<s32>(drawData->DisplaySize.y * drawData->FramebufferScale.y),
+                .m_width = static_cast<s32>(framebufferWidth),
+                .m_height = static_cast<s32>(framebufferHeight),
             };
             _graphicsContext->SetViewport(_renderEncoder, viewport);
         }
@@ -559,10 +621,10 @@ namespace KryneEngine::Modules::ImGui
 
         eastl::vector_map<ImTextureID, DescriptorSetHandle> textureDescriptorSets(m_setIndices.get_allocator());
 
-        u64 vertexOffset = 0;
-        u64 indexOffset = 0;
+        u64 vertexOffset = _firstVertex;
+        u64 indexOffset = _firstIndex;
 
-        for (auto i = 0u; i < drawData->CmdListsCount; i++)
+        for (auto i = 0; i < drawData->CmdListsCount; i++)
         {
             const ImDrawList* drawList = drawData->CmdLists[i];
 
@@ -668,6 +730,19 @@ namespace KryneEngine::Modules::ImGui
             vertexOffset += drawList->VtxBuffer.Size;
             indexOffset += drawList->IdxBuffer.Size;
         }
+    }
+
+    void Context::UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext)
+    {
+        KE_ZoneScopedFunction("Modules::ImGui::ContextUpdateAndRenderPlatformWindows");
+
+        m_viewportBackend->UpdateAndRenderPlatformWindows(_graphicsContext);
+
+        m_presentSwapChains.clear();
+        if (m_mainSwapChain != GenPool::kInvalidHandle)
+            m_presentSwapChains.push_back(m_mainSwapChain);
+        for (const SwapChainHandle swapChain : m_viewportBackend->GetSecondarySwapChains())
+            m_presentSwapChains.push_back(swapChain);
     }
 
     ImTextureID Context::ToImTextureID(TextureViewHandle _texture, SamplerHandle _sampler)

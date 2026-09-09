@@ -11,17 +11,24 @@
 
 namespace KryneEngine
 {
-    class WindowManager;
+    class InputManager;
 }
 
 namespace KryneEngine::Modules::ImGui
 {
+    /**
+     * @brief Bridges the engine @ref InputManager events into Dear ImGui's `ImGuiIO`.
+     *
+     * @details Focus / DPI / window-lifecycle events are handled by @ref ViewportBackend; this only
+     * covers keyboard / text / mouse. Mouse positions are reported in desktop space when
+     * `ImGuiConfigFlags_ViewportsEnable` is set (offset by the originating window's position).
+     */
     class Input
     {
     public:
-        explicit Input(WindowManager* _windowManager);
+        explicit Input(InputManager& _inputManager);
 
-        void Shutdown(WindowManager* _windowManager) const;
+        void Shutdown(InputManager& _inputManager) const;
 
     private:
         u32 m_keyCallbackId;
@@ -29,8 +36,6 @@ namespace KryneEngine::Modules::ImGui
         u32 m_cursorPosCallbackId;
         u32 m_mouseBtnCallbackId;
         u32 m_scrollEventCallbackId;
-        u32 m_windowFocusCallbackId;
-        u32 m_dpiChangeCallbackId;
 
         static void ApplyModifiers(KeyInputModifiers _modifiers);
 

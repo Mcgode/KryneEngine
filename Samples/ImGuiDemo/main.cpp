@@ -100,6 +100,7 @@ void MainFunc(void* _pAllocator)
 
     // You can set up ImGui specific config after the context has been created.
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     ImGui::GetIO().Fonts->AddFontDefaultVector();
 
     while (!windowManager.AllWindowsClosed())
@@ -133,7 +134,7 @@ void MainFunc(void* _pAllocator)
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
 
-        imGuiContext.NewFrame(mainWindow, graphicsContext);
+        imGuiContext.NewFrame(mainWindow, graphicsContext, swapChain);
 
         {
             static bool open;
@@ -164,7 +165,10 @@ void MainFunc(void* _pAllocator)
 
         graphicsContext->EndGraphicsCommandList(commandList);
 
-        graphicsContext->EndFrame({ &swapChain, 1 });
+        // Create / resize / render the OS windows backing ImGui's secondary viewports, then present
+        // the main swap chain and every viewport swap chain together.
+        imGuiContext.UpdateAndRenderPlatformWindows(graphicsContext);
+        graphicsContext->EndFrame(imGuiContext.GetSwapChainsToPresent());
     }
 
     graphicsContext->WaitForLastFrame();

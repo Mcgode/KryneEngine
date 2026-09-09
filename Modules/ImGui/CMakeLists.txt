@@ -3,6 +3,8 @@ add_library(KryneEngine_Modules_ImGui STATIC
         Src/Context.cpp
         Src/Input.cpp
         Src/Input.hpp
+        Src/ViewportBackend.cpp
+        Src/ViewportBackend.hpp
         Src/Helpers.cpp
         Include/KryneEngine/Modules/ImGui/Helpers.hpp
 )
