@@ -1,7 +1,11 @@
 
 # Fetch DirectX shader compiler executable
 if (LINUX)
-    set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/bin/dxc")
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/arm64/bin/dxc")
+    else ()
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/x64/bin/dxc")
+    endif ()
 elseif (WIN32)
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
         set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x64/dxc.exe")
