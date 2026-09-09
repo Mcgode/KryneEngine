@@ -36,27 +36,30 @@ namespace KryneEngine
         return m_computeQueue.get() != nullptr;
     }
 
-    void MetalGraphicsContext::InternalEndFrame()
+    void MetalGraphicsContext::InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent)
     {
         KE_ZoneScopedFunction("MetalGraphicsContext::EndFrame");
 
-        KE_ASSERT_MSG(
-            !m_appInfo.m_features.m_present || m_swapChainActive,
-            "CreateSwapChain() must be called before the first presented EndFrame()");
+        eastl::fixed_vector<MetalSwapChain*, 4> swapChains(m_allocator);
+        swapChains.reserve(_swapChainsToPresent.size());
+        for (const SwapChainHandle handle : _swapChainsToPresent)
+        {
+            MetalSwapChain* swapChain = m_resources.GetSwapChain(handle);
+            KE_ASSERT_MSG(swapChain != nullptr, "EndFrame() was given an invalid swap chain handle");
+            if (swapChain != nullptr)
+                swapChains.push_back(swapChain);
+        }
 
         // Finish current frame and commit
         {
             KE_ZoneScoped("Finish current frame and commit");
 
-            MTL::Drawable* drawable = nullptr;
-
             const u8 frameIndex = m_frameId % m_frameContextCount;
             MetalFrameContext& frameContext = m_frameContexts[frameIndex];
 
-            if (m_swapChainActive)
+            for (const MetalSwapChain* swapChain : swapChains)
             {
-                drawable = m_swapChain.GetDrawable();
-                m_graphicsQueue->wait(drawable);
+                m_graphicsQueue->wait(swapChain->GetDrawable());
             }
 
             {
@@ -70,8 +73,9 @@ namespace KryneEngine
                 frameContext.m_ioAllocationSet.Commit(m_frameId, frameContext.m_enhancedCommandBufferErrors);
             }
 
-            if (drawable != nullptr)
+            for (const MetalSwapChain* swapChain : swapChains)
             {
+                MTL::Drawable* drawable = swapChain->GetDrawable();
                 m_graphicsQueue->signalDrawable(drawable);
                 drawable->present();
             }
@@ -93,10 +97,12 @@ namespace KryneEngine
 
             m_byteUploader->Reset(newFrameIndex);
 
-            if (m_swapChainActive)
             {
-                KE_ZoneScoped("Retrieve next drawable");
-                m_swapChain.UpdateNextDrawable(newFrameIndex, m_resources);
+                KE_ZoneScoped("Retrieve next drawables");
+                for (MetalSwapChain* swapChain : swapChains)
+                {
+                    swapChain->UpdateNextDrawable(newFrameIndex, m_resources);
+                }
             }
 
             if (nextFrame >= m_frameContextCount + kInitialFrameId)
@@ -144,30 +150,29 @@ namespace KryneEngine
 
     SwapChainHandle MetalGraphicsContext::CreateSwapChain(const SwapChainDesc& _desc)
     {
-        KE_ASSERT_MSG(!m_swapChainActive, "MetalGraphicsContext owns at most one swap chain");
-
         const u8 frameIndex = m_frameId % m_frameContextCount;
-        m_swapChain.Init(m_allocator, *m_device, m_appInfo, _desc, m_resources, frameIndex);
-        m_swapChainActive = true;
+        const SwapChainHandle handle = m_resources.CreateSwapChain(*m_device, m_appInfo, _desc, frameIndex);
 
+        const MetalSwapChain* swapChain = m_resources.GetSwapChain(handle);
         KE_ASSERT_MSG(
-            m_swapChain.m_textures.Size() == m_frameContextCount,
+            swapChain->GetImageCount() == m_frameContextCount,
             "Swap chain image count (%d) does not match the requested buffering mode (%d)",
-            m_swapChain.m_textures.Size(),
+            swapChain->GetImageCount(),
             m_frameContextCount);
 
-        return { { 0, 0 } };
+        return handle;
     }
 
     void MetalGraphicsContext::DestroySwapChain(SwapChainHandle _handle)
     {
-        // MetalSwapChain has no explicit teardown; drawables/layer are released with the context.
-        m_swapChainActive = false;
+        m_resources.DestroySwapChain(_handle);
     }
 
     bool MetalGraphicsContext::ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize)
     {
-        m_swapChain.Resize(_newSize);
+        MetalSwapChain* swapChain = m_resources.GetSwapChain(_handle);
+        VERIFY_OR_RETURN(swapChain != nullptr, false);
+        swapChain->Resize(_newSize);
         return true;
     }
 
@@ -305,37 +310,40 @@ namespace KryneEngine
         return m_resources.UnregisterRtv(_handle);
     }
 
-    RenderTargetViewHandle MetalGraphicsContext::GetPresentRenderTargetView(const u8 _swapChainIndex)
+    RenderTargetViewHandle MetalGraphicsContext::GetSwapChainRenderTargetView(
+        const SwapChainHandle _swapChain, const u8 _swapChainIndex)
     {
-        VERIFY_OR_RETURN(m_appInfo.m_features.m_present, { GenPool::kInvalidHandle });
-
-        return m_swapChain.m_rtvs[_swapChainIndex];
+        const MetalSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? swapChain->GetRenderTargetView(_swapChainIndex)
+            : RenderTargetViewHandle { GenPool::kInvalidHandle };
     }
 
-    TextureHandle MetalGraphicsContext::GetPresentTexture(const u8 _swapChainIndex)
+    TextureHandle MetalGraphicsContext::GetSwapChainTexture(const SwapChainHandle _swapChain, const u8 _swapChainIndex)
     {
-        VERIFY_OR_RETURN(m_appInfo.m_features.m_present, { GenPool::kInvalidHandle });
-
-        return m_swapChain.m_textures[_swapChainIndex];
+        const MetalSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? swapChain->GetTexture(_swapChainIndex)
+            : TextureHandle { GenPool::kInvalidHandle };
     }
 
-    u32 MetalGraphicsContext::GetCurrentPresentImageIndex() const
+    u32 MetalGraphicsContext::GetSwapChainCurrentImageIndex(const SwapChainHandle _swapChain) const
     {
-        VERIFY_OR_RETURN(m_appInfo.m_features.m_present, 0);
+        VERIFY_OR_RETURN(m_resources.GetSwapChain(_swapChain) != nullptr, 0);
         return GetCurrentFrameContextIndex();
     }
 
-    uint2 MetalGraphicsContext::GetPresentFrameBufferSize()
+    uint2 MetalGraphicsContext::GetSwapChainSize(const SwapChainHandle _swapChain)
     {
-        return m_appInfo.m_features.m_present
-            ? m_swapChain.GetDrawableSize()
-            : uint2(1);
+        const MetalSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetDrawableSize() : uint2(1);
     }
 
-    TextureFormat MetalGraphicsContext::GetPresentTextureFormat()
+    TextureFormat MetalGraphicsContext::GetSwapChainFormat(const SwapChainHandle _swapChain)
     {
-        return m_appInfo.m_features.m_present
-            ? MetalConverters::FromPixelFormat(m_swapChain.GetPixelFormat())
+        const MetalSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? MetalConverters::FromPixelFormat(swapChain->GetPixelFormat())
             : TextureFormat::NoFormat;
     }
 

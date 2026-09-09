@@ -25,9 +25,16 @@ namespace KryneEngine
     struct BufferCreateDesc;
     struct TextureViewDesc;
     struct RenderTargetViewDesc;
+    struct SwapChainDesc;
+
+    namespace GraphicsCommon
+    {
+        struct ApplicationInfo;
+    }
 
     class Dx12FrameContext;
     class Dx12DescriptorSetManager;
+    class Dx12SwapChain;
 
     class Dx12Resources
     {
@@ -42,6 +49,15 @@ namespace KryneEngine
         void InitHeaps(ID3D12Device* _device);
 
         void FlushPools();
+
+        [[nodiscard]] SwapChainHandle CreateSwapChain(
+            const GraphicsCommon::ApplicationInfo& _appInfo,
+            const SwapChainDesc& _desc,
+            IDXGIFactory4* _factory,
+            ID3D12Device* _device,
+            ID3D12CommandQueue* _directQueue);
+        [[nodiscard]] Dx12SwapChain* GetSwapChain(SwapChainHandle _handle) const;
+        bool DestroySwapChain(SwapChainHandle _handle);
 
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc);
         [[nodiscard]] BufferHandle CreateStagingBuffer(
@@ -139,6 +155,7 @@ namespace KryneEngine
         GenerationalPool<PipelineLayoutHotData, u32> m_pipelineLayouts;
         GenerationalPool<D3D12_SHADER_BYTECODE> m_shaderBytecodes;
         GenerationalPool<ID3D12PipelineState*, PsoColdData> m_pipelineStateObjects;
+        GenerationalPool<Dx12SwapChain*> m_swapChains;
 
     private:
         static constexpr u16 kRtvHeapSize = 2048;

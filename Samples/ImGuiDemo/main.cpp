@@ -76,7 +76,7 @@ void MainFunc(void* _pAllocator)
             KryneEngine::RenderPassDesc::Attachment::StoreOperation::Store,
             TextureLayout::Unknown,
             TextureLayout::Present,
-            graphicsContext->GetPresentRenderTargetView(i),
+            graphicsContext->GetSwapChainRenderTargetView(swapChain, i),
             float4(0, 1, 1, 1)
         });
 #if !defined(KE_FINAL)
@@ -85,7 +85,7 @@ void MainFunc(void* _pAllocator)
         renderPassHandles[i] = graphicsContext->CreateRenderPass(desc);
     }
 
-    KEModules::ImGui::Context imGuiContext { &mainWindow, graphicsContext, graphicsContext->GetPresentTextureFormat(), allocator };
+    KEModules::ImGui::Context imGuiContext { &mainWindow, graphicsContext, graphicsContext->GetSwapChainFormat(swapChain), allocator };
 
     // You can set up ImGui specific config after the context has been created.
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -114,7 +114,7 @@ void MainFunc(void* _pAllocator)
         }
 
         {
-            const u8 index = graphicsContext->GetCurrentPresentImageIndex();
+            const u8 index = graphicsContext->GetSwapChainCurrentImageIndex(swapChain);
             const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
                 commandList,
                 renderPassHandles[index],
@@ -128,7 +128,7 @@ void MainFunc(void* _pAllocator)
 
         graphicsContext->EndGraphicsCommandList(commandList);
 
-        graphicsContext->EndFrame();
+        graphicsContext->EndFrame({ &swapChain, 1 });
     }
 
     graphicsContext->WaitForLastFrame();

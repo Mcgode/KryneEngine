@@ -100,17 +100,17 @@ int main()
     {
         KE_ZoneScoped("Registration");
 
-        const uint3 dimensions(graphicsContext->GetPresentFrameBufferSize(), 1);
+        const uint3 dimensions(graphicsContext->GetSwapChainSize(swapChain), 1);
 
         for (auto i = 0u; i < graphicsContext->GetFrameContextCount(); i++)
         {
             eastl::string name;
 
             swapChainTextures[i] = renderGraph.GetRegistry().RegisterRawTexture(
-                graphicsContext->GetPresentTexture(i),
+                graphicsContext->GetSwapChainTexture(swapChain, i),
                 name.sprintf("Swapchain buffer %u", i));
             swapChainRtvs[i] = renderGraph.GetRegistry().RegisterRenderTargetView(
-                graphicsContext->GetPresentRenderTargetView(i),
+                graphicsContext->GetSwapChainRenderTargetView(swapChain, i),
                 swapChainTextures[i],
                 name.sprintf("Swapchain RTV %u", i));
         }
@@ -302,7 +302,7 @@ int main()
     });
     colorMappingPass.CreatePso(graphicsContext, {
         .m_numColorAttachments = 1,
-        .m_colorFormats = { graphicsContext->GetPresentTextureFormat() },
+        .m_colorFormats = { graphicsContext->GetSwapChainFormat(swapChain) },
     });
 
     while (mainWindow.WaitForEvents())
@@ -314,7 +314,7 @@ int main()
             imGuiContext = allocator.New<Modules::ImGui::Context>(
                 &mainWindow,
                 graphicsContext,
-                graphicsContext->GetPresentTextureFormat(),
+                graphicsContext->GetSwapChainFormat(swapChain),
                 allocator);
         }
 
@@ -332,8 +332,10 @@ int main()
 
         RenderGraph::Builder& builder = renderGraph.BeginFrame(*graphicsContext);
 
-        SimplePoolHandle swapChainTexture = swapChainTextures[graphicsContext->GetCurrentPresentImageIndex()];
-        SimplePoolHandle swapChainRtv = swapChainRtvs[graphicsContext->GetCurrentPresentImageIndex()];
+        const uint2 renderSize = graphicsContext->GetSwapChainSize(swapChain);
+
+        SimplePoolHandle swapChainTexture = swapChainTextures[graphicsContext->GetSwapChainCurrentImageIndex(swapChain)];
+        SimplePoolHandle swapChainRtv = swapChainRtvs[graphicsContext->GetSwapChainCurrentImageIndex(swapChain)];
 
         {
             KE_ZoneScoped("Build render graph");
@@ -370,7 +372,7 @@ int main()
                     .Done()
                 .DeclarePass(RenderGraph::PassType::Compute)
                     .SetName("Deferred shadow pass")
-                    .SetExecuteFunction([&deferredShadowPass](const auto&, const auto& _passData) { deferredShadowPass.Render(_passData); })
+                    .SetExecuteFunction([&deferredShadowPass, renderSize](const auto&, const auto& _passData) { deferredShadowPass.Render(_passData, renderSize); })
                     .ReadDependency(frameCBufferReadDep)
                     .ReadDependency({
                         .m_resource = gBufferDepthView,
@@ -388,7 +390,7 @@ int main()
                     .Done()
                 .DeclarePass(RenderGraph::PassType::Compute)
                     .SetName("Deferred 'GI' pass")
-                    .SetExecuteFunction([&giPass](const auto&, const auto& _passData) { giPass.Render(_passData); })
+                    .SetExecuteFunction([&giPass, renderSize](const auto&, const auto& _passData) { giPass.Render(_passData, renderSize); })
                     .ReadDependency(frameCBufferReadDep)
                     .ReadDependency({
                         .m_resource = gBufferAlbedoView,
@@ -418,7 +420,7 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Deferred shading pass")
-                    .SetExecuteFunction([&deferredShadingPass](const auto& _, const auto& _passData) { deferredShadingPass.Render(_, _passData); })
+                    .SetExecuteFunction([&deferredShadingPass, renderSize](const auto& _, const auto& _passData) { deferredShadingPass.Render(_, _passData, renderSize); })
                     .AddColorAttachment(hdrRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
@@ -458,7 +460,7 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Sky pass")
-                    .SetExecuteFunction([&skyPass](const auto& _renderGraph, const auto& _passData) { skyPass.Render(_renderGraph, _passData); })
+                    .SetExecuteFunction([&skyPass, renderSize](const auto& _renderGraph, const auto& _passData) { skyPass.Render(_renderGraph, _passData, renderSize); })
                     .AddColorAttachment(hdrRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
@@ -471,7 +473,7 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Color mapping pass")
-                    .SetExecuteFunction([&colorMappingPass](const auto& _renderGraph, const auto& _passData) { colorMappingPass.Render(_renderGraph, _passData); })
+                    .SetExecuteFunction([&colorMappingPass, renderSize](const auto& _renderGraph, const auto& _passData) { colorMappingPass.Render(_renderGraph, _passData, renderSize); })
                     .AddColorAttachment(swapChainRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
@@ -524,7 +526,7 @@ int main()
             renderGraph.SubmitFrame(*graphicsContext, nullptr);
         }
 
-        graphicsContext->EndFrame();
+        graphicsContext->EndFrame({ &swapChain, 1 });
     }
 
     graphicsContext->WaitForLastFrame();

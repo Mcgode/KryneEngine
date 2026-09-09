@@ -13,8 +13,6 @@
 #include "Graphics/Vulkan/VkFeatures.hpp"
 #include "Graphics/Vulkan/VkFrameContext.hpp"
 #include "Graphics/Vulkan/VkResources.hpp"
-#include "Graphics/Vulkan/VkSurface.hpp"
-#include "Graphics/Vulkan/VkSwapChain.hpp"
 #include "Graphics/Vulkan/VkTypes.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/MemoryBarriers.hpp"
@@ -52,7 +50,7 @@ namespace KryneEngine
         [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return m_descriptorBindingPartiallyBound; }
 
     protected:
-        void InternalEndFrame() override;
+        void InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent) override;
 
         void WaitForFrame(u64 _frameId) const override;
 
@@ -61,10 +59,6 @@ namespace KryneEngine
         VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
         VkPhysicalDevice m_physicalDevice;
         VkDevice m_device;
-
-        VkSurface m_surface;
-        VkSwapChain m_swapChain;
-        SwapChainDesc m_swapChainDesc {};
 
         VkCommonStructures::QueueIndices m_queueIndices {};
         VkQueue m_graphicsQueue {};
@@ -152,11 +146,11 @@ namespace KryneEngine
         [[nodiscard]] RenderTargetViewHandle CreateRenderTargetView(const RenderTargetViewDesc& _desc) override;
         bool DestroyRenderTargetView(RenderTargetViewHandle _handle) override;
 
-        [[nodiscard]] RenderTargetViewHandle GetPresentRenderTargetView(u8 _index) override;
-        [[nodiscard]] TextureHandle GetPresentTexture(u8 _swapChainIndex) override;
-        [[nodiscard]] u32 GetCurrentPresentImageIndex() const override;
-        [[nodiscard]] uint2 GetPresentFrameBufferSize() override;
-        [[nodiscard]] TextureFormat GetPresentTextureFormat() override;
+        [[nodiscard]] RenderTargetViewHandle GetSwapChainRenderTargetView(SwapChainHandle _swapChain, u8 _index) override;
+        [[nodiscard]] TextureHandle GetSwapChainTexture(SwapChainHandle _swapChain, u8 _swapChainIndex) override;
+        [[nodiscard]] u32 GetSwapChainCurrentImageIndex(SwapChainHandle _swapChain) const override;
+        [[nodiscard]] uint2 GetSwapChainSize(SwapChainHandle _swapChain) override;
+        [[nodiscard]] TextureFormat GetSwapChainFormat(SwapChainHandle _swapChain) override;
 
         [[nodiscard]] RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc) override;
         bool DestroyRenderPass(RenderPassHandle _handle) override;

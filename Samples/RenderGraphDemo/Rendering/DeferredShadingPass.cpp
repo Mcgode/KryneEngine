@@ -153,12 +153,13 @@ namespace KryneEngine::Samples::RenderGraphDemo
 
     void DeferredShadingPass::Render(
         const Modules::RenderGraph::RenderGraph& _,
-        const Modules::RenderGraph::PassExecutionData& _passExecutionData)
+        const Modules::RenderGraph::PassExecutionData& _passExecutionData,
+        uint2 _renderSize)
     {
         if (m_pso == GenPool::kInvalidHandle)
             return;
 
-        const uint2 viewportSize = _passExecutionData.m_graphicsContext->GetPresentFrameBufferSize();
+        const uint2 viewportSize = _renderSize;
         FullscreenPassCommon::Render(
             _passExecutionData.m_graphicsContext,
             _passExecutionData.m_renderEncoder,

@@ -89,7 +89,7 @@ s32 main(s32 argc, const char** argv)
                     .m_loadOperation = RenderPassDesc::Attachment::LoadOperation::Clear,
                     .m_storeOperation = RenderPassDesc::Attachment::StoreOperation::Store,
                     .m_finalLayout = TextureLayout::Present,
-                    .m_rtv = graphicsContext->GetPresentRenderTargetView(i),
+                    .m_rtv = graphicsContext->GetSwapChainRenderTargetView(swapChain, i),
                 }
             },
 #if !defined(KE_FINAL)
@@ -116,15 +116,15 @@ s32 main(s32 argc, const char** argv)
     Modules::GuiLib::BasicGuiRenderer guiRenderer {
         allocatorInstance,
         graphicsContext,
-        graphicsContext->GetPresentTextureFormat(),
+        graphicsContext->GetSwapChainFormat(swapChain),
         sampler
     };
     guiRenderer.SetAtlasManager(&msdfAtlasManager);
     clayContext.Initialize(
         &guiRenderer,
-        graphicsContext->GetPresentFrameBufferSize());
+        graphicsContext->GetSwapChainSize(swapChain));
 
-    UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, graphicsContext->GetPresentTextureFormat(), &msdfAtlasManager };
+    UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, graphicsContext->GetSwapChainFormat(swapChain), &msdfAtlasManager };
 
     while (mainWindow.WaitForEvents())
     {
@@ -146,7 +146,7 @@ s32 main(s32 argc, const char** argv)
             graphicsContext->EndTransferPass(transferEncoder);
         }
 
-        clayContext.BeginLayout(graphicsContext->GetPresentFrameBufferSize());
+        clayContext.BeginLayout(graphicsContext->GetSwapChainSize(swapChain));
 
         // An example of laying out a UI with a fixed width sidebar and flexible width main content
         CLAY({
@@ -297,7 +297,7 @@ s32 main(s32 argc, const char** argv)
             }
         }
 
-        const RenderPassHandle currentPass = renderPassHandles[graphicsContext->GetCurrentPresentImageIndex()];
+        const RenderPassHandle currentPass = renderPassHandles[graphicsContext->GetSwapChainCurrentImageIndex(swapChain)];
         const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
             renderCommandList,
             currentPass,
@@ -310,7 +310,7 @@ s32 main(s32 argc, const char** argv)
 
         clayContext.EndLayout(*graphicsContext, transferEncoder, renderEncoder);
 
-        uiCube.Render(*graphicsContext, transferEncoder, renderEncoder, contentScale);
+        uiCube.Render(*graphicsContext, transferEncoder, renderEncoder, graphicsContext->GetSwapChainSize(swapChain), contentScale);
         graphicsContext->EndRenderPass(renderEncoder);
 
         msdfAtlasManager.FlushLoads(*graphicsContext, transferEncoder);
@@ -319,7 +319,7 @@ s32 main(s32 argc, const char** argv)
         graphicsContext->EndGraphicsCommandList(transferCommandList);
         graphicsContext->EndGraphicsCommandList(renderCommandList);
 
-        graphicsContext->EndFrame();
+        graphicsContext->EndFrame({ &swapChain, 1 });
     }
 
     clayContext.Destroy();

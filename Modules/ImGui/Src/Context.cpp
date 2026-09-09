@@ -185,7 +185,7 @@ namespace KryneEngine::Modules::ImGui
             const float2 dpiScale { _window->GetDpiScale() };
             io.DisplayFramebufferScale = { dpiScale.x, dpiScale.y };
 
-            const float2 framebufferSize { _graphicsContext->GetPresentFrameBufferSize() };
+            const float2 framebufferSize { _window->GetFramebufferSize() };
             io.DisplaySize = { framebufferSize.x / dpiScale.x, framebufferSize.y / dpiScale.y };
         }
 

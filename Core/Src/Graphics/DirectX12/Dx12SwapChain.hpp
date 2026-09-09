@@ -29,6 +29,8 @@ namespace KryneEngine
             ID3D12CommandQueue *_directQueue,
             KryneEngine::Dx12Resources& _resources);
 
+        bool Resize(ID3D12Device* _device, Dx12Resources& _resources, uint2 _newSize);
+
         [[nodiscard]] u8 GetBackBufferIndex() const
         {
 	        return m_swapChain->GetCurrentBackBufferIndex();
@@ -43,6 +45,11 @@ namespace KryneEngine
             return m_presentFormat;
         }
 
+        [[nodiscard]] RenderTargetViewHandle GetRenderTargetView(u8 _index) const { return m_renderTargetViews[_index]; }
+        [[nodiscard]] TextureHandle GetTexture(u8 _index) const { return m_renderTargetTextures[_index]; }
+        [[nodiscard]] u8 GetImageCount() const { return static_cast<u8>(m_renderTargetViews.Size()); }
+        [[nodiscard]] uint2 GetSize() const { return m_size; }
+
     private:
         ComPtr<IDXGISwapChain3> m_swapChain;
 
@@ -50,7 +57,11 @@ namespace KryneEngine
         DynamicArray<RenderTargetViewHandle> m_renderTargetViews;
 
         TextureFormat m_presentFormat = TextureFormat::NoFormat;
+        uint2 m_size {};
 
         u8 m_currentFrame;
+
+        void _CreateRenderTargets(ID3D12Device* _device, Dx12Resources& _resources, u32 _imageCount);
+        void _ReleaseRenderTargets(Dx12Resources& _resources);
     };
 } // KryneEngine

@@ -52,7 +52,7 @@ namespace KryneEngine
         [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return true; }
 
     protected:
-        void InternalEndFrame() override;
+        void InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent) override;
         void WaitForFrame(u64 _frameId) const override;
 
     private:
@@ -62,8 +62,6 @@ namespace KryneEngine
         ComPtr<ID3D12CommandQueue> m_directQueue;
         ComPtr<ID3D12CommandQueue> m_computeQueue;
         ComPtr<ID3D12CommandQueue> m_copyQueue;
-
-        Dx12SwapChain m_swapChain;
 
         u8 m_frameContextCount;
         DynamicArray<Dx12FrameContext> m_frameContexts;
@@ -112,10 +110,11 @@ namespace KryneEngine
         void DestroySwapChain(SwapChainHandle _handle) override;
         bool ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize) override;
 
-        [[nodiscard]] RenderTargetViewHandle GetPresentRenderTargetView(u8 _index) override;
-        [[nodiscard]] TextureHandle GetPresentTexture(u8 _swapChainIndex) override;
-        [[nodiscard]] u32 GetCurrentPresentImageIndex() const override;
-        [[nodiscard]] TextureFormat GetPresentTextureFormat() override;
+        [[nodiscard]] RenderTargetViewHandle GetSwapChainRenderTargetView(SwapChainHandle _swapChain, u8 _index) override;
+        [[nodiscard]] TextureHandle GetSwapChainTexture(SwapChainHandle _swapChain, u8 _swapChainIndex) override;
+        [[nodiscard]] u32 GetSwapChainCurrentImageIndex(SwapChainHandle _swapChain) const override;
+        [[nodiscard]] uint2 GetSwapChainSize(SwapChainHandle _swapChain) override;
+        [[nodiscard]] TextureFormat GetSwapChainFormat(SwapChainHandle _swapChain) override;
 
         RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc) override;
         bool DestroyRenderPass(RenderPassHandle _renderPass) override;

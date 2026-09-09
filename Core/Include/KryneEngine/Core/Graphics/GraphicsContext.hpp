@@ -149,14 +149,20 @@ namespace KryneEngine
          * @brief Finalizes the current frame and moves on to the next one.
          *
          * @details
-         * This submits any remaining recorded work, presents the swap chain image (if one exists), and
-         * increments #GetFrameId. It should be called once per application update loop iteration, after
-         * all the frame's command lists have been recorded and ended.
+         * This submits any remaining recorded work, presents the current image of each swap chain in
+         * @p _swapChainsToPresent, and increments #GetFrameId. It should be called once per application
+         * update loop iteration, after all the frame's command lists have been recorded and ended.
+         *
+         * @param _swapChainsToPresent The swap chains to present this frame. May be empty (headless /
+         * offscreen frame).
          *
          * @note This no longer pumps window events — the application drives its `Window` /
          * `WindowManager` message loop itself.
          */
-        void EndFrame();
+        void EndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent);
+
+        /// @brief Convenience overload finalizing a frame that presents nothing. See #EndFrame.
+        void EndFrame() { EndFrame({}); }
 
         /**
          * @brief Creates the presentation swap chain for a window.
@@ -273,8 +279,10 @@ namespace KryneEngine
 
         /**
          * @brief Platform-specific implementation of frame finalization, called by #EndFrame.
+         *
+         * @param _swapChainsToPresent The swap chains whose current image must be presented this frame.
          */
-        virtual void InternalEndFrame() = 0;
+        virtual void InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent) = 0;
 
         /**
          * @brief Platform-specific implementation that blocks until the given frame has finished executing.
@@ -429,39 +437,42 @@ namespace KryneEngine
         virtual bool DestroyRenderTargetView(RenderTargetViewHandle _handle) = 0;
 
         /**
-         * @brief Retrieves the render target view for a given swap chain image index.
+         * @brief Retrieves the render target view for one image of a swap chain.
          *
-         * @param _swapChainIndex The index of the swap chain image, typically #GetCurrentPresentImageIndex.
+         * @param _swapChain The swap chain, as returned by #CreateSwapChain.
+         * @param _swapChainIndex The index of the swap chain image, typically #GetSwapChainCurrentImageIndex.
          *
          * @return A handle to the render target view of the present image.
          */
-        [[nodiscard]] virtual RenderTargetViewHandle GetPresentRenderTargetView(u8 _swapChainIndex) = 0;
+        [[nodiscard]] virtual RenderTargetViewHandle GetSwapChainRenderTargetView(
+            SwapChainHandle _swapChain, u8 _swapChainIndex) = 0;
 
         /**
-         * @brief Retrieves the texture handle for a given swap chain image index.
+         * @brief Retrieves the texture handle for one image of a swap chain.
          *
-         * @param _swapChainIndex The index of the swap chain image, typically #GetCurrentPresentImageIndex.
+         * @param _swapChain The swap chain, as returned by #CreateSwapChain.
+         * @param _swapChainIndex The index of the swap chain image, typically #GetSwapChainCurrentImageIndex.
          *
          * @return A handle to the texture of the present image.
          */
-        [[nodiscard]] virtual TextureHandle GetPresentTexture(u8 _swapChainIndex) = 0;
+        [[nodiscard]] virtual TextureHandle GetSwapChainTexture(SwapChainHandle _swapChain, u8 _swapChainIndex) = 0;
 
         /**
          * @brief Retrieves the index of the swap chain image to be used for the current frame's presentation.
          *
-         * @return The current present image index, to be used with #GetPresentRenderTargetView
-         * and #GetPresentTexture.
+         * @return The current present image index, to be used with #GetSwapChainRenderTargetView
+         * and #GetSwapChainTexture.
          */
-        [[nodiscard]] virtual u32 GetCurrentPresentImageIndex() const = 0;
+        [[nodiscard]] virtual u32 GetSwapChainCurrentImageIndex(SwapChainHandle _swapChain) const = 0;
 
         /**
-         * @brief Retrieves the current size of the presentation frame buffer (i.e. the swap chain images).
+         * @brief Retrieves the current size of a swap chain's images, in pixels.
          *
-         * @return The width and height of the frame buffer, in pixels.
+         * @return The width and height of the swap chain images, in pixels.
          */
-        [[nodiscard]] virtual uint2 GetPresentFrameBufferSize() = 0;
+        [[nodiscard]] virtual uint2 GetSwapChainSize(SwapChainHandle _swapChain) = 0;
 
-        [[nodiscard]] virtual TextureFormat GetPresentTextureFormat() = 0;
+        [[nodiscard]] virtual TextureFormat GetSwapChainFormat(SwapChainHandle _swapChain) = 0;
 
         /**
          * @brief Creates a render pass object, describing a set of attachments and their load/store operations.

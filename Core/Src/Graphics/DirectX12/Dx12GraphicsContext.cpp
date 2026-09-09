@@ -142,11 +142,6 @@ namespace KryneEngine
 
         m_frameContexts.Clear();
 
-        if (m_swapChain.m_swapChain != nullptr)
-        {
-            m_swapChain.Destroy(m_resources);
-        }
-
         SafeRelease(m_copyQueue);
         SafeRelease(m_computeQueue);
         SafeRelease(m_directQueue);
@@ -176,13 +171,9 @@ namespace KryneEngine
         return m_computeQueue != nullptr;
     }
 
-    void Dx12GraphicsContext::InternalEndFrame()
+    void Dx12GraphicsContext::InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::EndFrame");
-
-        KE_ASSERT_MSG(
-            !m_appInfo.m_features.m_present || m_swapChain.m_swapChain != nullptr,
-            "CreateSwapChain() must be called before the first presented EndFrame()");
 
         const u8 frameIndex = m_frameId % m_frameContextCount;
 
@@ -219,9 +210,12 @@ namespace KryneEngine
         }
 
         // Present the frame (if applicable)
-        if (m_swapChain.m_swapChain != nullptr)
+        for (const SwapChainHandle handle : _swapChainsToPresent)
         {
-            m_swapChain.Present();
+            Dx12SwapChain* swapChain = m_resources.GetSwapChain(handle);
+            KE_ASSERT_MSG(swapChain != nullptr, "EndFrame() was given an invalid swap chain handle");
+            if (swapChain != nullptr)
+                swapChain->Present();
         }
 
         // Increment fence signal
@@ -507,64 +501,71 @@ namespace KryneEngine
         return m_resources.FreeRenderTargetView(_rtv);
     }
 
-    RenderTargetViewHandle Dx12GraphicsContext::GetPresentRenderTargetView(u8 _index)
+    RenderTargetViewHandle Dx12GraphicsContext::GetSwapChainRenderTargetView(const SwapChainHandle _swapChain, const u8 _index)
     {
-        return m_swapChain.m_renderTargetViews[_index];
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? swapChain->GetRenderTargetView(_index)
+            : RenderTargetViewHandle { GenPool::kInvalidHandle };
     }
 
-    TextureHandle Dx12GraphicsContext::GetPresentTexture(u8 _swapChainIndex)
+    TextureHandle Dx12GraphicsContext::GetSwapChainTexture(const SwapChainHandle _swapChain, const u8 _swapChainIndex)
     {
-        return (m_appInfo.m_features.m_present)
-                   ? m_swapChain.m_renderTargetTextures[_swapChainIndex]
-                   : TextureHandle { GenPool::kInvalidHandle };
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? swapChain->GetTexture(_swapChainIndex)
+            : TextureHandle { GenPool::kInvalidHandle };
     }
 
-    u32 Dx12GraphicsContext::GetCurrentPresentImageIndex() const
+    u32 Dx12GraphicsContext::GetSwapChainCurrentImageIndex(const SwapChainHandle _swapChain) const
     {
-        return m_swapChain.GetBackBufferIndex();
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetBackBufferIndex() : 0;
     }
 
-    TextureFormat Dx12GraphicsContext::GetPresentTextureFormat()
+    uint2 Dx12GraphicsContext::GetSwapChainSize(const SwapChainHandle _swapChain)
     {
-        return m_appInfo.m_features.m_present
-            ? m_swapChain.GetPresentTextureFormat()
-            : TextureFormat::NoFormat;
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetSize() : uint2 { 1 };
+    }
+
+    TextureFormat Dx12GraphicsContext::GetSwapChainFormat(const SwapChainHandle _swapChain)
+    {
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetPresentTextureFormat() : TextureFormat::NoFormat;
     }
 
     SwapChainHandle Dx12GraphicsContext::CreateSwapChain(const SwapChainDesc& _desc)
     {
-        KE_ASSERT_MSG(m_swapChain.m_swapChain == nullptr, "Dx12GraphicsContext owns at most one swap chain");
-
-        m_swapChain.Init(
+        const SwapChainHandle handle = m_resources.CreateSwapChain(
             m_appInfo,
             _desc,
             m_factory.Get(),
             m_device.Get(),
-            m_directQueue.Get(),
-            m_resources);
+            m_directQueue.Get());
 
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(handle);
         KE_ASSERT_MSG(
-            m_swapChain.m_renderTargetViews.Size() == m_frameContextCount,
+            swapChain->GetImageCount() == m_frameContextCount,
             "Swap chain image count (%d) does not match the requested buffering mode (%d)",
-            m_swapChain.m_renderTargetViews.Size(),
+            swapChain->GetImageCount(),
             m_frameContextCount);
 
-        return { { 0, 0 } };
+        return handle;
     }
 
     void Dx12GraphicsContext::DestroySwapChain(SwapChainHandle _handle)
     {
-        if (m_swapChain.m_swapChain == nullptr)
-            return;
-
-        m_swapChain.Destroy(m_resources);
+        m_resources.DestroySwapChain(_handle);
     }
 
     bool Dx12GraphicsContext::ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize)
     {
-        // TODO: implement DXGI ResizeBuffers + RTV recreation (no callers yet in scoped phase 2).
-        KE_ERROR("Dx12GraphicsContext::ResizeSwapChain is not implemented");
-        return false;
+        Dx12SwapChain* swapChain = m_resources.GetSwapChain(_handle);
+        VERIFY_OR_RETURN(swapChain != nullptr, false);
+
+        WaitForLastFrame();
+        return swapChain->Resize(m_device.Get(), m_resources, _newSize);
     }
 
     RenderPassHandle Dx12GraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)

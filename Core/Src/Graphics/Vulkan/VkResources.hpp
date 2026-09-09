@@ -33,6 +33,14 @@ namespace KryneEngine
 
     class VkDebugHandler;
     class VkDescriptorSetManager;
+    class VkSwapChain;
+
+    namespace VkCommonStructures
+    {
+        struct QueueIndices;
+    }
+
+    struct SwapChainDesc;
 
     class VkResources
     {
@@ -96,6 +104,8 @@ namespace KryneEngine
 
         GenerationalPool<VkPipeline> m_pipelines;
 
+        GenerationalPool<VkSwapChain*> m_swapChains;
+
 #if !defined(KE_FINAL)
         eastl::shared_ptr<VkDebugHandler> m_debugHandler;
 #endif
@@ -105,6 +115,17 @@ namespace KryneEngine
         ~VkResources();
 
         void FlushPools();
+
+        [[nodiscard]] SwapChainHandle CreateSwapChain(
+            const GraphicsCommon::ApplicationInfo& _appInfo,
+            const SwapChainDesc& _desc,
+            VkDevice _device,
+            VkInstance _instance,
+            VkPhysicalDevice _physicalDevice,
+            const VkCommonStructures::QueueIndices& _queueIndices,
+            u64 _frameId);
+        [[nodiscard]] VkSwapChain* GetSwapChain(SwapChainHandle _handle) const;
+        bool DestroySwapChain(SwapChainHandle _handle, VkDevice _device, VkInstance _instance);
 
         void InitAllocator(
             const GraphicsCommon::ApplicationInfo& _appInfo,

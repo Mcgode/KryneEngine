@@ -20,7 +20,7 @@
 
 using namespace KryneEngine;
 
-void PrepareRenderPasses(GraphicsContext& _graphicsContext, DynamicArray<RenderPassHandle>& _handles)
+void PrepareRenderPasses(GraphicsContext& _graphicsContext, SwapChainHandle _swapChain, DynamicArray<RenderPassHandle>& _handles)
 {
     _handles.Resize(_graphicsContext.GetFrameContextCount());
     for (auto i = 0u; i < _handles.Size(); i++)
@@ -31,7 +31,7 @@ void PrepareRenderPasses(GraphicsContext& _graphicsContext, DynamicArray<RenderP
             KryneEngine::RenderPassDesc::Attachment::StoreOperation::Store,
             TextureLayout::Unknown,
             TextureLayout::Present,
-            _graphicsContext.GetPresentRenderTargetView(i),
+            _graphicsContext.GetSwapChainRenderTargetView(_swapChain, i),
             float4(0, 1, 1, 1) // Cyan color
         });
 #if !defined(KE_FINAL)
@@ -43,6 +43,7 @@ void PrepareRenderPasses(GraphicsContext& _graphicsContext, DynamicArray<RenderP
 
 void PreparePso(
     GraphicsContext& _graphicsContext,
+    SwapChainHandle _swapChain,
     eastl::vector<u8>& _vsBytecode,
     eastl::vector<u8>& _psBytecode,
     ShaderModuleHandle& _vsModule,
@@ -130,7 +131,7 @@ void PreparePso(
             .m_depthStencil = { .m_depthTest = false, .m_depthWrite = false },
             .m_renderTargets = {
                 .m_numColorAttachments = 1,
-                .m_colorFormats = { _graphicsContext.GetPresentTextureFormat() },
+                .m_colorFormats = { _graphicsContext.GetSwapChainFormat(_swapChain) },
             },
             .m_pipelineLayout = _layout,
 #if !defined(KE_FINAL)
@@ -345,8 +346,8 @@ int main()
     BufferSpan vertexBufferView, indexBufferView;
 
     // Prepare resources
-    PrepareRenderPasses(*graphicsContext, renderPassHandles);
-    PreparePso(*graphicsContext, vsBytecode, psBytecode, vsModule, psModule, trianglePipelineLayout, trianglePso);
+    PrepareRenderPasses(*graphicsContext, swapChain, renderPassHandles);
+    PreparePso(*graphicsContext, swapChain, vsBytecode, psBytecode, vsModule, psModule, trianglePipelineLayout, trianglePso);
     PrepareBuffers(*graphicsContext, stagingBuffer, vertexBuffer, indexBuffer, vertexBufferView, indexBufferView);
 
     const u64 stagingFrame = graphicsContext->GetFrameId();
@@ -366,7 +367,7 @@ int main()
         {
             KE_GpuZoneScoped(graphicsContext, graphicsContext->GetProfilerContext(), commandList, "Main loop");
 
-            const u8 index = graphicsContext->GetCurrentPresentImageIndex();
+            const u8 index = graphicsContext->GetSwapChainCurrentImageIndex(swapChain);
             const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
                 commandList,
                 renderPassHandles[index],
@@ -377,7 +378,7 @@ int main()
             graphicsContext->SetIndexBuffer(renderEncoder, indexBufferView, false);
             graphicsContext->SetGraphicsPipeline(renderEncoder, trianglePso);
 
-            const uint2 viewportSize = graphicsContext->GetPresentFrameBufferSize();
+            const uint2 viewportSize = graphicsContext->GetSwapChainSize(swapChain);
             graphicsContext->SetViewport(
                 renderEncoder,
                 {
@@ -399,7 +400,7 @@ int main()
 
         graphicsContext->EndGraphicsCommandList(commandList);
 
-        graphicsContext->EndFrame();
+        graphicsContext->EndFrame({ &swapChain, 1 });
     }
 
     graphicsContext->WaitForLastFrame();

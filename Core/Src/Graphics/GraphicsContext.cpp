@@ -52,9 +52,9 @@ namespace KryneEngine
         _context->m_allocator.Delete(reinterpret_cast<Implementation*>(_context));;
     }
 
-    void GraphicsContext::EndFrame()
+    void GraphicsContext::EndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent)
     {
-        InternalEndFrame();
+        InternalEndFrame(_swapChainsToPresent);
         m_frameId++;
     }
 

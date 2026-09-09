@@ -9,6 +9,7 @@
 #include "Graphics/Vulkan/HelperFunctions.hpp"
 #include "Graphics/Vulkan/VkDebugHandler.hpp"
 #include "Graphics/Vulkan/VkDescriptorSetManager.hpp"
+#include "Graphics/Vulkan/VkSwapChain.hpp"
 #include "KryneEngine/Core/Common/Utils/Alignment.hpp"
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
@@ -33,6 +34,7 @@ namespace KryneEngine
         , m_shaderModules(_allocator)
         , m_pipelineLayouts(_allocator)
         , m_pipelines(_allocator)
+        , m_swapChains(_allocator)
         , m_dummyRenderPasses(_allocator, 32)
     {}
 
@@ -50,7 +52,61 @@ namespace KryneEngine
         m_shaderModules.FlushDeferredFrees();
         m_pipelineLayouts.FlushDeferredFrees();
         m_pipelines.FlushDeferredFrees();
+        m_swapChains.FlushDeferredFrees();
+    }
 
+    SwapChainHandle VkResources::CreateSwapChain(
+        const GraphicsCommon::ApplicationInfo& _appInfo,
+        const SwapChainDesc& _desc,
+        VkDevice _device,
+        VkInstance _instance,
+        VkPhysicalDevice _physicalDevice,
+        const VkCommonStructures::QueueIndices& _queueIndices,
+        u64 _frameId)
+    {
+        KE_ZoneScopedFunction("VkResources::CreateSwapChain");
+
+        auto* swapChain = m_swapChains.GetAllocator().New<VkSwapChain>(m_swapChains.GetAllocator());
+        swapChain->Init(
+            _appInfo,
+            _device,
+            _instance,
+            _physicalDevice,
+            *this,
+            _desc,
+            _queueIndices,
+            _frameId);
+
+#if !defined(KE_FINAL)
+        if (m_debugHandler != nullptr)
+        {
+            swapChain->SetDebugHandler(m_debugHandler, _device);
+        }
+#endif
+
+        const GenPool::Handle handle = m_swapChains.Allocate();
+        *m_swapChains.Get(handle) = swapChain;
+        return { handle };
+    }
+
+    VkSwapChain* VkResources::GetSwapChain(SwapChainHandle _handle) const
+    {
+        VkSwapChain** ptr = m_swapChains.Get(_handle.m_handle);
+        return ptr != nullptr ? *ptr : nullptr;
+    }
+
+    bool VkResources::DestroySwapChain(SwapChainHandle _handle, VkDevice _device, VkInstance _instance)
+    {
+        VkSwapChain* swapChain = nullptr;
+        if (!m_swapChains.Free(_handle.m_handle, &swapChain))
+            return false;
+
+        if (swapChain != nullptr)
+        {
+            swapChain->Destroy(_device, _instance, *this);
+            m_swapChains.GetAllocator().Delete(swapChain);
+        }
+        return true;
     }
 
     void VkResources::InitAllocator(

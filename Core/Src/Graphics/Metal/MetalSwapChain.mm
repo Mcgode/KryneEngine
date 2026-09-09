@@ -83,6 +83,18 @@ namespace KryneEngine
         m_metalLayer->setDrawableSize(CGSizeMake(_newSize.x, _newSize.y));
     }
 
+    void MetalSwapChain::Destroy(MetalResources& _resources)
+    {
+        for (const RenderTargetViewHandle handle : m_rtvs)
+            _resources.UnregisterRtv(handle);
+        for (const TextureHandle handle : m_textures)
+            _resources.UnregisterTexture(handle);
+        m_rtvs.Clear();
+        m_textures.Clear();
+        m_drawable.reset();
+        m_metalLayer = nullptr;
+    }
+
     void MetalSwapChain::UpdateNextDrawable(u8 _frameIndex, MetalResources& _resources)
     {
         KE_AUTO_RELEASE_POOL;

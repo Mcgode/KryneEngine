@@ -35,6 +35,8 @@ namespace KryneEngine
 
         void Resize(uint2 _newSize);
 
+        void Destroy(MetalResources& _resources);
+
         void UpdateNextDrawable(u8 _frameIndex, MetalResources& _resources);
 
         [[nodiscard]] CA::MetalDrawable* GetDrawable() const
@@ -51,6 +53,10 @@ namespace KryneEngine
         {
             return m_metalLayer->pixelFormat();
         }
+
+        [[nodiscard]] RenderTargetViewHandle GetRenderTargetView(u8 _index) const { return m_rtvs[_index]; }
+        [[nodiscard]] TextureHandle GetTexture(u8 _index) const { return m_textures[_index]; }
+        [[nodiscard]] u8 GetImageCount() const { return static_cast<u8>(m_textures.Size()); }
 
     private:
         CA::MetalLayer* m_metalLayer;

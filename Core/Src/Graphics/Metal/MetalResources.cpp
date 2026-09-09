@@ -9,6 +9,7 @@
 #include "Graphics/Metal/Helpers/EnumConverters.hpp"
 #include "Graphics/Metal/MetalArgumentBufferManager.hpp"
 #include "Graphics/Metal/MetalConstants.hpp"
+#include "Graphics/Metal/MetalSwapChain.hpp"
 #include "KryneEngine/Core/Common/StringHelpers.hpp"
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
@@ -30,6 +31,7 @@ namespace KryneEngine
         , m_libraries(_allocator)
         , m_graphicsPso(_allocator)
         , m_computePso(_allocator)
+        , m_swapChains(_allocator)
     {}
 
     MetalResources::~MetalResources() = default;
@@ -46,11 +48,46 @@ namespace KryneEngine
         m_libraries.FlushDeferredFrees();
         m_graphicsPso.FlushDeferredFrees();
         m_computePso.FlushDeferredFrees();
+        m_swapChains.FlushDeferredFrees();
     }
 
     AllocatorInstance MetalResources::GetAllocator() const
     {
         return m_textures.GetAllocator();
+    }
+
+    SwapChainHandle MetalResources::CreateSwapChain(
+        MTL::Device& _device,
+        const GraphicsCommon::ApplicationInfo& _appInfo,
+        const SwapChainDesc& _desc,
+        u8 _initialFrameIndex)
+    {
+        auto* swapChain = GetAllocator().New<MetalSwapChain>();
+        swapChain->Init(GetAllocator(), _device, _appInfo, _desc, *this, _initialFrameIndex);
+
+        const GenPool::Handle handle = m_swapChains.Allocate();
+        *m_swapChains.Get(handle) = swapChain;
+        return { handle };
+    }
+
+    MetalSwapChain* MetalResources::GetSwapChain(SwapChainHandle _handle) const
+    {
+        MetalSwapChain** ptr = m_swapChains.Get(_handle.m_handle);
+        return ptr != nullptr ? *ptr : nullptr;
+    }
+
+    bool MetalResources::DestroySwapChain(SwapChainHandle _handle)
+    {
+        MetalSwapChain* swapChain = nullptr;
+        if (!m_swapChains.Free(_handle.m_handle, &swapChain))
+            return false;
+
+        if (swapChain != nullptr)
+        {
+            swapChain->Destroy(*this);
+            GetAllocator().Delete(swapChain);
+        }
+        return true;
     }
 
     BufferHandle MetalResources::CreateBuffer(MTL::Device& _device, const BufferCreateDesc& _desc)

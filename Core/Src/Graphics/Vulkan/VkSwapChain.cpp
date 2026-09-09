@@ -18,18 +18,37 @@ namespace KryneEngine
 {
     VkSwapChain::VkSwapChain(const AllocatorInstance _allocator)
         : m_allocator(_allocator)
+        , m_surface(_allocator)
     {}
 
     void VkSwapChain::Init(
             const GraphicsCommon::ApplicationInfo &_appInfo,
-            VkDevice _device, const VkSurface &_surface,
+            VkDevice _device, VkInstance _instance, VkPhysicalDevice _physicalDevice,
             VkResources &_resources, const SwapChainDesc& _desc,
             const VkCommonStructures::QueueIndices &_queueIndices,
             u64 _currentFrameIndex)
     {
         KE_ZoneScopedFunction("VkSwapChain::VkSwapChain");
 
-        const auto& capabilities = _surface.GetCapabilities();
+        m_desc = _desc;
+        m_queueIndices = _queueIndices;
+
+        m_surface.Init(_instance, _desc.m_nativeWindow);
+        m_surface.UpdateCapabilities(_physicalDevice);
+
+        // Sanity check: the graphics queue (which also presents, see §6 of the windowing redesign) must
+        // support presentation to this surface.
+        {
+            VkBool32 presentSupported = VK_FALSE;
+            VkAssert(vkGetPhysicalDeviceSurfaceSupportKHR(
+                _physicalDevice,
+                static_cast<u32>(_queueIndices.m_graphicsQueueIndex.m_familyIndex),
+                m_surface.GetSurface(),
+                &presentSupported));
+            KE_ASSERT_MSG(presentSupported, "Graphics queue family cannot present to the swap chain surface");
+        }
+
+        const auto& capabilities = m_surface.GetCapabilities();
         KE_ASSERT(!capabilities.m_formats.Empty() && !capabilities.m_presentModes.Empty());
 
         const auto& displayOptions = _desc.m_displayOptions;
@@ -124,7 +143,7 @@ namespace KryneEngine
             m_reCreateInfo = VkSwapchainCreateInfoKHR{
                 .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
                 .flags = 0,
-                .surface = _surface.GetSurface(),
+                .surface = m_surface.GetSurface(),
                 .minImageCount = desiredImageCount,
                 .imageFormat = selectedSurfaceFormat.format,
                 .imageColorSpace = selectedSurfaceFormat.colorSpace,
@@ -190,10 +209,9 @@ namespace KryneEngine
 
     bool VkSwapChain::RecreateSwapChain(
         const VkDevice _device,
-        const VkSurface& _surface,
+        VkPhysicalDevice _physicalDevice,
         VkResources& _resources,
-        const SwapChainDesc& _desc,
-        const VkCommonStructures::QueueIndices& _queueIndices,
+        uint2 _newSize,
         const u64 _frameId)
     {
         KE_ZoneScopedFunction("VkSwapChain::RecreateSwapChain");
@@ -201,12 +219,15 @@ namespace KryneEngine
         if (m_nextSwapChain != nullptr)
             return false;
 
+        m_desc.m_dimensions = _newSize;
+        m_surface.UpdateCapabilities(_physicalDevice);
+
         m_nextSwapChain = m_allocator.New<SwapChainData>(m_allocator);
 
         // Delay transition to the next frame, as the acquired image this frame belongs to the previous swap chain.
         m_nextSwapChainTransitionFrame = _frameId + 1;
 
-        const VkSurface::Capabilities capabilities = _surface.GetCapabilities();
+        const VkSurface::Capabilities capabilities = m_surface.GetCapabilities();
 
         VkExtent2D extent;
         if (capabilities.m_surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max()
@@ -217,8 +238,8 @@ namespace KryneEngine
         else
         {
             extent = VkExtent2D {
-                _desc.m_dimensions.x,
-                _desc.m_dimensions.y
+                m_desc.m_dimensions.x,
+                m_desc.m_dimensions.y
             };
 
             extent.width = eastl::clamp(extent.width,
@@ -234,7 +255,7 @@ namespace KryneEngine
         {
             eastl::vector<u32> queueFamilyIndices {};
             if (m_sharingMode == VK_SHARING_MODE_CONCURRENT)
-                queueFamilyIndices = _queueIndices.RetrieveDifferentFamilies();
+                queueFamilyIndices = m_queueIndices.RetrieveDifferentFamilies();
 
             VkSwapchainCreateInfoKHR createInfo = m_reCreateInfo;
             createInfo.imageExtent = extent;
@@ -370,7 +391,7 @@ namespace KryneEngine
         }
     }
 
-    void VkSwapChain::Destroy(const VkDevice _device, VkResources &_resources) const
+    void VkSwapChain::Destroy(const VkDevice _device, VkInstance _instance, VkResources &_resources)
     {
         SwapChainData* swapChains[2] = { m_currentSwapChain, m_nextSwapChain };
 
@@ -381,6 +402,10 @@ namespace KryneEngine
 
             DestroySwapChain(_device, _resources, swapChain);
         }
+        m_currentSwapChain = nullptr;
+        m_nextSwapChain = nullptr;
+
+        m_surface.Destroy(_instance);
     }
 
 #if !defined(KE_FINAL)

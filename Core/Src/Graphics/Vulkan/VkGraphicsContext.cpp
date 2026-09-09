@@ -111,8 +111,6 @@ namespace KryneEngine
         const AllocatorInstance _allocator,
         const GraphicsCommon::ApplicationInfo& _appInfo)
         : GraphicsContext(_allocator, _appInfo)
-        , m_surface(_allocator)
-        , m_swapChain(_allocator)
         , m_resources(_allocator)
         , m_descriptorSetManager(_allocator)
     {
@@ -240,12 +238,6 @@ namespace KryneEngine
         }
         m_frameContexts.Clear();
 
-        if (m_swapChain.m_currentSwapChain != nullptr)
-        {
-            m_swapChain.Destroy(m_device, m_resources);
-            m_surface.Destroy(m_instance);
-        }
-
         m_resources.DestroyAllocator();
 
         vkDestroyDevice(m_device, nullptr);
@@ -295,28 +287,35 @@ namespace KryneEngine
         return m_computeQueue != VK_NULL_HANDLE;
     }
 
-    void VkGraphicsContext::InternalEndFrame()
+    void VkGraphicsContext::InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::EndFrame");
-
-        KE_ASSERT_MSG(
-            !m_appInfo.m_features.m_present || m_swapChain.m_currentSwapChain != nullptr,
-            "CreateSwapChain() must be called before the first presented EndFrame()");
 
         const u8 frameIndex = m_frameId % m_frameContextCount;
         auto& frameContext = m_frameContexts[frameIndex];
         eastl::fixed_vector<VkSemaphore, VkFrameContext::kMaxQueueCount> queueSemaphores(m_allocator);
 
-        VkSemaphore imageAvailableSemaphore;
-        if (m_appInfo.m_features.m_present)
+        // Gather the "image available" semaphore of every swap chain to present — the first queue
+        // submission waits on all of them before writing any render target.
+        eastl::fixed_vector<VkSwapChain*, 4> swapChains(m_allocator);
+        eastl::fixed_vector<VkSemaphore, 4> imageAvailableSemaphores(m_allocator);
+        eastl::fixed_vector<VkPipelineStageFlags, 4> imageAvailableStages(m_allocator);
+        for (const SwapChainHandle handle : _swapChainsToPresent)
         {
-            imageAvailableSemaphore = m_swapChain.GetSwapChain(m_frameId)->m_imageAvailableSemaphores[frameIndex];
+            VkSwapChain* swapChain = m_resources.GetSwapChain(handle);
+            KE_ASSERT_MSG(swapChain != nullptr, "EndFrame() was given an invalid swap chain handle");
+            if (swapChain == nullptr)
+                continue;
+            swapChains.push_back(swapChain);
+            imageAvailableSemaphores.push_back(swapChain->GetImageAvailableSemaphore(m_frameId, frameIndex));
+            imageAvailableStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
         }
 
         // Submit command buffers
         {
             KE_ZoneScoped("Submit non-present queues");
 
+            bool waitedForImages = false;
             const auto submitQueue = [&](const VkQueue _queue, VkFrameContext::CommandPoolSet& _commandPoolSet)
             {
                 if (_queue && !_commandPoolSet.m_usedCommandBuffers.empty())
@@ -327,14 +326,17 @@ namespace KryneEngine
                         VkAssert(vkResetFences(m_device, 1, &_commandPoolSet.m_fence));
                     }
 
-                    constexpr VkPipelineStageFlags stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+                    // Only the first submitted queue waits on the swap chain images.
+                    const u32 waitCount = waitedForImages ? 0u : static_cast<u32>(imageAvailableSemaphores.size());
+                    waitedForImages = true;
+
                     VkSubmitInfo submitInfo
                         {
                             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 
-                            .waitSemaphoreCount = m_appInfo.m_features.m_present ? 1u : 0u,
-                            .pWaitSemaphores = &imageAvailableSemaphore,
-                            .pWaitDstStageMask = stages, // Only need image for render target output
+                            .waitSemaphoreCount = waitCount,
+                            .pWaitSemaphores = imageAvailableSemaphores.data(),
+                            .pWaitDstStageMask = imageAvailableStages.data(),
 
                             .commandBufferCount = static_cast<uint32_t>(_commandPoolSet.m_usedCommandBuffers.size()),
                             .pCommandBuffers = _commandPoolSet.m_usedCommandBuffers.data(),
@@ -353,9 +355,10 @@ namespace KryneEngine
             submitQueue(m_graphicsQueue, frameContext.m_graphicsCommandPoolSet);
         }
 
-        // Present image
-        if (m_appInfo.m_features.m_present) {
-            m_swapChain.Present(m_presentQueue, queueSemaphores, m_frameId);
+        // Present each swap chain image
+        for (VkSwapChain* swapChain : swapChains)
+        {
+            swapChain->Present(m_presentQueue, queueSemaphores, m_frameId);
         }
 
         if (m_profilerContext != nullptr)
@@ -389,11 +392,11 @@ namespace KryneEngine
         m_resources.FlushPools();
         m_descriptorSetManager.NextFrame(m_device, m_resources, nextFrameContextIndex);
 
-        // Acquire next image
-        if (m_appInfo.m_features.m_present)
+        // Acquire the next image of every presented swap chain
+        for (VkSwapChain* swapChain : swapChains)
         {
-            m_swapChain.Update(m_device, m_resources, m_frameId);
-            m_swapChain.AcquireNextImage(m_device, nextFrameContextIndex);
+            swapChain->Update(m_device, m_resources, m_frameId);
+            swapChain->AcquireNextImage(m_device, nextFrameContextIndex);
         }
     }
 
@@ -978,55 +981,35 @@ namespace KryneEngine
 
     SwapChainHandle VkGraphicsContext::CreateSwapChain(const SwapChainDesc& _desc)
     {
-        KE_ASSERT_MSG(m_swapChain.m_currentSwapChain == nullptr, "VkGraphicsContext owns at most one swap chain");
-
-        m_swapChainDesc = _desc;
-
-        m_surface.Init(m_instance, _desc.m_nativeWindow);
-        m_surface.UpdateCapabilities(m_physicalDevice);
-
-        m_swapChain.Init(
+        const SwapChainHandle handle = m_resources.CreateSwapChain(
             m_appInfo,
+            _desc,
             m_device,
-            m_surface,
-            m_resources,
-            m_swapChainDesc,
+            m_instance,
+            m_physicalDevice,
             m_queueIndices,
             m_frameId);
 
-#if !defined(KE_FINAL)
-        m_swapChain.SetDebugHandler(m_debugHandler, m_device);
-#endif
-
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(handle);
         KE_ASSERT_MSG(
-            m_swapChain.m_currentSwapChain->m_renderTargetViews.Size() == m_frameContextCount,
+            swapChain->GetImageCount(m_frameId) == m_frameContextCount,
             "Swap chain image count (%d) does not match the requested buffering mode (%d)",
-            m_swapChain.m_currentSwapChain->m_renderTargetViews.Size(),
+            swapChain->GetImageCount(m_frameId),
             m_frameContextCount);
 
-        return { { 0, 0 } };
+        return handle;
     }
 
     void VkGraphicsContext::DestroySwapChain(SwapChainHandle _handle)
     {
-        if (m_swapChain.m_currentSwapChain == nullptr)
-            return;
-
-        m_swapChain.Destroy(m_device, m_resources);
-        m_surface.Destroy(m_instance);
+        m_resources.DestroySwapChain(_handle, m_device, m_instance);
     }
 
     bool VkGraphicsContext::ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize)
     {
-        m_swapChainDesc.m_dimensions = _newSize;
-        m_surface.UpdateCapabilities(m_physicalDevice);
-        return m_swapChain.RecreateSwapChain(
-            m_device,
-            m_surface,
-            m_resources,
-            m_swapChainDesc,
-            m_queueIndices,
-            m_frameId);
+        VkSwapChain* swapChain = m_resources.GetSwapChain(_handle);
+        VERIFY_OR_RETURN(swapChain != nullptr, false);
+        return swapChain->RecreateSwapChain(m_device, m_physicalDevice, m_resources, _newSize, m_frameId);
     }
 
     eastl::vector_set<eastl::string> VkGraphicsContext::_GetRequiredDeviceExtensions() const
@@ -1166,39 +1149,38 @@ namespace KryneEngine
         return m_resources.FreeRenderTargetView(_handle, m_device);
     }
 
-    RenderTargetViewHandle VkGraphicsContext::GetPresentRenderTargetView(const u8 _index)
+    RenderTargetViewHandle VkGraphicsContext::GetSwapChainRenderTargetView(const SwapChainHandle _swapChain, const u8 _index)
     {
-        return (m_appInfo.m_features.m_present)
-                ? m_swapChain.GetSwapChain(m_frameId)->m_renderTargetViews[_index]
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+                ? swapChain->GetRenderTargetView(m_frameId, _index)
                 : RenderTargetViewHandle { GenPool::kInvalidHandle };
     }
 
-    TextureHandle VkGraphicsContext::GetPresentTexture(const u8 _swapChainIndex)
+    TextureHandle VkGraphicsContext::GetSwapChainTexture(const SwapChainHandle _swapChain, const u8 _swapChainIndex)
     {
-        return (m_appInfo.m_features.m_present)
-            ? m_swapChain.GetSwapChain(m_frameId)->m_renderTargetTextures[_swapChainIndex]
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? swapChain->GetTexture(m_frameId, _swapChainIndex)
             : TextureHandle { GenPool::kInvalidHandle };
     }
 
-    u32 VkGraphicsContext::GetCurrentPresentImageIndex() const
+    u32 VkGraphicsContext::GetSwapChainCurrentImageIndex(const SwapChainHandle _swapChain) const
     {
-        return (m_appInfo.m_features.m_present)
-                ? m_swapChain.m_imageIndex
-                : 0;
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetCurrentImageIndex() : 0;
     }
 
-    uint2 VkGraphicsContext::GetPresentFrameBufferSize()
+    uint2 VkGraphicsContext::GetSwapChainSize(const SwapChainHandle _swapChain)
     {
-        return m_appInfo.m_features.m_present
-            ? m_swapChain.GetSwapChain(m_frameId)->m_framebufferSize
-            : uint2 { 1 };
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetFramebufferSize(m_frameId) : uint2 { 1 };
     }
 
-    TextureFormat VkGraphicsContext::GetPresentTextureFormat()
+    TextureFormat VkGraphicsContext::GetSwapChainFormat(const SwapChainHandle _swapChain)
     {
-        return m_appInfo.m_features.m_present
-            ? FromVkFormat(m_swapChain.GetSwapChain(m_frameId)->m_format)
-            : TextureFormat::NoFormat;
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? FromVkFormat(swapChain->GetFormat(m_frameId)) : TextureFormat::NoFormat;
     }
 
     RenderPassHandle VkGraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)

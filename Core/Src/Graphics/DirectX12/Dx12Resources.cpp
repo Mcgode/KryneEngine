@@ -9,6 +9,7 @@
 
 #include "Graphics/DirectX12/Dx12DescriptorSetManager.hpp"
 #include "Graphics/DirectX12/Dx12Resources.h"
+#include "Graphics/DirectX12/Dx12SwapChain.hpp"
 #include "Graphics/DirectX12/HelperFunctions.hpp"
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
@@ -31,6 +32,7 @@ namespace KryneEngine
         , m_pipelineLayouts(_allocator)
         , m_shaderBytecodes(_allocator)
         , m_pipelineStateObjects(_allocator)
+        , m_swapChains(_allocator)
     {}
 
     Dx12Resources::~Dx12Resources() = default;
@@ -77,6 +79,42 @@ namespace KryneEngine
         m_pipelineLayouts.FlushDeferredFrees();
         m_shaderBytecodes.FlushDeferredFrees();
         m_pipelineStateObjects.FlushDeferredFrees();
+        m_swapChains.FlushDeferredFrees();
+    }
+
+    SwapChainHandle Dx12Resources::CreateSwapChain(
+        const GraphicsCommon::ApplicationInfo& _appInfo,
+        const SwapChainDesc& _desc,
+        IDXGIFactory4* _factory,
+        ID3D12Device* _device,
+        ID3D12CommandQueue* _directQueue)
+    {
+        auto* swapChain = m_swapChains.GetAllocator().New<Dx12SwapChain>(m_swapChains.GetAllocator());
+        swapChain->Init(_appInfo, _desc, _factory, _device, _directQueue, *this);
+
+        const GenPool::Handle handle = m_swapChains.Allocate();
+        *m_swapChains.Get(handle) = swapChain;
+        return { handle };
+    }
+
+    Dx12SwapChain* Dx12Resources::GetSwapChain(SwapChainHandle _handle) const
+    {
+        Dx12SwapChain** ptr = m_swapChains.Get(_handle.m_handle);
+        return ptr != nullptr ? *ptr : nullptr;
+    }
+
+    bool Dx12Resources::DestroySwapChain(SwapChainHandle _handle)
+    {
+        Dx12SwapChain* swapChain = nullptr;
+        if (!m_swapChains.Free(_handle.m_handle, &swapChain))
+            return false;
+
+        if (swapChain != nullptr)
+        {
+            swapChain->Destroy(*this);
+            m_swapChains.GetAllocator().Delete(swapChain);
+        }
+        return true;
     }
 
     BufferHandle Dx12Resources::CreateBuffer(const BufferCreateDesc& _desc)
