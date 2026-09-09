@@ -333,6 +333,7 @@ void UiCube::Render(
             .m_width = static_cast<s32>(cubeViewport.m_right - cubeViewport.m_left),
             .m_height = static_cast<s32>(cubeViewport.m_bottom - cubeViewport.m_top),
         });
+    _graphicsContext.SetScissorsRect(_renderEncoder, cubeViewport);
 
     _graphicsContext.SetGraphicsPipeline(_renderEncoder, m_pso);
     _graphicsContext.SetGraphicsDescriptorSets(_renderEncoder, m_pipelineLayout, {&m_descriptorSet, 1});
