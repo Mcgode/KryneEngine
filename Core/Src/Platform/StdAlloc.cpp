@@ -10,6 +10,8 @@
 
 #if defined(__linux__)
 #   include <stdlib.h>
+#elif defined(_WIN32)
+#   include <malloc.h> // _aligned_malloc / _aligned_free (implicit under MSVC, explicit under mingw)
 #endif
 
 namespace KryneEngine::StdAlloc

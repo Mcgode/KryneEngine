@@ -4,7 +4,15 @@
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftime-trace")
     if (WIN32)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHa")
+        # Asynchronous (SEH-aware) exceptions. EAThread's Windows backend relies on
+        # __try/__except, so C++ frames must be unwindable through structured
+        # exceptions. The spelling differs between the clang-cl and the GNU driver
+        # (the latter is what the macOS -> mingw cross-compile toolchain uses).
+        if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHa")
+        else ()
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fasync-exceptions")
+        endif ()
     endif ()
 endif()
 
