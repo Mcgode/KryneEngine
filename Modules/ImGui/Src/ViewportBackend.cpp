@@ -28,12 +28,12 @@ namespace KryneEngine::Modules::ImGui
     {
         using VD = ViewportBackend::ViewportData;
 
-        static VD* Data(ImGuiViewport* _vp) { return static_cast<VD*>(_vp->PlatformUserData); }
+        static VD* Data(const ImGuiViewport* _vp) { return static_cast<VD*>(_vp->PlatformUserData); }
 
         // -------- platform --------
         static void Platform_CreateWindow(ImGuiViewport* _vp)
         {
-            ViewportBackend* backend = Backend();
+            const ViewportBackend* backend = Backend();
 
             auto* vd = backend->m_allocator.New<VD>();
             vd->m_ownedByBackend = true;
@@ -53,7 +53,7 @@ namespace KryneEngine::Modules::ImGui
 
         static void Platform_DestroyWindow(ImGuiViewport* _vp)
         {
-            ViewportBackend* backend = Backend();
+            const ViewportBackend* backend = Backend();
             VD* vd = Data(_vp);
             if (vd == nullptr)
                 return;
@@ -111,15 +111,22 @@ namespace KryneEngine::Modules::ImGui
 
         static void Renderer_SetWindowSize(ImGuiViewport* _vp, ImVec2)
         {
-            ViewportBackend* backend = Backend();
-            VD* vd = Data(_vp);
+            const ViewportBackend* backend = Backend();
+            const VD* vd = Data(_vp);
             if (vd != nullptr && vd->m_swapChain != GenPool::kInvalidHandle)
                 backend->m_graphicsContext->ResizeSwapChain(vd->m_swapChain, vd->m_window->GetFramebufferSize());
         }
 
+        struct RenderArgs
+        {
+            GraphicsContext* m_graphicsContext;
+            CommandListHandle m_commandList;
+        };
+
         static void Renderer_RenderWindow(ImGuiViewport* _vp, void* _renderArg)
         {
-            Backend()->RenderRendererWindow(_vp, static_cast<GraphicsContext*>(_renderArg));
+            const auto* renderArgs = static_cast<const RenderArgs*>(_renderArg);
+            Backend()->RenderRendererWindow(_vp, renderArgs->m_graphicsContext, renderArgs->m_commandList);
         }
 
         static void Renderer_SwapBuffers(ImGuiViewport* _vp, void*)
@@ -185,12 +192,12 @@ namespace KryneEngine::Modules::ImGui
         NewFrame();
 
         m_windowManager->SetWindowEventCallbacks({
-            .m_onFocus = [this](Window* _w, bool _focused) { OnWindowFocus(_w, _focused); },
-            .m_onMove = [this](Window* _w, int2 _pos) { OnWindowMove(_w, _pos); },
-            .m_onResize = [this](Window* _w, uint2 _size) { OnWindowResize(_w, _size); },
+            .m_onFocus = [this](Window* _w, const bool _focused) { OnWindowFocus(_w, _focused); },
+            .m_onMove = [this](Window* _w, const int2 _pos) { OnWindowMove(_w, _pos); },
+            .m_onResize = [this](Window* _w, const uint2 _size) { OnWindowResize(_w, _size); },
             .m_onCloseRequest = [this](Window* _w) { OnWindowCloseRequest(_w); },
-            .m_onCursorEnter = [this](Window* _w, bool _entered) { OnCursorEnter(_w, _entered); },
-            .m_onDpiChange = [this](Window* _w, float2 _scale) { OnDpiChange(_w, _scale); },
+            .m_onCursorEnter = [this](Window* _w, const bool _entered) { OnCursorEnter(_w, _entered); },
+            .m_onDpiChange = [this](Window* _w, const float2 _scale) { OnDpiChange(_w, _scale); },
         });
     }
 
@@ -214,7 +221,7 @@ namespace KryneEngine::Modules::ImGui
         io.BackendFlags &= ~(ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports);
     }
 
-    void ViewportBackend::NewFrame()
+    void ViewportBackend::NewFrame() const
     {
         ImGuiPlatformIO& pio = ::ImGui::GetPlatformIO();
         const eastl::span<const MonitorInfo> monitors = m_windowManager->GetMonitors();
@@ -239,21 +246,24 @@ namespace KryneEngine::Modules::ImGui
         main->Size = ImVec2(static_cast<float>(size.x), static_cast<float>(size.y));
     }
 
-    void ViewportBackend::UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext)
+    void ViewportBackend::UpdateAndRenderPlatformWindows(
+        GraphicsContext* _graphicsContext,
+        CommandListHandle _commandList)
     {
         KE_ZoneScopedFunction("ImGui::ViewportBackend::UpdateAndRenderPlatformWindows");
 
         m_secondarySwapChains.clear();
 
-        ImGuiIO& io = ::ImGui::GetIO();
+        const ImGuiIO& io = ::ImGui::GetIO();
         if ((io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) == 0)
             return;
 
         ::ImGui::UpdatePlatformWindows();
-        ::ImGui::RenderPlatformWindowsDefault(nullptr, _graphicsContext);
+        ViewportCallbacks::RenderArgs renderArgs { .m_graphicsContext = _graphicsContext, .m_commandList = _commandList };
+        ::ImGui::RenderPlatformWindowsDefault(nullptr, &renderArgs);
     }
 
-    ImGuiViewport* ViewportBackend::FindViewport(const Window* _window) const
+    ImGuiViewport* ViewportBackend::FindViewport(const Window* _window)
     {
         for (ImGuiViewport* vp : ::ImGui::GetPlatformIO().Viewports)
         {
@@ -264,12 +274,12 @@ namespace KryneEngine::Modules::ImGui
         return nullptr;
     }
 
-    void ViewportBackend::CreateRendererWindow(ImGuiViewport* _viewport)
+    void ViewportBackend::CreateRendererWindow(const ImGuiViewport* _viewport) const
     {
         KE_ZoneScopedFunction("ImGui::ViewportBackend::CreateRendererWindow");
 
         ViewportData* vd = Data(_viewport);
-        Window* window = vd->m_window;
+        const Window* window = vd->m_window;
 
         vd->m_swapChain = m_graphicsContext->CreateSwapChain({
             .m_nativeWindow = window->GetNativeHandle(),
@@ -304,7 +314,7 @@ namespace KryneEngine::Modules::ImGui
         }
     }
 
-    void ViewportBackend::DestroyRendererWindow(ImGuiViewport* _viewport)
+    void ViewportBackend::DestroyRendererWindow(const ImGuiViewport* _viewport) const
     {
         KE_ZoneScopedFunction("ImGui::ViewportBackend::DestroyRendererWindow");
 
@@ -324,24 +334,27 @@ namespace KryneEngine::Modules::ImGui
         vd->m_swapChain = { GenPool::kInvalidHandle };
     }
 
-    void ViewportBackend::RenderRendererWindow(ImGuiViewport* _viewport, GraphicsContext* _graphicsContext)
+    void ViewportBackend::RenderRendererWindow(
+        const ImGuiViewport* _viewport,
+        GraphicsContext* _graphicsContext,
+        CommandListHandle _commandList) const
     {
         KE_ZoneScopedFunction("ImGui::ViewportBackend::RenderRendererWindow");
 
-        ViewportData* vd = Data(_viewport);
+        const ViewportData* vd = Data(_viewport);
         if (vd == nullptr || vd->m_swapChain == GenPool::kInvalidHandle)
             return;
 
         // The swap chain recreation rotates fresh render target views in over the next few frames.
         bool anyRtvChanged = false;
-        for (u8 i = 0; i < vd->m_renderTargetViews.Size(); i++)
+        for (size_t i = 0; i < vd->m_renderTargetViews.Size(); i++)
             anyRtvChanged |= vd->m_renderTargetViews[i] != _graphicsContext->GetSwapChainRenderTargetView(vd->m_swapChain, i);
 
         if (anyRtvChanged)
         {
             _graphicsContext->WaitForLastFrame();
             const bool clear = (_viewport->Flags & ImGuiViewportFlags_NoRendererClear) == 0;
-            for (u8 i = 0; i < vd->m_renderTargetViews.Size(); i++)
+            for (size_t i = 0; i < vd->m_renderTargetViews.Size(); i++)
             {
                 const RenderTargetViewHandle rtv = _graphicsContext->GetSwapChainRenderTargetView(vd->m_swapChain, i);
                 if (vd->m_renderTargetViews[i] == rtv)
@@ -369,12 +382,13 @@ namespace KryneEngine::Modules::ImGui
 
         const u8 imageIndex = static_cast<u8>(_graphicsContext->GetSwapChainCurrentImageIndex(vd->m_swapChain));
 
-        const CommandListHandle commandList = _graphicsContext->BeginGraphicsCommandList();
         const RenderCommandEncoderHandle encoder = _graphicsContext->BeginRenderPass(
-            commandList, vd->m_renderPasses[imageIndex], {}, "ImGui viewport");
+            _commandList,
+            vd->m_renderPasses[imageIndex],
+            {},
+            "ImGui viewport");
         m_context->RenderDrawData(_graphicsContext, encoder, _viewport->DrawData, firstVertex, firstIndex);
         _graphicsContext->EndRenderPass(encoder);
-        _graphicsContext->EndGraphicsCommandList(commandList);
     }
 
     // ---- WindowManager per-window OS events ----

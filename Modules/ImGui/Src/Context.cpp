@@ -732,11 +732,11 @@ namespace KryneEngine::Modules::ImGui
         }
     }
 
-    void Context::UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext)
+    void Context::UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext, CommandListHandle _commandList)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextUpdateAndRenderPlatformWindows");
 
-        m_viewportBackend->UpdateAndRenderPlatformWindows(_graphicsContext);
+        m_viewportBackend->UpdateAndRenderPlatformWindows(_graphicsContext, _commandList);
 
         m_presentSwapChains.clear();
         if (m_mainSwapChain != GenPool::kInvalidHandle)

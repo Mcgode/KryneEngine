@@ -163,11 +163,12 @@ void MainFunc(void* _pAllocator)
             graphicsContext->EndRenderPass(renderEncoder);
         }
 
-        graphicsContext->EndGraphicsCommandList(commandList);
-
         // Create / resize / render the OS windows backing ImGui's secondary viewports, then present
         // the main swap chain and every viewport swap chain together.
-        imGuiContext.UpdateAndRenderPlatformWindows(graphicsContext);
+        imGuiContext.UpdateAndRenderPlatformWindows(graphicsContext, commandList);
+
+        graphicsContext->EndGraphicsCommandList(commandList);
+
         graphicsContext->EndFrame(imGuiContext.GetSwapChainsToPresent());
     }
 

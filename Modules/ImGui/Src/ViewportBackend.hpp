@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
+
+
 #include <EASTL/vector.h>
 #include <KryneEngine/Core/Graphics/Enums.hpp>
 #include <KryneEngine/Core/Graphics/Handles.hpp>
@@ -44,11 +47,11 @@ namespace KryneEngine::Modules::ImGui
         ~ViewportBackend();
 
         /// @brief Refreshes `ImGui::GetPlatformIO().Monitors` + the main viewport geometry. Call in NewFrame.
-        void NewFrame();
+        void NewFrame() const;
 
         /// @brief `ImGui::UpdatePlatformWindows()` + `RenderPlatformWindowsDefault()`, collecting the
         ///        secondary-viewport swap chains to present.
-        void UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext);
+        void UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
 
         [[nodiscard]] eastl::span<const SwapChainHandle> GetSecondarySwapChains() const { return m_secondarySwapChains; }
 
@@ -83,12 +86,13 @@ namespace KryneEngine::Modules::ImGui
 
         eastl::vector<SwapChainHandle> m_secondarySwapChains;
 
-        [[nodiscard]] ImGuiViewport* FindViewport(const Window* _window) const;
+        [[nodiscard]] static ImGuiViewport* FindViewport(const Window* _window);
         [[nodiscard]] static ViewportData* Data(const ImGuiViewport* _viewport);
 
-        void CreateRendererWindow(ImGuiViewport* _viewport);
-        void DestroyRendererWindow(ImGuiViewport* _viewport);
-        void RenderRendererWindow(ImGuiViewport* _viewport, GraphicsContext* _graphicsContext);
+        void CreateRendererWindow(const ImGuiViewport* _viewport) const;
+        void DestroyRendererWindow(const ImGuiViewport* _viewport) const;
+        void RenderRendererWindow(
+            const ImGuiViewport* _viewport, GraphicsContext* _graphicsContext, CommandListHandle _commandList) const;
 
         friend struct ViewportCallbacks;
     };

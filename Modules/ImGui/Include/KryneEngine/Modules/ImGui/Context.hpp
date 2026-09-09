@@ -101,11 +101,11 @@ namespace KryneEngine::Modules::ImGui
          *        secondary viewports, and records their draw commands.
          *
          * @details No-op unless `ImGuiConfigFlags_ViewportsEnable` is set. Call once per frame after the
-         * main viewport's render pass has been recorded and its command list ended, then present with
+         * main viewport's render pass has been recorded in the provided command list, then present with
          * @ref GetSwapChainsToPresent. Only records — the actual submit/present happens in
          * `GraphicsContext::EndFrame`.
          */
-        void UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext);
+        void UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
 
         /// @brief The swap chains to hand to `GraphicsContext::EndFrame` this frame — the main window's
         ///        plus one per visible secondary viewport. Valid until the next #NewFrame.
