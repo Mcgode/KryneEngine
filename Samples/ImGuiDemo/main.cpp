@@ -58,7 +58,9 @@ void MainFunc(void* _pAllocator)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
-    const GraphicsCommon::DisplayOptions displayOptions {};
+    constexpr GraphicsCommon::DisplayOptions displayOptions {
+        .m_resizableWindow = true,
+    };
     WindowManager windowManager(allocator);
     Window* mainWindow = windowManager.CreateWindow(appInfo.m_applicationName, displayOptions);
     GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
@@ -68,9 +70,7 @@ void MainFunc(void* _pAllocator)
         .m_displayOptions = displayOptions,
     });
 
-    DynamicArray<RenderPassHandle> renderPassHandles(allocator);
-    renderPassHandles.Resize(graphicsContext->GetFrameContextCount());
-    for (auto i = 0u; i < renderPassHandles.Size(); i++)
+    const auto makePresentRenderPass = [&](u8 _index, RenderTargetViewHandle _rtv)
     {
         RenderPassDesc desc;
         desc.m_colorAttachments.push_back(RenderPassDesc::Attachment {
@@ -78,13 +78,22 @@ void MainFunc(void* _pAllocator)
             KryneEngine::RenderPassDesc::Attachment::StoreOperation::Store,
             TextureLayout::Unknown,
             TextureLayout::Present,
-            graphicsContext->GetSwapChainRenderTargetView(swapChain, i),
+            _rtv,
             float4(0, 1, 1, 1)
         });
 #if !defined(KE_FINAL)
-        desc.m_debugName.sprintf("PresentRenderPass[%d]", i);
+        desc.m_debugName.sprintf("PresentRenderPass[%d]", _index);
 #endif
-        renderPassHandles[i] = graphicsContext->CreateRenderPass(desc);
+        return graphicsContext->CreateRenderPass(desc);
+    };
+
+    DynamicArray<RenderTargetViewHandle> renderTargetViews(allocator, graphicsContext->GetFrameContextCount());
+    DynamicArray<RenderPassHandle> renderPassHandles(allocator);
+    renderPassHandles.Resize(graphicsContext->GetFrameContextCount());
+    for (auto i = 0u; i < renderPassHandles.Size(); i++)
+    {
+        renderTargetViews[i] = graphicsContext->GetSwapChainRenderTargetView(swapChain, i);
+        renderPassHandles[i] = makePresentRenderPass(i, renderTargetViews[i]);
     }
 
     KEModules::ImGui::Context imGuiContext { mainWindow, &windowManager, graphicsContext, graphicsContext->GetSwapChainFormat(swapChain), allocator };
@@ -101,6 +110,26 @@ void MainFunc(void* _pAllocator)
 
         if (windowManager.ConsumeResizeFlag(mainWindow))
             graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
+
+        // The swap chain recreation rotates in fresh render target views over the next few frames.
+        // When any of them changes, flush the GPU and rebuild the present render passes bound to them.
+        bool anyRtvChanged = false;
+        for (auto i = 0u; i < renderTargetViews.Size(); i++)
+            anyRtvChanged |= renderTargetViews[i] != graphicsContext->GetSwapChainRenderTargetView(swapChain, i);
+
+        if (anyRtvChanged)
+        {
+            graphicsContext->WaitForLastFrame();
+            for (auto i = 0u; i < renderTargetViews.Size(); i++)
+            {
+                const RenderTargetViewHandle currentRtv = graphicsContext->GetSwapChainRenderTargetView(swapChain, i);
+                if (renderTargetViews[i] == currentRtv)
+                    continue;
+                renderTargetViews[i] = currentRtv;
+                graphicsContext->DestroyRenderPass(renderPassHandles[i]);
+                renderPassHandles[i] = makePresentRenderPass(static_cast<u8>(i), currentRtv);
+            }
+        }
 
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
 
