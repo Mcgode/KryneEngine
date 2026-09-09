@@ -223,6 +223,11 @@ namespace KryneEngine::Modules::ImGui
 
         ::ImGui::Render();
 
+        // Every RenderDrawData call this frame (main viewport + each secondary viewport) draws from a
+        // disjoint slice of m_descriptorSets — a set that has been bound in a command buffer must not be
+        // re-updated later in the same frame.
+        m_descriptorSetCursor = 0;
+
         ImDrawData* drawData = ::ImGui::GetDrawData();
 
         eastl::vector<TextureMemoryBarrier> textureMemoryBarriers(m_setIndices.get_allocator());
@@ -648,7 +653,7 @@ namespace KryneEngine::Modules::ImGui
                     }
                     else
                     {
-                        const size_t index = textureDescriptorSets.size();
+                        const size_t index = m_descriptorSetCursor++;
                         KE_ASSERT(index <= m_descriptorSets.size());
                         if (index == m_descriptorSets.size())
                         {

@@ -147,6 +147,10 @@ namespace KryneEngine::Modules::ImGui
 
         DescriptorSetLayoutHandle m_descriptorSetLayout { GenPool::kInvalidHandle };
         eastl::vector<DescriptorSetHandle> m_descriptorSets;
+        /// @brief Running allocation index into @ref m_descriptorSets for the current frame. Reset in
+        ///        #PrepareToRenderFrame so the main viewport and every secondary viewport each get a
+        ///        disjoint range — a set must never be re-`UpdateDescriptorSet`'d after being bound.
+        u32 m_descriptorSetCursor = 0;
 
         eastl::vector<u32> m_setIndices;
         PipelineLayoutHandle m_pipelineLayout { GenPool::kInvalidHandle };
