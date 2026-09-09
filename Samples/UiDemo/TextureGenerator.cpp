@@ -129,6 +129,36 @@ void TextureGenerator::HandleUpload(GraphicsContext& _graphicsContext, const Tra
             }
         }
 
+        {
+            const TextureMemoryBarrier txBarrier[] {
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::None,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferDst,
+                    .m_texture = m_textures[i],
+                    .m_layoutSrc = TextureLayout::Unknown,
+                    .m_layoutDst = TextureLayout::TransferDst,
+                }
+            };
+
+            const BufferMemoryBarrier bufBarrier[] {
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::None,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
+                    .m_accessDst = BarrierAccessFlags::TransferSrc,
+                    .m_buffer = m_stagingBuffers[i],
+                }
+            };
+
+            _graphicsContext.PlaceMemoryBarriers(_transfer, {
+                .m_placementType = BarrierPlacementType::Consumer,
+                .m_bufferBarriers = bufBarrier,
+                .m_textureBarriers = txBarrier,
+            });
+        }
+
         // Upload CPU pixels to the staging buffer / texture.
         _graphicsContext.SetTextureData(
             _transfer,
@@ -137,6 +167,25 @@ void TextureGenerator::HandleUpload(GraphicsContext& _graphicsContext, const Tra
             footprint,
             SubResourceIndexing(textureDesc, 0),
             pixels.data());
+
+        {
+            const TextureMemoryBarrier txBarrier[] {
+                {
+                    .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                    .m_stagesDst = BarrierSyncStageFlags::FragmentShading,
+                    .m_accessSrc = BarrierAccessFlags::TransferDst,
+                    .m_accessDst = BarrierAccessFlags::ShaderResource,
+                    .m_texture = m_textures[i],
+                    .m_layoutSrc = TextureLayout::TransferDst,
+                    .m_layoutDst = TextureLayout::ShaderResource,
+                }
+            };
+
+            _graphicsContext.PlaceMemoryBarriers(_transfer, {
+                .m_placementType = BarrierPlacementType::Producer,
+                .m_textureBarriers = txBarrier,
+            });
+        }
     }
 }
 
