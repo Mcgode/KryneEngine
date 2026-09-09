@@ -114,6 +114,13 @@ namespace KryneEngine
         m_graphicsCommandPoolSet.Destroy(_device);
         m_computeCommandPoolSet.Destroy(_device);
         m_transferCommandPoolSet.Destroy(_device);
+
+        if (m_timestampQueryPool != VK_NULL_HANDLE)
+        {
+            vkDestroyQueryPool(_device, SafeReset(m_timestampQueryPool), nullptr);
+            m_allocator.deallocate(m_resolvedTimestamps);
+            m_resolvedTimestamps = nullptr;
+        }
     }
 
     void VkFrameContext::WaitForFences(VkDevice _device, u64 _frameId) const
