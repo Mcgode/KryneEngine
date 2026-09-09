@@ -779,6 +779,8 @@ namespace KryneEngine
                     || m_appInfo.m_features.m_geometryShader == GraphicsCommon::SoftEnable::TryEnable,
                 "ApplicationInfo force-enabled the geometry shader feature, but the device does not support it");
             features.geometryShader = supportedFeatures.geometryShader;
+
+            m_features.m_geometryShaders = features.geometryShader;
         }
 
         const auto requiredExtensionsStrings = _GetRequiredDeviceExtensions();
@@ -1462,9 +1464,9 @@ namespace KryneEngine
                 const GlobalMemoryBarrier& barrier = _barriers.m_globalBarriers[i];
                 globalMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true),
+                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true, m_features),
                     .srcAccessMask = ToVkAccessFlags2(barrier.m_accessSrc),
-                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false),
+                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false, m_features),
                     .dstAccessMask = ToVkAccessFlags2(barrier.m_accessDst),
                 };
             }
@@ -1476,9 +1478,9 @@ namespace KryneEngine
 
                 bufferMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
-                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true),
+                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true, m_features),
                     .srcAccessMask = ToVkAccessFlags2(barrier.m_accessSrc),
-                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false),
+                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false, m_features),
                     .dstAccessMask = ToVkAccessFlags2(barrier.m_accessDst),
                     .srcQueueFamilyIndex = 0,
                     .dstQueueFamilyIndex = 0,
@@ -1495,9 +1497,9 @@ namespace KryneEngine
 
                 imageMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true),
+                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true, m_features),
                     .srcAccessMask = ToVkAccessFlags2(barrier.m_accessSrc),
-                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false),
+                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false, m_features),
                     .dstAccessMask = ToVkAccessFlags2(barrier.m_accessDst),
                     .oldLayout = ToVkLayout(barrier.m_layoutSrc),
                     .newLayout = ToVkLayout(barrier.m_layoutDst),
@@ -1639,8 +1641,8 @@ namespace KryneEngine
 
                 vkCmdPipelineBarrier(
                     static_cast<CommandList>(_commandEncoder.m_handle),
-                    ToVkPipelineStageFlagBits(src, true),
-                    ToVkPipelineStageFlagBits(dst, false),
+                    ToVkPipelineStageFlagBits(src, true, m_features),
+                    ToVkPipelineStageFlagBits(dst, false, m_features),
                     0,
                     globalMemoryBarriers.size(),
                     globalMemoryBarriers.data(),

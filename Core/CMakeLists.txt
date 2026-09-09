@@ -181,6 +181,7 @@ if (GraphicsApi STREQUAL "VK")
                 Src/Graphics/Vulkan/VmaUsage.cpp
                 Src/Graphics/Vulkan/VkDescriptorSetManager.cpp
                 Src/Graphics/Vulkan/VkDescriptorSetManager.hpp
+                Src/Graphics/Vulkan/VkFeatures.hpp
         )
         if (APPLE)
                 list(APPEND GraphicsFiles Src/Graphics/Vulkan/VkSurfacePlatform.mm)

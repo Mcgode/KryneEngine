@@ -10,6 +10,7 @@
 
 #include "Graphics/Vulkan/CommonStructures.hpp"
 #include "Graphics/Vulkan/VkDescriptorSetManager.hpp"
+#include "Graphics/Vulkan/VkFeatures.hpp"
 #include "Graphics/Vulkan/VkFrameContext.hpp"
 #include "Graphics/Vulkan/VkResources.hpp"
 #include "Graphics/Vulkan/VkSurface.hpp"
@@ -18,8 +19,6 @@
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/MemoryBarriers.hpp"
 #include "KryneEngine/Core/Graphics/Texture.hpp"
-#include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
-#include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
 
 namespace KryneEngine
 {
@@ -91,6 +90,8 @@ namespace KryneEngine
         bool m_synchronization2 = false;
         bool m_descriptorBindingPartiallyBound = false;
         PFN_vkCmdPipelineBarrier2KHR m_vkCmdPipelineBarrier2KHR = nullptr;
+
+        VkFeatures m_features {};
 
 #if !defined(KE_override)
         eastl::shared_ptr<VkDebugHandler> m_debugHandler;
