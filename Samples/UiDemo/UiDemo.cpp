@@ -61,6 +61,9 @@ s32 main(s32 argc, const char** argv)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
+    // The GUI renderer only writes the texture/sampler array slots it uses.
+    appInfo.m_features.m_partiallyBoundDescriptors = GraphicsCommon::SoftEnable::TryEnable;
+
     const GraphicsCommon::DisplayOptions displayOptions {};
     Window mainWindow(appInfo.m_applicationName, displayOptions, allocator);
     GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);

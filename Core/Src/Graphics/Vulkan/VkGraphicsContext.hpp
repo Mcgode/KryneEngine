@@ -50,6 +50,7 @@ namespace KryneEngine
 
         [[nodiscard]] bool HasDedicatedTransferQueue() const override;
         [[nodiscard]] bool HasDedicatedComputeQueue() const override;
+        [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return m_descriptorBindingPartiallyBound; }
 
     protected:
         void InternalEndFrame() override;
@@ -88,6 +89,7 @@ namespace KryneEngine
         PFN_vkGetCalibratedTimestampsKHR m_vkGetCalibratedTimestampsKHR = nullptr;
 
         bool m_synchronization2 = false;
+        bool m_descriptorBindingPartiallyBound = false;
         PFN_vkCmdPipelineBarrier2KHR m_vkCmdPipelineBarrier2KHR = nullptr;
 
 #if !defined(KE_override)

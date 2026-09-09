@@ -229,7 +229,7 @@ namespace KryneEngine
 
         CalibrateCpuGpuClocks();
 
-        m_descriptorSetManager.Init(m_frameContextCount, m_frameId % m_frameContextCount);
+        m_descriptorSetManager.Init(m_frameContextCount, m_frameId % m_frameContextCount, m_descriptorBindingPartiallyBound);
     }
 
     VkGraphicsContext::~VkGraphicsContext()
@@ -789,6 +789,7 @@ namespace KryneEngine
 
         VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features{};
         VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilitySubsetFeatures{};
+        VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
         {
             DynamicArray<VkExtensionProperties> availableExtensions;
             VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateDeviceExtensionProperties, m_physicalDevice, nullptr);
@@ -849,6 +850,49 @@ namespace KryneEngine
             if (m_appInfo.m_api == GraphicsCommon::Api::Vulkan_1_0 && find(VK_KHR_MAINTENANCE1_EXTENSION_NAME))
             {
                 requiredExtensions.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+            }
+
+            if (m_appInfo.m_features.m_partiallyBoundDescriptors != GraphicsCommon::SoftEnable::Disabled)
+            {
+                // `descriptorIndexing` is core in Vulkan 1.2, an extension (VK_EXT_descriptor_indexing) before.
+                // The feature query needs vkGetPhysicalDeviceFeatures2, which is core from Vulkan 1.1.
+                const bool queryable = VkHelperFunctions::GetApiVersion(m_appInfo.m_api) >= VK_API_VERSION_1_1;
+                const bool coreOrExtension =
+                    VkHelperFunctions::GetApiVersion(m_appInfo.m_api) >= VK_API_VERSION_1_2
+                    || find(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+
+                if (queryable && coreOrExtension)
+                {
+                    VkPhysicalDeviceDescriptorIndexingFeatures supported {
+                        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+                    };
+                    VkPhysicalDeviceFeatures2 supported2 {
+                        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                        .pNext = &supported,
+                    };
+                    vkGetPhysicalDeviceFeatures2(m_physicalDevice, &supported2);
+                    m_descriptorBindingPartiallyBound = supported.descriptorBindingPartiallyBound;
+                }
+
+                KE_ASSERT_MSG(
+                    m_descriptorBindingPartiallyBound
+                        || m_appInfo.m_features.m_partiallyBoundDescriptors == GraphicsCommon::SoftEnable::TryEnable,
+                    "ApplicationInfo force-enabled partially bound descriptors, but the device does not support it");
+
+                if (m_descriptorBindingPartiallyBound)
+                {
+                    if (VkHelperFunctions::GetApiVersion(m_appInfo.m_api) < VK_API_VERSION_1_2)
+                    {
+                        requiredExtensions.push_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
+                        requiredExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+                    }
+                    descriptorIndexingFeatures = {
+                        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+                        .descriptorBindingPartiallyBound = VK_TRUE,
+                    };
+                    *last = &descriptorIndexingFeatures;
+                    last = &descriptorIndexingFeatures.pNext;
+                }
             }
         }
 

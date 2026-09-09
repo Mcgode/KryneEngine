@@ -37,10 +37,11 @@ namespace KryneEngine
 
     VkDescriptorSetManager::~VkDescriptorSetManager() = default;
 
-    void VkDescriptorSetManager::Init(u8 _frameCount, u8 _frameIndex)
+    void VkDescriptorSetManager::Init(u8 _frameCount, u8 _frameIndex, bool _partiallyBoundDescriptors)
     {
         KE_ZoneScopedFunction("VkDescriptorSetManager::Init");
         m_frameCount = _frameCount;
+        m_partiallyBoundDescriptors = _partiallyBoundDescriptors;
         m_multiFrameTracker.Init(GetAllocator(), _frameCount, _frameIndex);
     }
 
@@ -79,8 +80,28 @@ namespace KryneEngine
             _bindingIndices[i] = packedIndex.m_packed;
         }
 
+        // Flag arrayed bindings as partially bound so the shader may leave unused slots unwritten.
+        eastl::vector<VkDescriptorBindingFlags> bindingFlags { this->m_descriptorSets.get_allocator() };
+        VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo {};
+        const void* createInfoNext = nullptr;
+        if (m_partiallyBoundDescriptors)
+        {
+            bindingFlags.reserve(bindings.size());
+            for (const VkDescriptorSetLayoutBinding& binding : bindings)
+            {
+                bindingFlags.push_back(binding.descriptorCount > 1 ? VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT : 0);
+            }
+            bindingFlagsInfo = {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+                .bindingCount = static_cast<u32>(bindingFlags.size()),
+                .pBindingFlags = bindingFlags.data(),
+            };
+            createInfoNext = &bindingFlagsInfo;
+        }
+
         const VkDescriptorSetLayoutCreateInfo createInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = createInfoNext,
             .bindingCount = static_cast<u32>(bindings.size()),
             .pBindings = bindings.data(),
         };

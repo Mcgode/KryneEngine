@@ -51,6 +51,8 @@ namespace KryneEngine
 
         [[nodiscard]] bool HasDedicatedTransferQueue() const override;
         [[nodiscard]] bool HasDedicatedComputeQueue() const override;
+        // Metal argument tables tolerate unwritten slots that are never dynamically accessed.
+        [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return true; }
 
     private:
         NsPtr<MTL::Device> m_device;

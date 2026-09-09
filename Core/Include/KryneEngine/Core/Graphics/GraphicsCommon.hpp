@@ -103,6 +103,14 @@ namespace KryneEngine::GraphicsCommon
             ///        Not universally supported (e.g. Metal / MoltenVK have no geometry shaders), hence
             ///        a @ref SoftEnable: `ForceEnabled` asserts if unavailable, `TryEnable` silently skips.
             SoftEnable m_geometryShader = SoftEnable::Disabled;
+
+            /// @brief Allows arrayed descriptor bindings to be only partially written — unwritten slots
+            ///        that the shader never dynamically accesses stay legal (Vulkan
+            ///        `VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT`). Not guaranteed on Vulkan 1.0 / older
+            ///        Android; query @ref GraphicsContext::SupportsPartiallyBoundDescriptors after creation
+            ///        and, when unavailable, fully populate every arrayed binding instead.
+            ///        `ForceEnabled` asserts if unavailable, `TryEnable` silently falls back.
+            SoftEnable m_partiallyBoundDescriptors = SoftEnable::Disabled;
         }
         m_features {};
 

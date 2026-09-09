@@ -48,6 +48,8 @@ namespace KryneEngine
 
         [[nodiscard]] bool HasDedicatedTransferQueue() const override;
         [[nodiscard]] bool HasDedicatedComputeQueue() const override;
+        // D3D12 descriptor tables tolerate unwritten entries that are never dynamically accessed.
+        [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return true; }
 
     protected:
         void InternalEndFrame() override;

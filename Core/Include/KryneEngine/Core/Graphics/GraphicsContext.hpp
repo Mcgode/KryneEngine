@@ -229,6 +229,17 @@ namespace KryneEngine
         [[nodiscard]] virtual bool HasDedicatedComputeQueue() const = 0;
 
         /**
+         * @brief Indicates whether partially-bound arrayed descriptor bindings are supported, i.e.
+         * whether it is legal to leave array slots unwritten as long as the shader never dynamically
+         * accesses them.
+         *
+         * @details
+         * Reflects `ApplicationInfo::Features::m_partiallyBoundDescriptors` combined with device
+         * capability. When this returns `false`, arrayed descriptor bindings must be fully populated.
+         */
+        [[nodiscard]] virtual bool SupportsPartiallyBoundDescriptors() const = 0;
+
+        /**
          * @brief Retrieves the Tracy GPU profiler context associated with this graphics context, if any.
          *
          * @return A pointer to the `TracyGpuProfilerContext`, or `nullptr` if GPU profiling is not enabled.
