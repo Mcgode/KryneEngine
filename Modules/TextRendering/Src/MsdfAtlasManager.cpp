@@ -149,7 +149,7 @@ namespace KryneEngine::Modules::TextRendering
             const TextureMemoryBarrier barrier[1] {
                 {
                     .m_stagesSrc = BarrierSyncStageFlags::All,
-                    .m_stagesDst = BarrierSyncStageFlags::AllShading,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
                     .m_accessSrc = BarrierAccessFlags::ShaderResource,
                     .m_accessDst = BarrierAccessFlags::TransferDst,
                     .m_texture = m_atlasTexture,
