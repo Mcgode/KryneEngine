@@ -44,7 +44,7 @@ namespace KryneEngine::Modules::ImGui
             opts.m_resizableWindow = true;
             opts.m_decorated = (_vp->Flags & ImGuiViewportFlags_NoDecoration) == 0;
 
-            vd->m_window = backend->m_windowManager->CreateWindow("ImGui viewport", opts, /*visible=*/ false);
+            vd->m_window = backend->m_windowManager->CreateWindow("ImGui viewport", opts, false);
 
             _vp->PlatformUserData = vd;
             _vp->PlatformHandle = vd->m_window;
@@ -291,13 +291,14 @@ namespace KryneEngine::Modules::ImGui
 
             RenderPassDesc desc;
             desc.m_colorAttachments.push_back(RenderPassDesc::Attachment {
-                clear ? RenderPassDesc::Attachment::LoadOperation::Clear
-                      : RenderPassDesc::Attachment::LoadOperation::DontCare,
-                RenderPassDesc::Attachment::StoreOperation::Store,
-                TextureLayout::Unknown,
-                TextureLayout::Present,
-                vd->m_renderTargetViews[i],
-                float4(0.f, 0.f, 0.f, 1.f),
+                .m_loadOperation = clear
+                    ? RenderPassDesc::Attachment::LoadOperation::Clear
+                    : RenderPassDesc::Attachment::LoadOperation::DontCare,
+                .m_storeOperation = RenderPassDesc::Attachment::StoreOperation::Store,
+                .m_initialLayout = TextureLayout::Unknown,
+                .m_finalLayout = TextureLayout::Present,
+                .m_rtv = vd->m_renderTargetViews[i],
+                .m_clearColor = float4(0.f, 0.f, 0.f, 1.f),
             });
             vd->m_renderPasses.Init(i, m_graphicsContext->CreateRenderPass(desc));
         }
