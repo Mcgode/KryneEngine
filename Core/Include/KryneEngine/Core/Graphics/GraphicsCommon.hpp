@@ -97,6 +97,12 @@ namespace KryneEngine::GraphicsCommon
             bool m_transferQueue = true;
             bool m_asyncCompute = false;
             bool m_concurrentQueues = true;
+
+            /// @brief Enables geometry shaders. Also required to read `SV_PrimitiveID` in a fragment
+            ///        shader without a geometry/tessellation stage (a SPIR-V capability requirement).
+            ///        Not universally supported (e.g. Metal / MoltenVK have no geometry shaders), hence
+            ///        a @ref SoftEnable: `ForceEnabled` asserts if unavailable, `TryEnable` silently skips.
+            SoftEnable m_geometryShader = SoftEnable::Disabled;
         }
         m_features {};
 

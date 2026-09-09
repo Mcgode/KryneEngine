@@ -768,17 +768,18 @@ namespace KryneEngine
             }
         }
 
-        VkPhysicalDeviceFeatures supportedFeatures;
-        vkGetPhysicalDeviceFeatures(m_physicalDevice, &supportedFeatures);
+        VkPhysicalDeviceFeatures features = {};
 
-        VkPhysicalDeviceFeatures features;
-        memset(&features, VK_FALSE, sizeof(VkPhysicalDeviceFeatures));
-        // Enable a small baseline of shader features that common built-ins rely on, when available.
-        // `geometryShader` / `tessellationShader` also gate reading `SV_PrimitiveID` in a fragment
-        // shader without an actual geometry/tessellation stage (SPIR-V requires the capability).
-        features.geometryShader = supportedFeatures.geometryShader;
-        features.tessellationShader = supportedFeatures.tessellationShader;
-        features.samplerAnisotropy = supportedFeatures.samplerAnisotropy;
+        if (m_appInfo.m_features.m_geometryShader != GraphicsCommon::SoftEnable::Disabled)
+        {
+            VkPhysicalDeviceFeatures supportedFeatures;
+            vkGetPhysicalDeviceFeatures(m_physicalDevice, &supportedFeatures);
+            KE_ASSERT_MSG(
+                supportedFeatures.geometryShader
+                    || m_appInfo.m_features.m_geometryShader == GraphicsCommon::SoftEnable::TryEnable,
+                "ApplicationInfo force-enabled the geometry shader feature, but the device does not support it");
+            features.geometryShader = supportedFeatures.geometryShader;
+        }
 
         const auto requiredExtensionsStrings = _GetRequiredDeviceExtensions();
         auto requiredExtensions = StringHelpers::RetrieveStringPointerContainer(requiredExtensionsStrings);

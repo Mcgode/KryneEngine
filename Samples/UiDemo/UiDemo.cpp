@@ -61,6 +61,9 @@ s32 main(s32 argc, const char** argv)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
+    // UiCube's fragment shader reads SV_PrimitiveID, which requires the geometry shader feature.
+    appInfo.m_features.m_geometryShader = GraphicsCommon::SoftEnable::ForceEnabled;
+
     const GraphicsCommon::DisplayOptions displayOptions {};
     Window mainWindow(appInfo.m_applicationName, displayOptions, allocator);
     GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
