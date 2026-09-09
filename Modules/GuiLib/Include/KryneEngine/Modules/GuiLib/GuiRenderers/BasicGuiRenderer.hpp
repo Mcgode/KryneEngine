@@ -74,6 +74,10 @@ namespace KryneEngine::Modules::GuiLib
 
         eastl::vector<DescriptorSetHandle> m_texturesDescriptorSets;
         DescriptorSetHandle m_textDescriptorSet;
+
+        /// @brief When false, the texture/sampler descriptor arrays must be fully written every frame
+        ///        (see @ref GraphicsContext::SupportsPartiallyBoundDescriptors).
+        bool m_supportsPartiallyBoundDescriptors = false;
     };
 
 } // namespace KryneEngine
