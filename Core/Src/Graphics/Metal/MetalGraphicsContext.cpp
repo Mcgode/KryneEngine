@@ -371,8 +371,8 @@ namespace KryneEngine
     RenderCommandEncoderHandle MetalGraphicsContext::BeginRenderPass(
         const CommandListHandle _commandList,
         const RenderPassHandle _handle,
-        const eastl::string_view _debugName,
-        const MemoryBarriers& _barriers)
+        const MemoryBarriers& _barriers,
+        const eastl::string_view _debugName)
     {
         const auto commandList = static_cast<CommandList>(_commandList);
         VERIFY_OR_RETURN(commandList != nullptr, { nullptr });
