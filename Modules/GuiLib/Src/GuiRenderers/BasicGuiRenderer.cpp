@@ -503,8 +503,13 @@ namespace KryneEngine::Modules::GuiLib
         {
             m_textDescriptorSet = _graphicsContext.CreateDescriptorSet(m_texturesDescriptorSetLayout);
 
-            const DescriptorSetWriteInfo::DescriptorData atlasViewData = { .m_handle = m_atlasManager->GetAtlasView().m_handle };
-            const DescriptorSetWriteInfo::DescriptorData textSamplerData = { .m_handle = m_textSampler.m_handle };
+            const DescriptorSetWriteInfo::DescriptorData atlasViewData = {
+                .m_textureLayout = TextureLayout::ShaderResource,
+                .m_handle = m_atlasManager->GetAtlasView().m_handle,
+            };
+            const DescriptorSetWriteInfo::DescriptorData textSamplerData = {
+                .m_handle = m_textSampler.m_handle,
+            };
 
             const DescriptorSetWriteInfo writes[] = {
                 {
