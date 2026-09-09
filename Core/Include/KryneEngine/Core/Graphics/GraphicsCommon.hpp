@@ -70,6 +70,9 @@ namespace KryneEngine::GraphicsCommon
 
         bool m_fullscreen = false;
         bool m_resizableWindow = false;
+        /// @brief Whether the OS draws a title bar / border. `false` for borderless windows
+        ///        (e.g. Dear ImGui secondary viewports).
+        bool m_decorated = true;
     };
 
     struct ApplicationInfo

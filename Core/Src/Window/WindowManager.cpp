@@ -62,6 +62,7 @@ namespace KryneEngine
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, _displayOptions.m_resizableWindow);
+        glfwWindowHint(GLFW_DECORATED, _displayOptions.m_decorated);
 
         GLFWwindow* glfwWindow;
         {
