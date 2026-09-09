@@ -18,73 +18,14 @@
 #endif
 #include <GLFW/glfw3native.h>
 
-#include "KryneEngine/Core/Profiling/TracyHeader.hpp"
-#include "KryneEngine/Core/Window/Input/InputManager.hpp"
-
 namespace KryneEngine
 {
-    Window::Window(
-        const eastl::string_view& _title,
-        const GraphicsCommon::DisplayOptions& _displayOptions,
-        const AllocatorInstance _allocator)
+    Window::Window(GLFWwindow* _glfwWindow, const AllocatorInstance _allocator)
         : m_allocator(_allocator)
-        , m_windowFocusEventListeners(_allocator)
-        , m_dpiChangeEventListeners(_allocator)
-    {
-        KE_ZoneScopedFunction("Window init");
+        , m_glfwWindow(_glfwWindow)
+    {}
 
-        {
-            KE_ZoneScoped("GLFW init");
-            glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
-            glfwInit();
-        }
-
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        const auto& displayInfo = _displayOptions;
-
-        glfwWindowHint(GLFW_RESIZABLE, displayInfo.m_resizableWindow);
-
-        {
-            KE_ZoneScoped("GLFW window creation");
-
-            m_glfwWindow = glfwCreateWindow(displayInfo.m_width,
-                                            displayInfo.m_height,
-                                            _title.data(),
-                                            nullptr,
-                                            nullptr);
-        }
-        glfwSetWindowUserPointer(m_glfwWindow, this);
-
-        {
-            KE_ZoneScoped("Input management init");
-
-            m_inputManager = m_allocator.New<InputManager>(this, _allocator);
-
-            glfwSetWindowFocusCallback(m_glfwWindow, WindowFocusCallback);
-            glfwSetWindowContentScaleCallback(m_glfwWindow, DpiChangeCallback);
-            glfwSetFramebufferSizeCallback(m_glfwWindow, ResizeCallback);
-        }
-
-        m_previousFramebufferSize = GetFramebufferSize();
-    }
-
-    Window::~Window()
-    {
-        m_allocator.Delete(m_inputManager);
-
-        glfwDestroyWindow(m_glfwWindow);
-        glfwTerminate();
-    }
-
-    bool Window::WaitForEvents()
-    {
-        KE_ZoneScopedFunction("Window::WaitForEvents");
-
-        m_resizedThisFrame = false;
-        glfwPollEvents();
-
-        return !glfwWindowShouldClose(m_glfwWindow);
-    }
+    Window::~Window() = default;
 
     NativeWindowHandle Window::GetNativeHandle() const
     {
@@ -125,69 +66,4 @@ namespace KryneEngine
         glfwGetWindowContentScale(m_glfwWindow, &result.x, &result.y);
         return result;
     }
-
-    u32 Window::RegisterWindowFocusEventCallback(eastl::function<void(bool)>&& _callback)
-    {
-        const auto lock = m_callbackMutex.AutoLock();
-
-        const u32 id = m_windowFocusEventCounter++;
-        m_windowFocusEventListeners.emplace(id, _callback);
-        return id;
-    }
-
-    void Window::UnregisterWindowFocusEventCallback(u32 _id)
-    {
-        const auto lock = m_callbackMutex.AutoLock();
-        m_windowFocusEventListeners.erase(_id);
-    }
-
-    u32 Window::RegisterDpiChangeEventCallback(eastl::function<void(const float2&)>&& _callback)
-    {
-        const auto lock = m_callbackMutex.AutoLock();
-        const u32 id = m_dpiChangeEventCounter++;
-        m_dpiChangeEventListeners.emplace(id, _callback);
-        return id;
-    }
-
-    void Window::UnregisterDpiChangeEventCallback(u32 _id)
-    {
-        const auto lock = m_callbackMutex.AutoLock();
-        m_dpiChangeEventListeners.erase(_id);
-    }
-
-    void Window::WindowFocusCallback(GLFWwindow* _window, s32 _focused)
-    {
-        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
-
-        const auto lock = window->m_callbackMutex.AutoLock();
-
-        for (const auto& pair : window->m_windowFocusEventListeners)
-        {
-            pair.second(_focused);
-        }
-    }
-
-    void Window::DpiChangeCallback(GLFWwindow* _window, float _xScale, float _yScale)
-    {
-        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
-
-        const auto lock = window->m_callbackMutex.AutoLock();
-        for (const auto& pair : window->m_dpiChangeEventListeners)
-        {
-            pair.second({ _xScale, _yScale });
-        }
-    }
-
-    void Window::ResizeCallback(GLFWwindow* _window, int _width, int _height)
-    {
-        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
-        const uint2 currentFramebufferSize = { _width, _height };
-        if (window->m_previousFramebufferSize != currentFramebufferSize)
-        {
-            window->m_resizedSwapChain = false;
-            window->m_resizedThisFrame = true;
-        }
-        window->m_previousFramebufferSize = currentFramebufferSize;
-    }
 }
-

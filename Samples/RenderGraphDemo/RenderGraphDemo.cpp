@@ -9,6 +9,7 @@
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 #include <KryneEngine/Modules/RenderGraph/Descriptors/RenderTargetViewDesc.hpp>
@@ -52,18 +53,19 @@ int main()
     appInfo.m_applicationName += " - Metal";
 #endif
     const GraphicsCommon::DisplayOptions displayOptions {};
-    Window mainWindow(appInfo.m_applicationName, displayOptions, allocator);
+    WindowManager windowManager(allocator);
+    Window* mainWindow = windowManager.CreateWindow(appInfo.m_applicationName, displayOptions);
     GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
-        .m_nativeWindow = mainWindow.GetNativeHandle(),
-        .m_dimensions = mainWindow.GetFramebufferSize(),
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetFramebufferSize(),
         .m_displayOptions = displayOptions,
     });
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 
     RenderGraph::RenderGraph renderGraph {};
-    SceneManager sceneManager(allocator, mainWindow, graphicsContext, renderGraph.GetRegistry());
+    SceneManager sceneManager(allocator, *mainWindow, windowManager.GetInput(), graphicsContext, renderGraph.GetRegistry());
 
     DeferredShadowPass deferredShadowPass { allocator };
     GiPass giPass { allocator };
@@ -305,20 +307,26 @@ int main()
         .m_colorFormats = { graphicsContext->GetSwapChainFormat(swapChain) },
     });
 
-    while (mainWindow.WaitForEvents())
+    while (!windowManager.AllWindowsClosed())
     {
+        windowManager.PollEvents();
+
+        if (windowManager.ConsumeResizeFlag(mainWindow))
+            graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
+
         if (imGuiContext == nullptr)
         {
             KE_ZoneScoped("Init ImGui context");
 
             imGuiContext = allocator.New<Modules::ImGui::Context>(
-                &mainWindow,
+                mainWindow,
+                &windowManager,
                 graphicsContext,
                 graphicsContext->GetSwapChainFormat(swapChain),
                 allocator);
         }
 
-        imGuiContext->NewFrame(&mainWindow, graphicsContext);
+        imGuiContext->NewFrame(mainWindow, graphicsContext);
 
         {
             const DescriptorSetHandle sceneConstantsDescriptorSet =
@@ -533,7 +541,7 @@ int main()
 
     if (imGuiContext)
     {
-        imGuiContext->Shutdown(&mainWindow, graphicsContext);
+        imGuiContext->Shutdown(&windowManager, graphicsContext);
         allocator.Delete(imGuiContext);
     }
 

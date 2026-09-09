@@ -12,6 +12,11 @@
 #include <KryneEngine/Modules/GraphicsUtils/DynamicBuffer.hpp>
 #include <KryneEngine/Modules/RenderGraph/Declarations/PassDeclaration.hpp>
 
+namespace KryneEngine
+{
+    class InputManager;
+}
+
 namespace KryneEngine::Modules
 {
     namespace ImGui
@@ -42,6 +47,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         explicit SceneManager(
             AllocatorInstance _allocator,
             Window& _window,
+            InputManager& _inputManager,
             GraphicsContext* _graphicsContext,
             Modules::RenderGraph::Registry& _registry);
         ~SceneManager();

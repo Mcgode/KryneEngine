@@ -55,6 +55,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
     SceneManager::SceneManager(
         AllocatorInstance _allocator,
         Window& _window,
+        InputManager& _inputManager,
         GraphicsContext* _graphicsContext,
         Modules::RenderGraph::Registry& _registry)
             : m_allocator(_allocator)
@@ -71,7 +72,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         GraphicsContext* graphicsContext = _graphicsContext;
         m_windowSize = _window.GetFramebufferSize();
         const float aspectRatio = static_cast<float>(m_windowSize.x) / static_cast<float>(m_windowSize.y);
-        m_orbitCamera.reset(m_allocator.New<OrbitCamera>(_window.GetInputManager(), aspectRatio));
+        m_orbitCamera.reset(m_allocator.New<OrbitCamera>(&_inputManager, aspectRatio));
 
         m_sunLight.reset(m_allocator.New<SunLight>());
 

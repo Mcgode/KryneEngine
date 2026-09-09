@@ -11,7 +11,7 @@
 
 namespace KryneEngine
 {
-    class Window;
+    class WindowManager;
 }
 
 namespace KryneEngine::Modules::ImGui
@@ -19,9 +19,9 @@ namespace KryneEngine::Modules::ImGui
     class Input
     {
     public:
-        explicit Input(Window* _window);
+        explicit Input(WindowManager* _windowManager);
 
-        void Shutdown(Window* _window) const;
+        void Shutdown(WindowManager* _windowManager) const;
 
     private:
         u32 m_keyCallbackId;

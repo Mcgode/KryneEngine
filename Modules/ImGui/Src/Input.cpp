@@ -7,13 +7,15 @@
 #include "Input.hpp"
 
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
-#include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 
 namespace KryneEngine::Modules::ImGui
 {
-    Input::Input(Window* _window)
+    Input::Input(WindowManager* _windowManager)
     {
-        m_keyCallbackId = _window->GetInputManager()->RegisterKeyInputEventCallback(
+        InputManager& inputManager = _windowManager->GetInput();
+
+        m_keyCallbackId = inputManager.RegisterKeyInputEventCallback(
             [](const KeyInputEvent& _event)
             {
                 ImGuiIO& io = ::ImGui::GetIO();
@@ -28,7 +30,7 @@ namespace KryneEngine::Modules::ImGui
                 io.AddKeyEvent(ToImGuiKey(_event.m_physicalKey), pressed);
             });
 
-        m_textCallbackId = _window->GetInputManager()->RegisterTextInputEventCallback(
+        m_textCallbackId = inputManager.RegisterTextInputEventCallback(
             [](u32 _char)
             {
                 ImGuiIO& io = ::ImGui::GetIO();
@@ -36,14 +38,14 @@ namespace KryneEngine::Modules::ImGui
                 io.AddInputCharacter(_char);
             });
 
-        m_cursorPosCallbackId = _window->GetInputManager()->RegisterCursorPosEventCallback(
+        m_cursorPosCallbackId = inputManager.RegisterCursorPosEventCallback(
             [](float _posX, float _posY)
             {
                 ImGuiIO& io = ::ImGui::GetIO();
                 io.AddMousePosEvent(_posX, _posY);
             });
 
-        m_mouseBtnCallbackId = _window->GetInputManager()->RegisterMouseInputEventCallback(
+        m_mouseBtnCallbackId = inputManager.RegisterMouseInputEventCallback(
             [](const MouseInputEvent& _event){
                 ImGuiIO& io = ::ImGui::GetIO();
 
@@ -59,35 +61,36 @@ namespace KryneEngine::Modules::ImGui
                 io.AddMouseButtonEvent(button, pressed);
             });
 
-        m_scrollEventCallbackId = _window->GetInputManager()->RegisterScrollInputEventCallback(
+        m_scrollEventCallbackId = inputManager.RegisterScrollInputEventCallback(
             [](float _scrollX, float _scrollY)
             {
                 ImGuiIO& io = ::ImGui::GetIO();
                 io.AddMouseWheelEvent(_scrollX, _scrollY);
             });
 
-        m_windowFocusCallbackId = _window->RegisterWindowFocusEventCallback(
+        m_windowFocusCallbackId = _windowManager->RegisterWindowFocusEventCallback(
             [](bool _focused)
             {
                 ImGuiIO& io = ::ImGui::GetIO();
                 io.AddFocusEvent(_focused);
             });
 
-        m_dpiChangeCallbackId = _window->RegisterDpiChangeEventCallback([](const float2& _dpiScale)
+        m_dpiChangeCallbackId = _windowManager->RegisterDpiChangeEventCallback([](const float2& _dpiScale)
         {
             ImGuiIO& io = ::ImGui::GetIO();
             io.DisplayFramebufferScale = { _dpiScale.x, _dpiScale.y };
         });
     }
 
-    void Input::Shutdown(Window* _window) const
+    void Input::Shutdown(WindowManager* _windowManager) const
     {
-        _window->UnregisterWindowFocusEventCallback(m_windowFocusCallbackId);
-        _window->GetInputManager()->UnregisterScrollInputEventCallback(m_scrollEventCallbackId);
-        _window->GetInputManager()->UnregisterMouseInputEventCallback(m_mouseBtnCallbackId);
-        _window->GetInputManager()->UnregisterCursorPosEventCallback(m_cursorPosCallbackId);
-        _window->GetInputManager()->UnregisterTextInputEventCallback(m_textCallbackId);
-        _window->GetInputManager()->UnregisterKeyInputEventCallback(m_keyCallbackId);
+        InputManager& inputManager = _windowManager->GetInput();
+        _windowManager->UnregisterWindowFocusEventCallback(m_windowFocusCallbackId);
+        inputManager.UnregisterScrollInputEventCallback(m_scrollEventCallbackId);
+        inputManager.UnregisterMouseInputEventCallback(m_mouseBtnCallbackId);
+        inputManager.UnregisterCursorPosEventCallback(m_cursorPosCallbackId);
+        inputManager.UnregisterTextInputEventCallback(m_textCallbackId);
+        inputManager.UnregisterKeyInputEventCallback(m_keyCallbackId);
     }
 
     void Input::ApplyModifiers(KeyInputModifiers _modifiers)

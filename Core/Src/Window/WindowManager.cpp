@@ -1,0 +1,246 @@
+/**
+ * @file
+ * @author Max Godefroy
+ * @date 09/09/2026.
+ */
+
+#include "KryneEngine/Core/Window/WindowManager.hpp"
+
+#include <EASTL/algorithm.h>
+#include <GLFW/glfw3.h>
+
+#include "KryneEngine/Core/Common/Assert.hpp"
+#include "KryneEngine/Core/Profiling/TracyHeader.hpp"
+#include "KryneEngine/Core/Window/GLFW/Input/KeyInputEvent.hpp"
+#include "KryneEngine/Core/Window/Input/InputManager.hpp"
+#include "KryneEngine/Core/Window/Window.hpp"
+
+namespace KryneEngine
+{
+    WindowManager* WindowManager::s_instance = nullptr;
+
+    WindowManager::WindowManager(const AllocatorInstance _allocator)
+        : m_allocator(_allocator)
+        , m_windows(_allocator)
+        , m_windowFocusEventListeners(_allocator)
+        , m_dpiChangeEventListeners(_allocator)
+    {
+        KE_ZoneScopedFunction("WindowManager::WindowManager");
+
+        KE_ASSERT_FATAL_MSG(s_instance == nullptr, "Only one WindowManager may exist at a time");
+        s_instance = this;
+
+        {
+            KE_ZoneScoped("GLFW init");
+            glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
+            glfwInit();
+        }
+
+        m_inputManager = m_allocator.New<InputManager>(m_allocator);
+    }
+
+    WindowManager::~WindowManager()
+    {
+        while (!m_windows.empty())
+        {
+            DestroyWindow(m_windows.back());
+        }
+
+        m_allocator.Delete(m_inputManager);
+
+        glfwTerminate();
+
+        KE_ASSERT(s_instance == this);
+        s_instance = nullptr;
+    }
+
+    Window* WindowManager::CreateWindow(
+        const eastl::string_view& _title,
+        const GraphicsCommon::DisplayOptions& _displayOptions)
+    {
+        KE_ZoneScopedFunction("WindowManager::CreateWindow");
+
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_RESIZABLE, _displayOptions.m_resizableWindow);
+
+        GLFWwindow* glfwWindow;
+        {
+            KE_ZoneScoped("GLFW window creation");
+            glfwWindow = glfwCreateWindow(
+                _displayOptions.m_width,
+                _displayOptions.m_height,
+                _title.data(),
+                nullptr,
+                nullptr);
+        }
+        KE_ASSERT_FATAL_MSG(glfwWindow != nullptr, "glfwCreateWindow failed");
+
+        auto* window = m_allocator.New<Window>(glfwWindow, m_allocator);
+        window->m_lastFramebufferSize = window->GetFramebufferSize();
+
+        glfwSetWindowUserPointer(glfwWindow, window);
+
+        glfwSetKeyCallback(glfwWindow, KeyCallback);
+        glfwSetCharCallback(glfwWindow, TextCallback);
+        glfwSetCursorPosCallback(glfwWindow, CursorPosCallback);
+        glfwSetMouseButtonCallback(glfwWindow, MouseButtonCallback);
+        glfwSetScrollCallback(glfwWindow, ScrollCallback);
+        glfwSetWindowFocusCallback(glfwWindow, WindowFocusCallback);
+        glfwSetWindowContentScaleCallback(glfwWindow, ContentScaleCallback);
+        glfwSetFramebufferSizeCallback(glfwWindow, FramebufferSizeCallback);
+
+        m_windows.push_back(window);
+        return window;
+    }
+
+    void WindowManager::DestroyWindow(Window* _window)
+    {
+        KE_ZoneScopedFunction("WindowManager::DestroyWindow");
+
+        const auto it = eastl::find(m_windows.begin(), m_windows.end(), _window);
+        if (it == m_windows.end())
+            return;
+        m_windows.erase(it);
+
+        glfwDestroyWindow(_window->m_glfwWindow);
+        m_allocator.Delete(_window);
+    }
+
+    void WindowManager::PollEvents()
+    {
+        KE_ZoneScopedFunction("WindowManager::PollEvents");
+
+        for (Window* window : m_windows)
+            window->m_resizePending = false;
+
+        glfwPollEvents();
+    }
+
+    bool WindowManager::ShouldClose(const Window* _window) const
+    {
+        return _window == nullptr || glfwWindowShouldClose(_window->m_glfwWindow);
+    }
+
+    bool WindowManager::AllWindowsClosed() const
+    {
+        for (const Window* window : m_windows)
+        {
+            if (!ShouldClose(window))
+                return false;
+        }
+        return true;
+    }
+
+    bool WindowManager::ConsumeResizeFlag(Window* _window)
+    {
+        if (_window == nullptr || !_window->m_resizePending)
+            return false;
+        _window->m_resizePending = false;
+        return true;
+    }
+
+    u32 WindowManager::RegisterWindowFocusEventCallback(eastl::function<void(bool)>&& _callback)
+    {
+        const auto lock = m_callbackMutex.AutoLock();
+        const u32 id = m_windowFocusEventCounter++;
+        m_windowFocusEventListeners.emplace(id, _callback);
+        return id;
+    }
+
+    void WindowManager::UnregisterWindowFocusEventCallback(u32 _id)
+    {
+        const auto lock = m_callbackMutex.AutoLock();
+        m_windowFocusEventListeners.erase(_id);
+    }
+
+    u32 WindowManager::RegisterDpiChangeEventCallback(eastl::function<void(const float2&)>&& _callback)
+    {
+        const auto lock = m_callbackMutex.AutoLock();
+        const u32 id = m_dpiChangeEventCounter++;
+        m_dpiChangeEventListeners.emplace(id, _callback);
+        return id;
+    }
+
+    void WindowManager::UnregisterDpiChangeEventCallback(u32 _id)
+    {
+        const auto lock = m_callbackMutex.AutoLock();
+        m_dpiChangeEventListeners.erase(_id);
+    }
+
+    void WindowManager::KeyCallback(GLFWwindow* _window, s32 _key, s32 _scancode, s32 _action, s32 _mods)
+    {
+        KE_ZoneScopedFunction("WindowManager::KeyCallback");
+
+        s_instance->m_inputManager->OnKeyEvent(KeyInputEvent {
+            .m_physicalKey = GLFW::ToInputPhysicalKeys(_key),
+            .m_customCode = _scancode,
+            .m_action = GLFW::ToInputEventAction(_action),
+            .m_modifiers = GLFW::ToInputEventModifiers(_mods),
+        });
+    }
+
+    void WindowManager::TextCallback(GLFWwindow* _window, u32 _codepoint)
+    {
+        KE_ZoneScopedFunction("WindowManager::TextCallback");
+
+        s_instance->m_inputManager->OnTextEvent(_codepoint);
+    }
+
+    void WindowManager::CursorPosCallback(GLFWwindow* _window, double _posX, double _posY)
+    {
+        KE_ZoneScopedFunction("WindowManager::CursorPosCallback");
+
+        s_instance->m_inputManager->OnCursorPosEvent(static_cast<float>(_posX), static_cast<float>(_posY));
+    }
+
+    void WindowManager::MouseButtonCallback(GLFWwindow* _window, s32 _button, s32 _action, s32 _mods)
+    {
+        KE_ZoneScopedFunction("WindowManager::MouseButtonCallback");
+
+        s_instance->m_inputManager->OnMouseButtonEvent(MouseInputEvent {
+            .m_mouseButton = GLFW::ToMouseInputButton(_button),
+            .m_action = GLFW::ToInputEventAction(_action),
+            .m_modifiers = GLFW::ToInputEventModifiers(_mods),
+        });
+    }
+
+    void WindowManager::ScrollCallback(GLFWwindow* _window, double _scrollX, double _scrollY)
+    {
+        KE_ZoneScopedFunction("WindowManager::ScrollCallback");
+
+        s_instance->m_inputManager->OnScrollEvent(static_cast<float>(_scrollX), static_cast<float>(_scrollY));
+    }
+
+    void WindowManager::WindowFocusCallback(GLFWwindow* _window, s32 _focused)
+    {
+        KE_ZoneScopedFunction("WindowManager::WindowFocusCallback");
+
+        const auto lock = s_instance->m_callbackMutex.AutoLock();
+        for (const auto& pair : s_instance->m_windowFocusEventListeners)
+        {
+            pair.second(_focused != 0);
+        }
+    }
+
+    void WindowManager::ContentScaleCallback(GLFWwindow* _window, float _xScale, float _yScale)
+    {
+        KE_ZoneScopedFunction("WindowManager::ContentScaleCallback");
+
+        const auto lock = s_instance->m_callbackMutex.AutoLock();
+        for (const auto& pair : s_instance->m_dpiChangeEventListeners)
+        {
+            pair.second({ _xScale, _yScale });
+        }
+    }
+
+    void WindowManager::FramebufferSizeCallback(GLFWwindow* _window, s32 _width, s32 _height)
+    {
+        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
+        const uint2 size { static_cast<u32>(_width), static_cast<u32>(_height) };
+        if (window->m_lastFramebufferSize != size)
+        {
+            window->m_resizePending = true;
+            window->m_lastFramebufferSize = size;
+        }
+    }
+} // namespace KryneEngine

@@ -15,6 +15,7 @@
 namespace KryneEngine
 {
     class Window;
+    class WindowManager;
 }
 
 namespace KryneEngine::Modules::ImGui
@@ -43,6 +44,7 @@ namespace KryneEngine::Modules::ImGui
          */
         Context(
             Window* _window,
+            WindowManager* _windowManager,
             GraphicsContext* _graphicsContext,
             TextureFormat _targetFormat,
             AllocatorInstance _allocator,
@@ -60,7 +62,7 @@ namespace KryneEngine::Modules::ImGui
          *
          * @param _window The Window object associated with this Context, which indirectly owns the objects.
          */
-        void Shutdown(Window* _window, GraphicsContext* _graphicsContext);
+        void Shutdown(WindowManager* _windowManager, GraphicsContext* _graphicsContext);
 
         /**
          * Sets up the ImGui context for a new frame.

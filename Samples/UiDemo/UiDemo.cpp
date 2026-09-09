@@ -9,6 +9,7 @@
 #include <KryneEngine/Core/Memory/Allocators/TlsfAllocator.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/FileSystem/VirtualFileSystem.hpp>
 #include <KryneEngine/Modules/GuiLib/Context.hpp>
 #include <KryneEngine/Modules/GuiLib/GuiRenderers/BasicGuiRenderer.hpp>
@@ -65,11 +66,12 @@ s32 main(s32 argc, const char** argv)
     appInfo.m_features.m_partiallyBoundDescriptors = GraphicsCommon::SoftEnable::TryEnable;
 
     const GraphicsCommon::DisplayOptions displayOptions {};
-    Window mainWindow(appInfo.m_applicationName, displayOptions, allocator);
+    WindowManager windowManager(allocator);
+    Window* mainWindow = windowManager.CreateWindow(appInfo.m_applicationName, displayOptions);
     GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
-        .m_nativeWindow = mainWindow.GetNativeHandle(),
-        .m_dimensions = mainWindow.GetFramebufferSize(),
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetFramebufferSize(),
         .m_displayOptions = displayOptions,
     });
 
@@ -126,11 +128,16 @@ s32 main(s32 argc, const char** argv)
 
     UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, graphicsContext->GetSwapChainFormat(swapChain), &msdfAtlasManager };
 
-    while (mainWindow.WaitForEvents())
+    while (!windowManager.AllWindowsClosed())
     {
+        windowManager.PollEvents();
+
+        if (windowManager.ConsumeResizeFlag(mainWindow))
+            graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
+
         KE_ZoneScoped("Render loop");
 
-        const float2 dpiScale = mainWindow.GetDpiScale();
+        const float2 dpiScale = mainWindow->GetDpiScale();
         const float contentScale = (dpiScale.x + dpiScale.y) / 2.f;
 
         CommandListHandle transferCommandList = graphicsContext->BeginGraphicsCommandList();

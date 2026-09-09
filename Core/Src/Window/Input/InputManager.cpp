@@ -6,29 +6,17 @@
 
 #include "KryneEngine/Core/Window/Input/InputManager.hpp"
 
-#include <GLFW/glfw3.h>
-
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
-#include "KryneEngine/Core/Window/Window.hpp"
-#include "KryneEngine/Core/Window/GLFW/Input/KeyInputEvent.hpp"
 
 namespace KryneEngine
 {
-    InputManager::InputManager(Window* _window, AllocatorInstance _allocator)
+    InputManager::InputManager(AllocatorInstance _allocator)
         : m_keyInputEventListeners(_allocator)
         , m_textInputEventListeners(_allocator)
         , m_cursorPosEventListeners(_allocator)
         , m_mouseInputEventListeners(_allocator)
         , m_scrollInputEventListeners(_allocator)
-    {
-        GLFWwindow* glfwWindow = _window->GetGlfwWindow();
-
-        glfwSetKeyCallback(glfwWindow, KeyCallback);
-        glfwSetCharCallback(glfwWindow, TextCallback);
-        glfwSetCursorPosCallback(glfwWindow, CursorPosCallback);
-        glfwSetMouseButtonCallback(glfwWindow, MouseButtonInputCallback);
-        glfwSetScrollCallback(glfwWindow, ScrollCallback);
-    }
+    {}
 
     u32 InputManager::RegisterKeyInputEventCallback(eastl::function<void(const KeyInputEvent&)>&& _callback)
     {
@@ -105,90 +93,60 @@ namespace KryneEngine
         m_scrollInputEventListeners.erase(_id);
     }
 
-    void InputManager::KeyCallback(GLFWwindow* _window, s32 _key, s32 _scancode, s32 _action, s32 _mods)
+    void InputManager::OnKeyEvent(const KeyInputEvent& _event)
     {
-        KE_ZoneScopedFunction("InputManager::KeyCallback");
+        KE_ZoneScopedFunction("InputManager::OnKeyEvent");
 
-        InputManager* inputManager = (static_cast<Window*>(glfwGetWindowUserPointer(_window)))->GetInputManager();
-
-        const KeyInputEvent keyInputEvent {
-            .m_physicalKey = GLFW::ToInputPhysicalKeys(_key),
-            .m_customCode = _scancode,
-            .m_action = GLFW::ToInputEventAction(_action),
-            .m_modifiers = GLFW::ToInputEventModifiers(_mods),
-        };
-
-        const auto lock = inputManager->m_mutex.AutoLock();
-
-        for (const auto& pair : inputManager->m_keyInputEventListeners)
+        const auto lock = m_mutex.AutoLock();
+        for (const auto& pair : m_keyInputEventListeners)
         {
-            pair.second(keyInputEvent);
+            pair.second(_event);
         }
     }
 
-    void InputManager::TextCallback(GLFWwindow* _window, u32 _char)
+    void InputManager::OnTextEvent(u32 _codepoint)
     {
-        KE_ZoneScopedFunction("InputManager::TextCallback");
+        KE_ZoneScopedFunction("InputManager::OnTextEvent");
 
-        InputManager* inputManager = (static_cast<Window*>(glfwGetWindowUserPointer(_window)))->GetInputManager();
-
-        const auto lock = inputManager->m_mutex.AutoLock();
-
-        for (const auto& pair: inputManager->m_textInputEventListeners)
+        const auto lock = m_mutex.AutoLock();
+        for (const auto& pair : m_textInputEventListeners)
         {
-            pair.second(_char);
+            pair.second(_codepoint);
         }
     }
 
-    void InputManager::CursorPosCallback(GLFWwindow* _window, double _posX, double _posY)
+    void InputManager::OnCursorPosEvent(float _posX, float _posY)
     {
-        KE_ZoneScopedFunction("InputManager::CursorPosCallback");
+        KE_ZoneScopedFunction("InputManager::OnCursorPosEvent");
 
-        InputManager* inputManager = (static_cast<Window*>(glfwGetWindowUserPointer(_window)))->GetInputManager();
-        inputManager->m_cursorPos = {
-            _posX,
-            _posY
-        };
+        m_cursorPos = { _posX, _posY };
 
-        const auto lock = inputManager->m_mutex.AutoLock();
-
-        for (const auto& pair : inputManager->m_cursorPosEventListeners)
+        const auto lock = m_mutex.AutoLock();
+        for (const auto& pair : m_cursorPosEventListeners)
         {
-            pair.second(static_cast<float>(_posX), static_cast<float>(_posY));
+            pair.second(_posX, _posY);
         }
     }
 
-    void InputManager::MouseButtonInputCallback(GLFWwindow* _window, s32 _button, s32 _action, s32 _mods)
+    void InputManager::OnMouseButtonEvent(const MouseInputEvent& _event)
     {
-        KE_ZoneScopedFunction("InputManager::MouseButtonInputCallback");
+        KE_ZoneScopedFunction("InputManager::OnMouseButtonEvent");
 
-        InputManager* inputManager = (static_cast<Window*>(glfwGetWindowUserPointer(_window)))->GetInputManager();
-
-        const MouseInputEvent mouseInputEvent{
-            .m_mouseButton = GLFW::ToMouseInputButton(_button),
-            .m_action = GLFW::ToInputEventAction(_action),
-            .m_modifiers = GLFW::ToInputEventModifiers(_mods),
-        };
-
-        const auto lock = inputManager->m_mutex.AutoLock();
-
-        for (const auto& pair : inputManager->m_mouseInputEventListeners)
+        const auto lock = m_mutex.AutoLock();
+        for (const auto& pair : m_mouseInputEventListeners)
         {
-            pair.second(mouseInputEvent);
+            pair.second(_event);
         }
     }
 
-    void InputManager::ScrollCallback(GLFWwindow* _window, double _xScroll, double _yScroll)
+    void InputManager::OnScrollEvent(float _scrollX, float _scrollY)
     {
-        KE_ZoneScopedFunction("InputManager::ScrollCallback");
+        KE_ZoneScopedFunction("InputManager::OnScrollEvent");
 
-        InputManager* inputManager = (static_cast<Window*>(glfwGetWindowUserPointer(_window)))->GetInputManager();
-
-        const auto lock = inputManager->m_mutex.AutoLock();
-
-        for (const auto& pair : inputManager->m_scrollInputEventListeners)
+        const auto lock = m_mutex.AutoLock();
+        for (const auto& pair : m_scrollInputEventListeners)
         {
-            pair.second(static_cast<float>(_xScroll), static_cast<float>(_yScroll));
+            pair.second(_scrollX, _scrollY);
         }
     }
 } // namespace KryneEngine

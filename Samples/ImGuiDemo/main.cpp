@@ -8,6 +8,7 @@
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <iostream>
 
@@ -58,11 +59,12 @@ void MainFunc(void* _pAllocator)
     appInfo.m_applicationName += " - Metal";
 #endif
     const GraphicsCommon::DisplayOptions displayOptions {};
-    Window mainWindow(appInfo.m_applicationName, displayOptions, allocator);
+    WindowManager windowManager(allocator);
+    Window* mainWindow = windowManager.CreateWindow(appInfo.m_applicationName, displayOptions);
     GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
-        .m_nativeWindow = mainWindow.GetNativeHandle(),
-        .m_dimensions = mainWindow.GetFramebufferSize(),
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetFramebufferSize(),
         .m_displayOptions = displayOptions,
     });
 
@@ -85,19 +87,24 @@ void MainFunc(void* _pAllocator)
         renderPassHandles[i] = graphicsContext->CreateRenderPass(desc);
     }
 
-    KEModules::ImGui::Context imGuiContext { &mainWindow, graphicsContext, graphicsContext->GetSwapChainFormat(swapChain), allocator };
+    KEModules::ImGui::Context imGuiContext { mainWindow, &windowManager, graphicsContext, graphicsContext->GetSwapChainFormat(swapChain), allocator };
 
     // You can set up ImGui specific config after the context has been created.
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::GetIO().Fonts->AddFontDefaultVector();
 
-    while (mainWindow.WaitForEvents())
+    while (!windowManager.AllWindowsClosed())
     {
         KE_ZoneScoped("Main loop");
 
+        windowManager.PollEvents();
+
+        if (windowManager.ConsumeResizeFlag(mainWindow))
+            graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
+
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
 
-        imGuiContext.NewFrame(&mainWindow, graphicsContext);
+        imGuiContext.NewFrame(mainWindow, graphicsContext);
 
         {
             static bool open;
@@ -133,7 +140,7 @@ void MainFunc(void* _pAllocator)
 
     graphicsContext->WaitForLastFrame();
 
-    imGuiContext.Shutdown(&mainWindow, graphicsContext);
+    imGuiContext.Shutdown(&windowManager, graphicsContext);
 
     for (auto handle: renderPassHandles)
     {

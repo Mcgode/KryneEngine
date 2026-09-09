@@ -13,16 +13,20 @@
 #include "KryneEngine/Core/Window/Input/KeyInputEvent.hpp"
 #include "KryneEngine/Core/Window/Input/MouseInputEvent.hpp"
 
-struct GLFWwindow;
-
 namespace KryneEngine
 {
-    class Window;
-
+    /**
+     * @brief Per-application input hub.
+     *
+     * @details
+     * Owned and fed by the @ref WindowManager, which translates the raw GLFW callbacks into engine
+     * events and forwards them through the `On*Event` entry points. Consumers register `eastl::function`
+     * listeners; a full event-queue / consumer-stack / action-map rewrite is planned (Phase 4).
+     */
     class InputManager
     {
     public:
-        InputManager(Window* _window, AllocatorInstance _allocator);
+        explicit InputManager(AllocatorInstance _allocator);
 
         [[nodiscard]] u32 RegisterKeyInputEventCallback(eastl::function<void(const KeyInputEvent&)>&& _callback);
         void UnregisterKeyInputEventCallback(u32 _id);
@@ -40,27 +44,29 @@ namespace KryneEngine
         [[nodiscard]] u32 RegisterScrollInputEventCallback(eastl::function<void(float, float)>&& _callback);
         void UnregisterScrollInputEventCallback(u32 _id);
 
+        // --- Fed by the WindowManager's GLFW callbacks (already translated to engine events) ---
+        void OnKeyEvent(const KeyInputEvent& _event);
+        void OnTextEvent(u32 _codepoint);
+        void OnCursorPosEvent(float _posX, float _posY);
+        void OnMouseButtonEvent(const MouseInputEvent& _event);
+        void OnScrollEvent(float _scrollX, float _scrollY);
+
     protected:
         LightweightMutex m_mutex;
 
-        static void KeyCallback(GLFWwindow* _window, s32 _key, s32 _scancode, s32 _action, s32 _mods);
         eastl::vector_map<u32, eastl::function<void(const KeyInputEvent&)>> m_keyInputEventListeners;
         u32 m_keyInputEventCounter { 0 };
 
-        static void TextCallback(GLFWwindow* _window, u32 _char);
         eastl::vector_map<u32, eastl::function<void(u32)>> m_textInputEventListeners;
         u32 m_textInputEventCounter { 0 };
 
-        static void CursorPosCallback(GLFWwindow* _window, double _posX, double _posY);
         eastl::vector_map<u32, eastl::function<void(float, float)>> m_cursorPosEventListeners;
         u32 m_cursorPosEventCounter = 0;
         float2 m_cursorPos;
 
-        static void MouseButtonInputCallback(GLFWwindow* _window, s32 _button, s32 _action, s32 _mods);
         eastl::vector_map<u32, eastl::function<void(const MouseInputEvent&)>> m_mouseInputEventListeners;
         u32 m_mouseInputEventCounter = 0;
 
-        static void ScrollCallback(GLFWwindow* _window, double _xScroll, double _yScroll);
         eastl::vector_map<u32, eastl::function<void(float, float)>> m_scrollInputEventListeners;
         u32 m_scrollInputEventCounter = 0;
     };

@@ -8,11 +8,11 @@
 
 #include <fstream>
 #include <imgui_internal.h>
-#include <GLFW/glfw3.h>
 #include <KryneEngine/Core/Common/Utils/Alignment.hpp>
 #include <KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
 #include "KryneEngine/Core/Graphics/Texture.hpp"
@@ -37,6 +37,7 @@ namespace KryneEngine::Modules::ImGui
 
     Context::Context(
         Window* _window,
+        WindowManager* _windowManager,
         GraphicsContext* _graphicsContext,
         const TextureFormat _targetFormat,
         AllocatorInstance _allocator,
@@ -98,7 +99,7 @@ namespace KryneEngine::Modules::ImGui
                 graphicsContext->GetFrameContextCount());
         }
 
-        m_input = _allocator.New<Input>(_window);
+        m_input = _allocator.New<Input>(_windowManager);
 
         InitPso(graphicsContext, _targetFormat, _vsBytecode, _fsBytecode);
 
@@ -119,7 +120,7 @@ namespace KryneEngine::Modules::ImGui
         KE_ASSERT_MSG(m_context == nullptr, "ImGui module was not shut down");
     }
 
-    void Context::Shutdown(Window* _window, GraphicsContext* _graphicsContext)
+    void Context::Shutdown(WindowManager* _windowManager, GraphicsContext* _graphicsContext)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextShutdown");
 
@@ -166,7 +167,7 @@ namespace KryneEngine::Modules::ImGui
         }
 
         // Unregister input callbacks.
-        m_input->Shutdown(_window);
+        m_input->Shutdown(_windowManager);
         m_setIndices.get_allocator().Delete(m_input);
 
         ::ImGui::DestroyContext(m_context);

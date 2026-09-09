@@ -15,6 +15,7 @@
 #include <KryneEngine/Core/Memory/DynamicArray.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 
 #include "KryneEngine/Core/Profiling/TracyGpuScope.hpp"
 
@@ -328,11 +329,12 @@ int main()
 #endif
 
     const GraphicsCommon::DisplayOptions displayOptions {};
-    Window mainWindow(appInfo.m_applicationName, displayOptions, AllocatorInstance());
+    WindowManager windowManager{AllocatorInstance()};
+    Window* mainWindow = windowManager.CreateWindow(appInfo.m_applicationName, displayOptions);
     GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
-        .m_nativeWindow = mainWindow.GetNativeHandle(),
-        .m_dimensions = mainWindow.GetFramebufferSize(),
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetFramebufferSize(),
         .m_displayOptions = displayOptions,
     });
 
@@ -352,9 +354,14 @@ int main()
 
     const u64 stagingFrame = graphicsContext->GetFrameId();
 
-    while (mainWindow.WaitForEvents())
+    while (!windowManager.AllWindowsClosed())
     {
         KE_ZoneScoped("Main loop");
+
+        windowManager.PollEvents();
+
+        if (windowManager.ConsumeResizeFlag(mainWindow))
+            graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
 
         if (graphicsContext->IsFrameExecuted(stagingFrame))
         {
