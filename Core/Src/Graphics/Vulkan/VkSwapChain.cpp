@@ -351,35 +351,6 @@ namespace KryneEngine
         }
     }
 
-    void VkSwapChain::Present(
-        const VkQueue _presentQueue,
-        const eastl::span<VkSemaphore> &_semaphores,
-        const u64 _frameId)
-    {
-        KE_ZoneScopedFunction("VkSwapChain::Present");
-
-        SwapChainData* swapChain = GetSwapChain(_frameId);
-
-	    const VkPresentInfoKHR presentInfo = {
-                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-                .waitSemaphoreCount = static_cast<uint32_t>(_semaphores.size()),
-                .pWaitSemaphores = _semaphores.data(),
-                .swapchainCount = 1,
-                .pSwapchains = &swapChain->m_swapChain,
-                .pImageIndices = &m_imageIndex,
-        };
-
-        const VkResult result = vkQueuePresentKHR(_presentQueue, &presentInfo);
-        switch (result)
-        {
-        case VK_SUCCESS:
-        case VK_SUBOPTIMAL_KHR:
-        case VK_ERROR_OUT_OF_DATE_KHR:
-            break;
-        default:
-            KE_ERROR("Unhandled error %d", result);
-        }
-    }
 
     void VkSwapChain::Update(const VkDevice _device, VkResources& _resources, const u64 _frameId)
     {

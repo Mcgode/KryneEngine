@@ -355,10 +355,43 @@ namespace KryneEngine
             submitQueue(m_graphicsQueue, frameContext.m_graphicsCommandPoolSet);
         }
 
-        // Present each swap chain image
-        for (VkSwapChain* swapChain : swapChains)
+        // Present every swap chain image in a single vkQueuePresentKHR — one call so the
+        // queue-completion binary semaphores are waited exactly once (multiple present calls
+        // waiting the same binary semaphore is illegal).
+        if (!swapChains.empty())
         {
-            swapChain->Present(m_presentQueue, queueSemaphores, m_frameId);
+            KE_ZoneScoped("Present");
+
+            eastl::fixed_vector<VkSwapchainKHR, 4> vkSwapChains(m_allocator);
+            eastl::fixed_vector<u32, 4> imageIndices(m_allocator);
+            eastl::fixed_vector<VkResult, 4> presentResults(m_allocator);
+            for (const VkSwapChain* swapChain : swapChains)
+            {
+                vkSwapChains.push_back(swapChain->GetVkSwapChain(m_frameId));
+                imageIndices.push_back(swapChain->GetCurrentImageIndex());
+            }
+            presentResults.resize(vkSwapChains.size());
+
+            const VkPresentInfoKHR presentInfo {
+                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                .waitSemaphoreCount = static_cast<u32>(queueSemaphores.size()),
+                .pWaitSemaphores = queueSemaphores.data(),
+                .swapchainCount = static_cast<u32>(vkSwapChains.size()),
+                .pSwapchains = vkSwapChains.data(),
+                .pImageIndices = imageIndices.data(),
+                .pResults = presentResults.data(),
+            };
+
+            const VkResult result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
+            switch (result)
+            {
+            case VK_SUCCESS:
+            case VK_SUBOPTIMAL_KHR:
+            case VK_ERROR_OUT_OF_DATE_KHR:
+                break;
+            default:
+                KE_ERROR("Unhandled vkQueuePresentKHR error %d", result);
+            }
         }
 
         if (m_profilerContext != nullptr)

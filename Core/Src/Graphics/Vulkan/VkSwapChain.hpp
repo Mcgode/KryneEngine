@@ -48,8 +48,6 @@ namespace KryneEngine
 
         void AcquireNextImage(VkDevice _device, u8 _frameIndex);
 
-        void Present(VkQueue _presentQueue, const eastl::span<VkSemaphore> &_semaphores, u64 _frameId);
-
         void Update(VkDevice _device, VkResources& _resources, u64 _frameId);
 
         void Destroy(VkDevice _device, VkInstance _instance, VkResources& _resources);
@@ -57,6 +55,7 @@ namespace KryneEngine
         [[nodiscard]] uint2 GetFramebufferSize(u64 _frameId) const { return GetSwapChain(_frameId)->m_framebufferSize; }
         [[nodiscard]] VkFormat GetFormat(u64 _frameId) const { return GetSwapChain(_frameId)->m_format; }
         [[nodiscard]] u32 GetCurrentImageIndex() const { return m_imageIndex; }
+        [[nodiscard]] VkSwapchainKHR GetVkSwapChain(u64 _frameId) const { return GetSwapChain(_frameId)->m_swapChain; }
 
         [[nodiscard]] RenderTargetViewHandle GetRenderTargetView(u64 _frameId, u8 _index) const
         {
