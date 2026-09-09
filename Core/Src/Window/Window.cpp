@@ -66,4 +66,58 @@ namespace KryneEngine
         glfwGetWindowContentScale(m_glfwWindow, &result.x, &result.y);
         return result;
     }
+
+    int2 Window::GetPosition() const
+    {
+        int x, y;
+        glfwGetWindowPos(m_glfwWindow, &x, &y);
+        return { x, y };
+    }
+
+    void Window::SetPosition(const int2 _position) const
+    {
+        glfwSetWindowPos(m_glfwWindow, _position.x, _position.y);
+    }
+
+    uint2 Window::GetSize() const
+    {
+        int width, height;
+        glfwGetWindowSize(m_glfwWindow, &width, &height);
+        return { width, height };
+    }
+
+    void Window::SetSize(const uint2 _size) const
+    {
+        glfwSetWindowSize(m_glfwWindow, static_cast<int>(_size.x), static_cast<int>(_size.y));
+    }
+
+    bool Window::IsFocused() const
+    {
+        return glfwGetWindowAttrib(m_glfwWindow, GLFW_FOCUSED) != 0;
+    }
+
+    void Window::Focus() const
+    {
+        glfwFocusWindow(m_glfwWindow);
+    }
+
+    bool Window::IsMinimized() const
+    {
+        return glfwGetWindowAttrib(m_glfwWindow, GLFW_ICONIFIED) != 0;
+    }
+
+    void Window::SetTitle(const eastl::string_view& _title) const
+    {
+        glfwSetWindowTitle(m_glfwWindow, _title.data());
+    }
+
+    void Window::Show() const
+    {
+        glfwShowWindow(m_glfwWindow);
+    }
+
+    void Window::Hide() const
+    {
+        glfwHideWindow(m_glfwWindow);
+    }
 }
