@@ -55,6 +55,7 @@ namespace KryneEngine::Modules::GuiLib
             float2 viewportSize;
         } m_viewportConstants;
 
+        DescriptorSetLayoutHandle m_commonDescriptorSetLayout;
         DescriptorSetHandle m_commonDescriptorSet;
         DescriptorSetLayoutHandle m_texturesDescriptorSetLayout;
 

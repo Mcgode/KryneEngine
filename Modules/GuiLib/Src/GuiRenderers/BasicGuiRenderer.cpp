@@ -224,7 +224,6 @@ namespace KryneEngine::Modules::GuiLib
 
         m_textSampler = _graphicsContext->CreateSampler({});
 
-        DescriptorSetLayoutHandle commonDescriptorSetLayout;
         {
             constexpr DescriptorBindingDesc descriptorSet0Bindings[] = {
                 {
@@ -232,7 +231,7 @@ namespace KryneEngine::Modules::GuiLib
                     .m_visibility = ShaderVisibility::Vertex | ShaderVisibility::Fragment
                 }
             };
-            commonDescriptorSetLayout = _graphicsContext->CreateDescriptorSetLayout(
+            m_commonDescriptorSetLayout = _graphicsContext->CreateDescriptorSetLayout(
                 { .m_bindings = descriptorSet0Bindings },
                 m_commonDescriptorSetIndices.data());
 
@@ -252,12 +251,12 @@ namespace KryneEngine::Modules::GuiLib
                 { .m_bindings = descriptorSet1Bindings },
                 m_texturesDescriptorSetIndices.data());
 
-            const DescriptorSetLayoutHandle descriptorSetLayouts[] = { commonDescriptorSetLayout, m_texturesDescriptorSetLayout };
+            const DescriptorSetLayoutHandle descriptorSetLayouts[] = { m_commonDescriptorSetLayout, m_texturesDescriptorSetLayout };
             m_commonPipelineLayout = _graphicsContext->CreatePipelineLayout({
                 .m_descriptorSets = descriptorSetLayouts,
             });
 
-            m_commonDescriptorSet = _graphicsContext->CreateDescriptorSet(commonDescriptorSetLayout);
+            m_commonDescriptorSet = _graphicsContext->CreateDescriptorSet(m_commonDescriptorSetLayout);
             m_texturesDescriptorSets.push_back(_graphicsContext->CreateDescriptorSet(m_texturesDescriptorSetLayout));
         }
 
@@ -461,8 +460,6 @@ namespace KryneEngine::Modules::GuiLib
             _allocator.deallocate(fragmentShaderSource.data(), fragmentShaderSource.size());
             _allocator.deallocate(vertexShaderSource.data(), vertexShaderSource.size());
         }
-
-        _graphicsContext->DestroyDescriptorSetLayout(commonDescriptorSetLayout);
     }
 
     void BasicGuiRenderer::BeginLayout(const float4x4& _viewportTransform, const uint2& _viewportSize)
