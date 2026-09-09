@@ -56,13 +56,16 @@ namespace KryneEngine
 
     Window* WindowManager::CreateWindow(
         const eastl::string_view& _title,
-        const GraphicsCommon::DisplayOptions& _displayOptions)
+        const GraphicsCommon::DisplayOptions& _displayOptions,
+        const bool _initiallyVisible)
     {
         KE_ZoneScopedFunction("WindowManager::CreateWindow");
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, _displayOptions.m_resizableWindow);
         glfwWindowHint(GLFW_DECORATED, _displayOptions.m_decorated);
+        glfwWindowHint(GLFW_VISIBLE, _initiallyVisible);
+        glfwWindowHint(GLFW_FOCUS_ON_SHOW, _initiallyVisible);
 
         GLFWwindow* glfwWindow;
         {

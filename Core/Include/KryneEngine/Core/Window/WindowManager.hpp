@@ -44,7 +44,8 @@ namespace KryneEngine
 
         [[nodiscard]] Window* CreateWindow(
             const eastl::string_view& _title,
-            const GraphicsCommon::DisplayOptions& _displayOptions);
+            const GraphicsCommon::DisplayOptions& _displayOptions,
+            bool _initiallyVisible = true);
         void DestroyWindow(Window* _window);
 
         [[nodiscard]] eastl::span<Window* const> GetWindows() const { return m_windows; }
