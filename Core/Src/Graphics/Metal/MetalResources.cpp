@@ -368,6 +368,7 @@ namespace KryneEngine
         auto [hotData, coldData] = m_renderPasses.GetAll(handle);
         hotData->m_descriptor = MTL4::RenderPassDescriptor::alloc()->init();
 
+        hotData->m_systemRtvs.clear(); // For some reason, the systemRtvs vector can be polluted, make sure it's cleared.
         hotData->m_systemRtvs.set_overflow_allocator(GetAllocator());
         for (auto i = 0u; i < _desc.m_colorAttachments.size(); i++)
         {
@@ -427,6 +428,7 @@ namespace KryneEngine
         RenderPassHotData data;
         if (m_renderPasses.Free(_handle.m_handle, &data))
         {
+            data.m_systemRtvs.clear();
             data.m_descriptor->release();
             return true;
         }
