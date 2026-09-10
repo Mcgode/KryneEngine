@@ -545,6 +545,7 @@ namespace KryneEngine
                     return VK_ATTACHMENT_LOAD_OP_LOAD;
                 case RenderPassDesc::Attachment::LoadOperation::Clear:
                     return VK_ATTACHMENT_LOAD_OP_CLEAR;
+                case RenderPassDesc::Attachment::LoadOperation::None:
                 case RenderPassDesc::Attachment::LoadOperation::DontCare:
                     return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             }
@@ -558,6 +559,7 @@ namespace KryneEngine
                 case RenderPassDesc::Attachment::StoreOperation::Store:
                 case RenderPassDesc::Attachment::StoreOperation::Resolve:
                     return VK_ATTACHMENT_STORE_OP_STORE;
+                case RenderPassDesc::Attachment::StoreOperation::None:
                 case RenderPassDesc::Attachment::StoreOperation::DontCare:
                     return VK_ATTACHMENT_STORE_OP_DONT_CARE;
             }

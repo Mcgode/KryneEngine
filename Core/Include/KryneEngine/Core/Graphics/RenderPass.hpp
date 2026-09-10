@@ -21,6 +21,7 @@ namespace KryneEngine
         {
             enum class LoadOperation: u8
             {
+                None,
                 Load,
                 Clear,
                 DontCare,
@@ -28,6 +29,7 @@ namespace KryneEngine
 
             enum class StoreOperation: u8
             {
+                None,
                 Store,
                 Resolve,
                 DontCare
@@ -43,8 +45,8 @@ namespace KryneEngine
 
         struct DepthStencilAttachment: public Attachment
         {
-            LoadOperation m_stencilLoadOperation = LoadOperation::DontCare;
-            StoreOperation m_stencilStoreOperation = StoreOperation::DontCare;
+            LoadOperation m_stencilLoadOperation = LoadOperation::None;
+            StoreOperation m_stencilStoreOperation = StoreOperation::None;
             u8 m_stencilClearValue = 0;
             bool m_readOnly = false;
         };

@@ -623,6 +623,8 @@ namespace KryneEngine
         {
             switch (_op)
             {
+                case RenderPassDesc::Attachment::LoadOperation::None:
+                    return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
                 case RenderPassDesc::Attachment::LoadOperation::Load:
                     return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
                 case RenderPassDesc::Attachment::LoadOperation::Clear:
@@ -638,6 +640,8 @@ namespace KryneEngine
         {
             switch (_op)
             {
+                case RenderPassDesc::Attachment::StoreOperation::None:
+                    return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
                 case RenderPassDesc::Attachment::StoreOperation::Store:
                     return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
                 case RenderPassDesc::Attachment::StoreOperation::DontCare:

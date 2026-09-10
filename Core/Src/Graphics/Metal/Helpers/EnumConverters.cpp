@@ -665,6 +665,7 @@ namespace KryneEngine::MetalConverters
             return MTL::LoadActionLoad;
         case RenderPassDesc::Attachment::LoadOperation::Clear:
             return MTL::LoadActionClear;
+        case RenderPassDesc::Attachment::LoadOperation::None:
         case RenderPassDesc::Attachment::LoadOperation::DontCare:
             return MTL::LoadActionDontCare;
         }
@@ -678,6 +679,7 @@ namespace KryneEngine::MetalConverters
             return MTL::StoreActionStore;
         case RenderPassDesc::Attachment::StoreOperation::Resolve:
             return MTL::StoreActionStoreAndMultisampleResolve;
+        case RenderPassDesc::Attachment::StoreOperation::None:
         case RenderPassDesc::Attachment::StoreOperation::DontCare:
             return MTL::StoreActionDontCare;
         }
