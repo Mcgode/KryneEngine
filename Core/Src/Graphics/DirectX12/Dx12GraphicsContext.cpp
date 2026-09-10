@@ -1024,7 +1024,7 @@ namespace KryneEngine
         ID3D12Resource** dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
 
         const D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint {
-            .Offset = _footprint.m_offset,
+            .Offset = _footprint.m_offset + _srcBuffer.m_offset,
             .Footprint = {
                 .Format = Dx12Converters::ToDx12Format(_footprint.m_format),
                 .Width = _footprint.m_width,
@@ -1043,9 +1043,11 @@ namespace KryneEngine
             _subresourceIndex.m_arraySize);
         const CD3DX12_TEXTURE_COPY_LOCATION dst(*dstTexture, subResourceIndex);
 
+        // When the copy source is a buffer, the box is expressed in texels of the placed footprint
+        // (not bytes), and selects the sub-region of the footprint to copy.
         const D3D12_BOX box {
-            static_cast<u32>(_srcBuffer.m_offset), 0, 0,
-            static_cast<u32>(_srcBuffer.m_offset + _srcBuffer.m_size), 1, 1 };
+            0, 0, 0,
+            _regionSize.x, _regionSize.y, _regionSize.z };
         commandList->CopyTextureRegion(
             &dst,
             _regionOffset.x,
