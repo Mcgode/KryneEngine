@@ -609,9 +609,7 @@ namespace KryneEngine
 
         // Resource barriers are illegal inside a D3D12 render pass, so pass-entry barriers
         // (transitioning resources the pass will read) are recorded before BeginRenderPass.
-        if (!_barriers.m_globalBarriers.empty()
-            || !_barriers.m_bufferBarriers.empty()
-            || !_barriers.m_textureBarriers.empty())
+        if (!_barriers.Empty())
         {
             PlaceMemoryBarriers({ _commandList }, _barriers);
         }
@@ -795,7 +793,10 @@ namespace KryneEngine
             addBarrier(attachment, rtvData->m_resource, true, attachment.m_readOnly);
         }
 
-        PlaceMemoryBarriers({ _commandList }, { .m_textureBarriers = barriers });
+        if (!barriers.empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, { .m_textureBarriers = barriers });
+        }
 
         commandList->BeginRenderPass(
                 colorAttachments.size(),
@@ -919,7 +920,13 @@ namespace KryneEngine
             addBarrier(attachment, rtvData->m_resource, true);
         }
 
-        PlaceMemoryBarriers(_renderCommandEncoder, { .m_textureBarriers = barriers });
+        if (!barriers.empty())
+        {
+            PlaceMemoryBarriers(_renderCommandEncoder, {
+                .m_placementType = BarrierPlacementType::Producer,
+                .m_textureBarriers = barriers,
+            });
+        }
 
         m_currentRenderPass = GenPool::kInvalidHandle;
     }
@@ -929,7 +936,10 @@ namespace KryneEngine
         const MemoryBarriers& _barriers,
         const eastl::string_view /* _debugName */)
     {
-        PlaceMemoryBarriers({ _commandList }, _barriers);
+        if (!_barriers.Empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, _barriers);
+        }
         return { _commandList };
     }
 
@@ -938,7 +948,10 @@ namespace KryneEngine
         const MemoryBarriers& _barriers,
         const eastl::string_view /* _debugName */)
     {
-        PlaceMemoryBarriers({ _commandList }, _barriers);
+        if (!_barriers.Empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, _barriers);
+        }
         return { _commandList };
     }
 
@@ -1121,6 +1134,9 @@ namespace KryneEngine
         const MemoryBarriers& _barriers)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::PlaceMemoryBarriers");
+
+        if (_barriers.Empty())
+            return;
 
         auto commandList = static_cast<CommandList>(_commandEncoder.m_handle);
 

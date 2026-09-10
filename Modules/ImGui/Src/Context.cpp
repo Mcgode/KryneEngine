@@ -361,7 +361,7 @@ namespace KryneEngine::Modules::ImGui
                     .m_textureBarriers = textureMemoryBarriers,
                 });
         }
-        else
+        else if (!textureMemoryBarriers.empty())
         {
             _graphicsContext->PlaceMemoryBarriers(
                 _transferEncoder,
@@ -472,12 +472,16 @@ namespace KryneEngine::Modules::ImGui
 
             texture->SetStatus(ImTextureStatus_OK);
         }
-        _graphicsContext->PlaceMemoryBarriers(
-            _transferEncoder,
-            {
-                .m_placementType = BarrierPlacementType::Producer,
-                .m_textureBarriers = textureMemoryBarriers,
-            });
+
+        if (!textureMemoryBarriers.empty())
+        {
+            _graphicsContext->PlaceMemoryBarriers(
+               _transferEncoder,
+               {
+                   .m_placementType = BarrierPlacementType::Producer,
+                   .m_textureBarriers = textureMemoryBarriers,
+               });
+        }
 
         const u8 frameIndex = _graphicsContext->GetCurrentFrameContextIndex();
 
