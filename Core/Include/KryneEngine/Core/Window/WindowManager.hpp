@@ -58,7 +58,7 @@ namespace KryneEngine
      * per-application @ref InputManager and routes every window's raw GLFW callbacks into it. GLFW is
      * confined to `WindowManager.cpp`, so a future SDL3 / native backend is a backend-only change.
      *
-     * The `Window*` returned by @ref CreateWindow is the handle used with the rest of this API; it stays
+     * The `Window*` returned by @ref SpawnWindow is the handle used with the rest of this API; it stays
      * valid until the matching @ref DestroyWindow (or the manager's destruction).
      */
     class WindowManager
@@ -70,7 +70,7 @@ namespace KryneEngine
         WindowManager(const WindowManager&) = delete;
         WindowManager& operator=(const WindowManager&) = delete;
 
-        [[nodiscard]] Window* CreateWindow(
+        [[nodiscard]] Window* SpawnWindow(
             const eastl::string_view& _title,
             const GraphicsCommon::DisplayOptions& _displayOptions,
             bool _initiallyVisible = true);

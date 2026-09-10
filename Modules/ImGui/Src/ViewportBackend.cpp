@@ -44,7 +44,7 @@ namespace KryneEngine::Modules::ImGui
             opts.m_resizableWindow = true;
             opts.m_decorated = (_vp->Flags & ImGuiViewportFlags_NoDecoration) == 0;
 
-            vd->m_window = backend->m_windowManager->CreateWindow("ImGui viewport", opts, false);
+            vd->m_window = backend->m_windowManager->SpawnWindow("ImGui viewport", opts, false);
 
             _vp->PlatformUserData = vd;
             _vp->PlatformHandle = vd->m_window;

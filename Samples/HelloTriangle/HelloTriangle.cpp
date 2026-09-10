@@ -330,7 +330,7 @@ int main()
 
     const GraphicsCommon::DisplayOptions displayOptions {};
     WindowManager windowManager{AllocatorInstance()};
-    Window* mainWindow = windowManager.CreateWindow(appInfo.m_applicationName, displayOptions);
+    Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
     GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),

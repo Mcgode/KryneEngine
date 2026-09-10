@@ -23,14 +23,14 @@ namespace KryneEngine
      * A `Window` is created, owned and destroyed by the @ref WindowManager — it does not touch GLFW's
      * process-global state, drive the message pump, or own any input state. It only exposes the queries
      * an application needs to set up a swap chain and lay out its rendering. The `Window*` returned by
-     * @ref WindowManager::CreateWindow is itself the stable handle used with the rest of the manager API.
+     * @ref WindowManager::SpawnWindow is itself the stable handle used with the rest of the manager API.
      */
     class Window
     {
         friend class WindowManager;
 
     public:
-        /// @brief Constructed by the @ref WindowManager — applications go through @ref WindowManager::CreateWindow.
+        /// @brief Constructed by the @ref WindowManager — applications go through @ref WindowManager::SpawnWindow.
         Window(GLFWwindow* _glfwWindow, AllocatorInstance _allocator);
 
         virtual ~Window();

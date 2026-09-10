@@ -65,12 +65,12 @@ namespace KryneEngine
         s_instance = nullptr;
     }
 
-    Window* WindowManager::CreateWindow(
+    Window* WindowManager::SpawnWindow(
         const eastl::string_view& _title,
         const GraphicsCommon::DisplayOptions& _displayOptions,
         const bool _initiallyVisible)
     {
-        KE_ZoneScopedFunction("WindowManager::CreateWindow");
+        KE_ZoneScopedFunction("WindowManager::SpawnWindow");
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, _displayOptions.m_resizableWindow);
