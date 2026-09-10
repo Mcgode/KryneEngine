@@ -1126,7 +1126,7 @@ namespace KryneEngine
 
             DynamicArray<D3D12_GLOBAL_BARRIER> globalMemoryBarriers(m_allocator, _barriers.m_globalBarriers.size());
             DynamicArray<D3D12_BUFFER_BARRIER> bufferMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
-            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
+            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _barriers.m_textureBarriers.size());
 
             if (!_barriers.m_globalBarriers.empty())
             {
