@@ -195,7 +195,7 @@ namespace KryneEngine
                 MAP(RGB8_UNorm, DXGI_FORMAT_R8G8B8A8_UNORM);
                 MAP(RGBA8_UNorm, DXGI_FORMAT_R8G8B8A8_UNORM);
 
-                MAP(RGB8_sRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+                // MAP(RGB8_sRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
                 MAP(RGBA8_sRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
 
                 MAP(BGRA8_UNorm, DXGI_FORMAT_B8G8R8A8_UNORM);
@@ -203,8 +203,13 @@ namespace KryneEngine
 
                 MAP(R8_SNorm, DXGI_FORMAT_R8_SNORM);
                 MAP(RG8_SNorm, DXGI_FORMAT_R8G8_SNORM);
-                MAP(RGB8_SNorm, DXGI_FORMAT_R8G8B8A8_SNORM);
+                // MAP(RGB8_SNorm, DXGI_FORMAT_R8G8B8A8_SNORM);
                 MAP(RGBA8_SNorm, DXGI_FORMAT_R8G8B8A8_SNORM);
+
+                MAP(R16_Float, DXGI_FORMAT_R16_FLOAT);
+                MAP(RG16_Float, DXGI_FORMAT_R16G16_FLOAT);
+                // MAP(RGB16_Float, DXGI_FORMAT_R16G16B16_FLOAT);
+                MAP(RGBA16_Float, DXGI_FORMAT_R16G16B16A16_FLOAT);
 
                 MAP(R32_Float, DXGI_FORMAT_R32_FLOAT);
                 MAP(RG32_Float, DXGI_FORMAT_R32G32_FLOAT);
