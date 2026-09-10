@@ -12,6 +12,11 @@
 #include <KryneEngine/Core/Math/Transform.hpp>
 #include <fstream>
 
+#if defined(_WIN32)
+#   include <corecrt_math_defines.h>
+#endif
+
+
 static const float3 positions[8] = {
     { -1, -1, -1 },
     {  1, -1, -1 },

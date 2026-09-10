@@ -31,7 +31,7 @@ namespace KryneEngine
     struct PackedInstanceData
     {
         uint2 m_packedRect;
-        uint m_packedColor;
+        u32 m_packedColor;
         uint4 m_packedData;
     };
 
