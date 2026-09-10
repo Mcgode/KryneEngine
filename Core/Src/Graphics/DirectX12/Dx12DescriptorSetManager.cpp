@@ -121,13 +121,15 @@ namespace KryneEngine
             u32& total = totals[static_cast<u32>(rangeType)];
 
             // Pack index data into a single u32
-            if (binding.m_bindingIndex != DescriptorBindingDesc::kImplicitBindingIndex)
+            if (binding.m_bindingIndex == DescriptorBindingDesc::kImplicitBindingIndex)
             {
+                // Implicit index: append after the running per-range-type total.
                 _bindingIndices[i] = PackedIndex { .m_type = static_cast<u32>(descriptorType), .m_binding = total }.m_packed;
                 total += binding.m_count;
             }
             else
             {
+                // Explicit index: honour the requested binding slot.
                 KE_ASSERT(total <= binding.m_bindingIndex);
                 _bindingIndices[i] = PackedIndex { .m_type = static_cast<u32>(descriptorType), .m_binding = binding.m_bindingIndex }.m_packed;
                 total = binding.m_bindingIndex + binding.m_count;
