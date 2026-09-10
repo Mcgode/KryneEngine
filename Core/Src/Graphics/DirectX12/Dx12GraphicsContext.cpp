@@ -28,7 +28,6 @@ namespace KryneEngine
         AllocatorInstance _allocator,
         const GraphicsCommon::ApplicationInfo& _appInfo)
         : GraphicsContext(_allocator, _appInfo)
-        , m_swapChain(_allocator)
         , m_frameContexts(_allocator)
         , m_resources(_allocator)
         , m_descriptorSetManager(_allocator)
@@ -41,7 +40,7 @@ namespace KryneEngine
         UINT dxgiFactoryFlags = 0;
 
 #if !defined(KE_FINAL)
-        if (m_appInfo.m_features.m_validationLayers)
+        if (m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled)
         {
             ComPtr<ID3D12Debug> debugController;
             if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -148,7 +147,7 @@ namespace KryneEngine
 
         SafeRelease(m_device);
 
-        if (m_appInfo.m_features.m_validationLayers)
+        if (m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled)
         {
             IDXGIDebug* debugDev;
             Dx12Assert(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debugDev)));
@@ -276,7 +275,7 @@ namespace KryneEngine
         m_resources.InitAllocator(m_device.Get(), hardwareAdapter.Get());
 
 #if !defined(KE_FINAL)
-        if (m_appInfo.m_features.m_validationLayers)
+        if (m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled)
         {
             ComPtr<ID3D12InfoQueue1> infoQueue;
             if (SUCCEEDED(m_device->QueryInterface<ID3D12InfoQueue1>(&infoQueue)))
@@ -323,9 +322,11 @@ namespace KryneEngine
                     continue;
                 }
 
+                // Not __uuidof: DirectX-Headers doesn't attach a GUID to the interface
+                // types for non-MSVC compilers, but ships the named IID constants.
                 if (SUCCEEDED(D3D12CreateDevice(adapter.Get(),
                                                 Dx12Converters::GetFeatureLevel(m_appInfo),
-                                                _uuidof(ID3D12Device),
+                                                IID_ID3D12Device,
                                                 nullptr)))
                 {
                     break;
@@ -397,7 +398,7 @@ namespace KryneEngine
         VERIFY_OR_RETURN(pAllocation != nullptr, false);
         D3D12MA::Allocation* allocation = *pAllocation;
 
-        return allocation->GetHeap()->GetDesc().Properties.Type != D3D12_HEAP_TYPE_UPLOAD;
+        return Dx12GetHeapDesc(allocation->GetHeap()).Properties.Type != D3D12_HEAP_TYPE_UPLOAD;
     }
 
     bool Dx12GraphicsContext::DestroyBuffer(BufferHandle _buffer) {
@@ -790,7 +791,7 @@ namespace KryneEngine
             addBarrier(attachment, rtvData->m_resource, true, attachment.m_readOnly);
         }
 
-        PlaceMemoryBarriers(_commandList, {}, {}, barriers);
+        PlaceMemoryBarriers({ _commandList }, { .m_textureBarriers = barriers });
 
         commandList->BeginRenderPass(
                 colorAttachments.size(),
@@ -914,7 +915,7 @@ namespace KryneEngine
             addBarrier(attachment, rtvData->m_resource, true);
         }
 
-        PlaceMemoryBarriers(commandList, {}, {}, barriers);
+        PlaceMemoryBarriers(_renderCommandEncoder, { .m_textureBarriers = barriers });
 
         m_currentRenderPass = GenPool::kInvalidHandle;
     }

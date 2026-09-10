@@ -380,7 +380,7 @@ namespace KryneEngine
 
         const GenPool::Handle handle = m_samplers.Allocate();
         CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
-            m_samplerStorageHeap->GetCPUDescriptorHandleForHeapStart(),
+            Dx12CpuDescriptorHandleForHeapStart(m_samplerStorageHeap),
             handle.m_index,
             m_samplerDescriptorSize);
         _device->CreateSampler(&samplerDesc, cpuDescriptorHandle);
@@ -418,7 +418,7 @@ namespace KryneEngine
             cold->m_cbvIndex = m_cbvSrvUavAllocator.Allocate();
 
             const CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
-                m_cbvSrvUavDescriptorStorageHeap->GetCPUDescriptorHandleForHeapStart(),
+                Dx12CpuDescriptorHandleForHeapStart(m_cbvSrvUavDescriptorStorageHeap),
                 cold->m_cbvIndex,
                 m_cbvSrvUavDescriptorSize);
             _device->CreateConstantBufferView(&desc, cpuDescriptorHandle);
@@ -446,7 +446,7 @@ namespace KryneEngine
             cold->m_srvIndex = m_cbvSrvUavAllocator.Allocate();
 
             const CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
-                m_cbvSrvUavDescriptorStorageHeap->GetCPUDescriptorHandleForHeapStart(),
+                Dx12CpuDescriptorHandleForHeapStart(m_cbvSrvUavDescriptorStorageHeap),
                 cold->m_srvIndex,
                 m_cbvSrvUavDescriptorSize);
             _device->CreateShaderResourceView(*buffer, &desc, cpuDescriptorHandle);
@@ -474,7 +474,7 @@ namespace KryneEngine
             cold->m_uavIndex = m_cbvSrvUavAllocator.Allocate();
 
             const CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
-                m_cbvSrvUavDescriptorStorageHeap->GetCPUDescriptorHandleForHeapStart(),
+                Dx12CpuDescriptorHandleForHeapStart(m_cbvSrvUavDescriptorStorageHeap),
                 cold->m_uavIndex,
                 m_cbvSrvUavDescriptorSize);
             _device->CreateUnorderedAccessView(*buffer, nullptr, &desc, cpuDescriptorHandle);
@@ -582,7 +582,7 @@ namespace KryneEngine
             }
 
             const CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
-                    m_rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+                    Dx12CpuDescriptorHandleForHeapStart(m_rtvDescriptorHeap),
                     handle.m_index,
                     m_rtvDescriptorSize);
             _device->CreateRenderTargetView(*texture, &rtvDesc, cpuDescriptorHandle);
@@ -646,7 +646,7 @@ namespace KryneEngine
             }
 
             const CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
-                    m_dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+                    Dx12CpuDescriptorHandleForHeapStart(m_dsvDescriptorHeap),
                     handle.m_index,
                     m_dsvDescriptorSize);
             _device->CreateDepthStencilView(*texture, &dsvDesc, cpuDescriptorHandle);
@@ -821,7 +821,7 @@ namespace KryneEngine
             cold->m_srvIndex = m_cbvSrvUavAllocator.Allocate();
 
             const CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
-                m_cbvSrvUavDescriptorStorageHeap->GetCPUDescriptorHandleForHeapStart(),
+                Dx12CpuDescriptorHandleForHeapStart(m_cbvSrvUavDescriptorStorageHeap),
                 cold->m_srvIndex,
                 m_cbvSrvUavDescriptorSize);
             _device->CreateShaderResourceView(texture, &srvDesc, cpuDescriptorHandle);
@@ -834,7 +834,7 @@ namespace KryneEngine
             cold->m_uavIndex = m_cbvSrvUavAllocator.Allocate();
 
             const CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
-                m_cbvSrvUavDescriptorStorageHeap->GetCPUDescriptorHandleForHeapStart(),
+                Dx12CpuDescriptorHandleForHeapStart(m_cbvSrvUavDescriptorStorageHeap),
                 cold->m_srvIndex,
                 m_cbvSrvUavDescriptorSize);
             _device->CreateUnorderedAccessView(texture, nullptr, &uavDesc, cpuDescriptorHandle);

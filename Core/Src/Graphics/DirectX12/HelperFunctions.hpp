@@ -45,6 +45,54 @@ namespace KryneEngine
         _pointer = nullptr;
     }
 
+    // --- MSVC / mingw COM ABI shims ------------------------------------------------
+    // DirectX-Headers only declares these COM accessors as returning their aggregate
+    // by value for MSVC (and for non-Windows targets). For Windows built with a
+    // non-MSVC compiler - which is what the macOS -> mingw cross build uses - they
+    // instead take an out-parameter, to sidestep a historical aggregate-return ABI
+    // bug. These wrappers keep the call sites uniform.
+#if defined(_MSC_VER) || !defined(_WIN32)
+#   define KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE 1
+#else
+#   define KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE 0
+#endif
+
+    template <class Heap>
+    [[nodiscard]] inline D3D12_CPU_DESCRIPTOR_HANDLE Dx12CpuDescriptorHandleForHeapStart(Heap&& _heap)
+    {
+#if KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE
+        return _heap->GetCPUDescriptorHandleForHeapStart();
+#else
+        D3D12_CPU_DESCRIPTOR_HANDLE handle {};
+        _heap->GetCPUDescriptorHandleForHeapStart(&handle);
+        return handle;
+#endif
+    }
+
+    template <class Heap>
+    [[nodiscard]] inline D3D12_GPU_DESCRIPTOR_HANDLE Dx12GpuDescriptorHandleForHeapStart(Heap&& _heap)
+    {
+#if KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE
+        return _heap->GetGPUDescriptorHandleForHeapStart();
+#else
+        D3D12_GPU_DESCRIPTOR_HANDLE handle {};
+        _heap->GetGPUDescriptorHandleForHeapStart(&handle);
+        return handle;
+#endif
+    }
+
+    template <class Heap>
+    [[nodiscard]] inline D3D12_HEAP_DESC Dx12GetHeapDesc(Heap&& _heap)
+    {
+#if KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE
+        return _heap->GetDesc();
+#else
+        D3D12_HEAP_DESC desc {};
+        _heap->GetDesc(&desc);
+        return desc;
+#endif
+    }
+
     template <class DxObject, class... Args>
     void Dx12SetName(DxObject* _object, const wchar_t* _format, Args... _args)
     {
