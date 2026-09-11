@@ -394,7 +394,7 @@ void DeclarePassBufferViewUsage(
 
 ### Graphics Pipelines
 ```cpp
-[[nodiscard]] ShaderModuleHandle RegisterShaderModule(void* _bytecodeData, u64 _bytecodeSize) = 0;
+[[nodiscard]] ShaderModuleHandle RegisterShaderModule(const void* _bytecodeData, u64 _bytecodeSize) = 0;
 [[nodiscard]] DescriptorSetLayoutHandle CreateDescriptorSetLayout(const DescriptorSetDesc& _desc, u32* _bindingIndices) = 0;
 [[nodiscard]] DescriptorSetHandle CreateDescriptorSet(DescriptorSetLayoutHandle _layout) = 0;
 [[nodiscard]] PipelineLayoutHandle CreatePipelineLayout(const PipelineLayoutDesc& _desc) = 0;
