@@ -225,7 +225,6 @@ namespace KryneEngine
                 const size_t index = eastl::distance(begin(), it);
                 m_controlBuffer[index] = kUnused;
                 m_kvpBuffer[index].~kvp();
-                ++it;
             }
 
             ++it;
