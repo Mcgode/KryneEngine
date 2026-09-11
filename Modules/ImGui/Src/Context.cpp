@@ -7,6 +7,7 @@
 #include "KryneEngine/Modules/ImGui/Context.hpp"
 
 #include <fstream>
+#include <EASTL/chrono.h>
 #include <EASTL/fixed_vector.h>
 #include <imgui_internal.h>
 #include <KryneEngine/Core/Common/Utils/Alignment.hpp>
@@ -109,7 +110,7 @@ namespace KryneEngine::Modules::ImGui
 
         InitPso(graphicsContext, _targetFormat, _vsBytecode, _fsBytecode);
 
-        m_timePoint = eastl::chrono::steady_clock::now();
+        m_lastFrameTimestampNs = eastl::chrono::steady_clock::now().time_since_epoch().count();
 
         m_systemsTexturesStagingBuffers.Resize(graphicsContext->GetFrameContextCount());
         m_systemsTexturesStagingBuffers.InitAll(SystemTextureStagingBuffer {});
@@ -208,11 +209,11 @@ namespace KryneEngine::Modules::ImGui
 
         m_viewportBackend->NewFrame();
 
-        const auto currentTimePoint =  eastl::chrono::steady_clock::now();
-        const eastl::chrono::duration<double> interval = currentTimePoint - m_timePoint;
-        m_timePoint = currentTimePoint;
+        const u64 nowNs = eastl::chrono::steady_clock::now().time_since_epoch().count();
+        const double interval = static_cast<double>(nowNs - m_lastFrameTimestampNs) * 1e-9;
+        m_lastFrameTimestampNs = nowNs;
 
-        io.DeltaTime = static_cast<float>(interval.count());
+        io.DeltaTime = static_cast<float>(interval);
 
         ::ImGui::NewFrame();
     }

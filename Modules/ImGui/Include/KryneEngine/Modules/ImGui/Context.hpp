@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <EASTL/chrono.h>
 #include <EASTL/vector_map.h>
 #include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
 #include <KryneEngine/Modules/GraphicsUtils/DynamicBuffer.hpp>
@@ -160,7 +159,7 @@ namespace KryneEngine::Modules::ImGui
         GraphicsUtils::DynamicBuffer m_dynamicVertexBuffer;
         GraphicsUtils::DynamicBuffer m_dynamicIndexBuffer;
 
-        eastl::chrono::time_point<eastl::chrono::steady_clock> m_timePoint;
+        u64 m_lastFrameTimestampNs = 0;
 
         Input* m_input = nullptr;
         ViewportBackend* m_viewportBackend = nullptr;
