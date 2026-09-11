@@ -19,7 +19,11 @@ def main():
     shaders_dir = Path(sys.argv[6])
     python_script = Path(sys.argv[7])
     include_list = sys.argv[8]
-    shader_list_files = sys.argv[9:]
+    embed_enabled = sys.argv[9] == "1"
+    embed_script = Path(sys.argv[10])
+    embed_cpp_output = Path(sys.argv[11])
+    embed_h_output = Path(sys.argv[12])
+    shader_list_files = sys.argv[13:]
 
     working_dir = output_file.parent
 
@@ -115,6 +119,8 @@ def main():
         writer.comment(f" Build commands")
         writer.comment("--------------------------------------------------------------------")
 
+        embed_entries = []
+
         for input_file_path in shader_list_files:
             with open(input_file_path, 'r') as input_file:
                 current_dir = Path(input_file_path).parent
@@ -132,11 +138,12 @@ def main():
                     entry_point = configuration["EntryPoint"]
                     shader_type = configuration["ShaderType"]
 
-                    def get_output_shader_path(extension: str):
+                    def get_output_shader_relative_path(extension: str):
                         shader = shader_file.relative_to(shaders_dir)
-                        shader = shader.with_name(f"{shader.stem}_{entry_point}{extension}")
-                        shader = PurePath(f"${shader_output_dir_name}") / shader
-                        return shader
+                        return shader.with_name(f"{shader.stem}_{entry_point}{extension}")
+
+                    def get_output_shader_path(extension: str):
+                        return PurePath(f"${shader_output_dir_name}") / get_output_shader_relative_path(extension)
 
                     # Output location
                     output_shader = get_output_shader_path(format_extension)
@@ -158,6 +165,8 @@ def main():
                         },
                     )
 
+                    final_shader = output_shader
+                    final_extension = format_extension
                     if format_is_metal:
                         metal_shader = get_output_shader_path(".metal")
                         writer.build(
@@ -174,9 +183,58 @@ def main():
                             [str(metallib_shader)],
                             "air_to_metallib",
                             str(air_shader))
+                        final_shader = metallib_shader
+                        final_extension = ".metallib"
 
+                    if embed_enabled:
+                        shader_rel = shader_file.relative_to(shaders_dir)
+                        shader_rel_stem = shader_rel.with_suffix("").as_posix().replace("/", "_")
+                        identifier = f"{shader_rel_stem}_{entry_point}"
+                        real_path = shader_output_dir / get_output_shader_relative_path(final_extension)
+                        embed_entries.append({
+                            "identifier": identifier,
+                            "ninja_target": str(final_shader),
+                            "real_path": str(real_path),
+                        })
 
                     print(f" - Shader type [{shader_type}], Entry Point [{entry_point}]")
+
+        if embed_enabled:
+            writer.newline()
+            writer.comment("--------------------------------------------------------------------")
+            writer.comment(f" Embedded shader generation")
+            writer.comment("--------------------------------------------------------------------")
+            writer.newline()
+
+            manifest_path = working_dir / "embed_manifest.json"
+            with open(manifest_path, 'w') as manifest_file:
+                json.dump(
+                    [{"identifier": e["identifier"], "path": e["real_path"]} for e in embed_entries],
+                    manifest_file,
+                    indent=2,
+                )
+
+            embed_script_name = "embed_script"
+            writer.variable(embed_script_name, os.path.relpath(embed_script, working_dir))
+
+            writer.rule(
+                "embed_shaders",
+                f"${python_name} ${embed_script_name} $in $embed_cpp $embed_h $target_name",
+            )
+
+            writer.newline()
+            writer.build(
+                [str(embed_cpp_output), str(embed_h_output)],
+                "embed_shaders",
+                [os.path.relpath(manifest_path, working_dir)],
+                implicit=[e["ninja_target"] for e in embed_entries] + [f"${embed_script_name}"],
+                variables={
+                    "embed_cpp": str(embed_cpp_output),
+                    "embed_h": str(embed_h_output),
+                    "target_name": target_name,
+                },
+            )
+
         writer.close()
 
 

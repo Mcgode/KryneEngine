@@ -61,12 +61,20 @@ endif ()
 set_property(GLOBAL PROPERTY KE_SHADER_TOOLS "${ShaderTools}")
 set_property(GLOBAL PROPERTY KE_SHADER_GENERATE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderListParser.py")
 set_property(GLOBAL PROPERTY KE_SHADER_BUILD_COMMAND_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderBuildCommand.py")
+set_property(GLOBAL PROPERTY KE_SHADER_EMBED_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderEmbedGenerator.py")
 find_package(Python3 REQUIRED)
 
 # target_compile_shaders implementation
+# Pass the EMBED option to also generate a <TARGET_NAME>_EmbeddedShaders.cpp/.h pair (added to the
+# target's sources) exposing each compiled shader as a `eastl::span<const u8>` accessor function,
+# under the `KryneEngine::EmbeddedShaders::<TARGET_NAME>` namespace.
 function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
+    cmake_parse_arguments(ARG "EMBED" "" "" ${ARGN})
+
     set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/Shaders")
     set(SHADER_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}/ShaderBuild")
+
+    file(RELATIVE_PATH TARGET_REL_PATH ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
     set(SHADER_INPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${LOCAL_SHADERS_DIR}")
     set(BUILD_OUTPUT_DIR "${SHADER_BUILD_OUTPUT_DIR}/${OUTPUT_DIR_NAME}")
@@ -106,6 +114,18 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
     get_property(ShaderTools GLOBAL PROPERTY KE_SHADER_TOOLS)
     get_property(GENERATE_SCRIPT GLOBAL PROPERTY KE_SHADER_GENERATE_SCRIPT)
     get_property(BUILD_COMMAND_SCRIPT GLOBAL PROPERTY KE_SHADER_BUILD_COMMAND_SCRIPT)
+    get_property(EMBED_SCRIPT GLOBAL PROPERTY KE_SHADER_EMBED_SCRIPT)
+
+    set(EMBED_OUTPUT_DIR "${CMAKE_BINARY_DIR}/Embedded/${TARGET_REL_PATH}")
+    if (ARG_EMBED)
+        set(EMBED_ENABLED "1")
+        set(EMBED_CPP "${EMBED_OUTPUT_DIR}/${TARGET_NAME}_EmbeddedShaders.cpp")
+        set(EMBED_H "${EMBED_OUTPUT_DIR}/${TARGET_NAME}_EmbeddedShaders.h")
+    else ()
+        set(EMBED_ENABLED "0")
+        set(EMBED_CPP "${EMBED_OUTPUT_DIR}/unused.cpp")
+        set(EMBED_H "${EMBED_OUTPUT_DIR}/unused.h")
+    endif ()
 
     add_custom_command(
             OUTPUT "${COMMANDS_FILE}"
@@ -120,6 +140,10 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
                 ${SHADER_INPUT_DIR}
                 ${BUILD_COMMAND_SCRIPT}
                 "${SHADER_INCLUDE_LIST}"
+                ${EMBED_ENABLED}
+                ${EMBED_SCRIPT}
+                ${EMBED_CPP}
+                ${EMBED_H}
                 ${ShaderListFiles}
             DEPENDS ${GENERATE_SCRIPT} ${ShaderListFiles}
             COMMENT "Parsing shader list"
@@ -141,6 +165,12 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
     set_target_properties(${TARGET_NAME} PROPERTIES SET_UP_COMPILE_COMMANDS ON)
 
     add_dependencies(${TARGET_NAME} ${TARGET_NAME}_ShaderCommands)
+
+    if (ARG_EMBED)
+        set_source_files_properties(${EMBED_CPP} ${EMBED_H} PROPERTIES GENERATED ON)
+        target_sources(${TARGET_NAME} PRIVATE ${EMBED_CPP})
+        target_include_directories(${TARGET_NAME} PRIVATE ${EMBED_OUTPUT_DIR})
+    endif ()
 endfunction()
 
 # target_declare_shader_library implementation
