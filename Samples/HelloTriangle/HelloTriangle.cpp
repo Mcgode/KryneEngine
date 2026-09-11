@@ -13,12 +13,13 @@
 #include <KryneEngine/Core/Graphics/RenderPass.hpp>
 #include <KryneEngine/Core/Graphics/ShaderPipeline.hpp>
 #include <KryneEngine/Core/Memory/DynamicArray.hpp>
+#include <KryneEngine/Core/Profiling/TracyGpuScope.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
-#include <KryneEngine/Core/Window/Window.hpp>
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
+#include <KryneEngine/Core/Window/Window.hpp>
 #include <KryneEngine/Core/Window/WindowManager.hpp>
 
-#include "KryneEngine/Core/Profiling/TracyGpuScope.hpp"
+#include "HelloTriangle_EmbeddedShaders.h"
 
 using namespace KryneEngine;
 
@@ -46,39 +47,15 @@ void PrepareRenderPasses(GraphicsContext& _graphicsContext, SwapChainHandle _swa
 void PreparePso(
     GraphicsContext& _graphicsContext,
     SwapChainHandle _swapChain,
-    eastl::vector<u8>& _vsBytecode,
-    eastl::vector<u8>& _psBytecode,
     ShaderModuleHandle& _vsModule,
     ShaderModuleHandle& _psModule,
     PipelineLayoutHandle& _layout,
     GraphicsPipelineHandle& _pso)
 {
-    // Load shader bytecode
-    {
-        constexpr auto readShaderFile = [](const auto& _path, auto& _vec)
-        {
-            std::ifstream file(_path.c_str(), std::ios::binary);
-            VERIFY_OR_RETURN_VOID(file);
-
-            file.seekg(0, std::ios::end);
-            _vec.resize(file.tellg());
-            file.seekg(0, std::ios::beg);
-
-            KE_VERIFY(file.read(reinterpret_cast<char*>(_vec.data()), _vec.size()));
-        };
-
-        readShaderFile(
-            eastl::string("Shaders/Triangle_MainVS.") + GraphicsContext::GetShaderFileExtension(),
-            _vsBytecode);
-        readShaderFile(
-            eastl::string("Shaders/Triangle_MainPS.") + GraphicsContext::GetShaderFileExtension(),
-            _psBytecode);
-    }
-
     // Register modules
     {
-        _vsModule = _graphicsContext.RegisterShaderModule(_vsBytecode.data(), _vsBytecode.size());
-        _psModule = _graphicsContext.RegisterShaderModule(_psBytecode.data(), _psBytecode.size());
+        _vsModule = _graphicsContext.RegisterShaderModule(EmbeddedShaders::HelloTriangle::Triangle_MainVS());
+        _psModule = _graphicsContext.RegisterShaderModule(EmbeddedShaders::HelloTriangle::Triangle_MainPS());
     }
 
     // Register layout
@@ -341,7 +318,6 @@ int main()
 
     // Declare resources
     DynamicArray<RenderPassHandle> renderPassHandles;
-    eastl::vector<u8> vsBytecode, psBytecode;
     ShaderModuleHandle vsModule, psModule;
     PipelineLayoutHandle trianglePipelineLayout;
     GraphicsPipelineHandle trianglePso;
@@ -350,7 +326,7 @@ int main()
 
     // Prepare resources
     PrepareRenderPasses(*graphicsContext, swapChain, renderPassHandles);
-    PreparePso(*graphicsContext, swapChain, vsBytecode, psBytecode, vsModule, psModule, trianglePipelineLayout, trianglePso);
+    PreparePso(*graphicsContext, swapChain, vsModule, psModule, trianglePipelineLayout, trianglePso);
     PrepareBuffers(*graphicsContext, stagingBuffer, vertexBuffer, indexBuffer, vertexBufferView, indexBufferView);
 
     const u64 stagingFrame = graphicsContext->GetFrameId();
