@@ -21,19 +21,13 @@ namespace KryneEngine::Tests
         constexpr auto callback0 = [](const char*, u32, const char*, const char* message)
         {
             EXPECT_STREQ(message, "Callback 0");
-            return Assertion::CallbackResponse::Break;
+            return true;
         };
 
         constexpr auto callback1 = [](const char*, u32, const char*, const char* message)
         {
             EXPECT_STREQ(message, "Callback 1");
-            return Assertion::CallbackResponse::Continue;
-        };
-
-        constexpr auto callback2 = [](const char*, u32, const char*, const char* message)
-        {
-            EXPECT_STREQ(message, "Callback 2");
-            return Assertion::CallbackResponse::Ignore;
+            return false;
         };
 
         const u64 line = __LINE__;
@@ -43,38 +37,26 @@ namespace KryneEngine::Tests
         // Execute
         // -----------------------------------------------------------------------
 
-        Assertion::AssertionCallback previousCallback = Assertion::SetAssertionCallback(callback0);
+        Assertion::AssertCaptureFunction previousCallback = Assertion::CaptureAssertions(callback0);
         EXPECT_EQ(previousCallback, nullptr); // Should be nullptr, aka default callback
 
         bool result = Assertion::Error("", line, __FILE__, "Callback 0");
         EXPECT_TRUE(result);
 
-        previousCallback = Assertion::SetAssertionCallback(callback1);
+        previousCallback = Assertion::CaptureAssertions(callback1);
         EXPECT_EQ(previousCallback, callback0);
 
         result = Assertion::Error("", line, __FILE__, "Callback 1");
         EXPECT_FALSE(result);
 
-        previousCallback = Assertion::SetAssertionCallback(callback2);
+        previousCallback = Assertion::CaptureAssertions(callback0);
         EXPECT_EQ(previousCallback, callback1);
-
-        result = Assertion::Error("", line, __FILE__, "Callback 2");
-        EXPECT_FALSE(result);
-
-        previousCallback = Assertion::SetAssertionCallback(callback0);
-        EXPECT_EQ(previousCallback, callback2);
-        result = Assertion::Error("", line, __FILE__, "Callback 0");
-        EXPECT_FALSE(result);
-        result = Assertion::Error("", line + 1, __FILE__, "Callback 0");
-        EXPECT_TRUE(result);
-        result = Assertion::Error("", line, __FILE__ "p", "Callback 0");
-        EXPECT_TRUE(result);
 
         // -----------------------------------------------------------------------
         // Teardown
         // -----------------------------------------------------------------------
 
-        Assertion::SetAssertionCallback(nullptr);
+        Assertion::CaptureAssertions(nullptr);
     }
 
     TEST(AssertUtils, ProperScoping)
@@ -85,14 +67,14 @@ namespace KryneEngine::Tests
 
         constexpr auto getCurrentCallback = []()
         {
-            Assertion::AssertionCallback callback = Assertion::SetAssertionCallback(nullptr);
-            Assertion::SetAssertionCallback(callback);
+            const Assertion::AssertCaptureFunction callback = Assertion::CaptureAssertions(nullptr);
+            Assertion::CaptureAssertions(callback);
             return callback;
         };
 
         constexpr auto customCallback = [](const char*, u32, const char*, const char*)
         {
-            return Assertion::CallbackResponse::Continue;
+            return false;
         };
 
         // -----------------------------------------------------------------------
@@ -132,7 +114,7 @@ namespace KryneEngine::Tests
         EXPECT_EQ(ScopedAssertCatcher::s_currentCatcher, nullptr);
 
         // Stop overriding custom callback when unscoped
-        Assertion::SetAssertionCallback(customCallback);
+        Assertion::CaptureAssertions(customCallback);
         {
             ScopedAssertCatcher catcher;
         }
@@ -141,7 +123,7 @@ namespace KryneEngine::Tests
         // -----------------------------------------------------------------------
         // Teardown
         // -----------------------------------------------------------------------
-        Assertion::SetAssertionCallback(nullptr);
+        Assertion::CaptureAssertions(nullptr);
     }
 
     TEST(AssertUtils, CaughtValues)

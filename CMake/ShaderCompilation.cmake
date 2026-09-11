@@ -1,21 +1,26 @@
 
-# Fetch DirectX shader compiler executable
-if (LINUX)
-    set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/bin/dxc")
-elseif (WIN32)
-    if (CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
-        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x64/dxc.exe")
-    elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86")
-        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x86/dxc.exe")
-    elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64")
-        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/arm64/dxc.exe")
+# Fetch DirectX shader compiler executable.
+# Shaders are compiled at build time, so dxc must be a *host* executable - pick it
+# from CMAKE_HOST_* rather than the (possibly cross-compilation) target.
+string(TOLOWER "${CMAKE_HOST_SYSTEM_PROCESSOR}" _ke_host_proc)
+if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    if (_ke_host_proc MATCHES "aarch64|arm64")
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/arm64/bin/dxc")
     else ()
-        message(FATAL_ERROR "Unsupported processor ${CMAKE_SYSTEM_PROCESSOR}")
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/x64/bin/dxc")
     endif ()
-elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    if (_ke_host_proc MATCHES "arm64")
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/arm64/dxc.exe")
+    elseif (_ke_host_proc MATCHES "amd64|x86_64|x64")
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x64/dxc.exe")
+    else ()
+        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x86/dxc.exe")
+    endif ()
+elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/macos/bin/dxc")
 else ()
-    message(FATAL_ERROR "Platform unsupported")
+    message(FATAL_ERROR "Host platform unsupported for shader compilation: ${CMAKE_HOST_SYSTEM_NAME}")
 endif ()
 
 # Check that we found the executable

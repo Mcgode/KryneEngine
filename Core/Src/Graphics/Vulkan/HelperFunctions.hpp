@@ -24,6 +24,8 @@ namespace KryneEngine
         _resource = VK_NULL_HANDLE;
         return value;
     }
+
+    struct VkFeatures;
 }
 
 namespace KryneEngine::VkHelperFunctions
@@ -365,8 +367,8 @@ namespace KryneEngine::VkHelperFunctions
         return VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT;
     }
 
-    VkPipelineStageFlagBits2 ToVkPipelineStageFlagBits2(BarrierSyncStageFlags _flags, bool _isSrc);
-    VkPipelineStageFlags ToVkPipelineStageFlagBits(BarrierSyncStageFlags _flags, bool _isSrc);
+    VkPipelineStageFlagBits2 ToVkPipelineStageFlagBits2(BarrierSyncStageFlags _flags, bool _isSrc, const VkFeatures& _features);
+    VkPipelineStageFlags ToVkPipelineStageFlagBits(BarrierSyncStageFlags _flags, bool _isSrc, const VkFeatures& _features);
     VkAccessFlags2 ToVkAccessFlags2(BarrierAccessFlags _flags);
     VkAccessFlags ToVkAccessFlags(BarrierAccessFlags _flags);
 

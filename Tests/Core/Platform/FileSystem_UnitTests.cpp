@@ -188,7 +188,7 @@ namespace KryneEngine::Tests
         EXPECT_NE(handle.m_handle, nullptr);
 
         const std::filesystem::path file = root / "file.txt";
-        MakeFile(file.c_str(), 1024, 0);
+        MakeFile(file.string().c_str(), 1024, 0);
 
         WaitForMonitor(monitor, 1, 1'000);
 
@@ -255,7 +255,7 @@ namespace KryneEngine::Tests
         EXPECT_NE(handle.m_handle, nullptr);
 
         const std::filesystem::path file = std::filesystem::canonical(root) / "file.txt";
-        MakeFile(file.c_str(), 1024, 0);
+        MakeFile(file.string().c_str(), 1024, 0);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(30));
 
@@ -341,12 +341,12 @@ namespace KryneEngine::Tests
         EXPECT_NE(handle.m_handle, nullptr);
 
         const std::filesystem::path file = std::filesystem::canonical(root) / "file.txt";
-        MakeFile(file.c_str(), 1024, 0);
+        MakeFile(file.string().c_str(), 1024, 0);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         {
-            std::fstream fs(file.c_str(), std::ios::binary | std::ios::in | std::ios::out);
+            std::fstream fs(file.string().c_str(), std::ios::binary | std::ios::in | std::ios::out);
 
             u64 value = 0;
             fs.read(reinterpret_cast<char*>(&value), sizeof(u64));
@@ -400,13 +400,13 @@ namespace KryneEngine::Tests
         const AllocatorInstance _allocator {};
 
         const std::filesystem::path path = "test.txt";
-        MakeFile(path.c_str(), 1024, Hashing::Hash64Static("ReadOnlyFile_OpenValid"));
+        MakeFile(path.string().c_str(), 1024, Hashing::Hash64Static("ReadOnlyFile_OpenValid"));
 
         // -----------------------------------------------------------------------
         // Execution
         // -----------------------------------------------------------------------
 
-        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.c_str(), _allocator);
+        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.string().c_str(), _allocator);
         EXPECT_TRUE(fd.IsValid());
         EXPECT_NE(fd.m_handle, nullptr);
         Platform::CloseReadOnlyFile(fd, _allocator);
@@ -436,7 +436,7 @@ namespace KryneEngine::Tests
         // Execution
         // -----------------------------------------------------------------------
 
-        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.c_str(), _allocator);
+        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.string().c_str(), _allocator);
         EXPECT_FALSE(fd.IsValid());
         EXPECT_EQ(fd.GetError(), Platform::OpaqueHandle::Error::InvalidPath);
 
@@ -459,13 +459,13 @@ namespace KryneEngine::Tests
 
         const std::filesystem::path path = "test.txt";
         constexpr size_t size = 1024;
-        MakeFile(path.c_str(), size, Hashing::Hash64Static("ReadOnlyFile_FileSize"));
+        MakeFile(path.string().c_str(), size, Hashing::Hash64Static("ReadOnlyFile_FileSize"));
 
         // -----------------------------------------------------------------------
         // Execution
         // -----------------------------------------------------------------------
 
-        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.c_str(), _allocator);
+        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.string().c_str(), _allocator);
 
         EXPECT_TRUE(fd.IsValid());
         EXPECT_NE(fd.m_handle, nullptr);
@@ -496,13 +496,13 @@ namespace KryneEngine::Tests
         const std::filesystem::path path = "test.txt";
         constexpr size_t size = 1024;
         constexpr u64 salt = Hashing::Hash64Static("ReadOnlyFile_Read");
-        MakeFile(path.c_str(), size, salt);
+        MakeFile(path.string().c_str(), size, salt);
 
         // -----------------------------------------------------------------------
         // Execution
         // -----------------------------------------------------------------------
 
-        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.c_str(), _allocator);
+        const Platform::ReadOnlyFileDescriptor fd = Platform::OpenReadOnlyFile(path.string().c_str(), _allocator);
 
         EXPECT_TRUE(fd.IsValid());
         EXPECT_NE(fd.m_handle, nullptr);

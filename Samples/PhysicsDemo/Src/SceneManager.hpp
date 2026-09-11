@@ -43,7 +43,8 @@ namespace KryneEngine::Samples::PhysicsDemo
     public:
         SceneManager(
             AllocatorInstance _allocator,
-            const Window& _window,
+            GraphicsContext* _graphicsContext,
+            SwapChainHandle _mainSwapChainHandle,
             FibersManager* _fibersManager,
             b3WorldId _world);
 
@@ -55,6 +56,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         void InitPso(
             GraphicsContext& _graphicsContext,
+            TextureFormat _swapChainFormat,
             TextureViewHandle _gBuffer0View,
             TextureViewHandle _gBuffer1View,
             TextureViewHandle _gBuffer2View,
@@ -64,7 +66,8 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         void UpdateFullscreenConstantsBuffer(
             GraphicsContext* _graphicsContext,
-            TransferCommandEncoderHandle _transferEncoder);
+            TransferCommandEncoderHandle _transferEncoder,
+            uint2 _screenResolution);
 
         [[nodiscard]] DeferredShadingPass& GetDeferredShadingPass() { return m_deferredShadingPass; }
         [[nodiscard]] SkyPass& GetSkyPass() { return m_skyPass; }

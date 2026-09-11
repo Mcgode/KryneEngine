@@ -2,89 +2,34 @@
 
 #include "KryneEngine/Core/Common/StringHelpers.hpp"
 #include "KryneEngine/Core/Threads/LightweightMutex.hpp"
-#include <EASTL/vector_set.h>
 #include <cstdio>
-
-#if defined(_WIN32)
-#	include <KryneEngine/Core/Platform/Windows.h>
-#endif
 
 namespace KryneEngine::Assertion
 {
-    static AssertionCallback g_assertionCallback = nullptr;
-    static eastl::vector_set<u64> g_ignoredIds;
-	static LightweightMutex g_mutex;
+    static AssertCaptureFunction s_captureFunction = nullptr;
 
-    CallbackResponse DefaultAssertCallback(const char* _function, u32 _line, const char* _file, const char* _message)
-    {
-#if defined(_WIN32)
-        eastl::string message;
-        message.sprintf("Assertion failed in %s (at %s:%d):\n\n\t%s", _function, _file, _line, _message);
-
-        const auto messageBoxId = MessageBoxA(
-            nullptr,
-            message.c_str(),
-            "Assertion failed!",
-            MB_ICONSTOP | MB_YESNOCANCEL | MB_DEFBUTTON1
-        );
-
-        switch (messageBoxId)
-        {
-        case IDCANCEL:
-            return CallbackResponse::Ignore;
-        case IDNO:
-            return CallbackResponse::Continue;
-        default:
-            return CallbackResponse::Break;
-        }
-#else
-        printf("Assertion failed in %s (at %s:%d):\n\n\t%s\n", _function, _file, _line, _message);
-#endif
-        return CallbackResponse::Break;
-    }
-
-	bool Error(const char* _function, u32 _line, const char* _file, const char* _formatMessage, ...)
+	bool Error(const char* _function, const u32 _line, const char* _file, const char* _formatMessage, ...)
 	{
-        eastl::string message = "";
+        char buffer[4096];
         va_list arguments;
         va_start(arguments, _formatMessage);
-        message.sprintf_va_list(_formatMessage, arguments);
+        vsnprintf(buffer, sizeof(buffer), _formatMessage, arguments);
         va_end(arguments);
 
-        eastl::string location;
-        location.sprintf("%s:%d", _file, _line);
+	    if (s_captureFunction != nullptr)
+	    {
+	        return s_captureFunction(_function, _line, _file, buffer);
+	    }
 
-        const u64 id = StringHash::Hash64(location);
-        {
-            const auto lock = g_mutex.AutoLock();
-            if (g_ignoredIds.find(id) != g_ignoredIds.end())
-            {
-                return false;
-            }
-        }
+        printf("Assertion failed in %s (at %s:%d):\n\n\t%s\n", _function, _file, _line, buffer);
 
-        const AssertionCallback callback = g_assertionCallback != nullptr ? g_assertionCallback : DefaultAssertCallback;
-        const CallbackResponse response = callback(_function, _line, _file, message.c_str());
-
-        switch (response)
-        {
-        case CallbackResponse::Ignore:
-            {
-                const auto lock = g_mutex.AutoLock();
-                g_ignoredIds.emplace(id);
-            }
-            [[fallthrough]];
-        case CallbackResponse::Continue:
-            return false;
-        default:
-            return true;
-        }
+	    return true;
 	}
 
-    AssertionCallback SetAssertionCallback(AssertionCallback _userCallback)
-    {
-        AssertionCallback previous = g_assertionCallback;
-        g_assertionCallback = _userCallback;
-        return previous;
-    }
-}
+    AssertCaptureFunction CaptureAssertions(const AssertCaptureFunction _captureFunction)
+	{
+        const AssertCaptureFunction old = s_captureFunction;
+	    s_captureFunction = _captureFunction;
+	    return old;
+	}
+} // namespace KryneEngine::Assertion

@@ -304,6 +304,8 @@ namespace KryneEngine
             return D3D12_SHADER_VISIBILITY_AMPLIFICATION;
         case ShaderVisibility::Mesh:
             return D3D12_SHADER_VISIBILITY_MESH;
+        case ShaderVisibility::Compute:
+            return D3D12_SHADER_VISIBILITY_ALL;
 
         default:
             KE_ERROR("Unsupported visibility");

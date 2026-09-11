@@ -27,7 +27,7 @@ namespace KryneEngine::Tests::Graphics
         // -----------------------------------------------------------------------
 
         {
-            auto* context = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+            auto* context = GraphicsContext::Create(appInfo, AllocatorInstance());
             GraphicsContext::Destroy(context);
         }
 
@@ -51,26 +51,26 @@ namespace KryneEngine::Tests::Graphics
         // Execute
         // -----------------------------------------------------------------------
 
-        // When no swap chain is provided, frame context count should always be 2
+        // Frame context count follows the explicit buffering mode, regardless of swap chain presence.
 
         {
-            appInfo.m_displayOptions.m_tripleBuffering = GraphicsCommon::SoftEnable::Disabled;
-            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+            appInfo.m_bufferingMode = GraphicsCommon::BufferingMode::Single;
+            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
+            EXPECT_EQ(graphicsContext->GetFrameContextCount(), 1);
+            GraphicsContext::Destroy(graphicsContext);
+        }
+
+        {
+            appInfo.m_bufferingMode = GraphicsCommon::BufferingMode::Double;
+            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
             EXPECT_EQ(graphicsContext->GetFrameContextCount(), 2);
             GraphicsContext::Destroy(graphicsContext);
         }
 
         {
-            appInfo.m_displayOptions.m_tripleBuffering = GraphicsCommon::SoftEnable::TryEnable;
-            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
-            EXPECT_EQ(graphicsContext->GetFrameContextCount(), 2);
-            GraphicsContext::Destroy(graphicsContext);
-        }
-
-        {
-            appInfo.m_displayOptions.m_tripleBuffering = GraphicsCommon::SoftEnable::ForceEnabled;
-            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
-            EXPECT_EQ(graphicsContext->GetFrameContextCount(), 2);
+            appInfo.m_bufferingMode = GraphicsCommon::BufferingMode::Triple;
+            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
+            EXPECT_EQ(graphicsContext->GetFrameContextCount(), 3);
             GraphicsContext::Destroy(graphicsContext);
         }
 
@@ -89,7 +89,7 @@ namespace KryneEngine::Tests::Graphics
 
         ScopedAssertCatcher catcher;
         const GraphicsCommon::ApplicationInfo appInfo = DefaultAppInfo();
-        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
 
         // -----------------------------------------------------------------------
         // Execute
@@ -103,8 +103,11 @@ namespace KryneEngine::Tests::Graphics
         EXPECT_BINARY_EQ(appInfo.m_engineVersion, gAppInfo.m_engineVersion);
         EXPECT_EQ(appInfo.m_api, appInfo.m_api);
 
+
+        static_assert(
+            std::has_unique_object_representations_v<GraphicsCommon::ApplicationInfo::Features>,
+            "ApplicationInfo::Features must stay padding-free — it is byte-compared in the unit tests");
         EXPECT_BINARY_EQ(appInfo.m_features, gAppInfo.m_features);
-        EXPECT_BINARY_EQ(appInfo.m_displayOptions, gAppInfo.m_displayOptions);
 
         // -----------------------------------------------------------------------
         // Teardown

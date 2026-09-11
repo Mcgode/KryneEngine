@@ -12,6 +12,11 @@
 #include <KryneEngine/Core/Math/Transform.hpp>
 #include <fstream>
 
+#if defined(_WIN32)
+#   include <corecrt_math_defines.h>
+#endif
+
+
 static const float3 positions[8] = {
     { -1, -1, -1 },
     {  1, -1, -1 },
@@ -237,6 +242,7 @@ void UiCube::Render(
     GraphicsContext& _graphicsContext,
     TransferCommandEncoderHandle _transferEncoder,
     RenderCommandEncoderHandle _renderEncoder,
+    const uint2 _frameBufferSize,
     const float _contentScale)
 {
     if (m_transferBuffer != GenPool::kInvalidHandle)
@@ -276,7 +282,7 @@ void UiCube::Render(
 
     const GraphicsCommon::ApplicationInfo& appInfo = _graphicsContext.GetApplicationInfo();
     const u32 viewportSize = static_cast<u32>(332.f * _contentScale);
-    const uint2 frameBufferSize = _graphicsContext.GetPresentFrameBufferSize();
+    const uint2 frameBufferSize = _frameBufferSize;
     const Rect cubeViewport {
         .m_left = 0,
         .m_top = frameBufferSize.y - viewportSize,
@@ -333,6 +339,7 @@ void UiCube::Render(
             .m_width = static_cast<s32>(cubeViewport.m_right - cubeViewport.m_left),
             .m_height = static_cast<s32>(cubeViewport.m_bottom - cubeViewport.m_top),
         });
+    _graphicsContext.SetScissorsRect(_renderEncoder, cubeViewport);
 
     _graphicsContext.SetGraphicsPipeline(_renderEncoder, m_pso);
     _graphicsContext.SetGraphicsDescriptorSets(_renderEncoder, m_pipelineLayout, {&m_descriptorSet, 1});

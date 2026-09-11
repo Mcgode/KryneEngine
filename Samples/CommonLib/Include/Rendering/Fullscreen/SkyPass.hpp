@@ -26,7 +26,8 @@ namespace KryneEngine::Samples
             m_sceneConstantsDescriptorSet = _sceneConstantsDescriptorSet;
         }
 
-        void Render(const Modules::RenderGraph::RenderGraph&, const Modules::RenderGraph::PassExecutionData& _passExecutionData);
+        void Render(const Modules::RenderGraph::RenderGraph&, const Modules::RenderGraph::PassExecutionData& _passExecutionData,
+        uint2 _renderSize);
         void CreatePso(GraphicsContext* _graphicsContext, const RenderTargetSetDesc& _renderTargets);
 
     private:

@@ -9,6 +9,8 @@
 #include <KryneEngine/Core/Memory/Allocators/TlsfAllocator.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/Input/InputManager.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/FileSystem/VirtualFileSystem.hpp>
 #include <KryneEngine/Modules/GuiLib/Context.hpp>
 #include <KryneEngine/Modules/GuiLib/GuiRenderers/BasicGuiRenderer.hpp>
@@ -61,8 +63,18 @@ s32 main(s32 argc, const char** argv)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
-    Window mainWindow(appInfo, allocator);
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    // The GUI renderer only writes the texture/sampler array slots it uses.
+    appInfo.m_features.m_partiallyBoundDescriptors = GraphicsCommon::SoftEnable::TryEnable;
+
+    const GraphicsCommon::DisplayOptions displayOptions {};
+    WindowManager windowManager(allocator);
+    Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetFramebufferSize(),
+        .m_displayOptions = displayOptions,
+    });
 
     TextureGenerator textureGenerator { allocatorInstance, 33 };
     SamplerHandle sampler = graphicsContext->CreateSampler({
@@ -80,7 +92,7 @@ s32 main(s32 argc, const char** argv)
                     .m_loadOperation = RenderPassDesc::Attachment::LoadOperation::Clear,
                     .m_storeOperation = RenderPassDesc::Attachment::StoreOperation::Store,
                     .m_finalLayout = TextureLayout::Present,
-                    .m_rtv = graphicsContext->GetPresentRenderTargetView(i),
+                    .m_rtv = graphicsContext->GetSwapChainRenderTargetView(swapChain, i),
                 }
             },
 #if !defined(KE_FINAL)
@@ -107,21 +119,27 @@ s32 main(s32 argc, const char** argv)
     Modules::GuiLib::BasicGuiRenderer guiRenderer {
         allocatorInstance,
         graphicsContext,
-        graphicsContext->GetPresentTextureFormat(),
+        graphicsContext->GetSwapChainFormat(swapChain),
         sampler
     };
     guiRenderer.SetAtlasManager(&msdfAtlasManager);
     clayContext.Initialize(
         &guiRenderer,
-        graphicsContext->GetPresentFrameBufferSize());
+        graphicsContext->GetSwapChainSize(swapChain));
 
-    UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, graphicsContext->GetPresentTextureFormat(), &msdfAtlasManager };
+    UiCube uiCube { allocatorInstance, *graphicsContext, &fontManager, graphicsContext->GetSwapChainFormat(swapChain), &msdfAtlasManager };
 
-    do
+    while (!windowManager.AllWindowsClosed())
     {
+        windowManager.PollEvents();
+        windowManager.GetInput().Update();
+
+        if (windowManager.ConsumeResizeFlag(mainWindow))
+            graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
+
         KE_ZoneScoped("Render loop");
 
-        const float2 dpiScale = mainWindow.GetDpiScale();
+        const float2 dpiScale = mainWindow->GetDpiScale();
         const float contentScale = (dpiScale.x + dpiScale.y) / 2.f;
 
         CommandListHandle transferCommandList = graphicsContext->BeginGraphicsCommandList();
@@ -129,12 +147,15 @@ s32 main(s32 argc, const char** argv)
 
         {
             KE_ZoneScoped("Texture upload");
-            const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(transferCommandList, "Texture upload pass");
+            const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+                transferCommandList,
+                {},
+                "Texture upload pass");
             textureGenerator.HandleUpload(*graphicsContext, transferEncoder);
             graphicsContext->EndTransferPass(transferEncoder);
         }
 
-        clayContext.BeginLayout(graphicsContext->GetPresentFrameBufferSize());
+        clayContext.BeginLayout(graphicsContext->GetSwapChainSize(swapChain));
 
         // An example of laying out a UI with a fixed width sidebar and flexible width main content
         CLAY({
@@ -285,13 +306,20 @@ s32 main(s32 argc, const char** argv)
             }
         }
 
-        const RenderPassHandle currentPass = renderPassHandles[graphicsContext->GetCurrentPresentImageIndex()];
-        const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(renderCommandList, currentPass, "UI render pass");
-        const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(transferCommandList, "UI transfer pass");
+        const RenderPassHandle currentPass = renderPassHandles[graphicsContext->GetSwapChainCurrentImageIndex(swapChain)];
+        const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
+            renderCommandList,
+            currentPass,
+            {},
+            "UI render pass");
+        const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+            transferCommandList,
+            {},
+            "UI transfer pass");
 
         clayContext.EndLayout(*graphicsContext, transferEncoder, renderEncoder);
 
-        uiCube.Render(*graphicsContext, transferEncoder, renderEncoder, contentScale);
+        uiCube.Render(*graphicsContext, transferEncoder, renderEncoder, graphicsContext->GetSwapChainSize(swapChain), contentScale);
         graphicsContext->EndRenderPass(renderEncoder);
 
         msdfAtlasManager.FlushLoads(*graphicsContext, transferEncoder);
@@ -299,10 +327,12 @@ s32 main(s32 argc, const char** argv)
         graphicsContext->EndTransferPass(transferEncoder);
         graphicsContext->EndGraphicsCommandList(transferCommandList);
         graphicsContext->EndGraphicsCommandList(renderCommandList);
+
+        graphicsContext->EndFrame({ &swapChain, 1 });
     }
-    while (graphicsContext->EndFrame());
 
     clayContext.Destroy();
+    graphicsContext->DestroySwapChain(swapChain);
     GraphicsContext::Destroy(graphicsContext);
 
     return 0;

@@ -33,11 +33,12 @@ namespace KryneEngine::Samples
 
     void SkyPass::Render(
         const Modules::RenderGraph::RenderGraph&,
-        const Modules::RenderGraph::PassExecutionData& _passExecutionData)
+        const Modules::RenderGraph::PassExecutionData& _passExecutionData,
+        uint2 _renderSize)
     {
         KE_ASSERT_MSG(m_pso != GenPool::kInvalidHandle, "PSO not created");
 
-        const uint2 viewportSize = _passExecutionData.m_graphicsContext->GetPresentFrameBufferSize();
+        const uint2 viewportSize = _renderSize;
         FullscreenPassCommon::Render(
             _passExecutionData.m_graphicsContext,
             _passExecutionData.m_renderEncoder,

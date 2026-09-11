@@ -8,6 +8,8 @@
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/Input/InputManager.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <iostream>
 
@@ -57,12 +59,19 @@ void MainFunc(void* _pAllocator)
     appInfo.m_api = KryneEngine::GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
-    Window mainWindow(appInfo, allocator);
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    constexpr GraphicsCommon::DisplayOptions displayOptions {
+        .m_resizableWindow = true,
+    };
+    WindowManager windowManager(allocator);
+    Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetFramebufferSize(),
+        .m_displayOptions = displayOptions,
+    });
 
-    DynamicArray<RenderPassHandle> renderPassHandles(allocator);
-    renderPassHandles.Resize(graphicsContext->GetFrameContextCount());
-    for (auto i = 0u; i < renderPassHandles.Size(); i++)
+    const auto makePresentRenderPass = [&](u8 _index, RenderTargetViewHandle _rtv)
     {
         RenderPassDesc desc;
         desc.m_colorAttachments.push_back(RenderPassDesc::Attachment {
@@ -70,28 +79,64 @@ void MainFunc(void* _pAllocator)
             KryneEngine::RenderPassDesc::Attachment::StoreOperation::Store,
             TextureLayout::Unknown,
             TextureLayout::Present,
-            graphicsContext->GetPresentRenderTargetView(i),
+            _rtv,
             float4(0, 1, 1, 1)
         });
 #if !defined(KE_FINAL)
-        desc.m_debugName.sprintf("PresentRenderPass[%d]", i);
+        desc.m_debugName.sprintf("PresentRenderPass[%d]", _index);
 #endif
-        renderPassHandles[i] = graphicsContext->CreateRenderPass(desc);
+        return graphicsContext->CreateRenderPass(desc);
+    };
+
+    DynamicArray<RenderTargetViewHandle> renderTargetViews(allocator, graphicsContext->GetFrameContextCount());
+    DynamicArray<RenderPassHandle> renderPassHandles(allocator);
+    renderPassHandles.Resize(graphicsContext->GetFrameContextCount());
+    for (auto i = 0u; i < renderPassHandles.Size(); i++)
+    {
+        renderTargetViews[i] = graphicsContext->GetSwapChainRenderTargetView(swapChain, i);
+        renderPassHandles[i] = makePresentRenderPass(i, renderTargetViews[i]);
     }
 
-    KEModules::ImGui::Context imGuiContext { &mainWindow, graphicsContext->GetPresentTextureFormat(), allocator };
+    KEModules::ImGui::Context imGuiContext { mainWindow, &windowManager, graphicsContext, graphicsContext->GetSwapChainFormat(swapChain), allocator };
 
     // You can set up ImGui specific config after the context has been created.
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     ImGui::GetIO().Fonts->AddFontDefaultVector();
 
-    do
+    while (!windowManager.AllWindowsClosed())
     {
         KE_ZoneScoped("Main loop");
 
+        windowManager.PollEvents();
+        windowManager.GetInput().Update();
+
+        if (windowManager.ConsumeResizeFlag(mainWindow))
+            graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
+
+        // The swap chain recreation rotates in fresh render target views over the next few frames.
+        // When any of them changes, flush the GPU and rebuild the present render passes bound to them.
+        bool anyRtvChanged = false;
+        for (auto i = 0u; i < renderTargetViews.Size(); i++)
+            anyRtvChanged |= renderTargetViews[i] != graphicsContext->GetSwapChainRenderTargetView(swapChain, i);
+
+        if (anyRtvChanged)
+        {
+            graphicsContext->WaitForLastFrame();
+            for (auto i = 0u; i < renderTargetViews.Size(); i++)
+            {
+                const RenderTargetViewHandle currentRtv = graphicsContext->GetSwapChainRenderTargetView(swapChain, i);
+                if (renderTargetViews[i] == currentRtv)
+                    continue;
+                renderTargetViews[i] = currentRtv;
+                graphicsContext->DestroyRenderPass(renderPassHandles[i]);
+                renderPassHandles[i] = makePresentRenderPass(static_cast<u8>(i), currentRtv);
+            }
+        }
+
         CommandListHandle commandList = graphicsContext->BeginGraphicsCommandList();
 
-        imGuiContext.NewFrame(&mainWindow);
+        imGuiContext.NewFrame(mainWindow, graphicsContext, swapChain);
 
         {
             static bool open;
@@ -99,32 +144,47 @@ void MainFunc(void* _pAllocator)
         }
 
         {
-            TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(commandList, "Transfer pass");
+            TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+                commandList,
+                {},
+                "Transfer pass");
             imGuiContext.PrepareToRenderFrame(graphicsContext, transferEncoder);
             graphicsContext->EndTransferPass(transferEncoder);
         }
 
         {
-            const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index], "Render pass");
+            const u8 index = graphicsContext->GetSwapChainCurrentImageIndex(swapChain);
+            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
+                commandList,
+                renderPassHandles[index],
+                {},
+                "Render pass");
 
             imGuiContext.RenderFrame(graphicsContext, renderEncoder);
 
             graphicsContext->EndRenderPass(renderEncoder);
         }
 
+        // Create / resize / render the OS windows backing ImGui's secondary viewports, then present
+        // the main swap chain and every viewport swap chain together.
+        imGuiContext.UpdateAndRenderPlatformWindows(graphicsContext, commandList);
+
         graphicsContext->EndGraphicsCommandList(commandList);
+
+        graphicsContext->EndFrame(imGuiContext.GetSwapChainsToPresent());
     }
-    while (graphicsContext->EndFrame());
 
     graphicsContext->WaitForLastFrame();
 
-    imGuiContext.Shutdown(&mainWindow);
+    imGuiContext.Shutdown(&windowManager, graphicsContext);
 
     for (auto handle: renderPassHandles)
     {
         graphicsContext->DestroyRenderPass(handle);
     }
+
+    graphicsContext->DestroySwapChain(swapChain);
+    GraphicsContext::Destroy(graphicsContext);
 }
 
 int main()

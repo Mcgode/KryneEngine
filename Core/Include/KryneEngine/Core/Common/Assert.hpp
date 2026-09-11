@@ -10,18 +10,11 @@
 
 namespace KryneEngine::Assertion
 {
-    enum class CallbackResponse
-    {
-        Break,
-        Continue,
-        Ignore,
-    };
-
-    using AssertionCallback = CallbackResponse (*)(const char*, u32, const char*, const char*);
+    using AssertCaptureFunction = bool (*)(const char*, u32, const char*, const char*);
 
     bool Error(const char* _function, u32 _line, const char* _file, const char* _formatMessage, ...);
 
-    AssertionCallback SetAssertionCallback(AssertionCallback _userCallback);
+    AssertCaptureFunction CaptureAssertions(AssertCaptureFunction _captureFunction);
 }
 
 #if defined(__APPLE__)
@@ -56,8 +49,8 @@ namespace KryneEngine::Assertion
     while(0)
 #define KE_ASSERT_FATAL(condition) KE_ASSERT_FATAL_MSG(condition, #condition)
 
-#define KE_VERIFY_MSG(condition, ...) ((condition) ? true: \
-	KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__) ? KE_DEBUG_BREAK(), false: false)
+#define KE_VERIFY_MSG(condition, ...) ((condition) ? true : \
+	(KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__) ? (KE_DEBUG_BREAK(), false) : false))
 #define KE_VERIFY(condition) KE_VERIFY_MSG(condition, #condition)
 
 #define KE_ERROR(...) do { if (KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__)) KE_DEBUG_BREAK(); } while (0)

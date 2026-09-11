@@ -9,6 +9,11 @@
 #if defined(_WIN32) || defined(WIN32)
 #   define WINDOWS_THREADS
 #   include <KryneEngine/Core/Platform/Windows.h>
+#   if defined(__MINGW32__)
+        // libstdc++ on mingw implements std::thread on top of winpthreads, so
+        // native_handle() is a pthread_t rather than a Win32 HANDLE.
+#       include <pthread.h>
+#   endif
 #elif defined(__unix__)
 #   define PTHREADS
 #   include <pthread.h>
@@ -24,7 +29,12 @@ namespace KryneEngine::Threads
     bool SetThreadHardwareAffinity(std::thread &_thread, u32 _coreIndex)
     {
 #if defined(WINDOWS_THREADS)
-        DWORD_PTR dw = SetThreadAffinityMask(_thread.native_handle(), DWORD_PTR(1) << _coreIndex);
+#   if defined(__MINGW32__)
+        const HANDLE nativeHandle = static_cast<HANDLE>(pthread_gethandle(_thread.native_handle()));
+#   else
+        const HANDLE nativeHandle = _thread.native_handle();
+#   endif
+        DWORD_PTR dw = SetThreadAffinityMask(nativeHandle, DWORD_PTR(1) << _coreIndex);
         if (dw == 0)
         {
             eastl::string msg;

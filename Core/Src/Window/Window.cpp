@@ -8,73 +8,49 @@
 
 #include <GLFW/glfw3.h>
 
-#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
-#include "KryneEngine/Core/Profiling/TracyHeader.hpp"
-#include "KryneEngine/Core/Window/Input/InputManager.hpp"
+#if defined(_WIN32)
+#   define GLFW_EXPOSE_NATIVE_WIN32
+#elif defined(__APPLE__)
+#   define GLFW_EXPOSE_NATIVE_COCOA
+#elif defined(__linux__)
+#   define GLFW_EXPOSE_NATIVE_X11
+#   define GLFW_EXPOSE_NATIVE_WAYLAND
+#endif
+#include <GLFW/glfw3native.h>
 
 namespace KryneEngine
 {
-    Window::Window(const GraphicsCommon::ApplicationInfo &_appInfo, const AllocatorInstance _allocator)
+    Window::Window(GLFWwindow* _glfwWindow, const AllocatorInstance _allocator)
         : m_allocator(_allocator)
-        , m_windowFocusEventListeners(_allocator)
-        , m_dpiChangeEventListeners(_allocator)
+        , m_glfwWindow(_glfwWindow)
+    {}
+
+    Window::~Window() = default;
+
+    NativeWindowHandle Window::GetNativeHandle() const
     {
-        KE_ZoneScopedFunction("Window init");
-
+        using Kind = NativeWindowHandle::Kind;
+#if defined(_WIN32)
+        return { Kind::Win32, static_cast<void*>(glfwGetWin32Window(m_glfwWindow)), nullptr };
+#elif defined(__APPLE__)
+        return { Kind::Cocoa, static_cast<void*>(glfwGetCocoaWindow(m_glfwWindow)), nullptr };
+#elif defined(__linux__)
+        if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND)
         {
-            KE_ZoneScoped("GLFW init");
-            glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
-            glfwInit();
+            return {
+                Kind::Wayland,
+                static_cast<void*>(glfwGetWaylandWindow(m_glfwWindow)),
+                static_cast<void*>(glfwGetWaylandDisplay()),
+            };
         }
-
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        const auto& displayInfo = _appInfo.m_displayOptions;
-
-        glfwWindowHint(GLFW_RESIZABLE, displayInfo.m_resizableWindow);
-
-        {
-            KE_ZoneScoped("GLFW window creation");
-
-            m_glfwWindow = glfwCreateWindow(displayInfo.m_width,
-                                            displayInfo.m_height,
-                                            _appInfo.m_applicationName.c_str(),
-                                            nullptr,
-                                            nullptr);
-        }
-        glfwSetWindowUserPointer(m_glfwWindow, this);
-
-        m_graphicsContext = GraphicsContext::Create(_appInfo, this, _allocator);
-
-        {
-            KE_ZoneScoped("Input management init");
-
-            m_inputManager = m_allocator.New<InputManager>(this, _allocator);
-
-            glfwSetWindowFocusCallback(m_glfwWindow, WindowFocusCallback);
-            glfwSetWindowContentScaleCallback(m_glfwWindow, DpiChangeCallback);
-            glfwSetFramebufferSizeCallback(m_glfwWindow, ResizeCallback);
-        }
-
-        m_previousFramebufferSize = GetFramebufferSize();
-    }
-
-    Window::~Window()
-    {
-        m_allocator.Delete(m_inputManager);
-        GraphicsContext::Destroy(m_graphicsContext);
-
-        glfwDestroyWindow(m_glfwWindow);
-        glfwTerminate();
-    }
-
-    bool Window::WaitForEvents()
-    {
-        KE_ZoneScopedFunction("Window::WaitForEvents");
-
-        m_resizedThisFrame = false;
-        glfwPollEvents();
-
-        return !glfwWindowShouldClose(m_glfwWindow);
+        return {
+            Kind::Xlib,
+            reinterpret_cast<void*>(static_cast<uintptr_t>(glfwGetX11Window(m_glfwWindow))),
+            static_cast<void*>(glfwGetX11Display()),
+        };
+#else
+        return {};
+#endif
     }
 
     uint2 Window::GetFramebufferSize() const
@@ -91,68 +67,57 @@ namespace KryneEngine
         return result;
     }
 
-    u32 Window::RegisterWindowFocusEventCallback(eastl::function<void(bool)>&& _callback)
+    int2 Window::GetPosition() const
     {
-        const auto lock = m_callbackMutex.AutoLock();
-
-        const u32 id = m_windowFocusEventCounter++;
-        m_windowFocusEventListeners.emplace(id, _callback);
-        return id;
+        int x, y;
+        glfwGetWindowPos(m_glfwWindow, &x, &y);
+        return { x, y };
     }
 
-    void Window::UnregisterWindowFocusEventCallback(u32 _id)
+    void Window::SetPosition(const int2 _position) const
     {
-        const auto lock = m_callbackMutex.AutoLock();
-        m_windowFocusEventListeners.erase(_id);
+        glfwSetWindowPos(m_glfwWindow, _position.x, _position.y);
     }
 
-    u32 Window::RegisterDpiChangeEventCallback(eastl::function<void(const float2&)>&& _callback)
+    uint2 Window::GetSize() const
     {
-        const auto lock = m_callbackMutex.AutoLock();
-        const u32 id = m_dpiChangeEventCounter++;
-        m_dpiChangeEventListeners.emplace(id, _callback);
-        return id;
+        int width, height;
+        glfwGetWindowSize(m_glfwWindow, &width, &height);
+        return { width, height };
     }
 
-    void Window::UnregisterDpiChangeEventCallback(u32 _id)
+    void Window::SetSize(const uint2 _size) const
     {
-        const auto lock = m_callbackMutex.AutoLock();
-        m_dpiChangeEventListeners.erase(_id);
+        glfwSetWindowSize(m_glfwWindow, static_cast<int>(_size.x), static_cast<int>(_size.y));
     }
 
-    void Window::WindowFocusCallback(GLFWwindow* _window, s32 _focused)
+    bool Window::IsFocused() const
     {
-        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
-
-        const auto lock = window->m_callbackMutex.AutoLock();
-
-        for (const auto& pair : window->m_windowFocusEventListeners)
-        {
-            pair.second(_focused);
-        }
+        return glfwGetWindowAttrib(m_glfwWindow, GLFW_FOCUSED) != 0;
     }
 
-    void Window::DpiChangeCallback(GLFWwindow* _window, float _xScale, float _yScale)
+    void Window::Focus() const
     {
-        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
-
-        const auto lock = window->m_callbackMutex.AutoLock();
-        for (const auto& pair : window->m_dpiChangeEventListeners)
-        {
-            pair.second({ _xScale, _yScale });
-        }
+        glfwFocusWindow(m_glfwWindow);
     }
 
-    void Window::ResizeCallback(GLFWwindow* _window, int _width, int _height)
+    bool Window::IsMinimized() const
     {
-        auto* window = static_cast<Window*>(glfwGetWindowUserPointer(_window));
-        const uint2 currentFramebufferSize = { _width, _height };
-        if (window->m_previousFramebufferSize != currentFramebufferSize)
-        {
-            window->m_resizedSwapChain = false;
-            window->m_resizedThisFrame = true;
-        }
-        window->m_previousFramebufferSize = currentFramebufferSize;
+        return glfwGetWindowAttrib(m_glfwWindow, GLFW_ICONIFIED) != 0;
+    }
+
+    void Window::SetTitle(const eastl::string_view& _title) const
+    {
+        glfwSetWindowTitle(m_glfwWindow, _title.data());
+    }
+
+    void Window::Show() const
+    {
+        glfwShowWindow(m_glfwWindow);
+    }
+
+    void Window::Hide() const
+    {
+        glfwHideWindow(m_glfwWindow);
     }
 }
-

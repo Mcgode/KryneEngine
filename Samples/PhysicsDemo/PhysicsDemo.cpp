@@ -4,6 +4,7 @@
  * @date 18/08/2026.
  */
 
+#include "KryneEngine/Core/Window/Input/InputManager.hpp"
 #include "Src/RenderTargetFormats.hpp"
 #include "Src/SceneManager.hpp"
 
@@ -12,6 +13,7 @@
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/Box3D/Context.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
@@ -48,8 +50,16 @@ int main()
     appInfo.m_api = GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
-    Window mainWindow(appInfo, allocator);
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    constexpr GraphicsCommon::DisplayOptions displayOptions {};
+    WindowManager windowManager { allocator };
+    Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+
+    SwapChainHandle mainSwapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetSize(),
+        .m_displayOptions = displayOptions,
+    });
 
     Box3D::Context box3dContext(&fibersManager);
     Box3D::Context::SetAllocator(allocator);
@@ -78,7 +88,7 @@ int main()
         }
     }
 
-    SceneManager sceneManager(allocator, mainWindow, &fibersManager, world);
+    SceneManager sceneManager(allocator, graphicsContext, mainSwapChain, &fibersManager, world);
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 
@@ -93,11 +103,11 @@ int main()
         for (u32 i = 0; i < graphicsContext->GetFrameContextCount(); i++)
         {
             swapChainTextures[i] = renderGraph.GetRegistry().RegisterRawTexture(
-                graphicsContext->GetPresentTexture(i),
+                graphicsContext->GetSwapChainTexture(mainSwapChain, i),
                 nameTmp.sprintf("Swap chain texture %d", i));
 
             swapChainRtvs[i] = renderGraph.GetRegistry().RegisterRenderTargetView(
-                graphicsContext->GetPresentRenderTargetView(i),
+                graphicsContext->GetSwapChainRenderTargetView(mainSwapChain, i),
                 swapChainTextures[i],
                 nameTmp.sprintf("Swap chain RTV %d", i));
         }
@@ -129,7 +139,7 @@ int main()
         {
             gBuffer0 = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kGBuffer0Format,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer0",
@@ -158,7 +168,7 @@ int main()
         {
             gBuffer1 = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kGBuffer1Format,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer1",
@@ -187,7 +197,7 @@ int main()
         {
             gBuffer2 = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kGBuffer2Format,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer2",
@@ -216,7 +226,7 @@ int main()
         {
             gBufferDepth = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kGBufferDepthFormat,
                     .m_planes = TexturePlane::Depth,
 #if !defined(KE_FINAL)
@@ -248,7 +258,7 @@ int main()
         {
             deferredShadows = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kDeferredShadowsFormat,
 #if !defined(KE_FINAL)
                     .m_debugName = "Deferred shadows"
@@ -269,7 +279,7 @@ int main()
         {
             hdr = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetPresentFrameBufferSize(), 1 },
+                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kHdrFormat,
 #if !defined(KE_FINAL)
                     .m_debugName = "HDR"
@@ -298,6 +308,7 @@ int main()
 
     sceneManager.InitPso(
         *graphicsContext,
+        graphicsContext->GetSwapChainFormat(mainSwapChain),
         renderGraph.GetRegistry().GetTextureView(gBuffer0View),
         renderGraph.GetRegistry().GetTextureView(gBuffer1View),
         renderGraph.GetRegistry().GetTextureView(gBuffer2View),
@@ -308,17 +319,22 @@ int main()
     auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
     do
     {
+        windowManager.PollEvents();
+        windowManager.GetInput().Update();
+
         if (imGuiContext == nullptr)
         {
             KE_ZoneScoped("Init ImGui context");
 
             imGuiContext = allocator.New<Modules::ImGui::Context>(
-                &mainWindow,
-                graphicsContext->GetPresentTextureFormat(),
+                mainWindow,
+                &windowManager,
+                graphicsContext,
+                graphicsContext->GetSwapChainFormat(mainSwapChain),
                 allocator);
         }
 
-        imGuiContext->NewFrame(&mainWindow);
+        imGuiContext->NewFrame(mainWindow, graphicsContext, mainSwapChain);
 
         auto timePoint = std::chrono::high_resolution_clock::now();
         const double deltaTime = std::chrono::duration<double> { timePoint - lastFrameTimePoint }.count();
@@ -327,8 +343,10 @@ int main()
 
         RenderGraph::Builder& builder = renderGraph.BeginFrame(*graphicsContext);
 
-        SimplePoolHandle swapChainTexture = swapChainTextures[graphicsContext->GetCurrentPresentImageIndex()];
-        SimplePoolHandle swapChainRtv = swapChainRtvs[graphicsContext->GetCurrentPresentImageIndex()];
+        SimplePoolHandle swapChainTexture = swapChainTextures[graphicsContext->GetSwapChainCurrentImageIndex(mainSwapChain)];
+        SimplePoolHandle swapChainRtv = swapChainRtvs[graphicsContext->GetSwapChainCurrentImageIndex(mainSwapChain)];
+
+        const uint2 frameBufferSize = graphicsContext->GetSwapChainSize(mainSwapChain);
 
         ::ImGui::ShowDemoWindow();
 
@@ -336,9 +354,9 @@ int main()
             .DeclarePass(RenderGraph::PassType::Transfer)
                 .SetName("Upload fullscreen constants")
                 .WriteDependency({ .m_resource = fullscreenConstants })
-                .SetExecuteFunction([&sceneManager](const auto&, const auto& _executionData)
+                .SetExecuteFunction([&sceneManager, frameBufferSize](const auto&, const auto& _executionData)
                 {
-                    sceneManager.UpdateFullscreenConstantsBuffer(_executionData.m_graphicsContext, _executionData.m_transferEncoder);
+                    sceneManager.UpdateFullscreenConstantsBuffer(_executionData.m_graphicsContext, _executionData.m_transferEncoder, frameBufferSize);
                 })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Render)
@@ -417,9 +435,9 @@ int main()
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
                 })
-                .SetExecuteFunction([&sceneManager](const auto& _renderGraph, const auto& _executionPass)
+                .SetExecuteFunction([&sceneManager, frameBufferSize](const auto& _renderGraph, const auto& _executionPass)
                 {
-                    sceneManager.GetDeferredShadingPass().Render(_renderGraph, _executionPass);
+                    sceneManager.GetDeferredShadingPass().Render(_renderGraph, _executionPass, frameBufferSize);
                 })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Render)
@@ -434,9 +452,9 @@ int main()
                     .SetReadOnlyDepthStencil()
                     .Done()
                 .ReadDependency({ .m_resource = fullscreenConstants })
-                .SetExecuteFunction([&sceneManager](const auto& _renderGraph, const auto& _executionPass)
+                .SetExecuteFunction([&sceneManager, frameBufferSize](const auto& _renderGraph, const auto& _executionPass)
                 {
-                    sceneManager.GetSkyPass().Render(_renderGraph, _executionPass);
+                    sceneManager.GetSkyPass().Render(_renderGraph, _executionPass, frameBufferSize);
                 })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Render)
@@ -452,9 +470,9 @@ int main()
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
                 })
-                .SetExecuteFunction([&sceneManager](const auto& _renderGraph, const auto& _executionPass)
+                .SetExecuteFunction([&sceneManager, frameBufferSize](const auto& _renderGraph, const auto& _executionPass)
                 {
-                    sceneManager.GetColorPass().Render(_renderGraph, _executionPass);
+                    sceneManager.GetColorPass().Render(_renderGraph, _executionPass, frameBufferSize);
                 })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Render)
@@ -476,14 +494,23 @@ int main()
 
         builder.BuildDag();
         renderGraph.SubmitFrame(*graphicsContext, &fibersManager);
+
+        graphicsContext->EndFrame(imGuiContext->GetSwapChainsToPresent());
     }
-    while (graphicsContext->EndFrame());
+    while (!windowManager.AllWindowsClosed());
 
     if (imGuiContext)
     {
-        imGuiContext->Shutdown(&mainWindow);
+        imGuiContext->Shutdown(&windowManager, graphicsContext);
         allocator.Delete(imGuiContext);
     }
+
+    graphicsContext->WaitForLastFrame();
+    graphicsContext->DestroySwapChain(mainSwapChain);
+
+    windowManager.DestroyWindow(mainWindow);
+
+    GraphicsContext::Destroy(graphicsContext);
 
     return 0;
 }

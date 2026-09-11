@@ -7,9 +7,10 @@
 #pragma once
 
 #include <EASTL/span.h>
-#include "Enums.hpp"
-#include "Handles.hpp"
+
 #include "KryneEngine/Core/Common/BitUtils.hpp"
+#include "KryneEngine/Core/Graphics/Enums.hpp"
+#include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.hpp"
 
 namespace KryneEngine
@@ -133,5 +134,10 @@ namespace KryneEngine
         eastl::span<const GlobalMemoryBarrier> m_globalBarriers {};
         eastl::span<const BufferMemoryBarrier> m_bufferBarriers {};
         eastl::span<const TextureMemoryBarrier> m_textureBarriers {};
+
+        [[nodiscard]] bool Empty() const noexcept
+        {
+            return m_globalBarriers.empty() && m_bufferBarriers.empty() && m_textureBarriers.empty();
+        }
     };
 }

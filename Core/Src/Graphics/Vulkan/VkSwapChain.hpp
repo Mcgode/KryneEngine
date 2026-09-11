@@ -11,14 +11,13 @@
 
 #include "Graphics/Vulkan/CommonStructures.hpp"
 #include "Graphics/Vulkan/VkHeaders.hpp"
+#include "Graphics/Vulkan/VkSurface.hpp"
+#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
 
-struct GLFWwindow;
-
 namespace KryneEngine
 {
-    class VkSurface;
     struct VkResources;
     class VkDebugHandler;
 
@@ -31,9 +30,10 @@ namespace KryneEngine
 
         void Init(const GraphicsCommon::ApplicationInfo &_appInfo,
                     VkDevice _device,
-                    const VkSurface &_surface,
+                    VkInstance _instance,
+                    VkPhysicalDevice _physicalDevice,
                     VkResources &_resources,
-                    GLFWwindow *_window,
+                    const SwapChainDesc& _desc,
                     const VkCommonStructures::QueueIndices &_queueIndices,
                     u64 _currentFrameIndex);
 
@@ -41,18 +41,38 @@ namespace KryneEngine
 
         bool RecreateSwapChain(
             VkDevice _device,
-            const VkSurface& _surface,
+            VkPhysicalDevice _physicalDevice,
             VkResources& _resources,
-            GLFWwindow* _window,
-            const VkCommonStructures::QueueIndices &_queueIndices, u64 _frameId);
+            uint2 _newSize,
+            u64 _frameId);
 
         void AcquireNextImage(VkDevice _device, u8 _frameIndex);
 
-        void Present(VkQueue _presentQueue, const eastl::span<VkSemaphore> &_semaphores, u64 _frameId);
-
         void Update(VkDevice _device, VkResources& _resources, u64 _frameId);
 
-        void Destroy(VkDevice _device, VkResources& _resources) const;
+        void Destroy(VkDevice _device, VkInstance _instance, VkResources& _resources);
+
+        [[nodiscard]] uint2 GetFramebufferSize(u64 _frameId) const { return GetSwapChain(_frameId)->m_framebufferSize; }
+        [[nodiscard]] VkFormat GetFormat(u64 _frameId) const { return GetSwapChain(_frameId)->m_format; }
+        [[nodiscard]] u32 GetCurrentImageIndex() const { return m_imageIndex; }
+        [[nodiscard]] VkSwapchainKHR GetVkSwapChain(u64 _frameId) const { return GetSwapChain(_frameId)->m_swapChain; }
+
+        [[nodiscard]] RenderTargetViewHandle GetRenderTargetView(u64 _frameId, u8 _index) const
+        {
+            return GetSwapChain(_frameId)->m_renderTargetViews[_index];
+        }
+        [[nodiscard]] TextureHandle GetTexture(u64 _frameId, u8 _index) const
+        {
+            return GetSwapChain(_frameId)->m_renderTargetTextures[_index];
+        }
+        [[nodiscard]] VkSemaphore GetImageAvailableSemaphore(u64 _frameId, u8 _frameIndex) const
+        {
+            return GetSwapChain(_frameId)->m_imageAvailableSemaphores[_frameIndex];
+        }
+        [[nodiscard]] u8 GetImageCount(u64 _frameId) const
+        {
+            return static_cast<u8>(GetSwapChain(_frameId)->m_renderTargetViews.Size());
+        }
 
 #if !defined(KE_FINAL)
         void SetDebugHandler(const eastl::shared_ptr<VkDebugHandler> &_handler, VkDevice _device);
@@ -76,6 +96,9 @@ namespace KryneEngine
         };
 
         AllocatorInstance m_allocator;
+        VkSurface m_surface;
+        SwapChainDesc m_desc {};
+        VkCommonStructures::QueueIndices m_queueIndices {};
         VkSwapchainCreateInfoKHR m_reCreateInfo {};
         VkSharingMode m_sharingMode {};
         SwapChainData* m_currentSwapChain = nullptr;

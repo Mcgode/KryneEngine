@@ -26,10 +26,8 @@ namespace KryneEngine
 {
     Dx12GraphicsContext::Dx12GraphicsContext(
         AllocatorInstance _allocator,
-        const GraphicsCommon::ApplicationInfo& _appInfo,
-        Window* _window)
-        : GraphicsContext(_allocator, _appInfo, _window)
-        , m_swapChain(_allocator)
+        const GraphicsCommon::ApplicationInfo& _appInfo)
+        : GraphicsContext(_allocator, _appInfo)
         , m_frameContexts(_allocator)
         , m_resources(_allocator)
         , m_descriptorSetManager(_allocator)
@@ -42,7 +40,7 @@ namespace KryneEngine
         UINT dxgiFactoryFlags = 0;
 
 #if !defined(KE_FINAL)
-        if (m_appInfo.m_features.m_validationLayers)
+        if (m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled)
         {
             ComPtr<ID3D12Debug> debugController;
             if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -56,27 +54,13 @@ namespace KryneEngine
 #endif
 
         Dx12Assert(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory4)));
+        m_factory = factory4;
 
         _CreateDevice(factory4.Get());
         _CreateCommandQueues();
 
-        if (m_appInfo.m_features.m_present)
-        {
-            m_swapChain.Init(
-                m_appInfo,
-                _window,
-                factory4.Get(),
-                m_device.Get(),
-                m_directQueue.Get(),
-                m_resources);
-
-            m_frameContextCount = m_swapChain.m_renderTargetViews.Size();
-        }
-        else
-        {
-            // If no display, remain on double buffering.
-            m_frameContextCount = 2;
-        }
+        // Frame context count is an explicit, strict choice — not negotiated against the swap chain.
+        m_frameContextCount = static_cast<u8>(m_appInfo.m_bufferingMode);
 
         m_resources.InitHeaps(m_device.Get());
 
@@ -157,18 +141,13 @@ namespace KryneEngine
 
         m_frameContexts.Clear();
 
-        if (m_appInfo.m_features.m_present)
-        {
-            m_swapChain.Destroy(m_resources);
-        }
-
         SafeRelease(m_copyQueue);
         SafeRelease(m_computeQueue);
         SafeRelease(m_directQueue);
 
         SafeRelease(m_device);
 
-        if (m_appInfo.m_features.m_validationLayers)
+        if (m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled)
         {
             IDXGIDebug* debugDev;
             Dx12Assert(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debugDev)));
@@ -191,7 +170,7 @@ namespace KryneEngine
         return m_computeQueue != nullptr;
     }
 
-    void Dx12GraphicsContext::InternalEndFrame()
+    void Dx12GraphicsContext::InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::EndFrame");
 
@@ -230,9 +209,12 @@ namespace KryneEngine
         }
 
         // Present the frame (if applicable)
-        if (m_appInfo.m_features.m_present)
+        for (const SwapChainHandle handle : _swapChainsToPresent)
         {
-            m_swapChain.Present();
+            Dx12SwapChain* swapChain = m_resources.GetSwapChain(handle);
+            KE_ASSERT_MSG(swapChain != nullptr, "EndFrame() was given an invalid swap chain handle");
+            if (swapChain != nullptr)
+                swapChain->Present();
         }
 
         // Increment fence signal
@@ -293,7 +275,7 @@ namespace KryneEngine
         m_resources.InitAllocator(m_device.Get(), hardwareAdapter.Get());
 
 #if !defined(KE_FINAL)
-        if (m_appInfo.m_features.m_validationLayers)
+        if (m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled)
         {
             ComPtr<ID3D12InfoQueue1> infoQueue;
             if (SUCCEEDED(m_device->QueryInterface<ID3D12InfoQueue1>(&infoQueue)))
@@ -340,9 +322,11 @@ namespace KryneEngine
                     continue;
                 }
 
+                // Not __uuidof: DirectX-Headers doesn't attach a GUID to the interface
+                // types for non-MSVC compilers, but ships the named IID constants.
                 if (SUCCEEDED(D3D12CreateDevice(adapter.Get(),
                                                 Dx12Converters::GetFeatureLevel(m_appInfo),
-                                                _uuidof(ID3D12Device),
+                                                IID_ID3D12Device,
                                                 nullptr)))
                 {
                     break;
@@ -414,7 +398,7 @@ namespace KryneEngine
         VERIFY_OR_RETURN(pAllocation != nullptr, false);
         D3D12MA::Allocation* allocation = *pAllocation;
 
-        return allocation->GetHeap()->GetDesc().Properties.Type != D3D12_HEAP_TYPE_UPLOAD;
+        return Dx12GetHeapDesc(allocation->GetHeap()).Properties.Type != D3D12_HEAP_TYPE_UPLOAD;
     }
 
     bool Dx12GraphicsContext::DestroyBuffer(BufferHandle _buffer) {
@@ -518,28 +502,71 @@ namespace KryneEngine
         return m_resources.FreeRenderTargetView(_rtv);
     }
 
-    RenderTargetViewHandle Dx12GraphicsContext::GetPresentRenderTargetView(u8 _index)
+    RenderTargetViewHandle Dx12GraphicsContext::GetSwapChainRenderTargetView(const SwapChainHandle _swapChain, const u8 _index)
     {
-        return m_swapChain.m_renderTargetViews[_index];
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? swapChain->GetRenderTargetView(_index)
+            : RenderTargetViewHandle { GenPool::kInvalidHandle };
     }
 
-    TextureHandle Dx12GraphicsContext::GetPresentTexture(u8 _swapChainIndex)
+    TextureHandle Dx12GraphicsContext::GetSwapChainTexture(const SwapChainHandle _swapChain, const u8 _swapChainIndex)
     {
-        return (m_appInfo.m_features.m_present)
-                   ? m_swapChain.m_renderTargetTextures[_swapChainIndex]
-                   : TextureHandle { GenPool::kInvalidHandle };
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? swapChain->GetTexture(_swapChainIndex)
+            : TextureHandle { GenPool::kInvalidHandle };
     }
 
-    u32 Dx12GraphicsContext::GetCurrentPresentImageIndex() const
+    u32 Dx12GraphicsContext::GetSwapChainCurrentImageIndex(const SwapChainHandle _swapChain) const
     {
-        return m_swapChain.GetBackBufferIndex();
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetBackBufferIndex() : 0;
     }
 
-    TextureFormat Dx12GraphicsContext::GetPresentTextureFormat()
+    uint2 Dx12GraphicsContext::GetSwapChainSize(const SwapChainHandle _swapChain)
     {
-        return m_appInfo.m_features.m_present
-            ? m_swapChain.GetPresentTextureFormat()
-            : TextureFormat::NoFormat;
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetSize() : uint2 { 1 };
+    }
+
+    TextureFormat Dx12GraphicsContext::GetSwapChainFormat(const SwapChainHandle _swapChain)
+    {
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetPresentTextureFormat() : TextureFormat::NoFormat;
+    }
+
+    SwapChainHandle Dx12GraphicsContext::CreateSwapChain(const SwapChainDesc& _desc)
+    {
+        const SwapChainHandle handle = m_resources.CreateSwapChain(
+            m_appInfo,
+            _desc,
+            m_factory.Get(),
+            m_device.Get(),
+            m_directQueue.Get());
+
+        const Dx12SwapChain* swapChain = m_resources.GetSwapChain(handle);
+        KE_ASSERT_MSG(
+            swapChain->GetImageCount() == m_frameContextCount,
+            "Swap chain image count (%d) does not match the requested buffering mode (%d)",
+            swapChain->GetImageCount(),
+            m_frameContextCount);
+
+        return handle;
+    }
+
+    void Dx12GraphicsContext::DestroySwapChain(SwapChainHandle _handle)
+    {
+        m_resources.DestroySwapChain(_handle);
+    }
+
+    bool Dx12GraphicsContext::ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize)
+    {
+        Dx12SwapChain* swapChain = m_resources.GetSwapChain(_handle);
+        VERIFY_OR_RETURN(swapChain != nullptr, false);
+
+        WaitForLastFrame();
+        return swapChain->Resize(m_device.Get(), m_resources, _newSize);
     }
 
     RenderPassHandle Dx12GraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)
@@ -573,11 +600,19 @@ namespace KryneEngine
     RenderCommandEncoderHandle Dx12GraphicsContext::BeginRenderPass(
         CommandListHandle _commandList,
         const RenderPassHandle _renderPass,
+            const MemoryBarriers& _barriers,
         const eastl::string_view /* _debugName */)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::BeginRenderPass");
 
         auto commandList = static_cast<CommandList>(_commandList);
+
+        // Resource barriers are illegal inside a D3D12 render pass, so pass-entry barriers
+        // (transitioning resources the pass will read) are recorded before BeginRenderPass.
+        if (!_barriers.Empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, _barriers);
+        }
 
         const auto* desc = m_resources.m_renderPasses.Get(_renderPass.m_handle);
         VERIFY_OR_RETURN(desc != nullptr, { nullptr });
@@ -586,6 +621,8 @@ namespace KryneEngine
         {
             switch (_op)
             {
+                case RenderPassDesc::Attachment::LoadOperation::None:
+                    return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
                 case RenderPassDesc::Attachment::LoadOperation::Load:
                     return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
                 case RenderPassDesc::Attachment::LoadOperation::Clear:
@@ -601,6 +638,8 @@ namespace KryneEngine
         {
             switch (_op)
             {
+                case RenderPassDesc::Attachment::StoreOperation::None:
+                    return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
                 case RenderPassDesc::Attachment::StoreOperation::Store:
                     return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
                 case RenderPassDesc::Attachment::StoreOperation::DontCare:
@@ -754,7 +793,10 @@ namespace KryneEngine
             addBarrier(attachment, rtvData->m_resource, true, attachment.m_readOnly);
         }
 
-        PlaceMemoryBarriers(_commandList, {}, {}, barriers);
+        if (!barriers.empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, { .m_textureBarriers = barriers });
+        }
 
         commandList->BeginRenderPass(
                 colorAttachments.size(),
@@ -878,9 +920,39 @@ namespace KryneEngine
             addBarrier(attachment, rtvData->m_resource, true);
         }
 
-        PlaceMemoryBarriers(commandList, {}, {}, barriers);
+        if (!barriers.empty())
+        {
+            PlaceMemoryBarriers(_renderCommandEncoder, {
+                .m_placementType = BarrierPlacementType::Producer,
+                .m_textureBarriers = barriers,
+            });
+        }
 
         m_currentRenderPass = GenPool::kInvalidHandle;
+    }
+
+    ComputeCommandEncoderHandle Dx12GraphicsContext::BeginComputePass(
+        CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view /* _debugName */)
+    {
+        if (!_barriers.Empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, _barriers);
+        }
+        return { _commandList };
+    }
+
+    TransferCommandEncoderHandle Dx12GraphicsContext::BeginTransferPass(
+        CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view /* _debugName */)
+    {
+        if (!_barriers.Empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, _barriers);
+        }
+        return { _commandList };
     }
 
     void Dx12GraphicsContext::SetTextureData(
@@ -965,7 +1037,7 @@ namespace KryneEngine
         ID3D12Resource** dstTexture = m_resources.m_textures.Get(_dstTexture.m_handle);
 
         const D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint {
-            .Offset = _footprint.m_offset,
+            .Offset = _footprint.m_offset + _srcBuffer.m_offset,
             .Footprint = {
                 .Format = Dx12Converters::ToDx12Format(_footprint.m_format),
                 .Width = _footprint.m_width,
@@ -984,9 +1056,11 @@ namespace KryneEngine
             _subresourceIndex.m_arraySize);
         const CD3DX12_TEXTURE_COPY_LOCATION dst(*dstTexture, subResourceIndex);
 
+        // When the copy source is a buffer, the box is expressed in texels of the placed footprint
+        // (not bytes), and selects the sub-region of the footprint to copy.
         const D3D12_BOX box {
-            static_cast<u32>(_srcBuffer.m_offset), 0, 0,
-            static_cast<u32>(_srcBuffer.m_offset + _srcBuffer.m_size), 1, 1 };
+            0, 0, 0,
+            _regionSize.x, _regionSize.y, _regionSize.z };
         commandList->CopyTextureRegion(
             &dst,
             _regionOffset.x,
@@ -1061,6 +1135,9 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::PlaceMemoryBarriers");
 
+        if (_barriers.Empty())
+            return;
+
         auto commandList = static_cast<CommandList>(_commandEncoder.m_handle);
 
         using namespace Dx12Converters;
@@ -1071,7 +1148,7 @@ namespace KryneEngine
 
             DynamicArray<D3D12_GLOBAL_BARRIER> globalMemoryBarriers(m_allocator, _barriers.m_globalBarriers.size());
             DynamicArray<D3D12_BUFFER_BARRIER> bufferMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
-            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
+            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _barriers.m_textureBarriers.size());
 
             if (!_barriers.m_globalBarriers.empty())
             {

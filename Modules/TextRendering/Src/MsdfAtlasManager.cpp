@@ -148,19 +148,19 @@ namespace KryneEngine::Modules::TextRendering
         {
             const TextureMemoryBarrier barrier[1] {
                 {
-                    .m_stagesSrc = BarrierSyncStageFlags::All,
-                    .m_stagesDst = BarrierSyncStageFlags::AllShading,
-                    .m_accessSrc = BarrierAccessFlags::ShaderResource,
+                    .m_stagesSrc = BarrierSyncStageFlags::None,
+                    .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                    .m_accessSrc = BarrierAccessFlags::None,
                     .m_accessDst = BarrierAccessFlags::TransferDst,
                     .m_texture = m_atlasTexture,
-                    .m_layoutSrc = TextureLayout::ShaderResource,
+                    .m_layoutSrc = TextureLayout::Unknown,
                     .m_layoutDst = TextureLayout::TransferDst,
                 }
             };
             _graphicsContext.PlaceMemoryBarriers(
                 _transferEncoder,
                 {
-                    .m_placementType = BarrierPlacementType::IntraEncoder,
+                    .m_placementType = BarrierPlacementType::Consumer,
                     .m_textureBarriers = barrier,
                 });
         }
@@ -231,7 +231,7 @@ namespace KryneEngine::Modules::TextRendering
                 _graphicsContext.PlaceMemoryBarriers(
                     _transferEncoder,
                     {
-                        .m_placementType = BarrierPlacementType::IntraEncoder,
+                        .m_placementType = BarrierPlacementType::Consumer,
                         .m_bufferBarriers = barrier,
                     });
             }

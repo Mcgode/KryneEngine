@@ -157,7 +157,8 @@ namespace KryneEngine::Samples::RenderGraphDemo
         }
     }
 
-    void GiPass::Render(const Modules::RenderGraph::PassExecutionData& _passExecutionData)
+    void GiPass::Render(const Modules::RenderGraph::PassExecutionData& _passExecutionData,
+        uint2 _renderSize)
     {
         if (m_pso == GenPool::kInvalidHandle)
             return;
@@ -167,7 +168,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
         _passExecutionData.m_graphicsContext->SetComputePipeline(_passExecutionData.m_computeEncoder, m_pso);
         _passExecutionData.m_graphicsContext->SetComputeDescriptorSets(
             _passExecutionData.m_computeEncoder, m_pipelineLayout, {&m_sceneConstantsDescriptorSet, 2});
-        const uint2 viewportSize = _passExecutionData.m_graphicsContext->GetPresentFrameBufferSize();
+        const uint2 viewportSize = _renderSize;
         _passExecutionData.m_graphicsContext->Dispatch(
             _passExecutionData.m_computeEncoder,
             uint3{(viewportSize.x + 7) / 8, (viewportSize.y + 7) / 8, 1},

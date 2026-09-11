@@ -225,13 +225,6 @@ namespace KryneEngine::Samples::RenderGraphDemo
                 .m_accessSrc = BarrierAccessFlags::None,
                 .m_accessDst = BarrierAccessFlags::TransferDst,
                 .m_buffer = m_vertexBuffer,
-            },
-            {
-                .m_stagesSrc = BarrierSyncStageFlags::None,
-                .m_stagesDst = BarrierSyncStageFlags::Transfer,
-                .m_accessSrc = BarrierAccessFlags::None,
-                .m_accessDst = BarrierAccessFlags::TransferSrc,
-                .m_buffer = m_transferBuffer,
             }
         };
         _graphicsContext->PlaceMemoryBarriers(

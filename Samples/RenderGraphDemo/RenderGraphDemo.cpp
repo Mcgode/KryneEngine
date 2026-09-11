@@ -9,6 +9,8 @@
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/Input/InputManager.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 #include <KryneEngine/Modules/RenderGraph/Descriptors/RenderTargetViewDesc.hpp>
@@ -53,13 +55,20 @@ int main()
     appInfo.m_api = GraphicsCommon::Api::Metal_4;
     appInfo.m_applicationName += " - Metal";
 #endif
-    Window mainWindow(appInfo, allocator);
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    const GraphicsCommon::DisplayOptions displayOptions {};
+    WindowManager windowManager(allocator);
+    Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetFramebufferSize(),
+        .m_displayOptions = displayOptions,
+    });
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 
     RenderGraph::RenderGraph renderGraph {};
-    SceneManager sceneManager(allocator, mainWindow, renderGraph.GetRegistry());
+    SceneManager sceneManager(allocator, *mainWindow, graphicsContext, renderGraph.GetRegistry());
 
     DeferredShadowPass deferredShadowPass { allocator };
     GiPass giPass { allocator };
@@ -96,17 +105,17 @@ int main()
     {
         KE_ZoneScoped("Registration");
 
-        const uint3 dimensions(graphicsContext->GetPresentFrameBufferSize(), 1);
+        const uint3 dimensions(graphicsContext->GetSwapChainSize(swapChain), 1);
 
         for (auto i = 0u; i < graphicsContext->GetFrameContextCount(); i++)
         {
             eastl::string name;
 
             swapChainTextures[i] = renderGraph.GetRegistry().RegisterRawTexture(
-                graphicsContext->GetPresentTexture(i),
+                graphicsContext->GetSwapChainTexture(swapChain, i),
                 name.sprintf("Swapchain buffer %u", i));
             swapChainRtvs[i] = renderGraph.GetRegistry().RegisterRenderTargetView(
-                graphicsContext->GetPresentRenderTargetView(i),
+                graphicsContext->GetSwapChainRenderTargetView(swapChain, i),
                 swapChainTextures[i],
                 name.sprintf("Swapchain RTV %u", i));
         }
@@ -298,22 +307,30 @@ int main()
     });
     colorMappingPass.CreatePso(graphicsContext, {
         .m_numColorAttachments = 1,
-        .m_colorFormats = { graphicsContext->GetPresentTextureFormat() },
+        .m_colorFormats = { graphicsContext->GetSwapChainFormat(swapChain) },
     });
 
-    do
+    while (!windowManager.AllWindowsClosed())
     {
+        windowManager.PollEvents();
+        windowManager.GetInput().Update();
+
+        if (windowManager.ConsumeResizeFlag(mainWindow))
+            graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
+
         if (imGuiContext == nullptr)
         {
             KE_ZoneScoped("Init ImGui context");
 
             imGuiContext = allocator.New<Modules::ImGui::Context>(
-                &mainWindow,
-                graphicsContext->GetPresentTextureFormat(),
+                mainWindow,
+                &windowManager,
+                graphicsContext,
+                graphicsContext->GetSwapChainFormat(swapChain),
                 allocator);
         }
 
-        imGuiContext->NewFrame(&mainWindow);
+        imGuiContext->NewFrame(mainWindow, graphicsContext, swapChain);
 
         {
             const DescriptorSetHandle sceneConstantsDescriptorSet =
@@ -327,8 +344,10 @@ int main()
 
         RenderGraph::Builder& builder = renderGraph.BeginFrame(*graphicsContext);
 
-        SimplePoolHandle swapChainTexture = swapChainTextures[graphicsContext->GetCurrentPresentImageIndex()];
-        SimplePoolHandle swapChainRtv = swapChainRtvs[graphicsContext->GetCurrentPresentImageIndex()];
+        const uint2 renderSize = graphicsContext->GetSwapChainSize(swapChain);
+
+        SimplePoolHandle swapChainTexture = swapChainTextures[graphicsContext->GetSwapChainCurrentImageIndex(swapChain)];
+        SimplePoolHandle swapChainRtv = swapChainRtvs[graphicsContext->GetSwapChainCurrentImageIndex(swapChain)];
 
         {
             KE_ZoneScoped("Build render graph");
@@ -365,7 +384,7 @@ int main()
                     .Done()
                 .DeclarePass(RenderGraph::PassType::Compute)
                     .SetName("Deferred shadow pass")
-                    .SetExecuteFunction([&deferredShadowPass](const auto&, const auto& _passData) { deferredShadowPass.Render(_passData); })
+                    .SetExecuteFunction([&deferredShadowPass, renderSize](const auto&, const auto& _passData) { deferredShadowPass.Render(_passData, renderSize); })
                     .ReadDependency(frameCBufferReadDep)
                     .ReadDependency({
                         .m_resource = gBufferDepthView,
@@ -383,7 +402,7 @@ int main()
                     .Done()
                 .DeclarePass(RenderGraph::PassType::Compute)
                     .SetName("Deferred 'GI' pass")
-                    .SetExecuteFunction([&giPass](const auto&, const auto& _passData) { giPass.Render(_passData); })
+                    .SetExecuteFunction([&giPass, renderSize](const auto&, const auto& _passData) { giPass.Render(_passData, renderSize); })
                     .ReadDependency(frameCBufferReadDep)
                     .ReadDependency({
                         .m_resource = gBuffer0View,
@@ -413,7 +432,7 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Deferred shading pass")
-                    .SetExecuteFunction([&deferredShadingPass](const auto& _, const auto& _passData) { deferredShadingPass.Render(_, _passData); })
+                    .SetExecuteFunction([&deferredShadingPass, renderSize](const auto& _, const auto& _passData) { deferredShadingPass.Render(_, _passData, renderSize); })
                     .AddColorAttachment(hdrRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
@@ -453,7 +472,7 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Sky pass")
-                    .SetExecuteFunction([&skyPass](const auto& _renderGraph, const auto& _passData) { skyPass.Render(_renderGraph, _passData); })
+                    .SetExecuteFunction([&skyPass, renderSize](const auto& _renderGraph, const auto& _passData) { skyPass.Render(_renderGraph, _passData, renderSize); })
                     .AddColorAttachment(hdrRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
@@ -466,7 +485,7 @@ int main()
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Color mapping pass")
-                    .SetExecuteFunction([&colorMappingPass](const auto& _renderGraph, const auto& _passData) { colorMappingPass.Render(_renderGraph, _passData); })
+                    .SetExecuteFunction([&colorMappingPass, renderSize](const auto& _renderGraph, const auto& _passData) { colorMappingPass.Render(_renderGraph, _passData, renderSize); })
                     .AddColorAttachment(swapChainRtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
@@ -518,14 +537,20 @@ int main()
 
             renderGraph.SubmitFrame(*graphicsContext, nullptr);
         }
+
+        graphicsContext->EndFrame({ &swapChain, 1 });
     }
-    while (graphicsContext->EndFrame());
+
+    graphicsContext->WaitForLastFrame();
 
     if (imGuiContext)
     {
-        imGuiContext->Shutdown(&mainWindow);
+        imGuiContext->Shutdown(&windowManager, graphicsContext);
         allocator.Delete(imGuiContext);
     }
+
+    graphicsContext->DestroySwapChain(swapChain);
+    GraphicsContext::Destroy(graphicsContext);
 
     return 0;
 }

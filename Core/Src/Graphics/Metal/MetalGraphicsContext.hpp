@@ -9,7 +9,6 @@
 #include "Graphics/Metal/MetalArgumentBufferManager.hpp"
 #include "Graphics/Metal/MetalHeaders.hpp"
 #include "Graphics/Metal/MetalResources.hpp"
-#include "Graphics/Metal/MetalSwapChain.hpp"
 #include "Graphics/Metal/MetalTypes.hpp"
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
@@ -41,8 +40,7 @@ namespace KryneEngine
     public:
         MetalGraphicsContext(
             AllocatorInstance _allocator,
-            const GraphicsCommon::ApplicationInfo& _appInfo,
-            Window* _window);
+            const GraphicsCommon::ApplicationInfo& _appInfo);
 
         ~MetalGraphicsContext();
 
@@ -52,10 +50,11 @@ namespace KryneEngine
 
         [[nodiscard]] bool HasDedicatedTransferQueue() const override;
         [[nodiscard]] bool HasDedicatedComputeQueue() const override;
+        // Metal argument tables tolerate unwritten slots that are never dynamically accessed.
+        [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return true; }
 
     private:
         NsPtr<MTL::Device> m_device;
-        MetalSwapChain m_swapChain;
 
         NsPtr<MTL4::CommandQueue> m_graphicsQueue;
         NsPtr<MTL4::CommandQueue> m_computeQueue;
@@ -72,11 +71,13 @@ namespace KryneEngine
         mutable u64 m_lastResolvedFrameId = ~0ull;
 
     protected:
-        void InternalEndFrame() override;
+        void InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent) override;
         void WaitForFrame(u64 _frameId) const override;
 
     public:
-        bool ResizeSwapChain(Window* _window) override;
+        [[nodiscard]] SwapChainHandle CreateSwapChain(const SwapChainDesc& _desc) override;
+        void DestroySwapChain(SwapChainHandle _handle) override;
+        bool ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize) override;
 
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
         [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;
@@ -102,11 +103,11 @@ namespace KryneEngine
         [[nodiscard]] RenderTargetViewHandle CreateRenderTargetView(const RenderTargetViewDesc& _desc) override;
         bool DestroyRenderTargetView(RenderTargetViewHandle _handle) override;
 
-        [[nodiscard]] RenderTargetViewHandle GetPresentRenderTargetView(u8 _swapChainIndex) override;
-        [[nodiscard]] TextureHandle GetPresentTexture(u8 _swapChainIndex) override;
-        [[nodiscard]] u32 GetCurrentPresentImageIndex() const override;
-        [[nodiscard]] uint2 GetPresentFrameBufferSize() override;
-        [[nodiscard]] TextureFormat GetPresentTextureFormat() override;
+        [[nodiscard]] RenderTargetViewHandle GetSwapChainRenderTargetView(SwapChainHandle _swapChain, u8 _swapChainIndex) override;
+        [[nodiscard]] TextureHandle GetSwapChainTexture(SwapChainHandle _swapChain, u8 _swapChainIndex) override;
+        [[nodiscard]] u32 GetSwapChainCurrentImageIndex(SwapChainHandle _swapChain) const override;
+        [[nodiscard]] uint2 GetSwapChainSize(SwapChainHandle _swapChain) override;
+        [[nodiscard]] TextureFormat GetSwapChainFormat(SwapChainHandle _swapChain) override;
 
         [[nodiscard]] RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc) override;
         bool DestroyRenderPass(RenderPassHandle _handle) override;
@@ -114,14 +115,24 @@ namespace KryneEngine
         CommandListHandle BeginGraphicsCommandList() override;
         void EndGraphicsCommandList(CommandListHandle _commandList) override;
 
+        using GraphicsContext::BeginRenderPass;
         [[nodiscard]] RenderCommandEncoderHandle BeginRenderPass(
-            CommandListHandle _commandList, RenderPassHandle _handle, eastl::string_view _debugName) override;
+            CommandListHandle _commandList,
+            RenderPassHandle _handle,
+            const MemoryBarriers& _barriers,
+            eastl::string_view _debugName) override;
         void EndRenderPass(RenderCommandEncoderHandle _renderCommandEncoder) override;
 
-        ComputeCommandEncoderHandle BeginComputePass(CommandListHandle _commandList, eastl::string_view _debugName) override;
+        ComputeCommandEncoderHandle BeginComputePass(
+            CommandListHandle _commandList,
+            const MemoryBarriers& _barriers,
+            eastl::string_view _debugName) override;
         void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) override;
 
-        TransferCommandEncoderHandle BeginTransferPass(CommandListHandle _commandList, eastl::string_view _debugName) override;
+        TransferCommandEncoderHandle BeginTransferPass(
+            CommandListHandle _commandList,
+            const MemoryBarriers& _barriers,
+            eastl::string_view _debugName) override;
         void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) override;
 
         void SetTextureData(

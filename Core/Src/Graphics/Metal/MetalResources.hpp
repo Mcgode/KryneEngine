@@ -22,10 +22,17 @@ namespace KryneEngine
     struct RenderTargetViewDesc;
     struct RenderPassDesc;
     struct SamplerDesc;
+    struct SwapChainDesc;
     struct TextureCreateDesc;
     struct TextureViewDesc;
 
+    namespace GraphicsCommon
+    {
+        struct ApplicationInfo;
+    }
+
     class MetalArgumentBufferManager;
+    class MetalSwapChain;
 
     class MetalResources
     {
@@ -206,5 +213,17 @@ namespace KryneEngine
         };
 
         GenerationalPool<ComputePsoHotData> m_computePso;
+
+    public:
+        [[nodiscard]] SwapChainHandle CreateSwapChain(
+            MTL::Device& _device,
+            const GraphicsCommon::ApplicationInfo& _appInfo,
+            const SwapChainDesc& _desc,
+            u8 _initialFrameIndex);
+        [[nodiscard]] MetalSwapChain* GetSwapChain(SwapChainHandle _handle) const;
+        bool DestroySwapChain(SwapChainHandle _handle);
+
+    private:
+        GenerationalPool<MetalSwapChain*> m_swapChains;
     };
 } // namespace KryneEngine

@@ -23,13 +23,14 @@ namespace KryneEngine::Samples::PhysicsDemo
 {
     SceneManager::SceneManager(
         const AllocatorInstance _allocator,
-        const Window& _window,
+        GraphicsContext* _graphicsContext,
+        const SwapChainHandle _mainSwapChainHandle,
         FibersManager* _fibersManager,
         const b3WorldId _world)
             : m_allocator(_allocator)
             , m_fibersManager(_fibersManager)
             , m_world(_world)
-            , m_drawInstanceManager(_allocator, *_window.GetGraphicsContext())
+            , m_drawInstanceManager(_allocator, *_graphicsContext)
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
             , m_gameFramesQueue(_allocator, 3)
             , m_fullscreenConstantsBuffer(_allocator)
@@ -37,19 +38,17 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_skyPass(_allocator)
             , m_colorMappingPass(_allocator)
     {
-        GraphicsContext& graphicsContext = *_window.GetGraphicsContext();
-
         m_gBufferPassDispatcher = m_drawInstanceManager.CreatePassDispatcher(
-            graphicsContext,
+            *_graphicsContext,
             &m_materialManager,
             static_cast<u8>(PassTypes::GBufferPass),
             "GBuffer pass dispatcher");
 
         m_defaultMaterial = m_materialManager.RegisterMaterial();
 
-        const uint2 windowSize = graphicsContext.GetPresentFrameBufferSize();
+        const uint2 windowSize = _graphicsContext->GetSwapChainSize(_mainSwapChainHandle);
         const float aspectRatio = static_cast<float>(windowSize.x) / static_cast<float>(windowSize.y);
-        m_orbitCamera = m_allocator.New<OrbitCamera>(_window.GetInputManager(), aspectRatio);
+        m_orbitCamera = m_allocator.New<OrbitCamera>(aspectRatio);
         m_sunLight = m_allocator.New<SunLight>();
     }
 
@@ -132,6 +131,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
     void SceneManager::InitPso(
         GraphicsContext& _graphicsContext,
+        const TextureFormat _swapChainFormat,
         const TextureViewHandle _gBuffer0View,
         const TextureViewHandle _gBuffer1View,
         const TextureViewHandle _gBuffer2View,
@@ -354,14 +354,15 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _hdrView);
             m_colorMappingPass.CreatePso(&_graphicsContext, {
                 .m_numColorAttachments = 1,
-                .m_colorFormats = { _graphicsContext.GetPresentTextureFormat() },
+                .m_colorFormats = { _swapChainFormat },
             });
         }
     }
 
     void SceneManager::UpdateFullscreenConstantsBuffer(
         GraphicsContext* _graphicsContext,
-        const TransferCommandEncoderHandle _transferEncoder)
+        const TransferCommandEncoderHandle _transferEncoder,
+        const uint2 _screenResolution)
     {
         auto* constants = static_cast<FullscreenPassConstants*>(m_fullscreenConstantsBuffer.Map(
                 _graphicsContext,
@@ -372,7 +373,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         constants->m_cameraTranslation = m_orbitCamera->GetViewTranslation();
         constants->m_tanHalfFov = std::tan(m_orbitCamera->GetFov() * 0.5f);
 
-        constants->m_screenResolution = float2(_graphicsContext->GetPresentFrameBufferSize());
+        constants->m_screenResolution = float2(_screenResolution);
         constants->m_depthLinearizationConstants = m_orbitCamera->GetDepthLinearizeConstants();
 
         constants->m_sunLightDirection = m_sunLight->GetDirection();

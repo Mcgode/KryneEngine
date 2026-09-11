@@ -10,7 +10,6 @@
 #include <regex>
 #include <EASTL/algorithm.h>
 #include <EASTL/vector_map.h>
-#include <GLFW/glfw3.h>
 
 #include "Graphics/Vulkan/HelperFunctions.hpp"
 #include "Graphics/Vulkan/VkDebugHandler.hpp"
@@ -110,11 +109,8 @@ namespace KryneEngine
 
     VkGraphicsContext::VkGraphicsContext(
         const AllocatorInstance _allocator,
-        const GraphicsCommon::ApplicationInfo& _appInfo,
-        Window* _window)
-        : GraphicsContext(_allocator, _appInfo, _window)
-        , m_surface(_allocator)
-        , m_swapChain(_allocator)
+        const GraphicsCommon::ApplicationInfo& _appInfo)
+        : GraphicsContext(_allocator, _appInfo)
         , m_resources(_allocator)
         , m_descriptorSetManager(_allocator)
     {
@@ -170,11 +166,6 @@ namespace KryneEngine
             _SetupValidationLayersCallback();
         }
 
-        if (m_appInfo.m_features.m_present)
-        {
-            m_surface.Init(m_instance, _window->GetGlfwWindow());
-        }
-
         _SelectPhysicalDevice();
 
         VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -186,11 +177,6 @@ namespace KryneEngine
         {
             m_gpuTimestampPeriod = physicalDeviceProperties.limits.timestampPeriod;
             m_supportsTimestampQueries = true;
-        }
-
-        if (m_appInfo.m_features.m_present)
-        {
-            m_surface.UpdateCapabilities(m_physicalDevice);
         }
 
         _CreateDevice();
@@ -216,28 +202,8 @@ namespace KryneEngine
         }
 #endif
 
-        if (m_appInfo.m_features.m_present)
-        {
-            m_swapChain.Init(
-                    m_appInfo,
-                    m_device,
-                    m_surface,
-                    m_resources,
-                    _window->GetGlfwWindow(),
-                    m_queueIndices,
-                    m_frameId);
-
-#if !defined(KE_FINAL)
-            m_swapChain.SetDebugHandler(m_debugHandler, m_device);
-#endif
-
-            m_frameContextCount = m_swapChain.m_currentSwapChain->m_renderTargetViews.Size();
-        }
-        else
-        {
-            // If no display, keep double buffering.
-            m_frameContextCount = 2;
-        }
+        // Frame context count is an explicit, strict choice — not negotiated against the swap chain.
+        m_frameContextCount = static_cast<u8>(m_appInfo.m_bufferingMode);
 
         {
             KE_ZoneScoped("Frame contexts init");
@@ -261,7 +227,7 @@ namespace KryneEngine
 
         CalibrateCpuGpuClocks();
 
-        m_descriptorSetManager.Init(m_frameContextCount, m_frameId % m_frameContextCount);
+        m_descriptorSetManager.Init(m_frameContextCount, m_frameId % m_frameContextCount, m_descriptorBindingPartiallyBound);
     }
 
     VkGraphicsContext::~VkGraphicsContext()
@@ -271,12 +237,6 @@ namespace KryneEngine
             frameContext.Destroy(m_device);
         }
         m_frameContexts.Clear();
-
-        if (m_appInfo.m_features.m_present)
-        {
-            m_swapChain.Destroy(m_device, m_resources);
-            m_surface.Destroy(m_instance);
-        }
 
         m_resources.DestroyAllocator();
 
@@ -327,7 +287,7 @@ namespace KryneEngine
         return m_computeQueue != VK_NULL_HANDLE;
     }
 
-    void VkGraphicsContext::InternalEndFrame()
+    void VkGraphicsContext::InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::EndFrame");
 
@@ -335,16 +295,27 @@ namespace KryneEngine
         auto& frameContext = m_frameContexts[frameIndex];
         eastl::fixed_vector<VkSemaphore, VkFrameContext::kMaxQueueCount> queueSemaphores(m_allocator);
 
-        VkSemaphore imageAvailableSemaphore;
-        if (m_appInfo.m_features.m_present)
+        // Gather the "image available" semaphore of every swap chain to present — the first queue
+        // submission waits on all of them before writing any render target.
+        eastl::fixed_vector<VkSwapChain*, 4> swapChains(m_allocator);
+        eastl::fixed_vector<VkSemaphore, 4> imageAvailableSemaphores(m_allocator);
+        eastl::fixed_vector<VkPipelineStageFlags, 4> imageAvailableStages(m_allocator);
+        for (const SwapChainHandle handle : _swapChainsToPresent)
         {
-            imageAvailableSemaphore = m_swapChain.GetSwapChain(m_frameId)->m_imageAvailableSemaphores[frameIndex];
+            VkSwapChain* swapChain = m_resources.GetSwapChain(handle);
+            KE_ASSERT_MSG(swapChain != nullptr, "EndFrame() was given an invalid swap chain handle");
+            if (swapChain == nullptr)
+                continue;
+            swapChains.push_back(swapChain);
+            imageAvailableSemaphores.push_back(swapChain->GetImageAvailableSemaphore(m_frameId, frameIndex));
+            imageAvailableStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
         }
 
         // Submit command buffers
         {
             KE_ZoneScoped("Submit non-present queues");
 
+            bool waitedForImages = false;
             const auto submitQueue = [&](const VkQueue _queue, VkFrameContext::CommandPoolSet& _commandPoolSet)
             {
                 if (_queue && !_commandPoolSet.m_usedCommandBuffers.empty())
@@ -355,14 +326,17 @@ namespace KryneEngine
                         VkAssert(vkResetFences(m_device, 1, &_commandPoolSet.m_fence));
                     }
 
-                    constexpr VkPipelineStageFlags stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+                    // Only the first submitted queue waits on the swap chain images.
+                    const u32 waitCount = waitedForImages ? 0u : static_cast<u32>(imageAvailableSemaphores.size());
+                    waitedForImages = true;
+
                     VkSubmitInfo submitInfo
                         {
                             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 
-                            .waitSemaphoreCount = m_appInfo.m_features.m_present ? 1u : 0u,
-                            .pWaitSemaphores = &imageAvailableSemaphore,
-                            .pWaitDstStageMask = stages, // Only need image for render target output
+                            .waitSemaphoreCount = waitCount,
+                            .pWaitSemaphores = imageAvailableSemaphores.data(),
+                            .pWaitDstStageMask = imageAvailableStages.data(),
 
                             .commandBufferCount = static_cast<uint32_t>(_commandPoolSet.m_usedCommandBuffers.size()),
                             .pCommandBuffers = _commandPoolSet.m_usedCommandBuffers.data(),
@@ -381,9 +355,43 @@ namespace KryneEngine
             submitQueue(m_graphicsQueue, frameContext.m_graphicsCommandPoolSet);
         }
 
-        // Present image
-        if (m_appInfo.m_features.m_present) {
-            m_swapChain.Present(m_presentQueue, queueSemaphores, m_frameId);
+        // Present every swap chain image in a single vkQueuePresentKHR — one call so the
+        // queue-completion binary semaphores are waited exactly once (multiple present calls
+        // waiting the same binary semaphore is illegal).
+        if (!swapChains.empty())
+        {
+            KE_ZoneScoped("Present");
+
+            eastl::fixed_vector<VkSwapchainKHR, 4> vkSwapChains(m_allocator);
+            eastl::fixed_vector<u32, 4> imageIndices(m_allocator);
+            eastl::fixed_vector<VkResult, 4> presentResults(m_allocator);
+            for (const VkSwapChain* swapChain : swapChains)
+            {
+                vkSwapChains.push_back(swapChain->GetVkSwapChain(m_frameId));
+                imageIndices.push_back(swapChain->GetCurrentImageIndex());
+            }
+            presentResults.resize(vkSwapChains.size());
+
+            const VkPresentInfoKHR presentInfo {
+                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                .waitSemaphoreCount = static_cast<u32>(queueSemaphores.size()),
+                .pWaitSemaphores = queueSemaphores.data(),
+                .swapchainCount = static_cast<u32>(vkSwapChains.size()),
+                .pSwapchains = vkSwapChains.data(),
+                .pImageIndices = imageIndices.data(),
+                .pResults = presentResults.data(),
+            };
+
+            const VkResult result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
+            switch (result)
+            {
+            case VK_SUCCESS:
+            case VK_SUBOPTIMAL_KHR:
+            case VK_ERROR_OUT_OF_DATE_KHR:
+                break;
+            default:
+                KE_ERROR("Unhandled vkQueuePresentKHR error %d", result);
+            }
         }
 
         if (m_profilerContext != nullptr)
@@ -417,11 +425,11 @@ namespace KryneEngine
         m_resources.FlushPools();
         m_descriptorSetManager.NextFrame(m_device, m_resources, nextFrameContextIndex);
 
-        // Acquire next image
-        if (m_appInfo.m_features.m_present)
+        // Acquire the next image of every presented swap chain
+        for (VkSwapChain* swapChain : swapChains)
         {
-            m_swapChain.Update(m_device, m_resources, m_frameId);
-            m_swapChain.AcquireNextImage(m_device, nextFrameContextIndex);
+            swapChain->Update(m_device, m_resources, m_frameId);
+            swapChain->AcquireNextImage(m_device, nextFrameContextIndex);
         }
     }
 
@@ -458,10 +466,40 @@ namespace KryneEngine
     eastl::vector<const char *> VkGraphicsContext::RetrieveRequiredExtensionNames(
         const GraphicsCommon::ApplicationInfo& _appInfo, const bool _validationLayersEnabled)
     {
-        u32 glfwCount;
-        const char** ppGlfwExtensions = glfwGetRequiredInstanceExtensions(&glfwCount);
+        eastl::vector<const char *> result(m_allocator);
 
-        eastl::vector<const char *> result(ppGlfwExtensions, ppGlfwExtensions + glfwCount, m_allocator);
+        // WSI surface extensions (previously provided by glfwGetRequiredInstanceExtensions).
+        // The platform-specific one is only added when actually present, so a build that
+        // supports both X11 and Wayland can run under either at runtime.
+        if (_appInfo.m_features.m_present)
+        {
+            result.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+
+            DynamicArray<VkExtensionProperties> availableExtensions;
+            VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateInstanceExtensionProperties, nullptr);
+            const auto has = [&availableExtensions](const char* _name)
+            {
+                return eastl::any_of(
+                    availableExtensions.begin(),
+                    availableExtensions.end(),
+                    [_name](const VkExtensionProperties& _p) { return strcmp(_p.extensionName, _name) == 0; });
+            };
+
+            for (const char* surfaceExtension : {
+#if defined(_WIN32)
+                     VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+#elif defined(__APPLE__)
+                     VK_EXT_METAL_SURFACE_EXTENSION_NAME,
+#elif defined(__linux__)
+                     VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+                     VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
+#endif
+                 })
+            {
+                if (has(surfaceExtension))
+                    result.push_back(surfaceExtension);
+            }
+        }
 
         if (_validationLayersEnabled)
         {
@@ -578,7 +616,7 @@ namespace KryneEngine
             bool suitable = true;
 
             auto placeholderQueueIndices = QueueIndices();
-            suitable &= _SelectQueues(m_appInfo, _physicalDevice, m_surface.GetSurface(), placeholderQueueIndices);
+            suitable &= _SelectQueues(m_appInfo, _physicalDevice, placeholderQueueIndices);
 
             for (const auto& extension: extensions)
             {
@@ -614,7 +652,6 @@ namespace KryneEngine
     bool VkGraphicsContext::_SelectQueues(
         const GraphicsCommon::ApplicationInfo &_appInfo,
         const VkPhysicalDevice &_physicalDevice,
-        const VkSurfaceKHR &_surface,
         QueueIndices &_indices)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::_SelectQueues");
@@ -711,33 +748,9 @@ namespace KryneEngine
             foundAll &= !_indices.m_computeQueueIndex.IsInvalid();
         }
 
-        if (features.m_present)
-        {
-            u8 topScore = 0;
-            s8 topIndex = QueueIndices::kInvalid;
-            for (s8 i = 0; i < familyProperties.Size(); i++)
-            {
-                const auto flags = familyProperties[i].queueFlags;
-                VkBool32 supported;
-                vkGetPhysicalDeviceSurfaceSupportKHR(_physicalDevice, i, _surface, &supported);
-                if (supported && GetIndexOfFamily(i) < familyProperties[i].queueCount)
-                {
-                    u8 score = 0;
-                    score += flags & VK_QUEUE_GRAPHICS_BIT ? 1 : 5;
-                    score += flags & VK_QUEUE_TRANSFER_BIT ? 1 : 4;
-                    score += flags & VK_QUEUE_COMPUTE_BIT ? 1 : 3;
-
-                    if (score > topScore)
-                    {
-                        topScore = score;
-                        topIndex = i;
-                    }
-                }
-            }
-            _indices.m_presentQueueIndex = {topIndex,
-                                            static_cast<s32>(GetIndexOfFamily(topIndex)++) };
-            foundAll &= !_indices.m_presentQueueIndex.IsInvalid();
-        }
+        // Presentation is done on the graphics queue: no dedicated
+        // present-only queue family exists on desktop, and this keeps device creation surface-free.
+        // m_presentQueueIndex is left invalid; m_presentQueue aliases m_graphicsQueue in _RetrieveQueues.
 
         return foundAll;
     }
@@ -749,7 +762,7 @@ namespace KryneEngine
         eastl::vector<VkDeviceQueueCreateInfo> queueCreateInfo(m_allocator);
         eastl::vector<eastl::vector<float>> queuePriorities(m_allocator);
 
-        KE_ASSERT(_SelectQueues(m_appInfo, m_physicalDevice, m_surface.GetSurface(), m_queueIndices));
+        KE_ASSERT(_SelectQueues(m_appInfo, m_physicalDevice, m_queueIndices));
         {
             const auto createQueueInfo = [&](const QueueIndices::Pair _index, const float _priority)
             {
@@ -784,7 +797,6 @@ namespace KryneEngine
             createQueueInfo(m_queueIndices.m_graphicsQueueIndex, 1.0);
             createQueueInfo(m_queueIndices.m_transferQueueIndex, 0.5);
             createQueueInfo(m_queueIndices.m_computeQueueIndex, 0.5);
-            createQueueInfo(m_queueIndices.m_presentQueueIndex, 1.0);
 
             for (u32 i = 0; i < queueCreateInfo.size(); i++)
             {
@@ -792,9 +804,20 @@ namespace KryneEngine
             }
         }
 
-        VkPhysicalDeviceFeatures features;
-        // Init struct data;
-        memset(&features, VK_FALSE, sizeof(VkPhysicalDeviceFeatures));
+        VkPhysicalDeviceFeatures features = {};
+
+        if (m_appInfo.m_features.m_geometryShader != GraphicsCommon::SoftEnable::Disabled)
+        {
+            VkPhysicalDeviceFeatures supportedFeatures;
+            vkGetPhysicalDeviceFeatures(m_physicalDevice, &supportedFeatures);
+            KE_ASSERT_MSG(
+                supportedFeatures.geometryShader
+                    || m_appInfo.m_features.m_geometryShader == GraphicsCommon::SoftEnable::TryEnable,
+                "ApplicationInfo force-enabled the geometry shader feature, but the device does not support it");
+            features.geometryShader = supportedFeatures.geometryShader;
+
+            m_features.m_geometryShaders = features.geometryShader;
+        }
 
         const auto requiredExtensionsStrings = _GetRequiredDeviceExtensions();
         auto requiredExtensions = StringHelpers::RetrieveStringPointerContainer(requiredExtensionsStrings);
@@ -804,6 +827,7 @@ namespace KryneEngine
 
         VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features{};
         VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilitySubsetFeatures{};
+        VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
         {
             DynamicArray<VkExtensionProperties> availableExtensions;
             VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateDeviceExtensionProperties, m_physicalDevice, nullptr);
@@ -864,6 +888,49 @@ namespace KryneEngine
             if (m_appInfo.m_api == GraphicsCommon::Api::Vulkan_1_0 && find(VK_KHR_MAINTENANCE1_EXTENSION_NAME))
             {
                 requiredExtensions.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+            }
+
+            if (m_appInfo.m_features.m_partiallyBoundDescriptors != GraphicsCommon::SoftEnable::Disabled)
+            {
+                // `descriptorIndexing` is core in Vulkan 1.2, an extension (VK_EXT_descriptor_indexing) before.
+                // The feature query needs vkGetPhysicalDeviceFeatures2, which is core from Vulkan 1.1.
+                const bool queryable = VkHelperFunctions::GetApiVersion(m_appInfo.m_api) >= VK_API_VERSION_1_1;
+                const bool coreOrExtension =
+                    VkHelperFunctions::GetApiVersion(m_appInfo.m_api) >= VK_API_VERSION_1_2
+                    || find(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+
+                if (queryable && coreOrExtension)
+                {
+                    VkPhysicalDeviceDescriptorIndexingFeatures supported {
+                        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+                    };
+                    VkPhysicalDeviceFeatures2 supported2 {
+                        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                        .pNext = &supported,
+                    };
+                    vkGetPhysicalDeviceFeatures2(m_physicalDevice, &supported2);
+                    m_descriptorBindingPartiallyBound = supported.descriptorBindingPartiallyBound;
+                }
+
+                KE_ASSERT_MSG(
+                    m_descriptorBindingPartiallyBound
+                        || m_appInfo.m_features.m_partiallyBoundDescriptors == GraphicsCommon::SoftEnable::TryEnable,
+                    "ApplicationInfo force-enabled partially bound descriptors, but the device does not support it");
+
+                if (m_descriptorBindingPartiallyBound)
+                {
+                    if (VkHelperFunctions::GetApiVersion(m_appInfo.m_api) < VK_API_VERSION_1_2)
+                    {
+                        requiredExtensions.push_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
+                        requiredExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+                    }
+                    descriptorIndexingFeatures = {
+                        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+                        .descriptorBindingPartiallyBound = VK_TRUE,
+                    };
+                    *last = &descriptorIndexingFeatures;
+                    last = &descriptorIndexingFeatures.pNext;
+                }
             }
         }
 
@@ -940,19 +1007,42 @@ namespace KryneEngine
         RetrieveQueue(_queueIndices.m_graphicsQueueIndex, m_graphicsQueue);
         RetrieveQueue(_queueIndices.m_transferQueueIndex, m_transferQueue);
         RetrieveQueue(_queueIndices.m_computeQueueIndex, m_computeQueue);
-        RetrieveQueue(_queueIndices.m_presentQueueIndex, m_presentQueue);
+
+        // Present on the graphics queue.
+        m_presentQueue = m_graphicsQueue;
     }
 
-    bool VkGraphicsContext::ResizeSwapChain(Window* _window)
+    SwapChainHandle VkGraphicsContext::CreateSwapChain(const SwapChainDesc& _desc)
     {
-        m_surface.UpdateCapabilities(m_physicalDevice);
-        return m_swapChain.RecreateSwapChain(
+        const SwapChainHandle handle = m_resources.CreateSwapChain(
+            m_appInfo,
+            _desc,
             m_device,
-            m_surface,
-            m_resources,
-            _window->GetGlfwWindow(),
+            m_instance,
+            m_physicalDevice,
             m_queueIndices,
             m_frameId);
+
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(handle);
+        KE_ASSERT_MSG(
+            swapChain->GetImageCount(m_frameId) == m_frameContextCount,
+            "Swap chain image count (%d) does not match the requested buffering mode (%d)",
+            swapChain->GetImageCount(m_frameId),
+            m_frameContextCount);
+
+        return handle;
+    }
+
+    void VkGraphicsContext::DestroySwapChain(SwapChainHandle _handle)
+    {
+        m_resources.DestroySwapChain(_handle, m_device, m_instance);
+    }
+
+    bool VkGraphicsContext::ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize)
+    {
+        VkSwapChain* swapChain = m_resources.GetSwapChain(_handle);
+        VERIFY_OR_RETURN(swapChain != nullptr, false);
+        return swapChain->RecreateSwapChain(m_device, m_physicalDevice, m_resources, _newSize, m_frameId);
     }
 
     eastl::vector_set<eastl::string> VkGraphicsContext::_GetRequiredDeviceExtensions() const
@@ -1092,39 +1182,38 @@ namespace KryneEngine
         return m_resources.FreeRenderTargetView(_handle, m_device);
     }
 
-    RenderTargetViewHandle VkGraphicsContext::GetPresentRenderTargetView(const u8 _index)
+    RenderTargetViewHandle VkGraphicsContext::GetSwapChainRenderTargetView(const SwapChainHandle _swapChain, const u8 _index)
     {
-        return (m_appInfo.m_features.m_present)
-                ? m_swapChain.GetSwapChain(m_frameId)->m_renderTargetViews[_index]
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+                ? swapChain->GetRenderTargetView(m_frameId, _index)
                 : RenderTargetViewHandle { GenPool::kInvalidHandle };
     }
 
-    TextureHandle VkGraphicsContext::GetPresentTexture(const u8 _swapChainIndex)
+    TextureHandle VkGraphicsContext::GetSwapChainTexture(const SwapChainHandle _swapChain, const u8 _swapChainIndex)
     {
-        return (m_appInfo.m_features.m_present)
-            ? m_swapChain.GetSwapChain(m_frameId)->m_renderTargetTextures[_swapChainIndex]
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr
+            ? swapChain->GetTexture(m_frameId, _swapChainIndex)
             : TextureHandle { GenPool::kInvalidHandle };
     }
 
-    u32 VkGraphicsContext::GetCurrentPresentImageIndex() const
+    u32 VkGraphicsContext::GetSwapChainCurrentImageIndex(const SwapChainHandle _swapChain) const
     {
-        return (m_appInfo.m_features.m_present)
-                ? m_swapChain.m_imageIndex
-                : 0;
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetCurrentImageIndex() : 0;
     }
 
-    uint2 VkGraphicsContext::GetPresentFrameBufferSize()
+    uint2 VkGraphicsContext::GetSwapChainSize(const SwapChainHandle _swapChain)
     {
-        return m_appInfo.m_features.m_present
-            ? m_swapChain.GetSwapChain(m_frameId)->m_framebufferSize
-            : uint2 { 1 };
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? swapChain->GetFramebufferSize(m_frameId) : uint2 { 1 };
     }
 
-    TextureFormat VkGraphicsContext::GetPresentTextureFormat()
+    TextureFormat VkGraphicsContext::GetSwapChainFormat(const SwapChainHandle _swapChain)
     {
-        return m_appInfo.m_features.m_present
-            ? FromVkFormat(m_swapChain.GetSwapChain(m_frameId)->m_format)
-            : TextureFormat::NoFormat;
+        const VkSwapChain* swapChain = m_resources.GetSwapChain(_swapChain);
+        return swapChain != nullptr ? FromVkFormat(swapChain->GetFormat(m_frameId)) : TextureFormat::NoFormat;
     }
 
     RenderPassHandle VkGraphicsContext::CreateRenderPass(const RenderPassDesc& _desc)
@@ -1152,6 +1241,7 @@ namespace KryneEngine
     RenderCommandEncoderHandle VkGraphicsContext::BeginRenderPass(
         const CommandListHandle _commandList,
         const RenderPassHandle _renderPass,
+        const MemoryBarriers& _barriers,
         const eastl::string_view /* _debugName */)
     {
         KE_ZoneScopedFunction("VkGraphicsContext::BeginRenderPass");
@@ -1159,13 +1249,22 @@ namespace KryneEngine
         auto* renderPassData = m_resources.m_renderPasses.Get(_renderPass.m_handle);
         VERIFY_OR_RETURN(renderPassData != nullptr, { nullptr });
 
-        VkRenderPassBeginInfo beginInfo {
+        // Vulkan forbids pipeline barriers inside a render pass instance (without a self-dependency),
+        // so pass-entry barriers must be recorded before vkCmdBeginRenderPass.
+        if (!_barriers.m_globalBarriers.empty()
+            || !_barriers.m_bufferBarriers.empty()
+            || !_barriers.m_textureBarriers.empty())
+        {
+            PlaceMemoryBarriers({ _commandList }, _barriers);
+        }
+
+        const VkRenderPassBeginInfo beginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPassData->m_renderPass,
             .framebuffer = renderPassData->m_framebuffer,
-            .renderArea = {
-                .offset = { 0, 0 },
-                .extent = { renderPassData->m_size.m_width, renderPassData->m_size.m_height }
+            .renderArea {
+                .offset { .x = 0, .y = 0 },
+                .extent{ .width = renderPassData->m_size.m_width, .height = renderPassData->m_size.m_height }
             },
             .clearValueCount = static_cast<u32>(renderPassData->m_clearValues.size()),
             .pClearValues = renderPassData->m_clearValues.data()
@@ -1181,6 +1280,24 @@ namespace KryneEngine
         KE_ZoneScopedFunction("VkGraphicsContext::EndRenderPass");
 
         vkCmdEndRenderPass(static_cast<CommandList>(_renderCommandEncoder.m_handle));
+    }
+
+    ComputeCommandEncoderHandle VkGraphicsContext::BeginComputePass(
+        const CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view /*_debugName*/)
+    {
+        PlaceMemoryBarriers({ _commandList }, _barriers);
+        return { _commandList };
+    }
+
+    TransferCommandEncoderHandle VkGraphicsContext::BeginTransferPass(
+        const CommandListHandle _commandList,
+        const MemoryBarriers& _barriers,
+        const eastl::string_view /* _debugName */)
+    {
+        PlaceMemoryBarriers({ _commandList }, _barriers);
+        return { _commandList };
     }
 
     void VkGraphicsContext::SetTextureData(
@@ -1362,9 +1479,9 @@ namespace KryneEngine
                 const GlobalMemoryBarrier& barrier = _barriers.m_globalBarriers[i];
                 globalMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true),
+                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true, m_features),
                     .srcAccessMask = ToVkAccessFlags2(barrier.m_accessSrc),
-                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false),
+                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false, m_features),
                     .dstAccessMask = ToVkAccessFlags2(barrier.m_accessDst),
                 };
             }
@@ -1376,9 +1493,9 @@ namespace KryneEngine
 
                 bufferMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
-                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true),
+                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true, m_features),
                     .srcAccessMask = ToVkAccessFlags2(barrier.m_accessSrc),
-                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false),
+                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false, m_features),
                     .dstAccessMask = ToVkAccessFlags2(barrier.m_accessDst),
                     .srcQueueFamilyIndex = 0,
                     .dstQueueFamilyIndex = 0,
@@ -1395,9 +1512,9 @@ namespace KryneEngine
 
                 imageMemoryBarriers[i] = {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true),
+                    .srcStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesSrc, true, m_features),
                     .srcAccessMask = ToVkAccessFlags2(barrier.m_accessSrc),
-                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false),
+                    .dstStageMask = ToVkPipelineStageFlagBits2(barrier.m_stagesDst, false, m_features),
                     .dstAccessMask = ToVkAccessFlags2(barrier.m_accessDst),
                     .oldLayout = ToVkLayout(barrier.m_layoutSrc),
                     .newLayout = ToVkLayout(barrier.m_layoutDst),
@@ -1539,8 +1656,8 @@ namespace KryneEngine
 
                 vkCmdPipelineBarrier(
                     static_cast<CommandList>(_commandEncoder.m_handle),
-                    ToVkPipelineStageFlagBits(src, true),
-                    ToVkPipelineStageFlagBits(dst, false),
+                    ToVkPipelineStageFlagBits(src, true, m_features),
+                    ToVkPipelineStageFlagBits(dst, false, m_features),
                     0,
                     globalMemoryBarriers.size(),
                     globalMemoryBarriers.data(),
@@ -1636,7 +1753,7 @@ namespace KryneEngine
 
         const VkViewport viewport {
             .x = static_cast<float>(_viewport.m_topLeftX),
-            .y = static_cast<float>(_viewport.m_height - _viewport.m_topLeftY),
+            .y = static_cast<float>(_viewport.m_height + _viewport.m_topLeftY),
             .width = static_cast<float>(_viewport.m_width),
             .height = -static_cast<float>(_viewport.m_height),
             .minDepth = _viewport.m_minDepth,

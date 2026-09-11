@@ -31,7 +31,7 @@ namespace KryneEngine
     struct PackedInstanceData
     {
         uint2 m_packedRect;
-        uint m_packedColor;
+        u32 m_packedColor;
         uint4 m_packedData;
     };
 
@@ -52,7 +52,8 @@ namespace KryneEngine
         eastl::vector<DescriptorSetHandle>& _texturesDescriptorSets,
         DescriptorSetLayoutHandle _texturesDescriptorSetLayout,
         SamplerHandle _defaultSampler,
-        const u32* _descriptorSetIndices)
+        const u32* _descriptorSetIndices,
+        const bool _partiallyBoundDescriptors)
     {
         KE_ZoneScopedFunction("Handle texture sets");
 
@@ -136,15 +137,34 @@ namespace KryneEngine
 
         for (auto i = 0u; i < textureSetWrites.size(); i++)
         {
-            const size_t spanSize = i + 1 == textureSetWrites.size() ? descriptorSetIndex : Modules::GuiLib::BasicGuiRenderer::kMaxTextureSlots;
+            const size_t validTextures =
+                i + 1 == textureSetWrites.size() ? descriptorSetIndex : Modules::GuiLib::BasicGuiRenderer::kMaxTextureSlots;
+            const size_t validSamplers = samplerData[i].size();
+
+            size_t textureSpan = validTextures;
+            size_t samplerSpan = validSamplers;
+
+            // When partial binding is unavailable every array slot the shader may reference must be
+            // written, so pad the unused slots with the last valid descriptor (never sampled).
+            if (!_partiallyBoundDescriptors)
+            {
+                for (size_t s = validTextures; s < Modules::GuiLib::BasicGuiRenderer::kMaxTextureSlots; ++s)
+                    textureSetWrites[i][s] = textureSetWrites[i][validTextures - 1];
+                for (size_t s = validSamplers; s < Modules::GuiLib::BasicGuiRenderer::kMaxSamplerSlots; ++s)
+                    samplerSetWrites[i][s] = samplerSetWrites[i][validSamplers - 1];
+
+                textureSpan = Modules::GuiLib::BasicGuiRenderer::kMaxTextureSlots;
+                samplerSpan = Modules::GuiLib::BasicGuiRenderer::kMaxSamplerSlots;
+            }
+
             const DescriptorSetWriteInfo info[] = {
                 {
                     .m_index = _descriptorSetIndices[0],
-                    .m_descriptorData = { textureSetWrites[i].begin(), spanSize },
+                    .m_descriptorData = { textureSetWrites[i].begin(), textureSpan },
                 },
                 {
                     .m_index = _descriptorSetIndices[1],
-                    .m_descriptorData = { samplerSetWrites[i].begin(), samplerData[i].size() },
+                    .m_descriptorData = { samplerSetWrites[i].begin(), samplerSpan },
                 }
             };
             _graphicsContext.UpdateDescriptorSet(_texturesDescriptorSets[i], info, true);
@@ -168,6 +188,8 @@ namespace KryneEngine::Modules::GuiLib
             , m_defaultSampler(_defaultSampler)
     {
         KE_ZoneScoped("BasicGuiRenderer initialization");
+
+        m_supportsPartiallyBoundDescriptors = _graphicsContext->SupportsPartiallyBoundDescriptors();
 
         const u8 frameContextCount = _graphicsContext->GetFrameContextCount();
 
@@ -224,7 +246,6 @@ namespace KryneEngine::Modules::GuiLib
 
         m_textSampler = _graphicsContext->CreateSampler({});
 
-        DescriptorSetLayoutHandle commonDescriptorSetLayout;
         {
             constexpr DescriptorBindingDesc descriptorSet0Bindings[] = {
                 {
@@ -232,7 +253,7 @@ namespace KryneEngine::Modules::GuiLib
                     .m_visibility = ShaderVisibility::Vertex | ShaderVisibility::Fragment
                 }
             };
-            commonDescriptorSetLayout = _graphicsContext->CreateDescriptorSetLayout(
+            m_commonDescriptorSetLayout = _graphicsContext->CreateDescriptorSetLayout(
                 { .m_bindings = descriptorSet0Bindings },
                 m_commonDescriptorSetIndices.data());
 
@@ -252,12 +273,12 @@ namespace KryneEngine::Modules::GuiLib
                 { .m_bindings = descriptorSet1Bindings },
                 m_texturesDescriptorSetIndices.data());
 
-            const DescriptorSetLayoutHandle descriptorSetLayouts[] = { commonDescriptorSetLayout, m_texturesDescriptorSetLayout };
+            const DescriptorSetLayoutHandle descriptorSetLayouts[] = { m_commonDescriptorSetLayout, m_texturesDescriptorSetLayout };
             m_commonPipelineLayout = _graphicsContext->CreatePipelineLayout({
                 .m_descriptorSets = descriptorSetLayouts,
             });
 
-            m_commonDescriptorSet = _graphicsContext->CreateDescriptorSet(commonDescriptorSetLayout);
+            m_commonDescriptorSet = _graphicsContext->CreateDescriptorSet(m_commonDescriptorSetLayout);
             m_texturesDescriptorSets.push_back(_graphicsContext->CreateDescriptorSet(m_texturesDescriptorSetLayout));
         }
 
@@ -461,8 +482,6 @@ namespace KryneEngine::Modules::GuiLib
             _allocator.deallocate(fragmentShaderSource.data(), fragmentShaderSource.size());
             _allocator.deallocate(vertexShaderSource.data(), vertexShaderSource.size());
         }
-
-        _graphicsContext->DestroyDescriptorSetLayout(commonDescriptorSetLayout);
     }
 
     void BasicGuiRenderer::BeginLayout(const float4x4& _viewportTransform, const uint2& _viewportSize)
@@ -506,17 +525,27 @@ namespace KryneEngine::Modules::GuiLib
         {
             m_textDescriptorSet = _graphicsContext.CreateDescriptorSet(m_texturesDescriptorSetLayout);
 
-            const DescriptorSetWriteInfo::DescriptorData atlasViewData = { .m_handle = m_atlasManager->GetAtlasView().m_handle };
-            const DescriptorSetWriteInfo::DescriptorData textSamplerData = { .m_handle = m_textSampler.m_handle };
+            // The text pipeline only reads slot 0 of each array; pad the rest when partial binding is
+            // unavailable (see HandleTextureSets).
+            const u32 textureCount = m_supportsPartiallyBoundDescriptors ? 1 : kMaxTextureSlots;
+            const u32 samplerCount = m_supportsPartiallyBoundDescriptors ? 1 : kMaxSamplerSlots;
+
+            eastl::array<DescriptorSetWriteInfo::DescriptorData, kMaxTextureSlots> atlasViewData;
+            atlasViewData.fill({
+                .m_textureLayout = TextureLayout::ShaderResource,
+                .m_handle = m_atlasManager->GetAtlasView().m_handle,
+            });
+            eastl::array<DescriptorSetWriteInfo::DescriptorData, kMaxSamplerSlots> textSamplerData;
+            textSamplerData.fill({ .m_handle = m_textSampler.m_handle });
 
             const DescriptorSetWriteInfo writes[] = {
                 {
                     .m_index = m_texturesDescriptorSetIndices[0],
-                    .m_descriptorData = { &atlasViewData, 1 },
+                    .m_descriptorData = { atlasViewData.data(), textureCount },
                 },
                 {
                     .m_index = m_texturesDescriptorSetIndices[1],
-                    .m_descriptorData = { &textSamplerData, 1 },
+                    .m_descriptorData = { textSamplerData.data(), samplerCount },
                 }
             };
             _graphicsContext.UpdateDescriptorSet(m_textDescriptorSet, writes, false);
@@ -532,7 +561,8 @@ namespace KryneEngine::Modules::GuiLib
                 m_texturesDescriptorSets,
                 m_texturesDescriptorSetLayout,
                 m_defaultSampler,
-                m_texturesDescriptorSetIndices.data());
+                m_texturesDescriptorSetIndices.data(),
+                m_supportsPartiallyBoundDescriptors);
             textureDataMap = eastl::move(pair.first);
             samplerDataMap = eastl::move(pair.second);
         }
@@ -582,8 +612,12 @@ namespace KryneEngine::Modules::GuiLib
         };
         _graphicsContext.SetVertexBuffers(_renderEncoder, {&bufferView, 1});
 
-        size_t texturesDescriptorSetIndex = 0;
-        const DescriptorSetHandle descriptorSets[] = { m_commonDescriptorSet, m_texturesDescriptorSets[0] };
+        // Use a sentinel value to enforce texture descriptor set bind only at the first textured draw. Some APIs don't
+        // retain a set bound while no pipeline is active.
+        static constexpr size_t kUnboundTexturesSet = ~static_cast<size_t>(0);
+        size_t texturesDescriptorSetIndex = kUnboundTexturesSet;
+
+        const DescriptorSetHandle descriptorSets[] = { m_commonDescriptorSet };
         _graphicsContext.SetGraphicsDescriptorSets(_renderEncoder, m_commonPipelineLayout, descriptorSets);
 
         eastl::fixed_vector<Rect, 16, false> scissors;

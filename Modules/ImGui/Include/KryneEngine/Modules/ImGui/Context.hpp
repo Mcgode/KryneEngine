@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <EASTL/chrono.h>
 #include <EASTL/vector_map.h>
 #include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
 #include <KryneEngine/Modules/GraphicsUtils/DynamicBuffer.hpp>
@@ -15,11 +14,13 @@
 namespace KryneEngine
 {
     class Window;
+    class WindowManager;
 }
 
 namespace KryneEngine::Modules::ImGui
 {
     class Input;
+    class ViewportBackend;
 
     /**
      * @class Context
@@ -28,6 +29,8 @@ namespace KryneEngine::Modules::ImGui
      */
     class Context
     {
+        friend class ViewportBackend;
+
     public:
         /**
          * @brief Constructs a Context object.
@@ -43,6 +46,8 @@ namespace KryneEngine::Modules::ImGui
          */
         Context(
             Window* _window,
+            WindowManager* _windowManager,
+            GraphicsContext* _graphicsContext,
             TextureFormat _targetFormat,
             AllocatorInstance _allocator,
             eastl::span<char> _vsBytecode = {},
@@ -59,15 +64,18 @@ namespace KryneEngine::Modules::ImGui
          *
          * @param _window The Window object associated with this Context, which indirectly owns the objects.
          */
-        void Shutdown(Window* _window);
+        void Shutdown(WindowManager* _windowManager, GraphicsContext* _graphicsContext);
 
         /**
          * Sets up the ImGui context for a new frame.
          * Updates input and window data.
          *
-         * @param _window The Window object.
+         * @param _window The main OS window.
+         * @param _graphicsContext The graphics context.
+         * @param _mainSwapChain The main window's swap chain — presented alongside any viewport
+         *        swap chains by #GetSwapChainsToPresent.
          */
-        void NewFrame(Window* _window);
+        void NewFrame(Window* _window, GraphicsContext* _graphicsContext, SwapChainHandle _mainSwapChain);
 
         /**
          * @brief Prepares the rendering context for a new frame by updating the vertex and index buffers.
@@ -86,6 +94,21 @@ namespace KryneEngine::Modules::ImGui
          * @param _renderEncoder The command list used for rendering.
          */
         void RenderFrame(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
+
+        /**
+         * @brief Creates / resizes / destroys the OS windows and swap chains backing Dear ImGui's
+         *        secondary viewports, and records their draw commands.
+         *
+         * @details No-op unless `ImGuiConfigFlags_ViewportsEnable` is set. Call once per frame after the
+         * main viewport's render pass has been recorded in the provided command list, then present with
+         * @ref GetSwapChainsToPresent. Only records — the actual submit/present happens in
+         * `GraphicsContext::EndFrame`.
+         */
+        void UpdateAndRenderPlatformWindows(GraphicsContext* _graphicsContext, CommandListHandle _commandList);
+
+        /// @brief The swap chains to hand to `GraphicsContext::EndFrame` this frame — the main window's
+        ///        plus one per visible secondary viewport. Valid until the next #NewFrame.
+        [[nodiscard]] eastl::span<const SwapChainHandle> GetSwapChainsToPresent() const { return m_presentSwapChains; }
 
         /**
          * @brief A helper function to convert a texture view / sampler set into an ImTextureID.
@@ -123,6 +146,10 @@ namespace KryneEngine::Modules::ImGui
 
         DescriptorSetLayoutHandle m_descriptorSetLayout { GenPool::kInvalidHandle };
         eastl::vector<DescriptorSetHandle> m_descriptorSets;
+        /// @brief Running allocation index into @ref m_descriptorSets for the current frame. Reset in
+        ///        #PrepareToRenderFrame so the main viewport and every secondary viewport each get a
+        ///        disjoint range — a set must never be re-`UpdateDescriptorSet`'d after being bound.
+        u32 m_descriptorSetCursor = 0;
 
         eastl::vector<u32> m_setIndices;
         PipelineLayoutHandle m_pipelineLayout { GenPool::kInvalidHandle };
@@ -132,14 +159,33 @@ namespace KryneEngine::Modules::ImGui
         GraphicsUtils::DynamicBuffer m_dynamicVertexBuffer;
         GraphicsUtils::DynamicBuffer m_dynamicIndexBuffer;
 
-        eastl::chrono::time_point<eastl::chrono::steady_clock> m_timePoint;
+        u64 m_lastFrameTimestampNs = 0;
 
-        Input* m_input;
+        Input* m_input = nullptr;
+        ViewportBackend* m_viewportBackend = nullptr;
+
+        TextureFormat m_targetFormat = TextureFormat::NoFormat;
+        SwapChainHandle m_mainSwapChain { GenPool::kInvalidHandle };
+        eastl::vector<SwapChainHandle> m_presentSwapChains;
 
         void InitPso(
             GraphicsContext* _graphicsContext,
             TextureFormat _targetFormat,
             eastl::span<char> _externalVsBytecode,
             eastl::span<char> _externalFsBytecode);
+
+        /// @brief Records the draw commands of one ImDrawData into an already-open render pass.
+        void RenderDrawData(
+            GraphicsContext* _graphicsContext,
+            RenderCommandEncoderHandle _renderEncoder,
+            const ImDrawData* _drawData,
+            u32 _firstVertex,
+            u32 _firstIndex);
+
+        /// @brief Base offsets of a viewport's vertices/indices in the shared dynamic buffers,
+        ///        as laid out by the last #PrepareToRenderFrame.
+        void GetViewportDrawOffsets(ImGuiID _viewportId, u32& _firstVertex, u32& _firstIndex) const;
+
+        eastl::vector_map<ImGuiID, eastl::pair<u32, u32>> m_viewportDrawOffsets;
     };
 }// namespace KryneEngine
