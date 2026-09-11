@@ -150,6 +150,7 @@ namespace KryneEngine
 
                 ++i;
                 probeIndex = (probeIndex + 1) % m_capacity;
+                control = m_controlBuffer[probeIndex];
             }
         }
         else
