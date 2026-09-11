@@ -274,7 +274,7 @@ namespace KryneEngine
         {
             // There is negligible
             FlatHashMap temp(m_allocator, _newCapacity);
-            for (auto i = 0; i < m_count; ++i)
+            for (auto i = 0; i < m_capacity; ++i)
             {
                 if ((m_controlBuffer[i] & kAvailableSlotFlag) == 0)
                 {
