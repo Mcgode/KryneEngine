@@ -683,6 +683,12 @@ namespace KryneEngine
          */
         [[nodiscard]] virtual ShaderModuleHandle RegisterShaderModule(const void* _bytecodeData, u64 _bytecodeSize) = 0;
 
+        template <class T>
+        [[nodiscard]] ShaderModuleHandle RegisterShaderModule(eastl::span<const T> _bytecodeData)
+        {
+            return RegisterShaderModule(_bytecodeData.data(), _bytecodeData.size_bytes());
+        }
+
         /**
          * @brief Creates a descriptor set layout, describing the bindings available in a descriptor set.
          *
