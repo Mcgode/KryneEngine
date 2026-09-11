@@ -374,7 +374,12 @@ namespace KryneEngine
                     }
 
                     const u64 controlMask = Simd::CompareEqMask(controlBatch, controlTest);
-                    const u64 unusedMask = Simd::CompareEqMask(controlBatch, unusedBatch);
+                    u64 unusedMask = Simd::CompareEqMask(controlBatch, unusedBatch);
+
+                    if (probeIndex + FlatHashMapInternals::kControlAlignment > m_capacity)
+                    {
+                        unusedMask &= BitUtils::BitMask<u64>((m_capacity - probeIndex) << lsbShift);
+                    }
 
                     if (controlMask != 0)
                     {
