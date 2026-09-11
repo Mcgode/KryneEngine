@@ -264,7 +264,8 @@ namespace KryneEngine
             m_kvpBuffer = m_allocator.Allocate<eastl::pair<Key, Value>>(newCapacity);
 
             m_controlBuffer = static_cast<u8*>(m_allocator.allocate(newCapacity + FlatHashMapInternals::kControlBufferPadding, FlatHashMapInternals::kControlAlignment));
-            memset(m_controlBuffer, kUnused, newCapacity + FlatHashMapInternals::kControlBufferPadding);
+            memset(m_controlBuffer, kUnused, newCapacity);
+            memset(m_controlBuffer + newCapacity, kTombstone, FlatHashMapInternals::kControlBufferPadding);
 
             m_count = 0;
             m_capacity = newCapacity;
@@ -374,12 +375,7 @@ namespace KryneEngine
                     }
 
                     const u64 controlMask = Simd::CompareEqMask(controlBatch, controlTest);
-                    u64 unusedMask = Simd::CompareEqMask(controlBatch, unusedBatch);
-
-                    if (probeIndex + FlatHashMapInternals::kControlAlignment > m_capacity)
-                    {
-                        unusedMask &= BitUtils::BitMask<u64>((m_capacity - probeIndex) << lsbShift);
-                    }
+                    const u64 unusedMask = Simd::CompareEqMask(controlBatch, unusedBatch);
 
                     if (controlMask != 0)
                     {
