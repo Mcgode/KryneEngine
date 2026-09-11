@@ -15,9 +15,8 @@ namespace KryneEngine
 {
     MetalGraphicsContext::MetalGraphicsContext(
         const AllocatorInstance _allocator,
-        const GraphicsCommon::ApplicationInfo& _appInfo,
-        Window* _window)
-        : GraphicsContext(_allocator, _appInfo, _window)
+        const GraphicsCommon::ApplicationInfo& _appInfo)
+        : GraphicsContext(_allocator, _appInfo)
         , m_frameContexts(_allocator)
         , m_resources(_allocator)
         , m_argumentBufferManager(_allocator)
@@ -95,17 +94,12 @@ namespace KryneEngine
             }
         }
 
-        m_frameContextCount = 2;
-        const u8 frameIndex = m_frameId % m_frameContextCount;
-
         KE_ASSERT_FATAL_MSG(!_appInfo.m_features.m_present || _appInfo.m_features.m_graphics,
                             "Metal graphics context does not support presentation without graphics queue");
-        KE_ASSERT_FATAL(!(_appInfo.m_features.m_present ^ (_window != nullptr)));
-        if (_appInfo.m_features.m_present)
-        {
-            m_swapChain.Init(_allocator, *m_device, _appInfo, _window, m_resources, frameIndex);
-            m_frameContextCount = m_swapChain.m_textures.Size();
-        }
+
+        // Frame context count is an explicit, strict choice — not negotiated against the swap chain.
+        m_frameContextCount = static_cast<u8>(_appInfo.m_bufferingMode);
+        const u8 frameIndex = m_frameId % m_frameContextCount;
 
         m_frameContexts.Resize(m_frameContextCount);
         m_frameContexts.InitAll(

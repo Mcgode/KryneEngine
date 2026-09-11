@@ -29,7 +29,8 @@ namespace KryneEngine::Samples::RenderGraphDemo
             m_sceneConstantsDescriptorSet = _sceneConstantsDescriptorSet;
         }
 
-        void Render(const Modules::RenderGraph::PassExecutionData& _passExecutionData);
+        void Render(const Modules::RenderGraph::PassExecutionData& _passExecutionData,
+        uint2 _renderSize);
 
     private:
         AllocatorInstance m_allocator;

@@ -39,6 +39,42 @@ namespace KryneEngine::GraphicsCommon
         ForceEnabled
     };
 
+    /**
+     * @brief Number of frames the engine keeps in flight (and hence the swap chain image count).
+     *
+     * @details
+     * A strict, explicit choice — it drives `GraphicsContext::GetFrameContextCount()` and is *not*
+     * negotiated against window/surface capabilities. Creating a swap chain that cannot honour the
+     * requested count is a hard error. The underlying value is the count itself.
+     */
+    enum class BufferingMode : u8
+    {
+        Single = 1,
+        Double = 2,
+        Triple = 3,
+    };
+
+    /**
+     * @brief Window / presentation-surface preferences.
+     *
+     * @details
+     * Independent of @ref ApplicationInfo — the same struct is passed to window creation
+     * (size, decorations) and to @ref GraphicsContext::CreateSwapChain (colour space).
+     */
+    struct DisplayOptions
+    {
+        u16 m_width = 1280;
+        u16 m_height = 720;
+
+        SoftEnable m_sRgbPresent = SoftEnable::TryEnable;
+
+        bool m_fullscreen = false;
+        bool m_resizableWindow = false;
+        /// @brief Whether the OS draws a title bar / border. `false` for borderless windows
+        ///        (e.g. Dear ImGui secondary viewports).
+        bool m_decorated = true;
+    };
+
     struct ApplicationInfo
     {
         eastl::string m_applicationName = "Unnamed app";
@@ -47,12 +83,30 @@ namespace KryneEngine::GraphicsCommon
         Version m_engineVersion { 1, 0, 0 };
         Api m_api = Api::None;
 
+        BufferingMode m_bufferingMode = BufferingMode::Double;
+
+        // Member order is chosen so the struct has no padding bytes: every `SoftEnable`/`bool`
+        // (all 1-byte) comes first and the 4-byte `m_gpuTimestampBufferCapacity` lands last on a
+        // natural boundary. This keeps the struct byte-comparable (see the unit tests).
         struct Features
         {
             SoftEnable m_validationLayers = SoftEnable::TryEnable;
             SoftEnable m_debugTags = SoftEnable::TryEnable;
             SoftEnable m_gpuTimestamps = SoftEnable::TryEnable;
-            u32 m_gpuTimestampBufferCapacity = 4'096;
+
+            /// @brief Enables geometry shaders. Also required to read `SV_PrimitiveID` in a fragment
+            ///        shader without a geometry/tessellation stage (a SPIR-V capability requirement).
+            ///        Not universally supported (e.g. Metal / MoltenVK have no geometry shaders), hence
+            ///        a @ref SoftEnable: `ForceEnabled` asserts if unavailable, `TryEnable` silently skips.
+            SoftEnable m_geometryShader = SoftEnable::Disabled;
+
+            /// @brief Allows arrayed descriptor bindings to be only partially written — unwritten slots
+            ///        that the shader never dynamically accesses stay legal (Vulkan
+            ///        `VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT`). Not guaranteed on Vulkan 1.0 / older
+            ///        Android; query @ref GraphicsContext::SupportsPartiallyBoundDescriptors after creation
+            ///        and, when unavailable, fully populate every arrayed binding instead.
+            ///        `ForceEnabled` asserts if unavailable, `TryEnable` silently falls back.
+            SoftEnable m_partiallyBoundDescriptors = SoftEnable::Disabled;
 
             bool m_graphics = true;
             bool m_present = true;
@@ -62,21 +116,10 @@ namespace KryneEngine::GraphicsCommon
             bool m_transferQueue = true;
             bool m_asyncCompute = false;
             bool m_concurrentQueues = true;
+
+            u32 m_gpuTimestampBufferCapacity = 4'096;
         }
         m_features {};
-
-        struct DisplayOptions
-        {
-            u16 m_width = 1280;
-            u16 m_height = 720;
-
-            SoftEnable m_sRgbPresent = SoftEnable::TryEnable;
-            SoftEnable m_tripleBuffering = SoftEnable::TryEnable;
-
-            bool m_fullscreen = false;
-            bool m_resizableWindow = false;
-        }
-        m_displayOptions {};
 
         [[nodiscard]] bool IsVulkanApi() const
         {

@@ -6,70 +6,66 @@
 
 #pragma once
 
-#include <EASTL/unique_ptr.h>
-#include <EASTL/vector_map.h>
+#include <EASTL/string_view.h>
 
 #include "KryneEngine/Core/Common/Types.hpp"
-#include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
-#include "KryneEngine/Core/Threads/LightweightMutex.hpp"
+#include "KryneEngine/Core/Window/NativeWindowHandle.hpp"
 
 struct GLFWwindow;
 
 namespace KryneEngine
 {
-    class GraphicsContext;
-    class InputManager;
-
+    /**
+     * @brief A thin handle over an OS window.
+     *
+     * @details
+     * A `Window` is created, owned and destroyed by the @ref WindowManager — it does not touch GLFW's
+     * process-global state, drive the message pump, or own any input state. It only exposes the queries
+     * an application needs to set up a swap chain and lay out its rendering. The `Window*` returned by
+     * @ref WindowManager::SpawnWindow is itself the stable handle used with the rest of the manager API.
+     */
     class Window
     {
-    public:
+        friend class WindowManager;
 
-        explicit Window(const GraphicsCommon::ApplicationInfo& _appInfo, AllocatorInstance _allocator);
+    public:
+        /// @brief Constructed by the @ref WindowManager — applications go through @ref WindowManager::SpawnWindow.
+        Window(GLFWwindow* _glfwWindow, AllocatorInstance _allocator);
 
         virtual ~Window();
 
-        [[nodiscard]] bool WaitForEvents();
-        [[nodiscard]] GLFWwindow* GetGlfwWindow() const { return m_glfwWindow; }
-        [[nodiscard]] GraphicsContext* GetGraphicsContext() const { return m_graphicsContext; }
-        [[nodiscard]] InputManager* GetInputManager() const { return m_inputManager; }
+        /// @brief Retrieves the native OS handles backing this window (see @ref NativeWindowHandle).
+        [[nodiscard]] NativeWindowHandle GetNativeHandle() const;
 
-        uint2 GetFramebufferSize() const;
-        float2 GetDpiScale() const;
+        /// @brief Size of the drawable surface, in pixels (drives swap-chain / viewport dimensions).
+        [[nodiscard]] uint2 GetFramebufferSize() const;
+        [[nodiscard]] float2 GetDpiScale() const;
 
-        [[nodiscard]] u32 RegisterWindowFocusEventCallback(eastl::function<void(bool)>&& _callback);
-        void UnregisterWindowFocusEventCallback(u32 _id);
+        /// @brief Window client-area position, in virtual screen coordinates (top-left corner).
+        [[nodiscard]] int2 GetPosition() const;
+        void SetPosition(int2 _position) const;
 
-        [[nodiscard]] u32 RegisterDpiChangeEventCallback(eastl::function<void(const float2&)>&& _callback);
-        void UnregisterDpiChangeEventCallback(u32 _id);
+        /// @brief Window client-area size, in screen coordinates (may differ from @ref GetFramebufferSize on HiDPI).
+        [[nodiscard]] uint2 GetSize() const;
+        void SetSize(uint2 _size) const;
 
-        [[nodiscard]] bool WasResizedThisFrame() const { return m_resizedThisFrame; }
-        [[nodiscard]] bool ShouldResizeSwapChain() const { return !m_resizedSwapChain; }
-        void NotifySwapChainResized() { m_resizedSwapChain = true; }
+        [[nodiscard]] bool IsFocused() const;
+        void Focus() const;
+
+        [[nodiscard]] bool IsMinimized() const;
+
+        void SetTitle(const eastl::string_view& _title) const;
+
+        void Show() const;
+        void Hide() const;
 
     private:
         AllocatorInstance m_allocator;
         GLFWwindow* m_glfwWindow;
 
-        GraphicsContext* m_graphicsContext;
-        InputManager* m_inputManager;
-
-        uint2 m_previousFramebufferSize;
-        bool m_resizedThisFrame = false;
-        bool m_resizedSwapChain = true;
-
-        LightweightMutex m_callbackMutex;
-
-        static void WindowFocusCallback(GLFWwindow* _window, s32 _focused);
-        eastl::vector_map<u32, eastl::function<void(bool)>> m_windowFocusEventListeners;
-        u32 m_windowFocusEventCounter = 0;
-
-        static void DpiChangeCallback(GLFWwindow* _window, float _xScale, float _yScale);
-        eastl::vector_map<u32, eastl::function<void(const float2&)>> m_dpiChangeEventListeners;
-        u32 m_dpiChangeEventCounter = 0;
-
-        static void ResizeCallback(GLFWwindow* _window, int _width, int _height);
+        // WindowManager-managed state (updated from the GLFW callbacks it registers).
+        uint2 m_lastFramebufferSize {};
+        bool m_resizePending = false;
     };
 }
-
-

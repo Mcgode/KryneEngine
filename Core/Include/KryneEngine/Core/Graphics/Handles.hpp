@@ -23,6 +23,7 @@ namespace KryneEngine
     KE_GENPOOL_DECLARE_HANDLE(PipelineLayoutHandle);
     KE_GENPOOL_DECLARE_HANDLE(GraphicsPipelineHandle);
     KE_GENPOOL_DECLARE_HANDLE(ComputePipelineHandle);
+    KE_GENPOOL_DECLARE_HANDLE(SwapChainHandle);
 
     struct TimestampHandle
     {

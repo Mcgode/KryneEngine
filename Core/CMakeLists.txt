@@ -150,12 +150,17 @@ set(ThreadsSrc
 
 set(WindowSrc
         Src/Window/Window.cpp Include/KryneEngine/Core/Window/Window.hpp
+        Src/Window/WindowManager.cpp Include/KryneEngine/Core/Window/WindowManager.hpp
+        Include/KryneEngine/Core/Window/NativeWindowHandle.hpp
         Src/Window/Input/InputManager.cpp Include/KryneEngine/Core/Window/Input/InputManager.hpp
         Include/KryneEngine/Core/Window/Input/KeyInputEvent.hpp
-        Include/KryneEngine/Core/Window/GLFW/Input/KeyInputEvent.hpp
+        Src/Window/GLFW/Input/KeyInputEvent.hpp
         Src/Window/GLFW/Input/KeyInputEvent.cpp
         Include/KryneEngine/Core/Window/Input/MouseInputEvent.hpp
         Include/KryneEngine/Core/Window/Input/Enums.hpp
+        Include/KryneEngine/Core/Window/Input/InputEvent.hpp
+        Include/KryneEngine/Core/Window/Input/InputConsumer.hpp
+        Include/KryneEngine/Core/Window/Input/InputAction.hpp
 )
 
 if (GraphicsApi STREQUAL "VK")
@@ -168,6 +173,7 @@ if (GraphicsApi STREQUAL "VK")
                 Src/Graphics/Vulkan/VkSwapChain.hpp
                 Src/Graphics/Vulkan/VkSurface.cpp
                 Src/Graphics/Vulkan/VkSurface.hpp
+                Src/Graphics/Vulkan/VkSurfacePlatform.hpp
                 Src/Graphics/Vulkan/CommonStructures.hpp
                 Src/Graphics/Vulkan/VkHeaders.hpp
                 Src/Graphics/Vulkan/VkFrameContext.cpp
@@ -179,7 +185,13 @@ if (GraphicsApi STREQUAL "VK")
                 Src/Graphics/Vulkan/VmaUsage.cpp
                 Src/Graphics/Vulkan/VkDescriptorSetManager.cpp
                 Src/Graphics/Vulkan/VkDescriptorSetManager.hpp
+                Src/Graphics/Vulkan/VkFeatures.hpp
         )
+        if (APPLE)
+                list(APPEND GraphicsFiles Src/Graphics/Vulkan/VkSurfacePlatform.mm)
+        else ()
+                list(APPEND GraphicsFiles Src/Graphics/Vulkan/VkSurfacePlatform.cpp)
+        endif ()
 elseif(GraphicsApi STREQUAL "DX12")
         set(GraphicsFiles ${GraphicsCommonFiles}
                 Src/Graphics/DirectX12/Dx12GraphicsContext.cpp
@@ -247,6 +259,13 @@ if (GraphicsApi STREQUAL "VK")
 
         message(STATUS "Vulkan lib: " ${Vulkan_LIBRARIES})
         target_link_libraries(KryneEngine_Core ${Vulkan_LIBRARIES} VulkanMemoryAllocator)
+
+        if (APPLE)
+                # VkSurfacePlatform.mm attaches a CAMetalLayer to the native NSView.
+                find_library(QUARTZCORE_FRAMEWORK QuartzCore)
+                find_library(APPKIT_FRAMEWORK AppKit)
+                target_link_libraries(KryneEngine_Core ${QUARTZCORE_FRAMEWORK} ${APPKIT_FRAMEWORK})
+        endif ()
 elseif(GraphicsApi STREQUAL "DX12")
         message(STATUS "Linking DirectX12 libs")
         target_link_libraries(KryneEngine_Core d3d12 dxgi d3dcompiler dxguid DirectX-Headers D3D12MemoryAllocator)

@@ -45,6 +45,54 @@ namespace KryneEngine
         _pointer = nullptr;
     }
 
+    // --- MSVC / mingw COM ABI shims ------------------------------------------------
+    // DirectX-Headers only declares these COM accessors as returning their aggregate
+    // by value for MSVC (and for non-Windows targets). For Windows built with a
+    // non-MSVC compiler - which is what the macOS -> mingw cross build uses - they
+    // instead take an out-parameter, to sidestep a historical aggregate-return ABI
+    // bug. These wrappers keep the call sites uniform.
+#if defined(_MSC_VER) || !defined(_WIN32)
+#   define KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE 1
+#else
+#   define KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE 0
+#endif
+
+    template <class Heap>
+    [[nodiscard]] inline D3D12_CPU_DESCRIPTOR_HANDLE Dx12CpuDescriptorHandleForHeapStart(Heap&& _heap)
+    {
+#if KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE
+        return _heap->GetCPUDescriptorHandleForHeapStart();
+#else
+        D3D12_CPU_DESCRIPTOR_HANDLE handle {};
+        _heap->GetCPUDescriptorHandleForHeapStart(&handle);
+        return handle;
+#endif
+    }
+
+    template <class Heap>
+    [[nodiscard]] inline D3D12_GPU_DESCRIPTOR_HANDLE Dx12GpuDescriptorHandleForHeapStart(Heap&& _heap)
+    {
+#if KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE
+        return _heap->GetGPUDescriptorHandleForHeapStart();
+#else
+        D3D12_GPU_DESCRIPTOR_HANDLE handle {};
+        _heap->GetGPUDescriptorHandleForHeapStart(&handle);
+        return handle;
+#endif
+    }
+
+    template <class Heap>
+    [[nodiscard]] inline D3D12_HEAP_DESC Dx12GetHeapDesc(Heap&& _heap)
+    {
+#if KE_DX12_COM_RETURNS_AGGREGATES_BY_VALUE
+        return _heap->GetDesc();
+#else
+        D3D12_HEAP_DESC desc {};
+        _heap->GetDesc(&desc);
+        return desc;
+#endif
+    }
+
     template <class DxObject, class... Args>
     void Dx12SetName(DxObject* _object, const wchar_t* _format, Args... _args)
     {
@@ -147,7 +195,7 @@ namespace KryneEngine
                 MAP(RGB8_UNorm, DXGI_FORMAT_R8G8B8A8_UNORM);
                 MAP(RGBA8_UNorm, DXGI_FORMAT_R8G8B8A8_UNORM);
 
-                MAP(RGB8_sRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+                // MAP(RGB8_sRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
                 MAP(RGBA8_sRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
 
                 MAP(BGRA8_UNorm, DXGI_FORMAT_B8G8R8A8_UNORM);
@@ -155,8 +203,13 @@ namespace KryneEngine
 
                 MAP(R8_SNorm, DXGI_FORMAT_R8_SNORM);
                 MAP(RG8_SNorm, DXGI_FORMAT_R8G8_SNORM);
-                MAP(RGB8_SNorm, DXGI_FORMAT_R8G8B8A8_SNORM);
+                // MAP(RGB8_SNorm, DXGI_FORMAT_R8G8B8A8_SNORM);
                 MAP(RGBA8_SNorm, DXGI_FORMAT_R8G8B8A8_SNORM);
+
+                MAP(R16_Float, DXGI_FORMAT_R16_FLOAT);
+                MAP(RG16_Float, DXGI_FORMAT_R16G16_FLOAT);
+                // MAP(RGB16_Float, DXGI_FORMAT_R16G16B16_FLOAT);
+                MAP(RGBA16_Float, DXGI_FORMAT_R16G16B16A16_FLOAT);
 
                 MAP(R32_Float, DXGI_FORMAT_R32_FLOAT);
                 MAP(RG32_Float, DXGI_FORMAT_R32G32_FLOAT);

@@ -31,7 +31,7 @@ namespace KryneEngine::Tests::Graphics
 
         ScopedAssertCatcher catcher;
         const GraphicsCommon::ApplicationInfo appInfo = DefaultAppInfo();
-        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
 
         // -----------------------------------------------------------------------
         // Execute
@@ -88,7 +88,7 @@ namespace KryneEngine::Tests::Graphics
 
         ScopedAssertCatcher catcher;
         const GraphicsCommon::ApplicationInfo appInfo = DefaultAppInfo();
-        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
         const BufferHandle buffer = graphicsContext->CreateBuffer(defaultBufferCreateDesc);
 
         // -----------------------------------------------------------------------
@@ -115,7 +115,7 @@ namespace KryneEngine::Tests::Graphics
 
         ScopedAssertCatcher catcher;
         const GraphicsCommon::ApplicationInfo appInfo = DefaultAppInfo();
-        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, nullptr, AllocatorInstance());
+        GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
         eastl::vector<BufferHandle> buffers;
 
         // -----------------------------------------------------------------------

@@ -15,7 +15,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
     class OrbitCamera
     {
     public:
-        OrbitCamera(InputManager* _inputManager, float _aspectRatio);
+        explicit OrbitCamera(float _aspectRatio);
         ~OrbitCamera();
 
         void Process();
@@ -41,13 +41,5 @@ namespace KryneEngine::Samples::RenderGraphDemo
         float3 m_viewTranslation {};
         Math::Quaternion m_viewRotation {};
         float4x4 m_projectionViewMatrix {};
-
-        u32 m_mouseButtonInputCallbackId;
-        u32 m_cursorPositionCallbackId;
-        u32 m_scrollCallbackId;
-
-        bool m_orbiting = false;
-        float2 m_lastCursorPosition {};
-        float2 m_deltaPosition {};
     };
 }

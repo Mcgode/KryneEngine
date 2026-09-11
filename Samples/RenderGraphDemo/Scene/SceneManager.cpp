@@ -55,6 +55,7 @@ namespace KryneEngine::Samples::RenderGraphDemo
     SceneManager::SceneManager(
         AllocatorInstance _allocator,
         Window& _window,
+        GraphicsContext* _graphicsContext,
         Modules::RenderGraph::Registry& _registry)
             : m_allocator(_allocator)
             , m_torusKnot(nullptr, _allocator)
@@ -67,10 +68,10 @@ namespace KryneEngine::Samples::RenderGraphDemo
     {
         m_torusKnot.reset(m_allocator.New<TorusKnot>(m_allocator));
 
-        GraphicsContext* graphicsContext = _window.GetGraphicsContext();
-        m_windowSize = graphicsContext->GetPresentFrameBufferSize();
+        GraphicsContext* graphicsContext = _graphicsContext;
+        m_windowSize = _window.GetFramebufferSize();
         const float aspectRatio = static_cast<float>(m_windowSize.x) / static_cast<float>(m_windowSize.y);
-        m_orbitCamera.reset(m_allocator.New<OrbitCamera>(_window.GetInputManager(), aspectRatio));
+        m_orbitCamera.reset(m_allocator.New<OrbitCamera>(aspectRatio));
 
         m_sunLight.reset(m_allocator.New<SunLight>());
 

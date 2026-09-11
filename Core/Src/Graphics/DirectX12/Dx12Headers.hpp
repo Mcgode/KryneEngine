@@ -18,12 +18,6 @@
 #undef max
 #endif
 
-// In order to define a function called CreateWindow, the Windows macro needs to
-// be undefined.
-#if defined(CreateWindow)
-#undef CreateWindow
-#endif
-
 // Windows Runtime Library. Needed for Microsoft::WRL::ComPtr<> template class.
 #include <wrl.h>
 using Microsoft::WRL::ComPtr;
@@ -35,6 +29,10 @@ using Microsoft::WRL::ComPtr;
 
 // D3D12 extension library.
 #include "directx/d3dx12.h"
+
+// Cross-compilation shims for the mingw-w64 SDK (missing __uuidof support and a
+// few debug GUID constants). No-op for MSVC.
+#include "Graphics/DirectX12/Dx12MingwCompat.hpp"
 
 // Kryne engine includes
 #include "KryneEngine/Core/Common/Types.hpp"

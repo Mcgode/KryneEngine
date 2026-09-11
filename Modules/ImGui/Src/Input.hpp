@@ -7,31 +7,37 @@
 #pragma once
 
 #include <KryneEngine/Core/Window/Input/Enums.hpp>
+#include <KryneEngine/Core/Window/Input/InputConsumer.hpp>
 #include <imgui.h>
 
 namespace KryneEngine
 {
-    class Window;
+    class InputManager;
 }
 
 namespace KryneEngine::Modules::ImGui
 {
-    class Input
+    /**
+     * @brief Bridges the engine @ref InputManager event queue into Dear ImGui's `ImGuiIO`.
+     *
+     * @details A high-priority @ref InputConsumer: every relevant event is unconditionally forwarded
+     * to ImGui (it needs the raw stream to compute hover/capture state for the next frame), and
+     * #HandleEvent reports the event as consumed whenever `io.WantCaptureMouse` / `WantCaptureKeyboard`
+     * is set, so lower-priority consumers (gameplay input) don't also see it. Focus / DPI /
+     * window-lifecycle events are handled by @ref ViewportBackend; this only covers keyboard / text /
+     * mouse. Mouse positions are reported in desktop space when `ImGuiConfigFlags_ViewportsEnable` is set
+     * (offset by the originating window's position).
+     */
+    class Input final : public InputConsumer
     {
     public:
-        explicit Input(Window* _window);
+        Input();
 
-        void Shutdown(Window* _window) const;
+        void Shutdown();
+
+        bool HandleEvent(const InputEvent& _event) override;
 
     private:
-        u32 m_keyCallbackId;
-        u32 m_textCallbackId;
-        u32 m_cursorPosCallbackId;
-        u32 m_mouseBtnCallbackId;
-        u32 m_scrollEventCallbackId;
-        u32 m_windowFocusCallbackId;
-        u32 m_dpiChangeCallbackId;
-
         static void ApplyModifiers(KeyInputModifiers _modifiers);
 
         [[nodiscard]] static ImGuiKey ToImGuiKey(InputKeys _key);

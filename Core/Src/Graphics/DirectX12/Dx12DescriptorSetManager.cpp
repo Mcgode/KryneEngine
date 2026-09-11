@@ -121,13 +121,15 @@ namespace KryneEngine
             u32& total = totals[static_cast<u32>(rangeType)];
 
             // Pack index data into a single u32
-            if (binding.m_bindingIndex != DescriptorBindingDesc::kImplicitBindingIndex)
+            if (binding.m_bindingIndex == DescriptorBindingDesc::kImplicitBindingIndex)
             {
+                // Implicit index: append after the running per-range-type total.
                 _bindingIndices[i] = PackedIndex { .m_type = static_cast<u32>(descriptorType), .m_binding = total }.m_packed;
                 total += binding.m_count;
             }
             else
             {
+                // Explicit index: honour the requested binding slot.
                 KE_ASSERT(total <= binding.m_bindingIndex);
                 _bindingIndices[i] = PackedIndex { .m_type = static_cast<u32>(descriptorType), .m_binding = binding.m_bindingIndex }.m_packed;
                 total = binding.m_bindingIndex + binding.m_count;
@@ -251,7 +253,7 @@ namespace KryneEngine
             if (cbvSrvUavTotal > 0)
             {
                 CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
-                    m_cbvSrvUavGpuDescriptorHeaps[_currentFrame]->GetGPUDescriptorHandleForHeapStart(),
+                    Dx12GpuDescriptorHandleForHeapStart(m_cbvSrvUavGpuDescriptorHeaps[_currentFrame]),
                     pRanges->m_offsets[0],
                     m_cbvSrvUavDescriptorSize);
                 _commandList->SetGraphicsRootDescriptorTable(tableIndex, handle);
@@ -261,7 +263,7 @@ namespace KryneEngine
             if (pRanges->m_sizes[samplerIndex] > 0)
             {
                 CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
-                    m_samplerGpuDescriptorHeaps[_currentFrame]->GetGPUDescriptorHandleForHeapStart(),
+                    Dx12GpuDescriptorHandleForHeapStart(m_samplerGpuDescriptorHeaps[_currentFrame]),
                     pRanges->m_offsets[samplerIndex],
                     m_samplerDescriptorSize);
                 _commandList->SetGraphicsRootDescriptorTable(tableIndex, handle);
@@ -294,7 +296,7 @@ namespace KryneEngine
             if (cbvSrvUavTotal > 0)
             {
                 const CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
-                    m_cbvSrvUavGpuDescriptorHeaps[_currentFrame]->GetGPUDescriptorHandleForHeapStart(),
+                    Dx12GpuDescriptorHandleForHeapStart(m_cbvSrvUavGpuDescriptorHeaps[_currentFrame]),
                     pRanges->m_offsets[0],
                     m_cbvSrvUavDescriptorSize);
                 _commandList->SetComputeRootDescriptorTable(tableIndex, handle);
@@ -304,7 +306,7 @@ namespace KryneEngine
             if (pRanges->m_sizes[samplerIndex] > 0)
             {
                 const CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
-                    m_samplerGpuDescriptorHeaps[_currentFrame]->GetGPUDescriptorHandleForHeapStart(),
+                    Dx12GpuDescriptorHandleForHeapStart(m_samplerGpuDescriptorHeaps[_currentFrame]),
                     pRanges->m_offsets[samplerIndex],
                     m_samplerDescriptorSize);
                 _commandList->SetComputeRootDescriptorTable(tableIndex, handle);
@@ -406,7 +408,7 @@ namespace KryneEngine
         const u32 index = relativeIndex + pRanges->m_offsets[static_cast<u32>(rangeType)];
 
         CD3DX12_CPU_DESCRIPTOR_HANDLE dstCpuHandle(
-            dstHeap->GetCPUDescriptorHandleForHeapStart(),
+            Dx12CpuDescriptorHandleForHeapStart(dstHeap),
             index,
             isSampler ? m_samplerDescriptorSize : m_cbvSrvUavDescriptorSize);
 

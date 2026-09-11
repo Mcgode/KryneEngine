@@ -44,8 +44,8 @@ namespace KryneEngine::Modules::RenderGraph
         m_item.m_depthAttachment.emplace(_texture);
         m_item.m_depthAttachment.value().m_clearDepth = 1.f;
         m_item.m_depthAttachment.value().m_clearStencil = ~0;
-        m_item.m_depthAttachment.value().m_stencilLoadOperation = RenderPassDesc::Attachment::LoadOperation::DontCare;
-        m_item.m_depthAttachment.value().m_stencilStoreOperation = RenderPassDesc::Attachment::StoreOperation::DontCare;
+        m_item.m_depthAttachment.value().m_stencilLoadOperation = RenderPassDesc::Attachment::LoadOperation::None;
+        m_item.m_depthAttachment.value().m_stencilStoreOperation = RenderPassDesc::Attachment::StoreOperation::None;
         m_item.m_depthAttachment.value().m_readOnly = false;
         return { m_item.m_depthAttachment.value(), this};
     }

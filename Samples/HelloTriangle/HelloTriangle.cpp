@@ -15,12 +15,14 @@
 #include <KryneEngine/Core/Memory/DynamicArray.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/Input/InputManager.hpp>
+#include <KryneEngine/Core/Window/WindowManager.hpp>
 
 #include "KryneEngine/Core/Profiling/TracyGpuScope.hpp"
 
 using namespace KryneEngine;
 
-void PrepareRenderPasses(GraphicsContext& _graphicsContext, DynamicArray<RenderPassHandle>& _handles)
+void PrepareRenderPasses(GraphicsContext& _graphicsContext, SwapChainHandle _swapChain, DynamicArray<RenderPassHandle>& _handles)
 {
     _handles.Resize(_graphicsContext.GetFrameContextCount());
     for (auto i = 0u; i < _handles.Size(); i++)
@@ -31,7 +33,7 @@ void PrepareRenderPasses(GraphicsContext& _graphicsContext, DynamicArray<RenderP
             KryneEngine::RenderPassDesc::Attachment::StoreOperation::Store,
             TextureLayout::Unknown,
             TextureLayout::Present,
-            _graphicsContext.GetPresentRenderTargetView(i),
+            _graphicsContext.GetSwapChainRenderTargetView(_swapChain, i),
             float4(0, 1, 1, 1) // Cyan color
         });
 #if !defined(KE_FINAL)
@@ -43,6 +45,7 @@ void PrepareRenderPasses(GraphicsContext& _graphicsContext, DynamicArray<RenderP
 
 void PreparePso(
     GraphicsContext& _graphicsContext,
+    SwapChainHandle _swapChain,
     eastl::vector<u8>& _vsBytecode,
     eastl::vector<u8>& _psBytecode,
     ShaderModuleHandle& _vsModule,
@@ -130,7 +133,7 @@ void PreparePso(
             .m_depthStencil = { .m_depthTest = false, .m_depthWrite = false },
             .m_renderTargets = {
                 .m_numColorAttachments = 1,
-                .m_colorFormats = { _graphicsContext.GetPresentTextureFormat() },
+                .m_colorFormats = { _graphicsContext.GetSwapChainFormat(_swapChain) },
             },
             .m_pipelineLayout = _layout,
 #if !defined(KE_FINAL)
@@ -227,7 +230,10 @@ void PrepareBuffers(
             // command buffers for each trivial operation, and group them into one single buffer.
 
             CommandListHandle commandList = _graphicsContext.BeginGraphicsCommandList();
-            TransferCommandEncoderHandle transferEncoder = _graphicsContext.BeginTransferPass(commandList, "Initial upload pass");
+            TransferCommandEncoderHandle transferEncoder = _graphicsContext.BeginTransferPass(
+                commandList,
+                {},
+                "Initial upload pass");
 
             {
                 KE_GpuZoneScoped(&_graphicsContext, _graphicsContext.GetProfilerContext(), commandList, "PrepareBuffers");
@@ -323,8 +329,15 @@ int main()
     appInfo.m_applicationName += " - Metal";
 #endif
 
-    Window mainWindow(appInfo, AllocatorInstance());
-    GraphicsContext* graphicsContext = mainWindow.GetGraphicsContext();
+    const GraphicsCommon::DisplayOptions displayOptions {};
+    WindowManager windowManager{AllocatorInstance()};
+    Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
+    const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
+        .m_nativeWindow = mainWindow->GetNativeHandle(),
+        .m_dimensions = mainWindow->GetFramebufferSize(),
+        .m_displayOptions = displayOptions,
+    });
 
     // Declare resources
     DynamicArray<RenderPassHandle> renderPassHandles;
@@ -336,15 +349,21 @@ int main()
     BufferSpan vertexBufferView, indexBufferView;
 
     // Prepare resources
-    PrepareRenderPasses(*graphicsContext, renderPassHandles);
-    PreparePso(*graphicsContext, vsBytecode, psBytecode, vsModule, psModule, trianglePipelineLayout, trianglePso);
+    PrepareRenderPasses(*graphicsContext, swapChain, renderPassHandles);
+    PreparePso(*graphicsContext, swapChain, vsBytecode, psBytecode, vsModule, psModule, trianglePipelineLayout, trianglePso);
     PrepareBuffers(*graphicsContext, stagingBuffer, vertexBuffer, indexBuffer, vertexBufferView, indexBufferView);
 
     const u64 stagingFrame = graphicsContext->GetFrameId();
 
-    do
+    while (!windowManager.AllWindowsClosed())
     {
         KE_ZoneScoped("Main loop");
+
+        windowManager.PollEvents();
+        windowManager.GetInput().Update();
+
+        if (windowManager.ConsumeResizeFlag(mainWindow))
+            graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());
 
         if (graphicsContext->IsFrameExecuted(stagingFrame))
         {
@@ -357,14 +376,18 @@ int main()
         {
             KE_GpuZoneScoped(graphicsContext, graphicsContext->GetProfilerContext(), commandList, "Main loop");
 
-            const u8 index = graphicsContext->GetCurrentPresentImageIndex();
-            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(commandList, renderPassHandles[index], "Render pass");
+            const u8 index = graphicsContext->GetSwapChainCurrentImageIndex(swapChain);
+            const RenderCommandEncoderHandle renderEncoder = graphicsContext->BeginRenderPass(
+                commandList,
+                renderPassHandles[index],
+                {},
+                "Render pass");
 
             graphicsContext->SetVertexBuffers(renderEncoder, {&vertexBufferView, 1});
             graphicsContext->SetIndexBuffer(renderEncoder, indexBufferView, false);
             graphicsContext->SetGraphicsPipeline(renderEncoder, trianglePso);
 
-            const uint2 viewportSize = graphicsContext->GetPresentFrameBufferSize();
+            const uint2 viewportSize = graphicsContext->GetSwapChainSize(swapChain);
             graphicsContext->SetViewport(
                 renderEncoder,
                 {
@@ -385,6 +408,11 @@ int main()
         }
 
         graphicsContext->EndGraphicsCommandList(commandList);
+
+        graphicsContext->EndFrame({ &swapChain, 1 });
     }
-    while (graphicsContext->EndFrame());
+
+    graphicsContext->WaitForLastFrame();
+    graphicsContext->DestroySwapChain(swapChain);
+    GraphicsContext::Destroy(graphicsContext);
 }

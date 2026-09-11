@@ -48,6 +48,17 @@ namespace KryneEngine
         Button8,
         Button9,
         Button10,
+
+        Count,
+    };
+
+    /// @brief Analog mouse axes usable as an @ref InputBinding source.
+    enum class MouseAxis : u8
+    {
+        X,
+        Y,
+        ScrollX,
+        ScrollY,
     };
 
     enum class InputKeys
@@ -158,5 +169,7 @@ namespace KryneEngine
         RightAlt,
         RightSuper,
         Menu,
+
+        Count,
     };
 }

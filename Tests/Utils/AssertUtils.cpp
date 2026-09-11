@@ -14,7 +14,7 @@ namespace KryneEngine::Tests
 
     ScopedAssertCatcher::ScopedAssertCatcher()
     {
-        m_previousCallback = KryneEngine::Assertion::SetAssertionCallback(Callback);
+        m_previousCallback = Assertion::CaptureAssertions(Callback);
         if (s_currentCatcher != nullptr)
         {
             m_previousCatcher = s_currentCatcher;
@@ -24,13 +24,13 @@ namespace KryneEngine::Tests
 
     ScopedAssertCatcher::~ScopedAssertCatcher()
     {
-        KryneEngine::Assertion::AssertionCallback current = KryneEngine::Assertion::SetAssertionCallback(m_previousCallback);
+        Assertion::AssertCaptureFunction current = Assertion::CaptureAssertions(m_previousCallback);
         EXPECT_EQ(current, Callback);
 
         s_currentCatcher = m_previousCatcher;
     }
 
-    Assertion::CallbackResponse ScopedAssertCatcher::Callback(const char* _function, uint32_t _line, const char* _file, const char* _message)
+    bool ScopedAssertCatcher::Callback(const char* _function, uint32_t _line, const char* _file, const char* _message)
     {
         EXPECT_NE(s_currentCatcher, nullptr);
         s_currentCatcher->m_caughtMessages.push_back({
@@ -39,7 +39,7 @@ namespace KryneEngine::Tests
             .m_fileName = _file,
             .m_lineIndex = _line,
         });
-        return Assertion::CallbackResponse::Continue; // Don't trigger debug break
+        return false; // Don't trigger debug break
     }
 
     void ScopedAssertCatcher::ExpectMessageCount(u32 count)

@@ -132,7 +132,7 @@ namespace KryneEngine
 
     template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value, Fixed>::iterator FlatHashMap<Key, Value, Fixed>::Find(const Key& _key)
+    FlatHashMap<Key, Value, Fixed>::const_iterator FlatHashMap<Key, Value, Fixed>::Find(const Key& _key) const
     {
         const size_t hash = Hashing::HashKey<Key>(_key);
         const u8 expectedControl = hash >> (sizeof(size_t) * 8 - 7);
@@ -150,6 +150,7 @@ namespace KryneEngine
 
                 ++i;
                 probeIndex = (probeIndex + 1) % m_capacity;
+                control = m_controlBuffer[probeIndex];
             }
         }
         else
@@ -202,13 +203,33 @@ namespace KryneEngine
     template <class Key, class Value, bool Fixed> requires FlatHashMapValidKvp<Key, Value>
     bool FlatHashMap<Key, Value, Fixed>::Erase(iterator _it)
     {
-        if (_it != end())
+        if (_it != end() && IsValidEntry(_it))
         {
-            --m_count;
-            m_controlBuffer[eastl::distance(begin(), _it)] = kTombstone;
+            const size_t index = eastl::distance(begin(), _it);
+            m_controlBuffer[index] = kTombstone;
+            m_kvpBuffer[index].~kvp();
             return true;
         }
         return false;
+    }
+
+    template <class Key, class Value, bool Fixed>
+        requires FlatHashMapValidKvp<Key, Value>
+    void FlatHashMap<Key, Value, Fixed>::Clear()
+    {
+        auto it = begin();
+        while (it != end())
+        {
+            if (IsValidEntry(it))
+            {
+                const size_t index = eastl::distance(begin(), it);
+                m_controlBuffer[index] = kUnused;
+                m_kvpBuffer[index].~kvp();
+            }
+
+            ++it;
+        }
+        m_count = 0;
     }
 
     template <class Key, class Value, bool Fixed>
@@ -244,7 +265,8 @@ namespace KryneEngine
             m_kvpBuffer = m_allocator.Allocate<eastl::pair<Key, Value>>(newCapacity);
 
             m_controlBuffer = static_cast<u8*>(m_allocator.allocate(newCapacity + FlatHashMapInternals::kControlBufferPadding, FlatHashMapInternals::kControlAlignment));
-            memset(m_controlBuffer, kUnused, newCapacity + FlatHashMapInternals::kControlBufferPadding);
+            memset(m_controlBuffer, kUnused, newCapacity);
+            memset(m_controlBuffer + newCapacity, kTombstone, FlatHashMapInternals::kControlBufferPadding);
 
             m_count = 0;
             m_capacity = newCapacity;
@@ -253,7 +275,7 @@ namespace KryneEngine
         {
             // There is negligible
             FlatHashMap temp(m_allocator, _newCapacity);
-            for (auto i = 0; i < m_count; ++i)
+            for (auto i = 0; i < m_capacity; ++i)
             {
                 if ((m_controlBuffer[i] & kAvailableSlotFlag) == 0)
                 {
@@ -319,8 +341,10 @@ namespace KryneEngine
                         const u64 firstIndex = BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift;
                         if (firstIndex + probeIndex < m_capacity)
                         {
+                            // Only increment count if not replacing a tombstone
+                            if (m_controlBuffer[probeIndex + firstIndex] == kUnused)
+                                ++m_count;
                             m_controlBuffer[probeIndex + firstIndex] = control;
-                            ++m_count;
                             return { m_kvpBuffer + probeIndex + firstIndex, true };
                         }
                     }
@@ -378,8 +402,12 @@ namespace KryneEngine
                     if (unusedMask != 0)
                     {
                         KE_ASSERT(firstAvailableIndex < m_capacity);
+
+                        // Only increment count if not replacing a tombstone
+                        if (m_controlBuffer[firstAvailableIndex] == kUnused)
+                            ++m_count;
+
                         m_controlBuffer[firstAvailableIndex] = control;
-                        ++m_count;
                         return {
                             m_kvpBuffer + firstAvailableIndex,
                             true
@@ -406,8 +434,10 @@ namespace KryneEngine
 
                 if (controlSlot & kAvailableSlotFlag)
                 {
+                    // Only increment count if not replacing a tombstone
+                    if (controlSlot == kUnused)
+                        ++m_count;
                     controlSlot = control;
-                    ++m_count;
                     return { m_kvpBuffer + probeIndex, true};
                 }
 

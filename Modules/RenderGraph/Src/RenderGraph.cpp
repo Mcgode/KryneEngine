@@ -170,15 +170,26 @@ namespace KryneEngine::Modules::RenderGraph
                 pass.m_name.m_string,
                 ColorPalette::kWhite);
 
+            const ResourceStateTracker::PassBarriers passBarriers =
+                _jobData->m_renderGraph->m_resourceStateTracker->GetPassBarriers(i);
+            const MemoryBarriers passEntryBarriers {
+                .m_placementType = BarrierPlacementType::Consumer,
+                .m_bufferBarriers = passBarriers.m_bufferMemoryBarriers,
+                .m_textureBarriers = passBarriers.m_textureMemoryBarriers,
+            };
+
             CommandEncoderHandle encoder;
             if (pass.m_type == PassType::Render)
             {
                 auto it = _jobData->m_renderGraph->m_renderPassCache.find(pass.m_renderPassHash.value());
                 KE_ASSERT(it != _jobData->m_renderGraph->m_renderPassCache.end());
 
+                // Render-pass entry barriers go through BeginRenderPass — placing them via
+                // PlaceMemoryBarriers inside the encoder is illegal in Vulkan.
                 _jobData->m_passExecutionData.m_renderEncoder =
                     _jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
                         _jobData->m_passExecutionData.m_commandList, it->second,
+                        passEntryBarriers,
                         pass.m_name.m_string);
                 encoder = _jobData->m_passExecutionData.m_renderEncoder;
             }
@@ -187,6 +198,7 @@ namespace KryneEngine::Modules::RenderGraph
                 _jobData->m_passExecutionData.m_computeEncoder =
                     _jobData->m_passExecutionData.m_graphicsContext->BeginComputePass(
                         _jobData->m_passExecutionData.m_commandList,
+                        passEntryBarriers,
                         pass.m_name.m_string);
                 encoder = _jobData->m_passExecutionData.m_computeEncoder;
             }
@@ -195,6 +207,7 @@ namespace KryneEngine::Modules::RenderGraph
                 _jobData->m_passExecutionData.m_transferEncoder =
                     _jobData->m_passExecutionData.m_graphicsContext->BeginTransferPass(
                         _jobData->m_passExecutionData.m_commandList,
+                        passEntryBarriers,
                         pass.m_name.m_string);
                 encoder = _jobData->m_passExecutionData.m_transferEncoder;
             }
@@ -206,25 +219,6 @@ namespace KryneEngine::Modules::RenderGraph
                    _jobData->m_passExecutionData.m_commandList,
                    "%s",
                    pass.m_name.m_string.c_str());
-
-                {
-                    const ResourceStateTracker::PassBarriers barriers = _jobData->m_renderGraph->m_resourceStateTracker->GetPassBarriers(i);
-                    if (!barriers.m_bufferMemoryBarriers.empty() || !barriers.m_textureMemoryBarriers.empty())
-                    {
-                        KE_GpuZoneScoped(
-                            _jobData->m_passExecutionData.m_graphicsContext,
-                            _jobData->m_passExecutionData.m_graphicsContext->GetProfilerContext(),
-                            _jobData->m_passExecutionData.m_commandList,
-                            "Dispatching memory barriers");
-                        _jobData->m_passExecutionData.m_graphicsContext->PlaceMemoryBarriers(
-                            encoder,
-                            {
-                                .m_placementType = BarrierPlacementType::Consumer,
-                                .m_bufferBarriers = barriers.m_bufferMemoryBarriers,
-                                .m_textureBarriers = barriers.m_textureMemoryBarriers,
-                            });
-                    }
-                }
 
                 KE_ASSERT(pass.m_executeFunction != nullptr);
                 pass.m_executeFunction(*_jobData->m_renderGraph, _jobData->m_passExecutionData);

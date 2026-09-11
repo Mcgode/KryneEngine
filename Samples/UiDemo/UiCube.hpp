@@ -30,6 +30,7 @@ public:
         GraphicsContext& _graphicsContext,
         TransferCommandEncoderHandle _transferEncoder,
         RenderCommandEncoderHandle _renderEncoder,
+        uint2 _frameBufferSize,
         float _contentScale);
 
 private:

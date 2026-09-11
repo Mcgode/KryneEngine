@@ -6,6 +6,8 @@
 
 #include "Graphics/Vulkan/HelperFunctions.hpp"
 
+#include "VkFeatures.hpp"
+
 namespace KryneEngine::VkHelperFunctions
 {
     u32 RetrieveBufferUsage(MemoryUsage _usage)
@@ -47,7 +49,10 @@ namespace KryneEngine::VkHelperFunctions
         return flags;
     }
 
-    VkPipelineStageFlagBits2 ToVkPipelineStageFlagBits2(BarrierSyncStageFlags _flags, bool _isSrc)
+    VkPipelineStageFlagBits2 ToVkPipelineStageFlagBits2(
+        const BarrierSyncStageFlags _flags,
+        const bool _isSrc,
+        const VkFeatures& _features)
     {
         VkPipelineStageFlagBits2 flags = VK_PIPELINE_STAGE_2_NONE;
 
@@ -69,12 +74,14 @@ namespace KryneEngine::VkHelperFunctions
         }
         if (BitUtils::EnumHasAny(_flags, BarrierSyncStageFlags::VertexShading | BarrierSyncStageFlags::AllShading))
         {
-            flags |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT
-                     | VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT
-                     | VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT
-                     | VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT
-                     | VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT
-                     | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
+            flags |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+
+            if (_features.m_geometryShaders)
+                flags |= VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT;
+            if (_features.m_tessellationShaders)
+                flags |= VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT | VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
+            if (_features.m_meshShaders)
+                flags |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
         }
         if (BitUtils::EnumHasAny(_flags, BarrierSyncStageFlags::FragmentShading | BarrierSyncStageFlags::AllShading))
         {
@@ -100,7 +107,7 @@ namespace KryneEngine::VkHelperFunctions
         {
             flags |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
         }
-        if (BitUtils::EnumHasAny(_flags, BarrierSyncStageFlags::Raytracing | BarrierSyncStageFlags::AllShading))
+        if (BitUtils::EnumHasAny(_flags, BarrierSyncStageFlags::Raytracing | BarrierSyncStageFlags::AllShading) && _features.m_rayTracing)
         {
             flags |= VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
         }
@@ -116,7 +123,10 @@ namespace KryneEngine::VkHelperFunctions
         return static_cast<VkPipelineStageFlagBits>(flags);
     }
 
-    VkPipelineStageFlags ToVkPipelineStageFlagBits(BarrierSyncStageFlags _flags, bool _isSrc)
+    VkPipelineStageFlags ToVkPipelineStageFlagBits(
+        const BarrierSyncStageFlags _flags,
+        const bool _isSrc,
+        const VkFeatures& _features)
     {
         int flags = VK_PIPELINE_STAGE_NONE;
 
@@ -138,12 +148,14 @@ namespace KryneEngine::VkHelperFunctions
         }
         if (BitUtils::EnumHasAny(_flags, BarrierSyncStageFlags::VertexShading | BarrierSyncStageFlags::AllShading))
         {
-            flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
-                   | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT
-                   | VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT
-                   | VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT
-                   | VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT
-                   | VK_PIPELINE_STAGE_MESH_SHADER_BIT_EXT;
+            flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+
+            if (_features.m_geometryShaders)
+                flags |= VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT;
+            if (_features.m_tessellationShaders)
+                flags |= VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT | VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT;
+            if (_features.m_meshShaders)
+                flags |= VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_MESH_SHADER_BIT_EXT;
         }
         if (BitUtils::EnumHasAny(_flags, BarrierSyncStageFlags::FragmentShading | BarrierSyncStageFlags::AllShading))
         {
@@ -169,7 +181,7 @@ namespace KryneEngine::VkHelperFunctions
         {
             flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
         }
-        if (BitUtils::EnumHasAny(_flags, BarrierSyncStageFlags::Raytracing | BarrierSyncStageFlags::AllShading))
+        if (BitUtils::EnumHasAny(_flags, BarrierSyncStageFlags::Raytracing | BarrierSyncStageFlags::AllShading) && _features.m_rayTracing)
         {
             flags |= VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
         }

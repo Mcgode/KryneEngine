@@ -24,7 +24,7 @@ namespace KryneEngine
         explicit VkDescriptorSetManager(AllocatorInstance _allocator);
         ~VkDescriptorSetManager();
 
-        void Init(u8 _frameCount, u8 _frameIndex);
+        void Init(u8 _frameCount, u8 _frameIndex, bool _partiallyBoundDescriptors);
 
         [[nodiscard]] DescriptorSetLayoutHandle CreateDescriptorSetLayout(
             const DescriptorSetDesc& _desc,
@@ -49,6 +49,7 @@ namespace KryneEngine
 
     private:
         u64 m_frameCount = 0;
+        bool m_partiallyBoundDescriptors = false;
 
         struct LayoutData
         {

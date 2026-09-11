@@ -6,10 +6,7 @@
 
 #include "Graphics/Metal/MetalSwapChain.hpp"
 
-#include <GLFW/glfw3.h>
-#define GLFW_EXPOSE_NATIVE_COCOA
-#include <GLFW/glfw3native.h>
-
+#include <AppKit/AppKit.h>
 #include <QuartzCore/CAMetalLayer.h>
 #include <EASTL/fixed_string.h>
 
@@ -23,15 +20,16 @@ namespace KryneEngine
         AllocatorInstance _allocator,
         MTL::Device& _device,
         const GraphicsCommon::ApplicationInfo& _appInfo,
-        const Window* _window,
+        const SwapChainDesc& _desc,
         MetalResources& _resources,
         u8 _initialFrameIndex)
     {
-        auto* metalWindow = static_cast<NSWindow*>(glfwGetCocoaWindow(_window->GetGlfwWindow()));
+        KE_ASSERT(_desc.m_nativeWindow.m_kind == NativeWindowHandle::Kind::Cocoa);
+        auto* metalWindow = (__bridge NSWindow*)_desc.m_nativeWindow.m_windowHandle;
 
         CAMetalLayer* metalLayer = [CAMetalLayer layer];
         metalLayer.device = (__bridge id<MTLDevice>)&_device;
-        if (_appInfo.m_displayOptions.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled)
+        if (_desc.m_displayOptions.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled)
         {
             metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
         }
@@ -42,18 +40,16 @@ namespace KryneEngine
 
         metalLayer.displaySyncEnabled = YES;
 
-        metalLayer.maximumDrawableCount =
-            _appInfo.m_displayOptions.m_tripleBuffering == GraphicsCommon::SoftEnable::Disabled
-                ? 2
-                : 3;
+        const u8 imageCount = static_cast<u8>(_appInfo.m_bufferingMode);
+        metalLayer.maximumDrawableCount = static_cast<NSUInteger>(imageCount);
 
         metalLayer.contentsScale = metalWindow.backingScaleFactor;
 
         m_textures.SetAllocator(_allocator);
         m_rtvs.SetAllocator(_allocator);
 
-        m_textures.Resize(metalLayer.maximumDrawableCount);
-        m_rtvs.Resize(metalLayer.maximumDrawableCount);
+        m_textures.Resize(imageCount);
+        m_rtvs.Resize(imageCount);
 
         metalLayer.framebufferOnly = YES;
 
@@ -71,7 +67,7 @@ namespace KryneEngine
 
         {
             m_drawable = nullptr;
-            for (size_t i = 0; i < metalLayer.maximumDrawableCount; i++)
+            for (size_t i = 0; i < imageCount; i++)
             {
                 m_textures[i] = _resources.RegisterSystemTexture();
                 m_rtvs[i] = _resources.RegisterSystemRtv(rtvDesc);
@@ -82,12 +78,21 @@ namespace KryneEngine
         m_index = _initialFrameIndex;
     }
 
-    void MetalSwapChain::Resize(Window* _window)
+    void MetalSwapChain::Resize(uint2 _newSize)
     {
-        const uint2 framebufferSize = _window->GetFramebufferSize();
-        const CGSize windowSize = CGSizeMake(framebufferSize.x, framebufferSize.y);
+        m_metalLayer->setDrawableSize(CGSizeMake(_newSize.x, _newSize.y));
+    }
 
-        m_metalLayer->setDrawableSize(windowSize);
+    void MetalSwapChain::Destroy(MetalResources& _resources)
+    {
+        for (const RenderTargetViewHandle handle : m_rtvs)
+            _resources.UnregisterRtv(handle);
+        for (const TextureHandle handle : m_textures)
+            _resources.UnregisterTexture(handle);
+        m_rtvs.Clear();
+        m_textures.Clear();
+        m_drawable.reset();
+        m_metalLayer = nullptr;
     }
 
     void MetalSwapChain::UpdateNextDrawable(u8 _frameIndex, MetalResources& _resources)
