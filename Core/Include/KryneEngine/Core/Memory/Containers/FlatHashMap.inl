@@ -132,7 +132,7 @@ namespace KryneEngine
 
     template <class Key, class Value, bool Fixed>
     requires FlatHashMapValidKvp<Key, Value>
-    FlatHashMap<Key, Value, Fixed>::iterator FlatHashMap<Key, Value, Fixed>::Find(const Key& _key)
+    FlatHashMap<Key, Value, Fixed>::const_iterator FlatHashMap<Key, Value, Fixed>::Find(const Key& _key) const
     {
         const size_t hash = Hashing::HashKey<Key>(_key);
         const u8 expectedControl = hash >> (sizeof(size_t) * 8 - 7);
