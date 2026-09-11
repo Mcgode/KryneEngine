@@ -1670,7 +1670,7 @@ namespace KryneEngine
         }
     }
 
-    ShaderModuleHandle VkGraphicsContext::RegisterShaderModule(void* _bytecodeData, const u64 _bytecodeSize)
+    ShaderModuleHandle VkGraphicsContext::RegisterShaderModule(const void* _bytecodeData, const u64 _bytecodeSize)
     {
         return m_resources.CreateShaderModule(_bytecodeData, _bytecodeSize, m_device);
     }

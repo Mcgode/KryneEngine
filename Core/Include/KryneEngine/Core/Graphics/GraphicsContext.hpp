@@ -681,7 +681,7 @@ namespace KryneEngine
          *
          * @return A handle to the newly created shader module.
          */
-        [[nodiscard]] virtual ShaderModuleHandle RegisterShaderModule(void* _bytecodeData, u64 _bytecodeSize) = 0;
+        [[nodiscard]] virtual ShaderModuleHandle RegisterShaderModule(const void* _bytecodeData, u64 _bytecodeSize) = 0;
 
         /**
          * @brief Creates a descriptor set layout, describing the bindings available in a descriptor set.

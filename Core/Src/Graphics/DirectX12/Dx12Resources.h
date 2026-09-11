@@ -84,7 +84,7 @@ namespace KryneEngine
         [[nodiscard]] RenderPassHandle CreateRenderPass(const RenderPassDesc& _desc);
         bool FreeRenderPass(RenderPassHandle _handle);
 
-        [[nodiscard]] ShaderModuleHandle RegisterShaderModule(void* _bytecodeData, u64 _bytecodeSize);
+        [[nodiscard]] ShaderModuleHandle RegisterShaderModule(const void* _bytecodeData, u64 _bytecodeSize);
         bool UnRegisterShaderModule(ShaderModuleHandle _shaderModule);
 
         [[nodiscard]] PipelineLayoutHandle CreatePipelineLayout(

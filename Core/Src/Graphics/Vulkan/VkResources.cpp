@@ -733,7 +733,7 @@ namespace KryneEngine
         return true;
     }
 
-    ShaderModuleHandle VkResources::CreateShaderModule(void* _bytecodeData, u64 _bytecodeSize, VkDevice _device)
+    ShaderModuleHandle VkResources::CreateShaderModule(const void* _bytecodeData, u64 _bytecodeSize, VkDevice _device)
     {
         KE_ZoneScopedFunction("VkResources::CreateShaderModule");
 
@@ -742,7 +742,7 @@ namespace KryneEngine
         const VkShaderModuleCreateInfo createInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = _bytecodeSize,
-            .pCode = static_cast<u32*>(_bytecodeData),
+            .pCode = static_cast<const u32*>(_bytecodeData),
         };
 
         const GenPool::Handle handle = m_shaderModules.Allocate();

@@ -723,7 +723,7 @@ namespace KryneEngine
         }
     }
 
-    ShaderModuleHandle MetalGraphicsContext::RegisterShaderModule(void* _bytecodeData, const u64 _bytecodeSize)
+    ShaderModuleHandle MetalGraphicsContext::RegisterShaderModule(const void* _bytecodeData, const u64 _bytecodeSize)
     {
         return m_resources.LoadLibrary(*m_device, _bytecodeData, _bytecodeSize);
     }

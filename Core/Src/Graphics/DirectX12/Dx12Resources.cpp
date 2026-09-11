@@ -845,7 +845,7 @@ namespace KryneEngine
         return { handle };
     }
 
-    ShaderModuleHandle Dx12Resources::RegisterShaderModule(void* _bytecodeData, u64 _bytecodeSize)
+    ShaderModuleHandle Dx12Resources::RegisterShaderModule(const void* _bytecodeData, u64 _bytecodeSize)
     {
         KE_ZoneScopedFunction("Dx12Resources::RegisterShaderModule");
 

@@ -435,7 +435,7 @@ namespace KryneEngine
         return false;
     }
 
-    ShaderModuleHandle MetalResources::LoadLibrary(MTL::Device& _device, void* _bytecode, size_t _size)
+    ShaderModuleHandle MetalResources::LoadLibrary(MTL::Device& _device, const void* _bytecode, size_t _size)
     {
         const GenPool::Handle handle = m_libraries.Allocate();
 
