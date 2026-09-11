@@ -10,7 +10,11 @@
 
 namespace KryneEngine::Assertion
 {
-    void Error(const char* _function, u32 _line, const char* _file, const char* _formatMessage, ...);
+    using AssertCaptureFunction = bool (*)(const char*, u32, const char*, const char*);
+
+    bool Error(const char* _function, u32 _line, const char* _file, const char* _formatMessage, ...);
+
+    AssertCaptureFunction CaptureAssertions(AssertCaptureFunction _captureFunction);
 }
 
 #if defined(__APPLE__)
@@ -25,8 +29,10 @@ namespace KryneEngine::Assertion
 	{ \
 		if (!(condition)) [[unlikely]] \
 		{\
-			KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__); \
-			KE_DEBUG_BREAK(); \
+			if (KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__)) \
+			{ \
+				KE_DEBUG_BREAK(); \
+			} \
 		} \
 	} \
 	while(0)
@@ -44,10 +50,10 @@ namespace KryneEngine::Assertion
 #define KE_ASSERT_FATAL(condition) KE_ASSERT_FATAL_MSG(condition, #condition)
 
 #define KE_VERIFY_MSG(condition, ...) ((condition) ? true : \
-	(KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__), KE_DEBUG_BREAK(), false))
+	(KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__) ? (KE_DEBUG_BREAK(), false) : false))
 #define KE_VERIFY(condition) KE_VERIFY_MSG(condition, #condition)
 
-#define KE_ERROR(...) do { KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__); KE_DEBUG_BREAK(); } while (0)
+#define KE_ERROR(...) do { if (KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__)) KE_DEBUG_BREAK(); } while (0)
 #define KE_FATAL(...) do { KryneEngine::Assertion::Error(__builtin_FUNCTION(), __builtin_LINE(), __builtin_FILE(), __VA_ARGS__); abort(); } while (0)
 
 #define IF_NOT_VERIFY(cond) if (!KE_VERIFY(cond)) [[unlikely]]

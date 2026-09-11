@@ -35,9 +35,9 @@ namespace KryneEngine::Tests
         inline void ExpectNoMessage() { ExpectMessageCount(0); }
 
     private:
-        static Assertion::CallbackResponse Callback(const char* _function, uint32_t _line, const char* _file, const char* _message);
+        static bool Callback(const char* _function, uint32_t _line, const char* _file, const char* _message);
 
-        KryneEngine::Assertion::AssertionCallback m_previousCallback = nullptr;
+        Assertion::AssertCaptureFunction m_previousCallback = nullptr;
         ScopedAssertCatcher* m_previousCatcher = nullptr;
 
         static ScopedAssertCatcher* s_currentCatcher;
