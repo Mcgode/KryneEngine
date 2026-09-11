@@ -154,7 +154,7 @@ set(WindowSrc
         Include/KryneEngine/Core/Window/NativeWindowHandle.hpp
         Src/Window/Input/InputManager.cpp Include/KryneEngine/Core/Window/Input/InputManager.hpp
         Include/KryneEngine/Core/Window/Input/KeyInputEvent.hpp
-        Include/KryneEngine/Core/Window/GLFW/Input/KeyInputEvent.hpp
+        Src/Window/GLFW/Input/KeyInputEvent.hpp
         Src/Window/GLFW/Input/KeyInputEvent.cpp
         Include/KryneEngine/Core/Window/Input/MouseInputEvent.hpp
         Include/KryneEngine/Core/Window/Input/Enums.hpp

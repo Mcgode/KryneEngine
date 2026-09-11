@@ -9,9 +9,9 @@
 #include <EASTL/algorithm.h>
 #include <GLFW/glfw3.h>
 
+#include "GLFW/Input/KeyInputEvent.hpp"
 #include "KryneEngine/Core/Common/Assert.hpp"
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
-#include "KryneEngine/Core/Window/GLFW/Input/KeyInputEvent.hpp"
 #include "KryneEngine/Core/Window/Input/InputManager.hpp"
 #include "KryneEngine/Core/Window/Window.hpp"
 
@@ -156,6 +156,16 @@ namespace KryneEngine
             return false;
         _window->m_resizePending = false;
         return true;
+    }
+
+    const char* WindowManager::GetLabel(const InputKeys _key)
+    {
+        const s32 glfwKey = GLFW::FromInputPhysicalKeys(_key);
+        if (glfwKey == GLFW_KEY_UNKNOWN)
+            return nullptr;
+
+        const s32 scancode = glfwGetKeyScancode(glfwKey);
+        return glfwGetKeyName(glfwKey, scancode);
     }
 
     void WindowManager::RefreshMonitors()

@@ -7,12 +7,12 @@
 #pragma once
 
 #include <EASTL/array.h>
-#include <EASTL/string.h>
-#include <EASTL/string_view.h>
 #include <EASTL/vector.h>
 #include <EASTL/vector_map.h>
 
+#include "KryneEngine/Core/Common/StringHelpers.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
+#include "KryneEngine/Core/Memory/Containers/FlatHashMap.hpp"
 #include "KryneEngine/Core/Window/Input/InputAction.hpp"
 #include "KryneEngine/Core/Window/Input/InputConsumer.hpp"
 #include "KryneEngine/Core/Window/Input/InputEvent.hpp"
@@ -20,6 +20,7 @@
 namespace KryneEngine
 {
     class Window;
+    class WindowManager;
 
     /**
      * @brief Per-application input hub: raw event queue -> per-frame polling state -> action map,
@@ -93,6 +94,20 @@ namespace KryneEngine
         [[nodiscard]] bool WasActionJustReleased(ActionId _action) const;
         [[nodiscard]] float GetActionValue(ActionId _action) const;
 
+        // --- Keymap cache (physical key <-> current-layout label, e.g. for a rebinding UI) ---
+        /// @brief Rebuilds the physical-key <-> label cache from the current OS keyboard layout via
+        /// `WindowManager::GetLabel`. GLFW has no layout-change notification, so call this on demand
+        /// (e.g. when a settings/rebinding screen opens) rather than every frame.
+        void RefreshKeymap();
+
+        /// @brief Current-layout label for a physical key, from the last #RefreshKeymap. Empty if that
+        /// key has no printable label, or the keymap has never been refreshed.
+        [[nodiscard]] const eastl::string& GetKeyLabel(InputKeys _key) const;
+
+        /// @brief The physical key whose current-layout label matches `_label`, or `InputKeys::Unknown`
+        /// if none does. From the last #RefreshKeymap.
+        [[nodiscard]] InputKeys GetKeyFromLabel(const StringViewHash& _label) const;
+
     private:
         struct KeyState
         {
@@ -138,6 +153,9 @@ namespace KryneEngine
         Window* m_focusedWindow = nullptr;
 
         eastl::vector_map<Window*, WindowInputState> m_windowStates;
+
+        eastl::array<eastl::string, static_cast<size_t>(InputKeys::Count)> m_keyLabels {};
+        FlatHashMap<StringViewHash, InputKeys> m_labelToKey;
 
         [[nodiscard]] WindowInputState& GetOrCreateWindowState(Window* _window);
         [[nodiscard]] const WindowInputState* FindWindowState(Window* _window) const;

@@ -8,11 +8,13 @@
 
 #include <EASTL/functional.h>
 #include <EASTL/span.h>
+#include <EASTL/string.h>
 #include <EASTL/string_view.h>
 #include <EASTL/vector.h>
 
 #include "KryneEngine/Core/Graphics/GraphicsCommon.hpp"
 #include "KryneEngine/Core/Math/Vector.hpp"
+#include "KryneEngine/Core/Window/Input/Enums.hpp"
 
 struct GLFWwindow;
 struct GLFWmonitor;
@@ -101,6 +103,15 @@ namespace KryneEngine
 
         [[nodiscard]] eastl::span<const MonitorInfo> GetMonitors() const { return m_monitors; }
         void RefreshMonitors();
+
+        /**
+         * @brief Returns the current OS keyboard layout's label for a physical key (e.g. `"a"`, `"q"`),
+         * or an empty string if that key has no printable label (function/modifier keys) under any
+         * layout. Re-queries GLFW every call — there is no OS "layout changed" notification, so
+         * @ref InputManager caches this and callers should refresh it on demand (see
+         * `InputManager::RefreshKeymap`), not call this directly on a hot path.
+         */
+        [[nodiscard]] static const char* GetLabel(InputKeys _key);
 
     private:
         static WindowManager* s_instance;

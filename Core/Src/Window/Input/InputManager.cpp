@@ -10,6 +10,8 @@
 
 #include "KryneEngine/Core/Common/Assert.hpp"
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
+#include "KryneEngine/Core/Memory/Containers/FlatHashMap.inl"
+#include "KryneEngine/Core/Window/WindowManager.hpp"
 
 namespace KryneEngine
 {
@@ -26,15 +28,18 @@ namespace KryneEngine
 
     InputManager* InputManager::s_instance = nullptr;
 
-    InputManager::InputManager(AllocatorInstance _allocator)
+    InputManager::InputManager(const AllocatorInstance _allocator)
         : m_allocator(_allocator)
         , m_frameEvents(_allocator)
         , m_consumers(_allocator)
         , m_actions(_allocator)
         , m_windowStates(_allocator)
+        , m_labelToKey(_allocator)
     {
         KE_ASSERT_FATAL_MSG(s_instance == nullptr, "Only one InputManager may exist at a time");
         s_instance = this;
+
+        RefreshKeymap();
     }
 
     InputManager::~InputManager()
@@ -415,5 +420,35 @@ namespace KryneEngine
             action.m_pressed = pressed;
             action.m_value = value;
         }
+    }
+
+    void InputManager::RefreshKeymap()
+    {
+        KE_ZoneScopedFunction("InputManager::RefreshKeymap");
+
+        m_labelToKey.Clear();
+
+        for (size_t i = 0; i < static_cast<size_t>(InputKeys::Count); i++)
+        {
+            const auto key = static_cast<InputKeys>(i);
+            const char* rawLabel = WindowManager::GetLabel(key);
+            eastl::string label = rawLabel == nullptr ? eastl::string {} : eastl::string { rawLabel, m_allocator };
+
+            if (rawLabel != nullptr && !label.empty())
+                m_labelToKey.Emplace({ label, key });
+
+            m_keyLabels[i] = eastl::move(label);
+        }
+    }
+
+    const eastl::string& InputManager::GetKeyLabel(InputKeys _key) const
+    {
+        return m_keyLabels[static_cast<size_t>(_key)];
+    }
+
+    InputKeys InputManager::GetKeyFromLabel(const StringViewHash& _label) const
+    {
+        const auto* it = m_labelToKey.Find(_label);
+        return it != m_labelToKey.end() ? it->second : InputKeys::Unknown;
     }
 } // namespace KryneEngine
