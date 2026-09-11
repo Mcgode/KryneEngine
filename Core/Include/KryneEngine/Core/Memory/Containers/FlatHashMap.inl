@@ -204,7 +204,6 @@ namespace KryneEngine
     {
         if (_it != end())
         {
-            --m_count;
             m_controlBuffer[eastl::distance(begin(), _it)] = kTombstone;
             return true;
         }
@@ -340,8 +339,10 @@ namespace KryneEngine
                         const u64 firstIndex = BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift;
                         if (firstIndex + probeIndex < m_capacity)
                         {
+                            // Only increment count if not replacing a tombstone
+                            if (m_controlBuffer[probeIndex + firstIndex] == kUnused)
+                                ++m_count;
                             m_controlBuffer[probeIndex + firstIndex] = control;
-                            ++m_count;
                             return { m_kvpBuffer + probeIndex + firstIndex, true };
                         }
                     }
@@ -399,8 +400,12 @@ namespace KryneEngine
                     if (unusedMask != 0)
                     {
                         KE_ASSERT(firstAvailableIndex < m_capacity);
+
+                        // Only increment count if not replacing a tombstone
+                        if (m_controlBuffer[firstAvailableIndex] == kUnused)
+                            ++m_count;
+
                         m_controlBuffer[firstAvailableIndex] = control;
-                        ++m_count;
                         return {
                             m_kvpBuffer + firstAvailableIndex,
                             true
@@ -427,8 +432,10 @@ namespace KryneEngine
 
                 if (controlSlot & kAvailableSlotFlag)
                 {
+                    // Only increment count if not replacing a tombstone
+                    if (controlSlot == kUnused)
+                        ++m_count;
                     controlSlot = control;
-                    ++m_count;
                     return { m_kvpBuffer + probeIndex, true};
                 }
 
