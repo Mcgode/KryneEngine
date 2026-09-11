@@ -4,8 +4,11 @@
  * @date 13/03/2025.
  */
 
-#if defined(WIN32)
-#   include <corecrt_math_defines.h>
+#if defined(_WIN32)
+// M_PI and friends are opt-in on Windows. <corecrt_math_defines.h> is MSVC-only;
+// mingw exposes them from <math.h> under the same _USE_MATH_DEFINES switch.
+#   define _USE_MATH_DEFINES
+#   include <math.h>
 #endif
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>

@@ -46,8 +46,12 @@ set(CMAKE_BUILD_TYPE "${TypeName}")
 message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
 
 function(AddCoverage TargetName)
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    # The LLVM profile runtime (compiler-rt) isn't shipped for the mingw target, so
+    # coverage instrumentation can't link in the macOS -> Windows cross build.
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT CMAKE_CROSSCOMPILING)
         target_compile_options(${TargetName} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+        # The profile runtime (__llvm_profile_runtime) must also be pulled in at link time.
+        target_link_options(${TargetName} PRIVATE -fprofile-instr-generate)
     endif()
 endfunction()
 

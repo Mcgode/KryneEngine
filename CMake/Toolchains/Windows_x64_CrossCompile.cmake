@@ -93,6 +93,13 @@ foreach (_ke_lt EXE SHARED MODULE)
     set(CMAKE_${_ke_lt}_LINKER_FLAGS_INIT "-fuse-ld=lld -B${_ke_mingw_bin}")
 endforeach ()
 
+# Statically link the mingw runtime (libstdc++, libgcc, libwinpthread, ...) into
+# every executable. Those DLLs don't exist on a stock Windows machine and aren't
+# picked up by CMake's TARGET_RUNTIME_DLLS, so without this the binaries only run
+# on a box that has the mingw toolchain. The genuine Win32 system DLLs (kernel32,
+# d3d12, dxgi, ...) stay dynamically imported - they only ship as import libs.
+set(CMAKE_EXE_LINKER_FLAGS_INIT "${CMAKE_EXE_LINKER_FLAGS_INIT} -static")
+
 # --- find_* behaviour ---------------------------------------------------------
 # /opt/homebrew/mingw-deps holds hand-built target deps (freetype, libpng, zlib).
 # Historically this lived under /tmp/mingw; keep that as a fallback.
