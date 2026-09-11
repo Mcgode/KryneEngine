@@ -202,9 +202,11 @@ namespace KryneEngine
     template <class Key, class Value, bool Fixed> requires FlatHashMapValidKvp<Key, Value>
     bool FlatHashMap<Key, Value, Fixed>::Erase(iterator _it)
     {
-        if (_it != end())
+        if (_it != end() && IsValidEntry(_it))
         {
-            m_controlBuffer[eastl::distance(begin(), _it)] = kTombstone;
+            const size_t index = eastl::distance(begin(), _it);
+            m_controlBuffer[index] = kTombstone;
+            m_kvpBuffer[index].~kvp();
             return true;
         }
         return false;
