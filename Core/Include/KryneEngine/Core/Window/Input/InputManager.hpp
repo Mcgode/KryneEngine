@@ -61,6 +61,8 @@ namespace KryneEngine
         void OnWindowDpiChangeEvent(Window* _window, float2 _dpiScale);
         void OnWindowCloseRequestEvent(Window* _window);
 
+        void NotifyWindowClosed(Window* _window);
+
         /// @brief Drains the frame's raw event queue into per-frame polling state, the consumer stack
         /// and the action map. Call once per frame, right after the window manager's OS pump.
         void Update();

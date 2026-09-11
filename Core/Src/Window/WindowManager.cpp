@@ -116,6 +116,8 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("WindowManager::DestroyWindow");
 
+        m_inputManager->NotifyWindowClosed(_window);
+
         const auto it = eastl::find(m_windows.begin(), m_windows.end(), _window);
         if (it == m_windows.end())
             return;

@@ -134,6 +134,14 @@ namespace KryneEngine
         });
     }
 
+    void InputManager::NotifyWindowClosed(Window* _window)
+    {
+        if (m_focusedWindow == _window)
+            m_focusedWindow = nullptr;
+
+        m_windowStates.erase(_window);
+    }
+
     void InputManager::Update()
     {
         KE_ZoneScopedFunction("InputManager::Update");
