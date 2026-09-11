@@ -11,7 +11,7 @@ add_library(KryneEngine_Modules_ImGui STATIC
 set_target_properties(KryneEngine_Modules_ImGui PROPERTIES FOLDER "EngineModules")
 
 target_link_shader_libraries(KryneEngine_Modules_ImGui ShaderLib)
-target_compile_shaders(KryneEngine_Modules_ImGui Shaders Modules/ImGui)
+target_compile_shaders(KryneEngine_Modules_ImGui Shaders Modules/ImGui EMBED)
 
 target_link_libraries(KryneEngine_Modules_ImGui
         KryneEngine_Core_Link
