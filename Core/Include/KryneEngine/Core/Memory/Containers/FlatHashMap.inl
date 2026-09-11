@@ -213,6 +213,26 @@ namespace KryneEngine
 
     template <class Key, class Value, bool Fixed>
         requires FlatHashMapValidKvp<Key, Value>
+    void FlatHashMap<Key, Value, Fixed>::Clear()
+    {
+        auto it = begin();
+        while (it != end())
+        {
+            if (IsValidEntry(it))
+            {
+                const size_t index = eastl::distance(begin(), it);
+                m_controlBuffer[index] = kUnused;
+                m_kvpBuffer[index].~kvp();
+                ++it;
+            }
+
+            ++it;
+        }
+        m_count = 0;
+    }
+
+    template <class Key, class Value, bool Fixed>
+        requires FlatHashMapValidKvp<Key, Value>
     void FlatHashMap<Key, Value, Fixed>::Defragment() requires (!Fixed)
     {
         if (m_capacity == 0)

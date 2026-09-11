@@ -129,6 +129,8 @@ namespace KryneEngine
             return Erase(Find(_key));
         }
 
+        void Clear();
+
         /**
          * @brief Defragments the map by removing all tombstones.
          */
