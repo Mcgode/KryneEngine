@@ -19,56 +19,27 @@
 
 namespace KryneEngine::Samples::RenderGraphDemo
 {
-    OrbitCamera::OrbitCamera(InputManager* _inputManager, float _aspectRatio)
+    OrbitCamera::OrbitCamera(const float _aspectRatio)
         : m_aspectRatio(_aspectRatio)
     {
-        m_mouseButtonInputCallbackId = _inputManager->RegisterMouseInputEventCallback(
-            [this](Window*, const MouseInputEvent& _event)
-            {
-                switch (_event.m_mouseButton)
-                {
-                case MouseInputButton::Right:
-                    if (_event.m_action == InputActionType::StartPress)
-                        m_orbiting = true;
-                    else if (_event.m_action == InputActionType::StopPress)
-                        m_orbiting = false;
-                    break;
-                default:
-                    break;
-                }
-            });
-
-        m_cursorPositionCallbackId = _inputManager->RegisterCursorPosEventCallback(
-            [this](Window*, float _x, float _y)
-            {
-                const float2 lastPosition = m_lastCursorPosition;
-                m_lastCursorPosition = { _x, _y };
-                m_deltaPosition = m_lastCursorPosition - lastPosition;
-            });
-
-        m_scrollCallbackId = _inputManager->RegisterScrollInputEventCallback(
-            [this](Window*, float _x, float _y)
-            {
-                // TODO: Retrieve scrolling for zooming
-            });
+        // TODO: Retrieve scrolling for zooming (InputManager::GetScrollDelta)
     }
 
     OrbitCamera::~OrbitCamera() = default;
 
     void OrbitCamera::Process()
     {
-        if (m_orbiting)
+        if (InputManager::Get().IsMouseButtonPressed(MouseInputButton::Right))
         {
+            const float2 delta = InputManager::Get().GetCursorDelta();
+
             m_matrixDirty = true;
 
-            m_theta += m_deltaPosition.x * 0.1f;
+            m_theta += delta.x * 0.1f;
 
-            m_phi += m_deltaPosition.y * 0.1f;
+            m_phi += delta.y * 0.1f;
             m_phi = eastl::clamp(m_phi, -90.0f, 90.0f);
         }
-
-        // Reset delta position
-        m_deltaPosition = { 0.0f, 0.0f };
 
         if (!m_matrixDirty)
         {

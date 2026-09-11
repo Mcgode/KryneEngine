@@ -6,83 +6,84 @@
 
 #include "Input.hpp"
 
+#include <KryneEngine/Core/Window/Input/InputEvent.hpp>
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
 
 namespace KryneEngine::Modules::ImGui
 {
-    Input::Input(InputManager& _inputManager)
+    namespace
     {
-        m_keyCallbackId = _inputManager.RegisterKeyInputEventCallback(
-            [](Window*, const KeyInputEvent& _event)
-            {
-                ImGuiIO& io = ::ImGui::GetIO();
-
-                if (_event.m_action == InputActionType::KeepPressing)
-                {
-                    return;
-                }
-
-                bool pressed = _event.m_action == InputActionType::StartPress;
-                ApplyModifiers(_event.m_modifiers);
-                io.AddKeyEvent(ToImGuiKey(_event.m_physicalKey), pressed);
-            });
-
-        m_textCallbackId = _inputManager.RegisterTextInputEventCallback(
-            [](Window*, u32 _char)
-            {
-                ImGuiIO& io = ::ImGui::GetIO();
-
-                io.AddInputCharacter(_char);
-            });
-
-        m_cursorPosCallbackId = _inputManager.RegisterCursorPosEventCallback(
-            [](Window* _window, float _posX, float _posY)
-            {
-                ImGuiIO& io = ::ImGui::GetIO();
-
-                // With viewports enabled ImGui expects mouse positions in virtual-desktop space.
-                if ((io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0 && _window != nullptr)
-                {
-                    const int2 windowPos = _window->GetPosition();
-                    _posX += static_cast<float>(windowPos.x);
-                    _posY += static_cast<float>(windowPos.y);
-                }
-
-                io.AddMousePosEvent(_posX, _posY);
-            });
-
-        m_mouseBtnCallbackId = _inputManager.RegisterMouseInputEventCallback(
-            [](Window*, const MouseInputEvent& _event){
-                ImGuiIO& io = ::ImGui::GetIO();
-
-                ImGuiMouseButton button = ToImGuiMouseButton(_event.m_mouseButton);
-
-                if (_event.m_action == InputActionType::KeepPressing || button == ImGuiMouseButton_COUNT)
-                {
-                    return;
-                }
-
-                bool pressed = _event.m_action == InputActionType::StartPress;
-                ApplyModifiers(_event.m_modifiers);
-                io.AddMouseButtonEvent(button, pressed);
-            });
-
-        m_scrollEventCallbackId = _inputManager.RegisterScrollInputEventCallback(
-            [](Window*, float _scrollX, float _scrollY)
-            {
-                ImGuiIO& io = ::ImGui::GetIO();
-                io.AddMouseWheelEvent(_scrollX, _scrollY);
-            });
+        /// @brief ImGui's own priority for the input consumer stack — high enough that it always sees
+        /// events before gameplay/camera consumers, so `io.WantCapture*` reflects this frame's events.
+        constexpr s32 kConsumerPriority = 1000;
     }
 
-    void Input::Shutdown(InputManager& _inputManager) const
+    Input::Input()
     {
-        _inputManager.UnregisterScrollInputEventCallback(m_scrollEventCallbackId);
-        _inputManager.UnregisterMouseInputEventCallback(m_mouseBtnCallbackId);
-        _inputManager.UnregisterCursorPosEventCallback(m_cursorPosCallbackId);
-        _inputManager.UnregisterTextInputEventCallback(m_textCallbackId);
-        _inputManager.UnregisterKeyInputEventCallback(m_keyCallbackId);
+        InputManager::Get().PushConsumer(this, kConsumerPriority);
+    }
+
+    void Input::Shutdown()
+    {
+        InputManager::Get().RemoveConsumer(this);
+    }
+
+    bool Input::HandleEvent(const InputEvent& _event)
+    {
+        ImGuiIO& io = ::ImGui::GetIO();
+
+        switch (_event.m_type)
+        {
+        case InputEventType::Key:
+        {
+            const KeyInputEvent& event = _event.m_key;
+            if (event.m_action != InputActionType::KeepPressing)
+            {
+                const bool pressed = event.m_action == InputActionType::StartPress;
+                ApplyModifiers(event.m_modifiers);
+                io.AddKeyEvent(ToImGuiKey(event.m_physicalKey), pressed);
+            }
+            return io.WantCaptureKeyboard;
+        }
+        case InputEventType::Text:
+            io.AddInputCharacter(_event.m_codepoint);
+            return io.WantCaptureKeyboard;
+        case InputEventType::MouseMove:
+        {
+            float posX = _event.m_mousePos.x;
+            float posY = _event.m_mousePos.y;
+
+            // With viewports enabled ImGui expects mouse positions in virtual-desktop space.
+            if ((io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0 && _event.m_window != nullptr)
+            {
+                const int2 windowPos = _event.m_window->GetPosition();
+                posX += static_cast<float>(windowPos.x);
+                posY += static_cast<float>(windowPos.y);
+            }
+
+            io.AddMousePosEvent(posX, posY);
+            return io.WantCaptureMouse;
+        }
+        case InputEventType::MouseButton:
+        {
+            const MouseInputEvent& event = _event.m_mouseButton;
+            const ImGuiMouseButton button = ToImGuiMouseButton(event.m_mouseButton);
+
+            if (event.m_action != InputActionType::KeepPressing && button != ImGuiMouseButton_COUNT)
+            {
+                const bool pressed = event.m_action == InputActionType::StartPress;
+                ApplyModifiers(event.m_modifiers);
+                io.AddMouseButtonEvent(button, pressed);
+            }
+            return io.WantCaptureMouse;
+        }
+        case InputEventType::Scroll:
+            io.AddMouseWheelEvent(_event.m_scroll.x, _event.m_scroll.y);
+            return io.WantCaptureMouse;
+        default:
+            return false;
+        }
     }
 
     void Input::ApplyModifiers(KeyInputModifiers _modifiers)
@@ -215,6 +216,7 @@ namespace KryneEngine::Modules::ImGui
         MAP(RightAlt, ImGuiKey_RightAlt);
         MAP(RightSuper, ImGuiKey_RightSuper);
         MAP(Menu, ImGuiKey_Menu);
+        MAP(Count, ImGuiKey_None);
         }
 
 #undef MAP

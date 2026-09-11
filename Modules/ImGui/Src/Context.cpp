@@ -106,7 +106,7 @@ namespace KryneEngine::Modules::ImGui
                 graphicsContext->GetFrameContextCount());
         }
 
-        m_input = _allocator.New<Input>(_windowManager->GetInput());
+        m_input = _allocator.New<Input>();
 
         InitPso(graphicsContext, _targetFormat, _vsBytecode, _fsBytecode);
 
@@ -181,7 +181,7 @@ namespace KryneEngine::Modules::ImGui
         m_viewportBackend = nullptr;
 
         // Unregister input callbacks.
-        m_input->Shutdown(_windowManager->GetInput());
+        m_input->Shutdown();
         m_setIndices.get_allocator().Delete(m_input);
 
         ::ImGui::DestroyContext(m_context);

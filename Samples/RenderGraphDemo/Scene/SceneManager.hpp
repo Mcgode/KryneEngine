@@ -47,7 +47,6 @@ namespace KryneEngine::Samples::RenderGraphDemo
         explicit SceneManager(
             AllocatorInstance _allocator,
             Window& _window,
-            InputManager& _inputManager,
             GraphicsContext* _graphicsContext,
             Modules::RenderGraph::Registry& _registry);
         ~SceneManager();

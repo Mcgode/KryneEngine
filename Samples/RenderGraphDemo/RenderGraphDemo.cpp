@@ -9,6 +9,7 @@
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/Input/InputManager.hpp>
 #include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
@@ -65,7 +66,7 @@ int main()
     Modules::ImGui::Context* imGuiContext = nullptr;
 
     RenderGraph::RenderGraph renderGraph {};
-    SceneManager sceneManager(allocator, *mainWindow, windowManager.GetInput(), graphicsContext, renderGraph.GetRegistry());
+    SceneManager sceneManager(allocator, *mainWindow, graphicsContext, renderGraph.GetRegistry());
 
     DeferredShadowPass deferredShadowPass { allocator };
     GiPass giPass { allocator };
@@ -310,6 +311,7 @@ int main()
     while (!windowManager.AllWindowsClosed())
     {
         windowManager.PollEvents();
+        windowManager.GetInput().Update();
 
         if (windowManager.ConsumeResizeFlag(mainWindow))
             graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());

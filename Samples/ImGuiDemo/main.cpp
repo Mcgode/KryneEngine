@@ -8,6 +8,7 @@
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/Input/InputManager.hpp>
 #include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <iostream>
@@ -108,6 +109,7 @@ void MainFunc(void* _pAllocator)
         KE_ZoneScoped("Main loop");
 
         windowManager.PollEvents();
+        windowManager.GetInput().Update();
 
         if (windowManager.ConsumeResizeFlag(mainWindow))
             graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());

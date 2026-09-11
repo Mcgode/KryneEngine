@@ -9,6 +9,7 @@
 #include <KryneEngine/Core/Memory/Allocators/TlsfAllocator.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
+#include <KryneEngine/Core/Window/Input/InputManager.hpp>
 #include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/FileSystem/VirtualFileSystem.hpp>
 #include <KryneEngine/Modules/GuiLib/Context.hpp>
@@ -131,6 +132,7 @@ s32 main(s32 argc, const char** argv)
     while (!windowManager.AllWindowsClosed())
     {
         windowManager.PollEvents();
+        windowManager.GetInput().Update();
 
         if (windowManager.ConsumeResizeFlag(mainWindow))
             graphicsContext->ResizeSwapChain(swapChain, mainWindow->GetFramebufferSize());

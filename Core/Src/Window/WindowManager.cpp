@@ -248,8 +248,10 @@ namespace KryneEngine
 
     void WindowManager::WindowFocusCallback(GLFWwindow* _window, s32 _focused)
     {
+        Window* window = ResolveWindow(_window);
+        s_instance->m_inputManager->OnWindowFocusEvent(window, _focused != 0);
         if (const auto& fn = s_instance->m_windowEventCallbacks.m_onFocus)
-            fn(ResolveWindow(_window), _focused != 0);
+            fn(window, _focused != 0);
     }
 
     void WindowManager::WindowPosCallback(GLFWwindow* _window, s32 _x, s32 _y)
@@ -260,20 +262,28 @@ namespace KryneEngine
 
     void WindowManager::WindowSizeCallback(GLFWwindow* _window, s32 _width, s32 _height)
     {
+        Window* window = ResolveWindow(_window);
+        const uint2 size { static_cast<u32>(_width), static_cast<u32>(_height) };
+        s_instance->m_inputManager->OnWindowResizeEvent(window, size);
         if (const auto& fn = s_instance->m_windowEventCallbacks.m_onResize)
-            fn(ResolveWindow(_window), uint2 { static_cast<u32>(_width), static_cast<u32>(_height) });
+            fn(window, size);
     }
 
     void WindowManager::WindowCloseCallback(GLFWwindow* _window)
     {
+        Window* window = ResolveWindow(_window);
+        s_instance->m_inputManager->OnWindowCloseRequestEvent(window);
         if (const auto& fn = s_instance->m_windowEventCallbacks.m_onCloseRequest)
-            fn(ResolveWindow(_window));
+            fn(window);
     }
 
     void WindowManager::ContentScaleCallback(GLFWwindow* _window, float _xScale, float _yScale)
     {
+        Window* window = ResolveWindow(_window);
+        const float2 dpiScale { _xScale, _yScale };
+        s_instance->m_inputManager->OnWindowDpiChangeEvent(window, dpiScale);
         if (const auto& fn = s_instance->m_windowEventCallbacks.m_onDpiChange)
-            fn(ResolveWindow(_window), float2 { _xScale, _yScale });
+            fn(window, dpiScale);
     }
 
     void WindowManager::FramebufferSizeCallback(GLFWwindow* _window, s32 _width, s32 _height)

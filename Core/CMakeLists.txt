@@ -158,6 +158,9 @@ set(WindowSrc
         Src/Window/GLFW/Input/KeyInputEvent.cpp
         Include/KryneEngine/Core/Window/Input/MouseInputEvent.hpp
         Include/KryneEngine/Core/Window/Input/Enums.hpp
+        Include/KryneEngine/Core/Window/Input/InputEvent.hpp
+        Include/KryneEngine/Core/Window/Input/InputConsumer.hpp
+        Include/KryneEngine/Core/Window/Input/InputAction.hpp
 )
 
 if (GraphicsApi STREQUAL "VK")
