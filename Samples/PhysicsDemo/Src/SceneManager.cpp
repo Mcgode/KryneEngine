@@ -99,12 +99,13 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         m_geometryLibrary.Update(*_graphicsContext);
 
-        m_orbitCamera->Process();
         m_sunLight->Process();
 
-        // Interpolate entity transforms between the last two fixed steps and push them to the
-        // renderer; see WorldObjectSystem's threading contract for why this must run on this thread.
+        // Interpolate between the last two fixed steps' worth of data and push the result to the
+        // renderer; see WorldObjectSystem's threading contract (OrbitCamera::UpdatePose()/
+        // SyncRenderTransform() follow the exact same one) for why this must run on this thread.
         const float alpha = m_timeProgress / m_physicsTimeStep;
+        m_orbitCamera->SyncRenderTransform(alpha);
         m_worldObjectSystem.SyncRenderInstances(m_drawInstanceManager, alpha);
 
         // Update fullscreen passes
@@ -145,6 +146,11 @@ namespace KryneEngine::Samples::PhysicsDemo
                 const auto lock = m_inputLock.AutoLock();
                 InputManager::Get().Update();
             }
+
+            // OrbitCamera reads the input state InputManager::Update() just wrote above; both
+            // must run on this same thread (see OrbitCamera::UpdatePose()'s own contract) so this
+            // read is never concurrent with it.
+            m_orbitCamera->UpdatePose();
 
             // Run physics
             {

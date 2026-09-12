@@ -13,6 +13,8 @@
 #include <KryneEngine/Core/Math/Transform.hpp>
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
 
+#include <atomic>
+
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <cmath>
@@ -27,13 +29,11 @@ namespace KryneEngine::Samples
 
     OrbitCamera::~OrbitCamera() = default;
 
-    void OrbitCamera::Process()
+    void OrbitCamera::UpdatePose()
     {
         if (InputManager::Get().IsMouseButtonPressed(MouseInputButton::Right))
         {
             const float2 delta = InputManager::Get().GetCursorDelta();
-
-            m_matrixDirty = true;
 
             m_theta += delta.x * 0.1f;
 
@@ -41,20 +41,25 @@ namespace KryneEngine::Samples
             m_phi = eastl::clamp(m_phi, -90.0f, 90.0f);
         }
 
-        if (!m_matrixDirty)
-        {
-            return;
-        }
-
         Math::Quaternion yaw, pitch;
         yaw.FromAxisAngle(Math::UpVector(), m_theta * M_PI / 180.0f);
         pitch.FromAxisAngle(Math::RightVector(), m_phi * M_PI / 180.0f);
 
-        m_viewRotation = pitch * yaw;
-        m_viewTranslation = Math::ForwardVector() * m_distance - m_focusPosition;
+        const Pose pose {
+            .m_translation = Math::ForwardVector() * m_distance - m_focusPosition,
+            .m_rotation = pitch * yaw,
+        };
 
-        auto viewMatrix = ToMatrix44<float4x4_simd>(ToMatrix33<float3x3>(m_viewRotation));
-        Math::SetTranslation(viewMatrix, m_viewTranslation);
+        const u8 active = std::atomic_ref(m_activePoseSlot).load(std::memory_order::relaxed);
+        const u8 back = 1 - active;
+        m_poseSlots[back] = pose;
+        std::atomic_ref(m_activePoseSlot).store(back, std::memory_order::release);
+    }
+
+    void OrbitCamera::BuildMatrices(const float3& _translation, const Math::Quaternion& _rotation)
+    {
+        auto viewMatrix = ToMatrix44<float4x4_simd>(ToMatrix33<float3x3>(_rotation));
+        Math::SetTranslation(viewMatrix, _translation);
 
         const auto projectionMatrix = Math::PerspectiveProjection<float4x4_simd>(
             m_fov,
@@ -69,6 +74,34 @@ namespace KryneEngine::Samples
 
         m_depthLinearizeConstants = Math::ComputePerspectiveDepthLinearizationConstants(m_near, INFINITY, true);
 
-        m_matrixDirty = false;
+        m_renderTranslation = _translation;
+        m_renderRotation = _rotation;
+    }
+
+    void OrbitCamera::SyncRenderTransform(const float _alpha)
+    {
+        const u8 active = std::atomic_ref(m_activePoseSlot).load(std::memory_order::acquire);
+        const Pose current = m_poseSlots[active];
+
+        if (!m_hasPreviousRenderPose)
+        {
+            m_previousRenderPose = current;
+            m_hasPreviousRenderPose = true;
+        }
+
+        Math::Quaternion rotation = m_previousRenderPose.m_rotation;
+        rotation.Slerp(current.m_rotation, _alpha);
+        const float3 translation = m_previousRenderPose.m_translation
+            + (current.m_translation - m_previousRenderPose.m_translation) * _alpha;
+
+        BuildMatrices(translation, rotation);
+
+        m_previousRenderPose = current;
+    }
+
+    void OrbitCamera::Process()
+    {
+        UpdatePose();
+        SyncRenderTransform(1.f);
     }
 }
