@@ -28,9 +28,9 @@ namespace KryneEngine::Samples
     public:
         struct PassConstantBuffer
         {
-            float4x4 m_viewProjectionMatrix;
             float4x4 m_viewMatrix;
             float4x4 m_projectionMatrix;
+            float4x4 m_viewProjectionMatrix;
         };
 
         ~PassDispatcher();
