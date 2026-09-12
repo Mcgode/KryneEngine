@@ -95,6 +95,91 @@ namespace KryneEngine::Samples
             _graphicsContext.GetCurrentFrameContextIndex());
     }
 
+    SimplePoolHandle DrawInstanceManager::RegisterModel(
+        const BufferSpan _vertexBuffer,
+        const BufferSpan _indexBuffer,
+        const MaterialHandle _material,
+        const u32 _elementCount,
+        const u32 _indexOffset,
+        const u32 _vertexOffset)
+    {
+        const SimplePoolHandle handle = m_models.AllocateAndInit(Model {
+            .m_vertexBuffer = _vertexBuffer,
+            .m_indexBuffer = _indexBuffer,
+            .m_material = _material,
+            .m_instanceCount = 0,
+            .m_elementCount = _elementCount,
+            .m_indexOffset = _indexOffset,
+            .m_vertexOffset = _vertexOffset,
+        });
+
+        const size_t word = handle / 64;
+        if (word >= m_validModels.size())
+        {
+            m_validModels.resize(word + 1, 0);
+        }
+        m_validModels[word] |= (1ull << (handle % 64));
+
+        return handle;
+    }
+
+    SimplePoolHandle DrawInstanceManager::RegisterInstance(
+        const SimplePoolHandle _model,
+        const float3 _position,
+        const Math::Quaternion _rotation,
+        const float3 _scale)
+    {
+        const SimplePoolHandle handle = m_instances.AllocateAndInit(Instance {
+            .m_model = _model,
+            .m_valid = true,
+            .m_dynamic = true,
+            .m_uploadFrames = 0,
+        });
+
+        if (handle >= m_instanceData.size())
+        {
+            m_instanceData.resize(handle + 1);
+        }
+        m_instanceData[handle] = PackInstanceData(_position, _rotation, _scale);
+
+        m_models.Get(_model).m_instanceCount++;
+
+        return handle;
+    }
+
+    void DrawInstanceManager::UnregisterInstance(const SimplePoolHandle _instance)
+    {
+        Instance& instance = m_instances.Get(_instance);
+        VERIFY_OR_RETURN_VOID(instance.m_valid);
+
+        m_models.Get(instance.m_model).m_instanceCount--;
+        instance.m_valid = false;
+    }
+
+    void DrawInstanceManager::SetInstanceTransform(
+        const SimplePoolHandle _instance,
+        const float3 _position,
+        const Math::Quaternion _rotation,
+        const float3 _scale)
+    {
+        KE_ASSERT(m_instances.Get(_instance).m_valid);
+        m_instanceData[_instance] = PackInstanceData(_position, _rotation, _scale);
+    }
+
+    DrawInstanceManager::InstanceData DrawInstanceManager::PackInstanceData(
+        const float3 _position,
+        const Math::Quaternion& _rotation,
+        const float3 _scale)
+    {
+        const u64 packedRotation = _rotation.Pack64();
+        return InstanceData {
+            .m_position = _position,
+            .m_packedRotation0 = static_cast<u32>(packedRotation),
+            .m_scale = _scale,
+            .m_packedRotation1 = static_cast<u32>(packedRotation >> 32),
+        };
+    }
+
     DescriptorSetLayoutHandle DrawInstanceManager::GetPassDescriptorSetLayout(GraphicsContext& _graphicsContext)
     {
         if (m_passDescriptorSetLayout == GenPool::kInvalidHandle)

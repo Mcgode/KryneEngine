@@ -9,6 +9,7 @@
 
 #include <KryneEngine/Core/Graphics/Buffer.hpp>
 #include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
+#include <KryneEngine/Core/Math/Quaternion.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 #include <KryneEngine/Core/Memory/SimplePool.hpp>
@@ -37,6 +38,31 @@ namespace KryneEngine::Samples
         ~DrawInstanceManager();
 
         void UpdateGpuData(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
+
+        // Registers a model (a single draw call's worth of geometry) that instances can be registered against.
+        // Models are expected to be long-lived (registered once at scene setup); there is no UnregisterModel.
+        [[nodiscard]] SimplePoolHandle RegisterModel(
+            BufferSpan _vertexBuffer,
+            BufferSpan _indexBuffer,
+            MaterialHandle _material,
+            u32 _elementCount,
+            u32 _indexOffset = 0,
+            u32 _vertexOffset = 0);
+
+        // Registers a new dynamic instance of a given model, with an initial transform.
+        [[nodiscard]] SimplePoolHandle RegisterInstance(
+            SimplePoolHandle _model,
+            float3 _position,
+            Math::Quaternion _rotation,
+            float3 _scale);
+
+        void UnregisterInstance(SimplePoolHandle _instance);
+
+        void SetInstanceTransform(
+            SimplePoolHandle _instance,
+            float3 _position,
+            Math::Quaternion _rotation,
+            float3 _scale);
 
         [[nodiscard]] DescriptorSetLayoutHandle GetPassDescriptorSetLayout(GraphicsContext& _graphicsContext);
 
@@ -83,6 +109,8 @@ namespace KryneEngine::Samples
 
         SimplePool<Instance> m_instances;
         eastl::vector<InstanceData> m_instanceData;
+
+        static InstanceData PackInstanceData(float3 _position, const Math::Quaternion& _rotation, float3 _scale);
 
         DescriptorSetLayoutHandle m_passDescriptorSetLayout;
         u32 m_passCbBindingIndex = 0;
