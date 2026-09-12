@@ -73,6 +73,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         [[nodiscard]] SkyPass& GetSkyPass() { return m_skyPass; }
         [[nodiscard]] ColorMappingPass& GetColorPass() { return m_colorMappingPass; }
 
+        [[nodiscard]] SpinLock& GetInputLock() { return m_inputLock; }
+
     private:
         AllocatorInstance m_allocator;
         FibersManager* m_fibersManager;
@@ -105,5 +107,6 @@ namespace KryneEngine::Samples::PhysicsDemo
         SkyPass m_skyPass;
         ColorMappingPass m_colorMappingPass;
 
+        SpinLock m_inputLock;
     };
 }

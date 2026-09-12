@@ -118,6 +118,14 @@ namespace KryneEngine::Samples::PhysicsDemo
         {
             KE_ZoneScopedF("Game loop frame %lld", *frameId);
 
+            // Process Input
+            {
+                KE_ZoneScoped("Input: Process");
+
+                const auto lock = m_inputLock.AutoLock();
+                InputManager::Get().Update();
+            }
+
             // Run physics
             {
                 KE_ZoneScoped("Physics: World step");

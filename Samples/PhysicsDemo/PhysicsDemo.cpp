@@ -319,8 +319,10 @@ int main()
     auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
     do
     {
-        windowManager.PollEvents();
-        windowManager.GetInput().Update();
+        {
+            const auto lock = sceneManager.GetInputLock().AutoLock();
+            windowManager.PollEvents();
+        }
 
         if (imGuiContext == nullptr)
         {
