@@ -48,8 +48,9 @@ typedef VsOutput FsInput;
 
 struct FsOutput
 {
-    float4 albedo: SV_TARGET0;
-    float4 normal: SV_TARGET1;
+    float4 gBuffer0: SV_TARGET0;
+    float4 gBuffer1: SV_TARGET1;
+    float4 gBuffer2: SV_TARGET2;
 };
 
 
@@ -57,8 +58,9 @@ FsOutput MainFs(FsInput _input)
 {
     FsOutput output;
 
-    output.albedo = float4(0.5f.xxx, 1);
-    output.normal = float4(normalize(_input.normal) * 0.5f + 0.5f, 0.f);
+    output.gBuffer0 = float4(0.5f.xxx, 1);
+    output.gBuffer1 = float4(normalize(_input.normal) * 0.5f + 0.5f, 0.f);
+    output.gBuffer2 = float4(0.xxxx);
 
     return output;
 }
