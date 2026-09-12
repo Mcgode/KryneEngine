@@ -46,6 +46,8 @@ namespace Quaternion
             quaternion[i + offset] = lowestComponents[i];
         }
 
-        return quaternion;
+        // Quaternion are stored in wxyz order on the CPU and packed based on this order.
+        // The GPU meanwhile uses xyzw order.
+        return quaternion.yzwx;
     }
 }
