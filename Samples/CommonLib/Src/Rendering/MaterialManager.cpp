@@ -39,7 +39,14 @@ namespace KryneEngine::Samples
         , m_passTypeCount(_passTypeCount)
         , m_maxMaterialCount(_maxMaterialCount)
     {
-        m_pipelines = m_allocator.Allocate<MaterialPipeline>(m_maxMaterialCount * m_passTypeCount);
+        const size_t count = m_maxMaterialCount * m_passTypeCount;
+        m_pipelines = m_allocator.Allocate<MaterialPipeline>(count);
+        // Allocate() only reserves raw memory; construct each entry so its default member
+        // initializers (in particular m_descriptorSets defaulting to kInvalidHandle) actually apply.
+        for (size_t i = 0; i < count; i++)
+        {
+            new (&m_pipelines[i]) MaterialPipeline();
+        }
     }
 
     MaterialManager::~MaterialManager()
