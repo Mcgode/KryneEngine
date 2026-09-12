@@ -14,8 +14,8 @@ struct InstanceData
 {
     float3 m_translate;
     uint m_quaternion0;
-    uint m_quaternion1;
     float3 m_scale;
+    uint m_quaternion1;
 };
 
 

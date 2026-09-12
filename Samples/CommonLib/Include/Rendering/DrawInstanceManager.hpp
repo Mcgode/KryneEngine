@@ -76,8 +76,9 @@ namespace KryneEngine::Samples
         struct alignas(sizeof(float4)) InstanceData
         {
             float3 m_position {};
-            u32 m_packedRotation[2] {};
+            u32 m_packedRotation0 {};
             float3 m_scale {};
+            u32 m_packedRotation1 {};
         };
 
         SimplePool<Instance> m_instances;
