@@ -11,10 +11,10 @@
 #include "RenderTargetFormats.hpp"
 #include "Rendering/Fullscreen/FullscreenPassConstants.hpp"
 
+#include <KryneEngine/Core/Math/CoordinateSystem.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
-#include <KryneEngine/Modules/RenderGraph/Declarations/PassDeclaration.hpp>
 #include <Scene/OrbitCamera.hpp>
 #include <Scene/SunLight.hpp>
 #include <fstream>
@@ -34,6 +34,8 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_singleThreadedMode(_singleThreadedMode)
             , m_drawInstanceManager(_allocator, *_graphicsContext)
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
+            , m_geometryLibrary(_allocator, *_graphicsContext)
+            , m_worldObjectSystem(_allocator, _world)
             , m_gameFramesQueue(_allocator, 3)
             , m_fullscreenConstantsBuffer(_allocator)
             , m_deferredShadingPass(_allocator)
@@ -95,8 +97,15 @@ namespace KryneEngine::Samples::PhysicsDemo
             }
         }
 
+        m_geometryLibrary.Update(*_graphicsContext);
+
         m_orbitCamera->Process();
         m_sunLight->Process();
+
+        // Interpolate entity transforms between the last two fixed steps and push them to the
+        // renderer; see WorldObjectSystem's threading contract for why this must run on this thread.
+        const float alpha = m_timeProgress / m_physicsTimeStep;
+        m_worldObjectSystem.SyncRenderInstances(m_drawInstanceManager, alpha);
 
         // Update fullscreen passes
         {
@@ -141,6 +150,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             {
                 KE_ZoneScoped("Physics: World step");
                 b3World_Step(m_world, m_physicsTimeStep, m_physicsSubSteps);
+                m_worldObjectSystem.Update();
             }
 
             m_gameFramesQueue.Pop();
@@ -264,6 +274,11 @@ namespace KryneEngine::Samples::PhysicsDemo
                     .m_colorBlending = {
                         .m_attachments = { ColorAttachmentBlendDesc {}, ColorAttachmentBlendDesc {}, ColorAttachmentBlendDesc {} },
                     },
+                    // Reverse depth (near = 1, far = 0), matching the GBuffer pass's clear value of
+                    // 0 and OrbitCamera's reversed-depth projection matrix.
+                    .m_depthStencil = {
+                        .m_depthCompare = DepthStencilStateDesc::CompareOp::Greater,
+                    },
                     .m_renderTargets = {
                         .m_numColorAttachments = 3,
                         .m_colorFormats = { kGBuffer0Format, kGBuffer1Format, kGBuffer2Format },
@@ -298,6 +313,37 @@ namespace KryneEngine::Samples::PhysicsDemo
             _graphicsContext.FreeShaderModule(vertexShader);
             m_allocator.deallocate(fragmentBytecode.data(), fragmentBytecode.size_bytes());
             m_allocator.deallocate(vertexBytecode.data(), vertexBytecode.size_bytes());
+        }
+
+        // A handful of falling box entities: minimal proof-of-work content that exercises the
+        // ECS end to end, not a real scene-loading format.
+        {
+            const GeometryBuffers& boxBuffers = m_geometryLibrary.GetBuffers(GeometryType::Box);
+            const SimplePoolHandle boxModel = m_drawInstanceManager.RegisterModel(
+                boxBuffers.m_vertexBuffer,
+                boxBuffers.m_indexBuffer,
+                m_defaultMaterial,
+                boxBuffers.m_indexCount);
+
+            for (u32 i = 0; i < 5; ++i)
+            {
+                const Transform transform {
+                    .m_position = Math::UpVector() * (2.0f + static_cast<float>(i) * 1.5f) + float3(0.1f * static_cast<float>(i), 0.f, 0.f),
+                    .m_rotation = {},
+                    .m_scale = float3(1.f, 1.f, 1.f),
+                };
+
+                b3BodyDef bodyDef = b3DefaultBodyDef();
+                bodyDef.type = b3_dynamicBody;
+
+                const EntityHandle entity = m_worldObjectSystem.CreateEntity(transform, bodyDef, boxModel);
+
+                const b3BodyId body = m_worldObjectSystem.GetBody(entity);
+                b3ShapeDef shapeDef = b3DefaultShapeDef();
+                b3BoxHull hull = m_geometryLibrary.GetBoxHull(GeometryType::Box);
+                b3CreateHullShape(body, &shapeDef, &hull.base);
+                b3Body_ApplyMassFromShapes(body);
+            }
         }
 
         // Fullscreen passes
@@ -406,5 +452,29 @@ namespace KryneEngine::Samples::PhysicsDemo
             _transferEncoder,
             BarrierAccessFlags::ConstantBuffer,
             _graphicsContext->GetCurrentFrameContextIndex());
+    }
+
+    void SceneManager::PrepareGBufferPass(
+        GraphicsContext& _graphicsContext,
+        const TransferCommandEncoderHandle _transferEncoder)
+    {
+        // No-op after the first call: geometry buffers only need uploading once, but this must
+        // happen from within a transfer encoder the render graph already opened for this frame,
+        // rather than GeometryLibrary opening a command buffer of its own.
+        m_geometryLibrary.UploadPendingGeometry(_graphicsContext, _transferEncoder);
+
+        m_drawInstanceManager.UpdateGpuData(_graphicsContext, _transferEncoder);
+        m_gBufferPassDispatcher->PrepareDispatch(
+            m_orbitCamera->GetViewMatrix(),
+            m_orbitCamera->GetProjectionMatrix(),
+            _graphicsContext,
+            _transferEncoder);
+    }
+
+    void SceneManager::RenderGBufferPass(
+        GraphicsContext& _graphicsContext,
+        const RenderCommandEncoderHandle _renderEncoder)
+    {
+        m_gBufferPassDispatcher->Dispatch(_graphicsContext, _renderEncoder);
     }
 } // namespace KryneEngine::Samples::PhysicsDemo

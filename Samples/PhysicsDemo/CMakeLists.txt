@@ -4,6 +4,10 @@ add_executable(PhysicsDemo
         Src/SceneManager.hpp
         Src/PassTypes.hpp
         Src/RenderTargetFormats.hpp
+        Src/Ecs/WorldObjectSystem.cpp
+        Src/Ecs/WorldObjectSystem.hpp
+        Src/Geometry/GeometryLibrary.cpp
+        Src/Geometry/GeometryLibrary.hpp
 )
 
 target_link_libraries(PhysicsDemo

@@ -11,6 +11,8 @@
 #include "Rendering/Fullscreen/DeferredShadingPass.hpp"
 #include "Rendering/Fullscreen/SkyPass.hpp"
 #include "Rendering/MaterialManager.hpp"
+#include "Ecs/WorldObjectSystem.hpp"
+#include "Geometry/GeometryLibrary.hpp"
 
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
@@ -74,6 +76,9 @@ namespace KryneEngine::Samples::PhysicsDemo
         [[nodiscard]] SkyPass& GetSkyPass() { return m_skyPass; }
         [[nodiscard]] ColorMappingPass& GetColorPass() { return m_colorMappingPass; }
 
+        void PrepareGBufferPass(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
+        void RenderGBufferPass(GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
+
         [[nodiscard]] SpinLock& GetInputLock() { return m_inputLock; }
 
     private:
@@ -85,6 +90,8 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         DrawInstanceManager m_drawInstanceManager;
         MaterialManager m_materialManager;
+        GeometryLibrary m_geometryLibrary;
+        WorldObjectSystem m_worldObjectSystem;
 
         OrbitCamera* m_orbitCamera = nullptr;
         SunLight* m_sunLight = nullptr;

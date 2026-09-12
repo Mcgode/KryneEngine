@@ -370,6 +370,10 @@ int main(int _argc, const char* _argv[])
                 .Done()
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("GBuffer pass")
+                .SetPrePassTransferFunction([&sceneManager](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
+                {
+                    sceneManager.PrepareGBufferPass(*_graphicsContext, _transferEncoder);
+                })
                 .AddColorAttachment(gBuffer0Rtv)
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
@@ -387,7 +391,10 @@ int main(int _argc, const char* _argv[])
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .SetClearDepthStencil(0.f)
                     .Done()
-                .SetExecuteFunction([](const auto&, const auto&) { /* TODO*/ })
+                .SetExecuteFunction([&sceneManager](RenderGraph::RenderGraph&, const RenderGraph::PassExecutionData& _executionData)
+                {
+                    sceneManager.RenderGBufferPass(*_executionData.m_graphicsContext, _executionData.m_renderEncoder);
+                })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Compute)
                 .SetName("Deferred shadows pass")
