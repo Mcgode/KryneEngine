@@ -41,7 +41,7 @@ namespace KryneEngine::Samples::BoxMeshGenerator
         };
         constexpr u16 baseIndices[4 * 6] = {
             7, 5, 1, 3, // X+ Face
-            6, 7, 3, 3, // Y+ Face
+            6, 7, 3, 2, // Y+ Face
             6, 4, 5, 7, // Z+ Face
             4, 6, 2, 0, // X- Face
             5, 4, 0, 1, // Y- Face
