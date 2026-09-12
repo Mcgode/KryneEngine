@@ -209,18 +209,30 @@ namespace KryneEngine
 
             TracyLockable(std::mutex, waitMutex);
             std::condition_variable_any waitVariable;
+            std::atomic<bool> done = false;
 
             InitAndBatchJobsNoCounter({
-                .m_function = [&waitVariable, &_syncCounters](u16)
+                .m_function = [&waitMutex, &waitVariable, &done, _syncCounters](u16)
                 {
                     GetInstance()->WaitForCounters(_syncCounters);
+
+                    // Set the flag and notify while still holding the lock. This guarantees that this
+                    // thread is done touching waitMutex/waitVariable/done before the waiting thread can
+                    // re-acquire the lock and return from wait(), which in turn means none of them can be
+                    // destroyed (by the waiting thread unwinding out of this function) while this call to
+                    // notify_one() is still in flight.
+                    const std::lock_guard lock(waitMutex);
+                    done.store(true, std::memory_order_release);
                     waitVariable.notify_one();
                 },
                 .m_priority = FiberJob::Priority::Medium
             });
 
+            // Wait on a predicate (rather than a bare wait()) so that a lost wakeup (notify_one() racing
+            // ahead of wait()) or a spurious wakeup can never cause this to return before the job above has
+            // actually completed and signalled.
             std::unique_lock lock(waitMutex);
-            waitVariable.wait(lock);
+            waitVariable.wait(lock, [&done] { return done.load(std::memory_order_acquire); });
         }
     }
 
