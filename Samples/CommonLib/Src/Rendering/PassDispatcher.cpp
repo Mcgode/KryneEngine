@@ -194,7 +194,7 @@ namespace KryneEngine::Samples
             }
 
             _graphicsContext.DrawIndexedInstanced(_renderEncoder, {
-                .m_elementCount = model.m_vertexCount,
+                .m_elementCount = model.m_elementCount,
                 .m_instanceCount = model.m_instanceCount,
                 .m_indexOffset = model.m_indexOffset,
                 .m_vertexOffset = model.m_vertexOffset,

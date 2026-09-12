@@ -57,7 +57,7 @@ namespace KryneEngine::Samples
             BufferSpan m_indexBuffer {};
             MaterialHandle m_material = kInvalidMaterialHandle;
             u32 m_instanceCount = 0;
-            u32 m_vertexCount = 0;
+            u32 m_elementCount = 0;
             u32 m_indexOffset = 0;
             u32 m_vertexOffset = 0;
         };
