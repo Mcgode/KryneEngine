@@ -56,14 +56,16 @@ namespace KryneEngine::Samples
         auto viewMatrix = ToMatrix44<float4x4_simd>(ToMatrix33<float3x3>(m_viewRotation));
         Math::SetTranslation(viewMatrix, m_viewTranslation);
 
-        m_projectionViewMatrix = float4x4(
-            Math::PerspectiveProjection<float4x4_simd>(
-                m_fov,
-                m_aspectRatio,
-                m_near,
-                INFINITY,
-                true
-            ) * viewMatrix);
+        const auto projectionMatrix = Math::PerspectiveProjection<float4x4_simd>(
+            m_fov,
+            m_aspectRatio,
+            m_near,
+            INFINITY,
+            true);
+
+        m_viewMatrix = float4x4(viewMatrix);
+        m_projectionMatrix = float4x4(projectionMatrix);
+        m_projectionViewMatrix = float4x4(projectionMatrix * viewMatrix);
 
         m_depthLinearizeConstants = Math::ComputePerspectiveDepthLinearizationConstants(m_near, INFINITY, true);
 

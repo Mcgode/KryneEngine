@@ -25,6 +25,8 @@ namespace KryneEngine::Samples
         [[nodiscard]] const float3& GetViewTranslation() const { return m_viewTranslation; }
         [[nodiscard]] const Math::Quaternion& GetViewRotation() const { return m_viewRotation; }
         [[nodiscard]] const float4x4& GetProjectionViewMatrix() const { return m_projectionViewMatrix; }
+        [[nodiscard]] const float4x4& GetViewMatrix() const { return m_viewMatrix; }
+        [[nodiscard]] const float4x4& GetProjectionMatrix() const { return m_projectionMatrix; }
 
     private:
         float3 m_focusPosition {};
@@ -41,5 +43,7 @@ namespace KryneEngine::Samples
         float3 m_viewTranslation {};
         Math::Quaternion m_viewRotation {};
         float4x4 m_projectionViewMatrix {};
+        float4x4 m_viewMatrix {};
+        float4x4 m_projectionMatrix {};
     };
 }
