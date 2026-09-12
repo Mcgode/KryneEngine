@@ -26,10 +26,12 @@ namespace KryneEngine::Samples::PhysicsDemo
         GraphicsContext* _graphicsContext,
         const SwapChainHandle _mainSwapChainHandle,
         FibersManager* _fibersManager,
-        const b3WorldId _world)
+        const b3WorldId _world,
+        const bool _singleThreadedMode)
             : m_allocator(_allocator)
             , m_fibersManager(_fibersManager)
             , m_world(_world)
+            , m_singleThreadedMode(_singleThreadedMode)
             , m_drawInstanceManager(_allocator, *_graphicsContext)
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
             , m_gameFramesQueue(_allocator, 3)
@@ -79,10 +81,19 @@ namespace KryneEngine::Samples::PhysicsDemo
         }
 
         if (!gameLoopRunning && queuedGameLoopFrame)
-            m_fibersManager->InitAndBatchJobsNoCounter({
-                .m_function = [this](u16) { GameLoop(); },
-                .m_priority = FiberJob::Priority::High,
-            });
+        {
+            if (m_singleThreadedMode)
+            {
+                GameLoop();
+            }
+            else
+            {
+                m_fibersManager->InitAndBatchJobsNoCounter({
+                   .m_function = [this](u16) { GameLoop(); },
+                   .m_priority = FiberJob::Priority::High,
+               });
+            }
+        }
 
         m_orbitCamera->Process();
         m_sunLight->Process();

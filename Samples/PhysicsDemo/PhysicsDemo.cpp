@@ -27,11 +27,18 @@ using namespace KryneEngine::Modules;
 using namespace Samples::PhysicsDemo;
 
 
-int main()
+int main(int _argc, const char* _argv[])
 {
     TracySetProgramName("Physics demo");
 
-    KE_ZoneScoped("Physics demo");
+    bool singleThreadedMode = false;
+    for (int i = 0; i < _argc; ++i)
+    {
+        if (strcmp(_argv[i], "--single-threaded") == 0)
+        {
+            singleThreadedMode = true;
+        }
+    }
 
     AllocatorInstance allocator {};
 
@@ -61,7 +68,7 @@ int main()
         .m_displayOptions = displayOptions,
     });
 
-    Box3D::Context box3dContext(&fibersManager);
+    Box3D::Context box3dContext(singleThreadedMode ? nullptr : &fibersManager);
     Box3D::Context::SetAllocator(allocator);
 
     b3WorldId world;
@@ -88,7 +95,7 @@ int main()
         }
     }
 
-    SceneManager sceneManager(allocator, graphicsContext, mainSwapChain, &fibersManager, world);
+    SceneManager sceneManager(allocator, graphicsContext, mainSwapChain, &fibersManager, world, singleThreadedMode);
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 
@@ -495,7 +502,7 @@ int main()
             .DeclareTargetResource(swapChainTexture);
 
         builder.BuildDag();
-        renderGraph.SubmitFrame(*graphicsContext, &fibersManager);
+        renderGraph.SubmitFrame(*graphicsContext, singleThreadedMode ? nullptr : &fibersManager);
 
         graphicsContext->EndFrame(imGuiContext->GetSwapChainsToPresent());
     }

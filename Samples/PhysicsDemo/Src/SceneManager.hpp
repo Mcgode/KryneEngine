@@ -46,7 +46,8 @@ namespace KryneEngine::Samples::PhysicsDemo
             GraphicsContext* _graphicsContext,
             SwapChainHandle _mainSwapChainHandle,
             FibersManager* _fibersManager,
-            b3WorldId _world);
+            b3WorldId _world,
+            bool _singleThreadedMode);
 
         ~SceneManager();
 
@@ -79,6 +80,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         AllocatorInstance m_allocator;
         FibersManager* m_fibersManager;
         b3WorldId m_world;
+
+        const bool m_singleThreadedMode;
 
         DrawInstanceManager m_drawInstanceManager;
         MaterialManager m_materialManager;
