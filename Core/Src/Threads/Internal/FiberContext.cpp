@@ -105,14 +105,15 @@ namespace KryneEngine
         }
     }
 
-    FiberContextAllocator::FiberContextAllocator(AllocatorInstance _allocator)
+    FiberContextAllocator::FiberContextAllocator(const AllocatorInstance _allocator)
+        : m_allocator(_allocator)
     {
         {
             const auto smallLock = m_availableSmallContextsIds.m_spinLock.AutoLock();
             const auto bigLock = m_availableBigContextsIds.m_spinLock.AutoLock();
 
-            m_availableSmallContextsIds.m_priorityQueue.get_container().set_allocator(_allocator);
-            m_availableBigContextsIds.m_priorityQueue.get_container().set_allocator(_allocator);
+            m_availableSmallContextsIds.m_priorityQueue.get_container().set_allocator(m_allocator);
+            m_availableBigContextsIds.m_priorityQueue.get_container().set_allocator(m_allocator);
 
             m_availableSmallContextsIds.m_priorityQueue.get_container().reserve(kSmallStackCount);
             for (u16 i = 0; i < kSmallStackCount; i++)
@@ -126,10 +127,10 @@ namespace KryneEngine
                 m_availableBigContextsIds.m_priorityQueue.push(i + kSmallStackCount);
             }
 
-            m_smallStacks = static_cast<SmallStack*>(_allocator.allocate(
+            m_smallStacks = static_cast<SmallStack*>(m_allocator.allocate(
                 sizeof(SmallStack) * static_cast<size_t>(kSmallStackCount),
                 kStackAlignment));
-            m_bigStacks = static_cast<BigStack*>(_allocator.allocate(
+            m_bigStacks = static_cast<BigStack*>(m_allocator.allocate(
                 sizeof(BigStack) * static_cast<size_t>(kBigStackCount),
                 kStackAlignment));
 
@@ -168,9 +169,8 @@ namespace KryneEngine
 
     FiberContextAllocator::~FiberContextAllocator()
     {
-        AllocatorInstance allocator {};
-        allocator.deallocate(m_smallStacks);
-        allocator.deallocate(m_bigStacks);
+        m_allocator.deallocate(m_smallStacks);
+        m_allocator.deallocate(m_bigStacks);
     }
 
     bool FiberContextAllocator::Allocate(bool _bigStack, u16 &id_)

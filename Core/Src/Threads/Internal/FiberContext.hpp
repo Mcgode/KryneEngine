@@ -68,6 +68,8 @@ namespace KryneEngine
         static_assert(Alignment::IsAligned(kSmallStackSize, kStackAlignment));
         static_assert(Alignment::IsAligned(kBigStackSize, kStackAlignment));
 
+        AllocatorInstance m_allocator;
+
         struct StackIdQueue
         {
             struct Comparator
