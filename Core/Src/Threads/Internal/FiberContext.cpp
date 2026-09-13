@@ -68,7 +68,6 @@ namespace KryneEngine
 
         const auto fibersManager = FibersManager::GetInstance();
         VERIFY_OR_RETURN_VOID(fibersManager != nullptr);
-        fibersManager->OnContextSwitched();
 
         if (KE_VERIFY(_transfer.data != nullptr))
         {
@@ -77,12 +76,17 @@ namespace KryneEngine
             fiberContext->m_mutex.ManualUnlock(); // Mark previous fiber as free to be used again.
 
 #if defined(HAS_ASAN)
+            // Tell ASAN the switch onto this fiber's stack is complete before running any other
+            // code on it, so its fake-stack bookkeeping isn't left believing we're still on the
+            // previous fiber's stack.
             __sanitizer_finish_switch_fiber(
                 nullptr,
                 &fiberContext->m_stackBottom,
                 &fiberContext->m_stackSize);
 #endif
         }
+
+        fibersManager->OnContextSwitched();
 
         while (true)
         {
