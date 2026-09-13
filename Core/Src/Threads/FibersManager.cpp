@@ -370,6 +370,8 @@ namespace KryneEngine
         // double free/use-after-free of the job, not just of its bookkeeping.
         if (_job != nullptr && _job->GetStatus() == FiberJob::Status::Finished)
         {
+            KE_ASSERT_MSG(!_job->m_finalized.exchange(true, std::memory_order_acq_rel), "Job finalized twice");
+
             if (_job->m_associatedCounterId != kInvalidSyncCounterId)
             {
                 // Decrement counter

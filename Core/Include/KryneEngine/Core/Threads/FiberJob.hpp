@@ -114,5 +114,9 @@ namespace KryneEngine
         FiberContext *m_context = nullptr;
 
         SyncCounterId m_associatedCounterId = kInvalidSyncCounterId;
+
+        // Guards against a job being finalized (its counter decremented, its context freed, the
+        // job itself deleted) more than once -- see FibersManager::FinalizeLeavingJob().
+        std::atomic<bool> m_finalized { false };
     };
 } // KryneEngine
