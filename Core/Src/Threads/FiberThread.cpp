@@ -108,10 +108,12 @@ namespace KryneEngine
         _manager->OnContextSwitched();
     }
 
-    void FiberThread::Stop(std::condition_variable &_waitVariable)
+    void FiberThread::Stop(FibersManager& _manager)
     {
-        m_shouldStop = true;
-        _waitVariable.notify_all();
+        // Set before notifying so that a thread woken by this (or already past ThreadWaitForJob(),
+        // re-checking _TryRetrieveNextJob's own loop condition) sees it immediately.
+        m_shouldStop.store(true, std::memory_order_release);
+        _manager.m_waitVariable.notify_all();
         m_thread.join();
     }
 

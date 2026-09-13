@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <condition_variable>
+#include <atomic>
 #include <thread>
 #include "KryneEngine/Core/Common/Types.hpp"
 
@@ -28,10 +28,10 @@ namespace KryneEngine
 
         void SwitchToNextJob(FibersManager *_manager, FiberJob *_currentJob, FiberJob *_nextJob = nullptr);
 
-        void Stop(std::condition_variable& _waitVariable);
+        void Stop(FibersManager& _manager);
 
     private:
-        bool m_shouldStop = false;
+        std::atomic<bool> m_shouldStop = false;
         std::thread m_thread;
         eastl::string m_name;
 

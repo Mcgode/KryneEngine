@@ -6,6 +6,9 @@
 
 #include "KryneEngine/Core/Threads/FibersManager.hpp"
 
+#include <chrono>
+#include <condition_variable>
+
 #include "KryneEngine/Core/Common/Assert.hpp"
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
 #include "KryneEngine/Core/Threads/FiberJob.hpp"
@@ -96,7 +99,7 @@ namespace KryneEngine
     {
         for (auto& fiberThread : m_fiberThreads)
         {
-            fiberThread.Stop(m_waitVariable);
+            fiberThread.Stop(*this);
         }
         // Make sure to end and join all the fiber threads before anything else.
         m_fiberThreads.Clear();
@@ -176,6 +179,11 @@ namespace KryneEngine
             KE_ASSERT(_job != nullptr);
             m_jobQueues[priorityId].enqueue(_job);
         }
+
+        // Deliberately lock-free: this is meant to be cheap. A thread that's genuinely asleep in
+        // ThreadWaitForJob() wakes on this notify regardless; ThreadWaitForJob()'s own bounded wait
+        // is what covers the rare case where this races ahead of a thread that hasn't registered as
+        // a waiter yet (see its comment for why that isn't worth closing here).
         m_waitVariable.notify_one();
     }
 
@@ -387,7 +395,22 @@ namespace KryneEngine
     void FibersManager::ThreadWaitForJob()
     {
         std::unique_lock lock(m_waitMutex);
-        m_waitVariable.wait(lock); // Allow spurious wakeup.
+
+        // No predicate: a plain wait_for() already wakes immediately on *any* notify_one()/
+        // notify_all() -- from QueueJob() queuing a job or FiberThread::Stop() requesting shutdown,
+        // both deliberately lock-free -- and the caller (_TryRetrieveNextJob) re-checks RetrieveNextJob()
+        // and m_shouldStop right after this returns regardless of why it returned, so there is nothing
+        // useful for a predicate to re-test here. (An earlier version of this used _shouldStop as the
+        // predicate, which was wrong: wait_for(lock, timeout, pred) re-checks only pred() after being
+        // woken, so a job-queued notify would wake this thread and then put it straight back to sleep
+        // for whatever was left of the bound, since _shouldStop was still false -- turning ordinary
+        // job pickup latency into the full bound.)
+        // The bound only matters for one narrow race: a notify landing in the gap between this thread
+        // deciding to wait and actually registering as a waiter, with nothing registered to receive
+        // it. That's what turns an already-rare missed wakeup into a bounded delay instead of a
+        // permanent hang.
+        constexpr auto kMaxWait = std::chrono::milliseconds(500);
+        m_waitVariable.wait_for(lock, kMaxWait);
     }
 
     void FibersManager::UpdateRoundRobinTotal()
