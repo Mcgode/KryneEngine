@@ -207,7 +207,12 @@ namespace KryneEngine
         {
             KE_ZoneScopedFunction("FibersManager::WaitForCounters");
 
-            TracyLockable(std::mutex, waitMutex);
+            // Deliberately a plain std::mutex, not TracyLockable: tracy::Lockable<T>::unlock() calls
+            // the wrapped mutex's unlock() first and only *then* touches `this` for its own profiling
+            // bookkeeping. Since this mutex is a stack-local about to be destroyed the instant the
+            // waiting thread below observes the unlock and returns, that trailing touch would be a
+            // use-after-scope. A plain std::mutex has no such trailing access after unlock() returns.
+            std::mutex waitMutex;
             std::condition_variable_any waitVariable;
             std::atomic<bool> done = false;
 
@@ -216,11 +221,11 @@ namespace KryneEngine
                 {
                     GetInstance()->WaitForCounters(_syncCounters);
 
-                    // Set the flag and notify while still holding the lock. This guarantees that this
-                    // thread is done touching waitMutex/waitVariable/done before the waiting thread can
-                    // re-acquire the lock and return from wait(), which in turn means none of them can be
-                    // destroyed (by the waiting thread unwinding out of this function) while this call to
-                    // notify_one() is still in flight.
+                    // Set the flag and notify while still holding the lock. The waiting thread can only
+                    // return from wait() (and so only tear down this function's stack frame, which is
+                    // what waitMutex/waitVariable/done live on) once it has re-acquired waitMutex, which
+                    // can't happen until this lock_guard's destructor releases it below -- and nothing
+                    // here touches any of them afterwards.
                     const std::lock_guard lock(waitMutex);
                     done.store(true, std::memory_order_release);
                     waitVariable.notify_one();
