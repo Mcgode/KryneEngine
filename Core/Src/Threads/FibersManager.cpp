@@ -199,16 +199,32 @@ namespace KryneEngine
             auto* currentJob = GetCurrentJob();
             currentJob->m_dependencyJobsRunning.fetch_add(
                 static_cast<s32>(_syncCounters.size()), std::memory_order_acq_rel);
+
+            // Register every counter before yielding on any of them. Yielding as soon as the first
+            // AddWaitingJob() call returns false (as this used to) leaves this function -- the
+            // context switch doesn't return here until something calls QueueJob() on this job, which
+            // can only happen once all of m_dependencyJobsRunning's registered dependencies resolve --
+            // so counters after the first unsatisfied one are never registered at all. This job then
+            // has nothing waiting on it for those counters, and the one counter it IS registered for
+            // can only ever bring m_dependencyJobsRunning down from its full initial count, never down
+            // to the 1 -> 0 transition DecrementCounterValue() requeues on: a permanent hang whenever
+            // waiting on 2+ counters where the first one isn't already resolved.
+            bool needsToWait = false;
             for (const auto& syncCounter : _syncCounters)
             {
                 if (!m_syncCounterPool.AddWaitingJob(syncCounter, currentJob))
                 {
-                    YieldJob();
+                    needsToWait = true;
                 }
                 else
                 {
                     currentJob->m_dependencyJobsRunning.fetch_sub(1, std::memory_order_acq_rel);
                 }
+            }
+
+            if (needsToWait)
+            {
+                YieldJob();
             }
         }
         else

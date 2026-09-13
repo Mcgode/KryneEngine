@@ -7,6 +7,8 @@
 #include <gtest/gtest.h>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <atomic>
+#include <chrono>
+#include <thread>
 
 namespace KryneEngine::Tests
 {
@@ -242,5 +244,59 @@ namespace KryneEngine::Tests
 
             EXPECT_EQ(ranCount.load(), kJobsPerIteration);
         }
+    }
+
+    // Regression test for waiting on more than one counter at once permanently stranding the job.
+    //
+    // WaitForCounters()'s fiber branch used to call YieldJob() as soon as the *first* AddWaitingJob()
+    // call in its loop returned false (meaning: not yet resolved) -- but YieldJob() context-switches
+    // away, and control only returns to this function once something calls QueueJob() on this job.
+    // That meant any counters after the first unresolved one were never registered as waiting on at
+    // all. m_dependencyJobsRunning (pre-loaded with the full count before the loop) could then only
+    // ever be decremented by whichever single counter the job happened to register for, and
+    // DecrementCounterValue() only requeues a job once ITS decrement brings that count from 1 to 0 --
+    // which, starting from N > 1 and with only one counter ever able to decrement it, it never does.
+    // Permanent hang.
+    //
+    // This puts a deliberately slow counter first in the span passed to WaitForCounters(), so it's
+    // certain not to have resolved yet when AddWaitingJob() is called on it -- exactly what it takes
+    // to hit the bug -- paired with a second, trivial counter that must also be registered and waited
+    // on for the waiter to ever complete. Before the fix, this hangs forever; after the fix, the
+    // waiter always completes once both counters resolve.
+    TEST(FibersManager, WaitForCountersRegistersAllCountersBeforeYielding)
+    {
+        AllocatorInstance allocator{};
+        FibersManager fibersManager(4, allocator);
+
+        std::atomic<bool> waiterCompleted = false;
+
+        const auto outerCounter = fibersManager.InitAndBatchJobs({
+            .m_function = [&](u16)
+            {
+                const auto slowCounter = FibersManager::GetInstance()->InitAndBatchJobs({
+                    .m_function = [](u16) { std::this_thread::sleep_for(std::chrono::milliseconds(20)); },
+                    .m_jobCount = 1,
+                });
+                const auto trivialCounter = FibersManager::GetInstance()->InitAndBatchJobs({
+                    .m_function = [](u16) {},
+                    .m_jobCount = 1,
+                });
+
+                // slowCounter must be first: the bug only triggers when the *first* counter in the
+                // span is the one that isn't resolved yet at registration time.
+                const SyncCounterId counters[] = { slowCounter, trivialCounter };
+                FibersManager::GetInstance()->WaitForCounters(counters);
+
+                FibersManager::GetInstance()->ResetCounter(slowCounter);
+                FibersManager::GetInstance()->ResetCounter(trivialCounter);
+
+                waiterCompleted.store(true, std::memory_order_release);
+            },
+            .m_jobCount = 1,
+        });
+
+        fibersManager.WaitForCounterAndReset(outerCounter);
+
+        EXPECT_TRUE(waiterCompleted.load());
     }
 } // KryneEngine::Tests
