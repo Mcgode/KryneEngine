@@ -288,6 +288,24 @@ namespace KryneEngine
             if (m_jobQueues[queueIndex].try_dequeue(consumerTokens[queueIndex], job_))
             {
                 KE_ASSERT(job_ != nullptr);
+
+                if (job_ == m_statuses.Load(_fiberIndex).m_currentJob)
+                {
+                    // This fiber just dequeued the very job it is currently running underneath itself
+                    // (another thread resolved its dependency and requeued it into the resuming-jobs
+                    // queue before this fiber got a chance to yield). Handing it back as the "next" job
+                    // would make FiberContext::SwapContext() try to lock this job's context mutex, which
+                    // this same call stack already holds, and deadlock permanently.
+                    // Put it back in its queue and keep scanning the other queues for something else to
+                    // run instead (don't roll back `i`, to avoid spinning forever if it's the only job in
+                    // this queue). If nothing else is found, this fiber will switch out to its base
+                    // context, and the job will be retrieved (and safely resumed) on a later pass, once it
+                    // is no longer this fiber's current job.
+                    QueueJob(job_);
+                    job_ = nullptr;
+                    continue;
+                }
+
                 if (!job_->HasContextAssigned())
                 {
                     KE_ASSERT(job_->GetStatus() == FiberJob::Status::PendingStart);
