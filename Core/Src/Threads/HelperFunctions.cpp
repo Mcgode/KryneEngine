@@ -64,6 +64,21 @@ namespace KryneEngine::Threads
 #elif defined(PTHREADS) || defined(MACOS_THREADS)
         sigset_t mask;
         sigfillset(&mask);
+        // Crash/error signals stay unblocked. They're synchronous -- raised by this thread itself
+        // faulting, not delivered asynchronously from outside -- so blocking them alongside the rest
+        // doesn't protect anything (unlike an async signal, they can't land mid fiber-stack-switch);
+        // it only hides the fault. Without a debugger attached, that turns an immediate, loud crash
+        // into a silent, unrecoverable hang instead: SIGTRAP from KE_DEBUG_BREAK()/asserts, or
+        // SIGSEGV/SIGBUS/SIGILL/SIGFPE/SIGSYS/SIGABRT from a real fault or a sanitizer-detected one
+        // (observed live: ASan/TSan's own allocator instrumentation raising SIGSEGV while
+        // symbolizing a fiber-stack allocation).
+        sigdelset(&mask, SIGTRAP);
+        sigdelset(&mask, SIGSEGV);
+        sigdelset(&mask, SIGBUS);
+        sigdelset(&mask, SIGILL);
+        sigdelset(&mask, SIGFPE);
+        sigdelset(&mask, SIGSYS);
+        sigdelset(&mask, SIGABRT);
         return pthread_sigmask(SIG_BLOCK, &mask, nullptr) == 0;
 #else
 #error No supported thread API
