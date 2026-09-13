@@ -333,6 +333,30 @@ namespace KryneEngine
         return false;
     }
 
+    void FibersManager::FinalizeLeavingJob(FiberJob* _job)
+    {
+        // This must run BEFORE the context we are switching away from has its mutex unlocked
+        // (i.e. before FiberContext::SwapContext()/RunFiber() make it resumable again), while this
+        // thread still has exclusive access to _job. Running it afterwards (as OnContextSwitched()
+        // used to, right after the swap) raced against another thread immediately resuming this
+        // same (still-valid, not-yet-finished-at-the-time-of-the-race) job, finishing it, and
+        // triggering its own, legitimate finalization concurrently with this one -- a genuine
+        // double free/use-after-free of the job, not just of its bookkeeping.
+        if (_job != nullptr && _job->GetStatus() == FiberJob::Status::Finished)
+        {
+            if (_job->m_associatedCounterId != kInvalidSyncCounterId)
+            {
+                // Decrement counter
+                m_syncCounterPool.DecrementCounterValue(_job->m_associatedCounterId);
+            }
+
+            m_contextAllocator->Free(_job->m_contextId);
+
+            _job->ResetContext();
+            m_fiberThreads.GetAllocator().Delete(_job);
+        }
+    }
+
     void FibersManager::OnContextSwitched()
     {
         const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();

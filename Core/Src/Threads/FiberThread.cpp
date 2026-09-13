@@ -96,6 +96,13 @@ namespace KryneEngine
                 : _nextJob->m_context;
         KE_ASSERT(nextContext != nullptr);
 
+        // Finalize (and, if it finished, free/delete) the job we are leaving now, while this
+        // thread still exclusively owns currentContext (its mutex isn't released until the
+        // SwapContext() call below). This must happen before that release: once released, another
+        // thread may immediately resume and finish this same job via a later, legitimate
+        // transition, finalizing it concurrently with us.
+        _manager->FinalizeLeavingJob(_currentJob);
+
         currentContext->SwapContext(nextContext);
 
         _manager->OnContextSwitched();
