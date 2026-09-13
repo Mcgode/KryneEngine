@@ -61,10 +61,18 @@ namespace KryneEngine::Modules::Box3D
         static_assert(sizeof(void*) >= sizeof(SyncCounterId));
 
         auto* fibersManager = static_cast<Context*>(_userContext)->m_fibersManager;
+
+        // Box3D may free/reuse the memory behind _name before this job actually runs on a fiber
+        // (jobs are scheduled asynchronously), so its contents must be copied rather than just
+        // capturing the pointer.
+        struct TaskName { char m_buffer[64]; };
+        TaskName taskName {};
+        snprintf(taskName.m_buffer, sizeof(taskName.m_buffer), "%s", _name != nullptr ? _name : "Box3D task");
+
         const SyncCounterId counter = fibersManager->InitAndBatchJobs({
-            .m_function = [_taskCallback, _taskContext, _name](u16)
+            .m_function = [_taskCallback, _taskContext, taskName](u16)
             {
-                KE_ZoneScopedF("%s", _name);
+                KE_ZoneScopedF("%s", taskName.m_buffer);
                 _taskCallback(_taskContext);
             }
         });
