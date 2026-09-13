@@ -29,7 +29,20 @@ namespace KryneEngine
         u16 id;
         if (m_idQueue.try_dequeue(id))
         {
-            m_entries[id].m_counter = initValue;
+            auto& entry = m_entries[id];
+
+            // Reuse of a pool slot must be serialized against DecrementCounterValue()'s own
+            // critical section below (which runs when the *previous* owner's counter hits 0):
+            // that section calls QueueJob() on the waiting job(s) while still holding this lock,
+            // so the job can resume and call FreeCounter() (returning this id to m_idQueue) before
+            // the section has finished iterating/clearing m_waitingJobs. Without taking the lock
+            // here too, this reset could run concurrently with that cleanup and/or with a stale
+            // decrement still in flight for the previous generation, corrupting m_counter (e.g.
+            // driving it negative once this new generation's own decrements also apply).
+            const auto lock = entry.m_mutex.AutoLock();
+            KE_ASSERT_MSG(entry.m_waitingJobs.empty(), "Reusing a sync counter slot with pending waiters");
+            entry.m_counter.store(initValue, std::memory_order_release);
+
             return { id };
         }
         return kInvalidSyncCounterId;
@@ -99,6 +112,19 @@ namespace KryneEngine
     void SyncCounterPool::FreeCounter(SyncCounterId &_id)
     {
         VERIFY_OR_RETURN_VOID(static_cast<s32>(_id) >= 0 && static_cast<s32>(_id) < kPoolSize);
+
+        auto& entry = m_entries[static_cast<s32>(_id)];
+
+        // The caller only gets here after observing the counter reach 0, which happens while
+        // DecrementCounterValue() still holds entry.m_mutex (it calls QueueJob() on the waiting
+        // job(s) from inside that critical section, so they can resume and reach here before that
+        // section has finished). Taking the lock here -- even though there's nothing left to read
+        // or write in the entry -- forces this to wait for that section to fully finish before the
+        // id is allowed back into m_idQueue, matching the lock AcquireCounter() now takes before
+        // resetting the slot for a new owner.
+        {
+            const auto lock = entry.m_mutex.AutoLock();
+        }
 
         m_idQueue.enqueue(static_cast<s32>(_id));
         _id = kInvalidSyncCounterId;
