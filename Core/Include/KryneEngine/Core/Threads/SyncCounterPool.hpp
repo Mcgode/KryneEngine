@@ -87,7 +87,7 @@ namespace KryneEngine
             AutoSyncCounter& operator=(const AutoSyncCounter& _other) = delete;
             AutoSyncCounter& operator=(AutoSyncCounter&& _other) = delete;
 
-            [[nodiscard]] const SyncCounterId &GetId() const { return m_id; }
+            [[nodiscard]] const SyncCounterId& GetId() const { return m_id; }
 
         private:
             AutoSyncCounter(SyncCounterId _id, SyncCounterPool* _pool);
@@ -96,7 +96,7 @@ namespace KryneEngine
             SyncCounterPool* m_pool;
         };
 
-        AutoSyncCounter&& AcquireAutoCounter(u32 _count);
+        AutoSyncCounter AcquireAutoCounter(u32 _count);
 
     private:
         struct Entry

@@ -172,9 +172,8 @@ namespace KryneEngine
         , m_pool(_pool)
     {}
 
-    SyncCounterPool::AutoSyncCounter &&SyncCounterPool::AcquireAutoCounter(const u32 _count)
+    SyncCounterPool::AutoSyncCounter SyncCounterPool::AcquireAutoCounter(const u32 _count)
     {
-        const auto syncCounter = AcquireCounter(_count);
-        return eastl::move(AutoSyncCounter(syncCounter, this));
+        return AutoSyncCounter(AcquireCounter(_count), this);
     }
 } // KryneEngine

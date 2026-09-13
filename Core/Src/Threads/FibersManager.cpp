@@ -158,7 +158,7 @@ namespace KryneEngine
 
     SyncCounterPool::AutoSyncCounter FibersManager::AcquireAutoSyncCounter(const u32 _count)
     {
-        return eastl::move(m_syncCounterPool.AcquireAutoCounter(_count));
+        return m_syncCounterPool.AcquireAutoCounter(_count);
     }
 
     void FibersManager::QueueJob(FiberJob* _job)
