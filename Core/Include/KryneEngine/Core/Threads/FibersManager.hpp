@@ -105,6 +105,8 @@ namespace KryneEngine
 
         bool RetrieveNextJob(FiberJob*& job_, u16 _fiberIndex);
 
+        void FinalizeLeavingJob(FiberJob* _job);
+
         void OnContextSwitched();
 
         void ThreadWaitForJob();

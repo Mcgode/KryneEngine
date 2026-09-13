@@ -380,24 +380,7 @@ namespace KryneEngine
         const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
 
         Status& status = m_statuses.Load(fiberIndex);
-        FiberJob* oldJob = status.m_currentJob;
-        FiberJob* newJob = status.m_nextJob;
-
-        if (oldJob != nullptr && oldJob->GetStatus() == FiberJob::Status::Finished)
-        {
-            if (oldJob->m_associatedCounterId != kInvalidSyncCounterId)
-            {
-                // Decrement counter
-                m_syncCounterPool.DecrementCounterValue(oldJob->m_associatedCounterId);
-            }
-
-            m_contextAllocator->Free(oldJob->m_contextId);
-
-            oldJob->ResetContext();
-            m_fiberThreads.GetAllocator().Delete(oldJob);
-        }
-
-        status.m_currentJob = newJob;
+        status.m_currentJob = status.m_nextJob;
         status.m_nextJob = nullptr;
     }
 
