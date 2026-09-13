@@ -79,6 +79,13 @@ namespace KryneEngine
             return;
         }
 
+        // A fiber must never be switched into the context it is already running on: that context's
+        // mutex is already held by this very call stack, so locking it again in SwapContext() would
+        // deadlock permanently. FibersManager::RetrieveNextJob() guards against the scheduler ever
+        // producing this on its own; this assert only guards against a caller explicitly (and
+        // incorrectly) passing the current job back in as `_nextJob`.
+        KE_ASSERT_MSG(_nextJob != _currentJob, "A fiber cannot be switched into its own currently running context");
+
         _manager->m_statuses.Load(fiberIndex).m_nextJob = _nextJob;
 
         auto* currentContext = _currentJob == nullptr
