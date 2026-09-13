@@ -297,18 +297,32 @@ namespace KryneEngine
             {
                 KE_ASSERT(job_ != nullptr);
 
-                if (job_ == m_statuses.Load(_fiberIndex).m_currentJob)
+                // Is this job still somebody's current job right now? A job that's about to yield
+                // (waiting on a counter, or just finishing) is marked Paused/its dependency resolved
+                // -- and so becomes legally dequeue-able here -- *before* the thread running it has
+                // actually context-switched away: AddWaitingJob() sets its status, and a different
+                // thread's DecrementCounterValue() can call QueueJob() on it, while the owning thread
+                // is still mid-way through YieldJob()/SwitchToNextJob(), still physically on that
+                // job's context. Handing it back as a "next job" here -- to THIS fiber (self-collision,
+                // the case this originally only checked for) or, just as dangerously, to any OTHER
+                // fiber concurrently doing the exact same lookup -- makes FiberContext::SwapContext()
+                // try to lock a context mutex that's still held by whoever is currently running it.
+                // The self case deadlocks outright (a thread re-locking its own held mutex); the
+                // cross-thread case is worse: if fiber A is simultaneously handed fiber B's current
+                // job while fiber B is handed fiber A's, each blocks waiting for a mutex the other
+                // is holding and will only release once it finishes entering the context it's
+                // blocked on -- a circular wait, and a real deadlock between two otherwise-healthy
+                // fibers, not just a fiber colliding with itself.
+                // So: check this job against every fiber's current job, not just this one's own, and
+                // if it matches any of them, put it back in its queue and keep scanning the other
+                // queues for something else to run instead (don't roll back `i`, to avoid spinning
+                // forever if it's the only job in this queue). If nothing else is found, this fiber
+                // will switch out to its base context, and the job will be retrieved (and safely
+                // resumed) on a later pass, once it is no longer anyone's current job.
+                const bool isStillSomeonesCurrentJob = job_->m_ownerThread.load(std::memory_order::acquire) != nullptr;
+
+                if (isStillSomeonesCurrentJob)
                 {
-                    // This fiber just dequeued the very job it is currently running underneath itself
-                    // (another thread resolved its dependency and requeued it into the resuming-jobs
-                    // queue before this fiber got a chance to yield). Handing it back as the "next" job
-                    // would make FiberContext::SwapContext() try to lock this job's context mutex, which
-                    // this same call stack already holds, and deadlock permanently.
-                    // Put it back in its queue and keep scanning the other queues for something else to
-                    // run instead (don't roll back `i`, to avoid spinning forever if it's the only job in
-                    // this queue). If nothing else is found, this fiber will switch out to its base
-                    // context, and the job will be retrieved (and safely resumed) on a later pass, once it
-                    // is no longer this fiber's current job.
                     QueueJob(job_);
                     job_ = nullptr;
                     continue;
@@ -390,7 +404,23 @@ namespace KryneEngine
         const auto fiberIndex = FiberThread::GetCurrentFiberThreadIndex();
 
         Status& status = m_statuses.Load(fiberIndex);
+
+        // status.m_currentJob is safe to dereference here: FiberThread::SwitchToNextJob() already
+        // nulls it out itself, *before* calling FinalizeLeavingJob(), whenever that call is about to
+        // delete the job it's handed (see the comment there) -- so by the time this runs, it's
+        // either a job that's still alive, or already nullptr. It can't instead be re-checked here,
+        // after the fact: this same function is also FiberContext::RunFiber()'s entry-point
+        // registration for a brand new context, which has no access to whatever FiberThread::
+        // SwitchToNextJob() call initiated the jump that landed here, and so no other way to learn
+        // whether that job survived.
+        if (status.m_currentJob != nullptr)
+            status.m_currentJob->m_ownerThread.store(nullptr, std::memory_order_release);
+
         status.m_currentJob = status.m_nextJob;
+
+        if (status.m_currentJob != nullptr)
+            status.m_currentJob->m_ownerThread.store(&m_fiberThreads[fiberIndex], std::memory_order_release);
+
         status.m_nextJob = nullptr;
     }
 

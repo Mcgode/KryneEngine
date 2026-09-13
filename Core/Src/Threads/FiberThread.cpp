@@ -96,6 +96,21 @@ namespace KryneEngine
                 : _nextJob->m_context;
         KE_ASSERT(nextContext != nullptr);
 
+        // _currentJob is only still valid memory after FinalizeLeavingJob() below if it wasn't
+        // Finished -- that's exactly when FinalizeLeavingJob() deletes it. Null out this thread's
+        // own Status::m_currentJob *before* that happens (while _currentJob is still guaranteed
+        // alive) whenever that's the case, so that whichever code eventually calls
+        // OnContextSwitched() for this transition -- this same SwitchToNextJob() call resuming
+        // later, or FiberContext::RunFiber()'s entry-point registration if _nextJob's context has
+        // never been entered before -- never dereferences a dangling pointer. Status is the right
+        // channel for this (rather than a parameter to OnContextSwitched()): it's already how
+        // m_nextJob crosses this same jump_fcontext boundary, and unlike a parameter, it's reachable
+        // from both of that call's possible landing points.
+        if (_currentJob != nullptr && _currentJob->GetStatus() == FiberJob::Status::Finished)
+        {
+            _manager->m_statuses.Load(fiberIndex).m_currentJob = nullptr;
+        }
+
         // Finalize (and, if it finished, free/delete) the job we are leaving now, while this
         // thread still exclusively owns currentContext (its mutex isn't released until the
         // SwapContext() call below). This must happen before that release: once released, another

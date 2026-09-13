@@ -13,6 +13,7 @@
 namespace KryneEngine
 {
     class FiberContext;
+    class FiberThread;
 
     class FiberJob
     {
@@ -108,6 +109,7 @@ namespace KryneEngine
 
         std::atomic<Status> m_status { Status::PendingStart };
         std::atomic<s32> m_dependencyJobsRunning { 0 };
+        std::atomic<FiberThread*> m_ownerThread { nullptr };
 
         static constexpr s32 kInvalidContextId = -1;
         s32 m_contextId = kInvalidContextId;
