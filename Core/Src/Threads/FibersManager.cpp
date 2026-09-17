@@ -353,6 +353,19 @@ namespace KryneEngine
                     {
                         job_->SetContext(id, m_contextAllocator->GetContext(id));
                     }
+                    else
+                    {
+                        // Out of fiber stacks for this size class right now. Put the job back rather
+                        // than handing it back to the caller with no context assigned -- SwitchToNextJob()
+                        // would then try to SwapContext() into a null pointer. Don't roll back `i` to
+                        // retry this same queue (as the CanRun() == false case below does): the pool being
+                        // exhausted isn't specific to this one job, so retrying here would likely just
+                        // pull another same-size-class job out of the same queue and fail again, spinning
+                        // instead of giving the scheduler a chance to actually free one up elsewhere.
+                        QueueJob(job_);
+                        job_ = nullptr;
+                        continue;
+                    }
                 }
                 else if (!job_->CanRun())
                 {

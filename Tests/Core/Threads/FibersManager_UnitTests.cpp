@@ -10,6 +10,8 @@
 #include <chrono>
 #include <thread>
 
+#include "Utils/AssertUtils.hpp"
+
 namespace KryneEngine::Tests
 {
     // Regression test for a bug in FibersManager::WaitForCounters()'s non-fiber branch (the one
@@ -298,5 +300,79 @@ namespace KryneEngine::Tests
         fibersManager.WaitForCounterAndReset(outerCounter);
 
         EXPECT_TRUE(waiterCompleted.load());
+    }
+
+    // Regression test for RetrieveNextJob() handing back a job with no context assigned when the
+    // fiber stack pool is exhausted.
+    //
+    // RetrieveNextJob() allocates a job's FiberContext lazily, the first time it's about to actually
+    // run it. If FiberContextAllocator::Allocate() fails (the small-stack pool -- 128 contexts, see
+    // Core/Src/Threads/Internal/FiberContext.hpp -- is exhausted), there used to be no else branch:
+    // the job was still handed back with job_->m_context == nullptr, and SwitchToNextJob() would
+    // then try to SwapContext() into that null pointer.
+    //
+    // Allocate() itself still asserts on the same exhaustion (deliberately -- it's recoverable, but
+    // still worth surfacing loudly in debug builds), so this wraps the exhausting section in a
+    // ScopedAssertCatcher the same way FiberContextAllocator.Allocate does, to verify the *caller's*
+    // handling without that expected, intentional assert aborting the test run.
+    //
+    // Each of the jobs below waits on one shared, not-yet-resolved counter rather than running to
+    // completion (which would free its context right away and never exhaust the pool) or busy-
+    // yielding in a loop (which would instead starve new jobs out, since the scheduler's "resuming"
+    // queue is unconditionally checked before any other -- a separate, real scheduling concern, but
+    // not this one). Waiting on a counter parks a job off every scheduler queue until it resolves,
+    // which is exactly what it takes to hold 128+ contexts at once using only a handful of worker
+    // threads. Before the fix, this reliably crashes (a null-pointer SwapContext()); after the fix,
+    // the excess jobs are simply requeued and retried once a context frees up (tripping Allocate()'s
+    // caught assert at least once along the way, confirming the pool really was exhausted), and
+    // every single one of them eventually completes.
+    TEST(FibersManager, RetrieveNextJobRequeuesOnAllocationFailure)
+    {
+        AllocatorInstance allocator{};
+        FibersManager fibersManager(8, allocator);
+
+        // kSmallStackCount (FiberContext.hpp) is 128; comfortably exceed it.
+        constexpr u32 kJobsToStart = 128 + 16;
+
+        std::atomic<bool> gateReleased = false;
+        std::atomic<u32> completedCount = 0;
+
+        ScopedAssertCatcher catcher;
+
+        // One job that the kJobsToStart jobs below all wait on -- sleeping (not spinning) so it
+        // doesn't itself compete for CPU with the worker threads trying to start the others.
+        const auto gateCounter = fibersManager.InitAndBatchJobs({
+            .m_function = [&](u16)
+            {
+                while (!gateReleased.load(std::memory_order_acquire))
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+            },
+            .m_jobCount = 1,
+        });
+
+        const auto outerCounter = fibersManager.InitAndBatchJobs({
+            .m_function = [&](u16)
+            {
+                FibersManager::GetInstance()->WaitForCounter(gateCounter);
+                completedCount.fetch_add(1, std::memory_order_relaxed);
+            },
+            .m_jobCount = kJobsToStart,
+        });
+
+        // Give the scheduler time to start as many of these jobs as the context pool allows --
+        // without this, the rest might not even be attempted before the gate opens.
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+        gateReleased.store(true, std::memory_order_release);
+
+        fibersManager.WaitForCounterAndReset(outerCounter);
+        fibersManager.ResetCounter(gateCounter);
+
+        EXPECT_EQ(completedCount.load(), kJobsToStart);
+        // Confirms the pool was actually exhausted (not just that everything happened to complete
+        // for some unrelated reason) -- at least one "Out of Fiber stacks!" should have been caught.
+        EXPECT_FALSE(catcher.GetCaughtMessages().empty());
     }
 } // KryneEngine::Tests

@@ -180,6 +180,10 @@ namespace KryneEngine
                 : m_availableSmallContextsIds;
 
         const auto lock = queue.m_spinLock.AutoLock();
+        // Deliberately kept as a trapping assert rather than a silent log: the pool running dry is
+        // recoverable (RetrieveNextJob() requeues the job and retries once a context frees up), but
+        // still worth surfacing loudly in debug builds so it doesn't go unnoticed -- the caller
+        // handling it gracefully is a safety net, not a reason to stop flagging the condition.
         IF_NOT_VERIFY_MSG(!queue.m_priorityQueue.empty(), "Out of Fiber stacks!")
         {
             return false;
