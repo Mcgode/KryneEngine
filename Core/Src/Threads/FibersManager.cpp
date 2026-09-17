@@ -369,8 +369,24 @@ namespace KryneEngine
                 }
                 else if (!job_->CanRun())
                 {
-                    // If job is already finished or still running, ignore it and keep trying to retrieve the next job.
-                    // This might happen because the job was run by skipping this step, which is legal.
+                    // A job only ever reaches the shared queue while PendingStart or Paused (QueueJob()
+                    // asserts CanRun() on entry), and the ownership check above already routes away any
+                    // job that's still actively Running under some other thread's ownership. So a job
+                    // that both has a context assigned and fails CanRun() here can only be one that
+                    // finished after being dequeued from this queue and before this check ran -- which
+                    // isn't possible either, since RunFiber()'s own post-completion YieldJob() call
+                    // never re-queues a Finished job in the first place (see its "GetStatus() == Running"
+                    // guard). In other words, nothing in the scheduler should be able to produce this
+                    // case; treat it as a scheduler invariant violation rather than silently discarding
+                    // job_ (which used to leak the job, its context id, and -- critically -- its
+                    // associated sync counter, hanging anything still waiting on it). Still route it
+                    // through the normal finalize path as a safety net: if this invariant is ever broken
+                    // by a future change, at least the job gets torn down correctly instead of leaking.
+                    KE_ASSERT_MSG(
+                        false,
+                        "RetrieveNextJob() dequeued a job that is neither runnable nor still owned -- "
+                        "scheduler invariant violated");
+                    FinalizeLeavingJob(job_);
                     job_ = nullptr;
                     i--; // Roll back index to try retrieving again from this queue.
                     continue;
