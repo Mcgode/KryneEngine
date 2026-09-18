@@ -23,6 +23,8 @@ add_library(Samples_CommonLib STATIC
         Include/Rendering/Fullscreen/DeferredShadingPass.hpp
         Src/Rendering/Fullscreen/ColorMappingPass.cpp
         Include/Rendering/Fullscreen/ColorMappingPass.hpp
+        Src/Rendering/Compute/SkyAmbientPass.cpp
+        Include/Rendering/Compute/SkyAmbientPass.hpp
 )
 
 target_include_directories(Samples_CommonLib PUBLIC Include)
