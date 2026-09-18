@@ -136,7 +136,7 @@ namespace KryneEngine
         FiberTls<Status> m_statuses;
         FiberTls<FiberContext> m_baseContexts;
 
-        FiberContextAllocator* m_contextAllocator;
+        FiberContextAllocator* m_contextAllocator = nullptr;
 
         SyncCounterPool m_syncCounterPool {};
 
