@@ -67,10 +67,18 @@ namespace KryneEngine
     {
         if (m_allocator)
         {
-            m_allocator->Free(_ptr, _size);
+            // Cache m_allocator locally before calling Free(): this AllocatorInstance can itself be
+            // a sub-object living inside the very block being freed here (e.g. TlsfAllocator::Destroy()
+            // calls _allocator->m_parentAllocator.deallocate(_allocator, ...) -- freeing _allocator's
+            // own memory via a member of _allocator). Free() poisons that entire span under ASAN, and
+            // re-reading m_allocator through `this` afterwards -- as this used to, for the profiling
+            // check below -- reads through memory that was just poisoned by the call this same
+            // expression made one line earlier. The local copy sidesteps that entirely.
+            IAllocator* const allocator = m_allocator;
+            allocator->Free(_ptr, _size);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
-            if (!m_allocator->IsCustomProfiling())
-                TracyFreeNS(_ptr, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS, m_allocator->GetName());
+            if (!allocator->IsCustomProfiling())
+                TracyFreeNS(_ptr, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS, allocator->GetName());
 #endif
         }
         else
