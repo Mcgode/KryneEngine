@@ -67,8 +67,8 @@ namespace KryneEngine
 
         [[nodiscard]] FiberJob* GetCurrentJob();
 
-        [[nodiscard]] SyncCounterId InitAndBatchJobs(const FiberJob::Desc& _desc);
-        void InitAndBatchJobsNoCounter(const FiberJob::Desc& _desc);
+        [[nodiscard]] SyncCounterId InitAndBatchJobs(FiberJob::Desc _desc);
+        void InitAndBatchJobsNoCounter(FiberJob::Desc _desc);
 
         [[nodiscard]] SyncCounterPool::AutoSyncCounter AcquireAutoSyncCounter(u32 _count = 1);
 

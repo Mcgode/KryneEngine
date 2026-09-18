@@ -8,6 +8,7 @@
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <atomic>
 #include <chrono>
+#include <memory>
 #include <thread>
 
 #include "Utils/AssertUtils.hpp"
@@ -403,5 +404,61 @@ namespace KryneEngine::Tests
         FibersManager fibersManager(-10000, allocator);
 
         EXPECT_EQ(fibersManager.GetFiberThreadCount(), 1);
+    }
+
+    // Regression test for #15's follow-up: InitAndBatchJobs()/InitAndBatchJobsNoCounter() used to
+    // copy the batch's callable into every job. The final design shares one instance across every
+    // job in the batch instead (FiberJob::SharedFunction, held via IntrusiveSharedPtr): the callable
+    // is moved into it exactly once, and every job just holds a pointer to it, bumping a cheap
+    // atomic refcount rather than copying the (potentially heap-allocating) callable at all.
+    //
+    // This verifies the *exact* copy count, not just that the batch still runs correctly: a
+    // captured CopyCounter member increments a shared counter from its copy constructor only (its
+    // move constructor is untouched), so any copy of the callable anywhere in this path -- whether
+    // from InitAndBatchJobs() itself, or from AllocatorInstance::New() failing to forward its
+    // constructor arguments (a real bug this test caught: New() used to build T(_args...) from its
+    // named forwarding-reference parameters directly, which are lvalues as expressions regardless
+    // of their deduced reference type, silently downgrading every intended move into a copy) --
+    // shows up immediately as a nonzero count.
+    TEST(FibersManager, InitAndBatchJobsNeverCopiesTheSharedCallable)
+    {
+        AllocatorInstance allocator{};
+        FibersManager fibersManager(4, allocator);
+
+        struct CopyCounter
+        {
+            std::shared_ptr<std::atomic<u32>> m_count;
+
+            explicit CopyCounter(std::shared_ptr<std::atomic<u32>> _count) : m_count(eastl::move(_count)) {}
+            CopyCounter(const CopyCounter& _other) : m_count(_other.m_count)
+            {
+                m_count->fetch_add(1, std::memory_order_relaxed);
+            }
+            CopyCounter(CopyCounter&&) noexcept = default;
+        };
+
+        const auto copyCount = std::make_shared<std::atomic<u32>>(0);
+        constexpr u32 kJobCount = 5;
+        std::atomic<u32> ranCount = 0;
+
+        FiberJob::Desc desc{
+            .m_function = [tracker = CopyCounter(copyCount), &ranCount](u16)
+            {
+                ranCount.fetch_add(1, std::memory_order_relaxed);
+            },
+            .m_jobCount = kJobCount,
+        };
+
+        // Only measure what InitAndBatchJobs() itself does with the callable -- not the setup above
+        // (constructing CopyCounter, capturing it into the lambda, building the eastl::function, or
+        // constructing desc), none of which this test is about.
+        copyCount->store(0, std::memory_order_relaxed);
+
+        const auto counter = fibersManager.InitAndBatchJobs(eastl::move(desc));
+        fibersManager.WaitForCounterAndReset(counter);
+
+        EXPECT_EQ(ranCount.load(), kJobCount);
+        // All 5 jobs share one instance of the callable -- not one copy each, not even kJobCount - 1.
+        EXPECT_EQ(copyCount->load(), 0u);
     }
 } // KryneEngine::Tests

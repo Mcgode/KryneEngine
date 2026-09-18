@@ -115,7 +115,7 @@ namespace KryneEngine
 
     FiberJob* FibersManager::GetCurrentJob() { return m_statuses.Load().m_currentJob; }
 
-    SyncCounterId FibersManager::InitAndBatchJobs(const FiberJob::Desc& _desc)
+    SyncCounterId FibersManager::InitAndBatchJobs(FiberJob::Desc _desc)
     {
         if (_desc.m_jobCount == 0)
         {
@@ -126,10 +126,16 @@ namespace KryneEngine
 
         VERIFY_OR_RETURN(syncCounter != kInvalidSyncCounterId, kInvalidSyncCounterId);
 
+        // Constructed once per batch and shared (via cheap atomic refcount bumps, not copies of the
+        // callable) across every job spawned below -- see FiberJob::SharedFunction's comment.
+        const auto sharedFunction = MakeIntrusiveSharedPtr<FiberJob::SharedFunction>(
+            m_fiberThreads.GetAllocator(),
+            eastl::move(_desc.m_function));
+
         for (u16 i = 0; i < _desc.m_jobCount; i++)
         {
             auto* job = m_fiberThreads.GetAllocator().New<FiberJob>();
-            job->m_function = eastl::move(_desc.m_function);
+            job->m_function = sharedFunction;
             job->m_jobIndex = i;
             job->m_priority = _desc.m_priority;
             job->m_bigStack = _desc.m_useBigStack;
@@ -140,17 +146,21 @@ namespace KryneEngine
         return syncCounter;
     }
 
-    void FibersManager::InitAndBatchJobsNoCounter(const FiberJob::Desc& _desc)
+    void FibersManager::InitAndBatchJobsNoCounter(FiberJob::Desc _desc)
     {
         if (_desc.m_jobCount == 0)
         {
             return;
         }
 
+        const auto sharedFunction = MakeIntrusiveSharedPtr<FiberJob::SharedFunction>(
+            m_fiberThreads.GetAllocator(),
+            eastl::move(_desc.m_function));
+
         for (u16 i = 0; i < _desc.m_jobCount; i++)
         {
             auto* job = m_fiberThreads.GetAllocator().New<FiberJob>();
-            job->m_function = eastl::move(_desc.m_function);
+            job->m_function = sharedFunction;
             job->m_jobIndex = i;
             job->m_priority = _desc.m_priority;
             job->m_bigStack = _desc.m_useBigStack;

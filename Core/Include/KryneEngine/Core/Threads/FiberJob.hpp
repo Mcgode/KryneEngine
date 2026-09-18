@@ -6,8 +6,11 @@
 
 #pragma once
 
+#include <EASTL/functional.h>
+
 #include "KryneEngine/Core/Common/Types.hpp"
 #include "KryneEngine/Core/Common/Assert.hpp"
+#include "KryneEngine/Core/Memory/IntrusivePtr.hpp"
 #include "KryneEngine/Core/Threads/SyncCounterPool.hpp"
 
 namespace KryneEngine
@@ -74,6 +77,25 @@ namespace KryneEngine
             bool m_useBigStack = false;
         };
 
+        // A batch's callable is shared read-only across every job spawned from it, rather than each
+        // job holding its own copy: InitAndBatchJobs()/InitAndBatchJobsNoCounter() construct exactly
+        // one of these (moving the batch's Desc::m_function into it once), and every job in the
+        // batch just holds an IntrusiveSharedPtr to it -- a cheap atomic refcount bump per job,
+        // instead of a copy of the (potentially heap-allocating) callable per job.
+        struct SharedFunction
+        {
+            u32 m_refCount = 0;
+            eastl::function<void(u16)> m_function;
+            AllocatorInstance m_allocator;
+
+            SharedFunction(const AllocatorInstance _allocator, eastl::function<void(u16)> _function)
+                : m_function(eastl::move(_function))
+                , m_allocator(_allocator)
+            {}
+
+            void operator()(const u16 _jobIndex) const { m_function(_jobIndex); }
+        };
+
         friend class FibersManager;
         friend class FiberThread;
         friend class FiberContext;
@@ -102,7 +124,7 @@ namespace KryneEngine
         void ResetContext();
 
     private:
-        eastl::function<void(u16)> m_function = nullptr;
+        IntrusiveSharedPtr<SharedFunction> m_function;
         u16 m_jobIndex = 0;
         Priority m_priority = Priority::Medium;
         bool m_bigStack = false;
