@@ -113,6 +113,8 @@ namespace KryneEngine
 
         void UpdateRoundRobinTotal();
 
+        void DrainQueuedJobs();
+
     private:
         using JobQueue = moodycamel::ConcurrentQueue<FiberJob*>;
         static constexpr u8 kJobQueuesCount = FiberJob::PriorityType::kJobPriorityTypes;

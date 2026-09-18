@@ -5,6 +5,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <KryneEngine/Core/Platform/StdAlloc.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <atomic>
 #include <chrono>
@@ -460,5 +461,77 @@ namespace KryneEngine::Tests
         EXPECT_EQ(ranCount.load(), kJobCount);
         // All 5 jobs share one instance of the callable -- not one copy each, not even kJobCount - 1.
         EXPECT_EQ(copyCount->load(), 0u);
+    }
+
+    namespace
+    {
+        // Wraps StdAlloc while tracking a live allocation count, so a test can assert that
+        // everything a FibersManager allocated through it -- including any FiberJob still sitting
+        // in a queue when the manager is destroyed -- was actually freed, not just that destruction
+        // didn't crash. ASAN's LeakSanitizer isn't available on this platform, so this is the only
+        // way to actually observe a leak here rather than just hope one would otherwise be caught.
+        class CountingAllocator final : public IAllocator
+        {
+        public:
+            CountingAllocator() : IAllocator("CountingAllocator_Test") {}
+
+            void* Allocate(const size_t _size, const size_t _alignment) override
+            {
+                m_liveCount.fetch_add(1, std::memory_order_relaxed);
+                return StdAlloc::MemAlign(_size, _alignment);
+            }
+
+            void Free(void* _ptr, size_t) override
+            {
+                if (_ptr != nullptr)
+                {
+                    m_liveCount.fetch_sub(1, std::memory_order_relaxed);
+                }
+                StdAlloc::Free(_ptr);
+            }
+
+            std::atomic<s64> m_liveCount = 0;
+        };
+    }
+
+    // Regression test for #14: jobs still sitting in the scheduler's queues when FibersManager is
+    // destroyed used to just be abandoned there -- the queues' own destructors discard whatever
+    // FiberJob* pointers they were holding, with no destructor call on the pointees -- leaking every
+    // one of them (and, for any that already had a context assigned, its fiber stack slot too).
+    // Compounding this, FiberThread::_TryRetrieveNextJob() could also successfully dequeue a job in
+    // the same instant shutdown was requested and then simply drop it instead of returning or
+    // requeuing it -- the exact same leak, through a second path, that this test doesn't need to
+    // trigger separately: both now funnel through the same fix (requeue instead of drop, then drain
+    // on destruction), so this one test covers both.
+    //
+    // Queues far more jobs than the manager has worker threads, each one blocking its OS thread (not
+    // yielding the fiber -- an actual sleep) for long enough that none of them can come back to
+    // dequeue more work before the FibersManager below is destroyed immediately afterward, with no
+    // wait in between. That guarantees the large majority of these jobs are still sitting in the
+    // queue, never even started, at the exact moment shutdown begins -- precisely the condition #14
+    // was about. Before the fix, this reliably leaks (a nonzero, and startup-count-dependent, live
+    // allocation count); after the fix, every job -- queued or requeued -- is properly freed and the
+    // count returns to exactly zero.
+    TEST(FibersManager, ShutdownDrainsQueuedJobsWithoutLeaking)
+    {
+        CountingAllocator countingAllocator;
+        const AllocatorInstance allocator(&countingAllocator);
+
+        constexpr u32 kThreadCount = 2;
+        constexpr u32 kJobCount = 40;
+
+        {
+            FibersManager fibersManager(kThreadCount, allocator);
+
+            fibersManager.InitAndBatchJobsNoCounter({
+                .m_function = [](u16) { std::this_thread::sleep_for(std::chrono::milliseconds(100)); },
+                .m_jobCount = kJobCount,
+            });
+
+            // FibersManager's destructor runs here, immediately -- while at most kThreadCount of the
+            // kJobCount jobs above have actually started, and the rest are still queued.
+        }
+
+        EXPECT_EQ(countingAllocator.m_liveCount.load(), 0);
     }
 } // KryneEngine::Tests

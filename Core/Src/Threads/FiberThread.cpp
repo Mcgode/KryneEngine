@@ -24,8 +24,8 @@ namespace KryneEngine
         {
             tracy::SetThreadName(m_name.c_str());
 
+            FiberContext& context = _fiberManager->m_baseContexts.Load(_threadIndex);
             {
-                FiberContext& context = _fiberManager->m_baseContexts.Load(_threadIndex);
                 TracyFiberEnter(context.m_name.c_str());
 
                 // Mark current fiber context as running.
@@ -38,10 +38,20 @@ namespace KryneEngine
                 sIsThread = true;
             }
 
-            while (!m_shouldStop)
+            while (!m_shouldStop.load(std::memory_order::relaxed))
             {
                 SwitchToNextJob(_fiberManager, nullptr);
             }
+
+            // SwitchToNextJob() only unlocks a context's mutex on behalf of whichever context it is
+            // switching *away from* -- see FiberContext::SwapContext()/RunFiber(). The loop above always
+            // leaves this thread sitting on its own base context (SwitchToNextJob() early-outs without
+            // swapping once both _currentJob and _nextJob are null, which is exactly what happens once
+            // _TryRetrieveNextJob() starts returning null because m_shouldStop flipped), so nothing ever
+            // performs that final swap-away to unlock it. Without this, the base context's mutex stays
+            // locked for good once this OS thread exits, and ~FibersManager() destroying it while still
+            // locked -- from a different thread -- is undefined behaviour.
+            context.m_mutex.ManualUnlock();
 
             TracyFiberLeave;
         });
@@ -154,8 +164,23 @@ namespace KryneEngine
                 i++;
             }
         }
-        while(!m_shouldStop && _busyWait);
+        while(!m_shouldStop.load(std::memory_order::relaxed) && _busyWait);
 
-        return m_shouldStop ? nullptr : job;
+        if (m_shouldStop.load(std::memory_order::relaxed) && job != nullptr)
+        {
+            // RetrieveNextJob() above can succeed (genuinely dequeuing job, removing it from the
+            // shared queue) in the same instant m_shouldStop flips on another thread -- the loop's
+            // own condition only stops *future* iterations, it can't un-dequeue this one. Running it
+            // here would risk hanging shutdown indefinitely (it might depend on another job that
+            // will now never get a chance to run, since every worker is stopping), but the old
+            // behaviour of just dropping `job` on the floor leaked it, its context id (if it already
+            // had one, e.g. a Paused job resuming), and its associated sync counter slot for good.
+            // Put it back in the queue instead: FibersManager::DrainQueuedJobs() cleans up whatever
+            // is still queued once every worker thread has actually stopped.
+            _manager->QueueJob(job);
+            job = nullptr;
+        }
+
+        return m_shouldStop.load(std::memory_order::relaxed) ? nullptr : job;
     }
 } // KryneEngine

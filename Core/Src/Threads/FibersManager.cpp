@@ -104,8 +104,11 @@ namespace KryneEngine
         {
             fiberThread.Stop(*this);
         }
-        // Make sure to end and join all the fiber threads before anything else.
+        // Make sure to end and join all the fiber threads before anything else. Once every thread
+        // has actually stopped, nothing can be concurrently dequeuing from m_jobQueues anymore, so
+        // it's now safe to drain whatever is still sitting in them.
         m_fiberThreads.Clear();
+        DrainQueuedJobs();
         m_fiberThreads.GetAllocator().Delete(m_contextAllocator);
     }
 
@@ -454,6 +457,41 @@ namespace KryneEngine
 
             _job->ResetContext();
             m_fiberThreads.GetAllocator().Delete(_job);
+        }
+    }
+
+    void FibersManager::DrainQueuedJobs()
+    {
+        // Only called from the destructor, after every fiber thread has actually stopped (see
+        // ~FibersManager()) -- nothing can be concurrently enqueuing or dequeuing from m_jobQueues
+        // by the time this runs, so plain try_dequeue() in a loop is enough, no synchronization
+        // needed beyond that ordering.
+        //
+        // A job still sitting in a queue here never got to run its function at all: it's either
+        // PendingStart (never even assigned a context) or Paused (resuming, already holding one).
+        // Deliberately not decrementing its associated sync counter, unlike FinalizeLeavingJob(): the
+        // batch genuinely never did that unit of work, and decrementing anyway would misreport it as
+        // complete to anything that inspected the counter afterward. Since this only runs while
+        // FibersManager itself is being torn down, anything that could still be meaningfully waiting
+        // on that counter is going away at the same time -- leaving it as-is is the safer of two
+        // imperfect options.
+        //
+        // This does not reach into SyncCounterPool's own per-counter m_waitingJobs lists: a job
+        // parked there (actively paused inside WaitForCounters(), waiting on a dependency) is never
+        // in m_jobQueues in the first place, so it isn't queued here -- and isn't reached by this
+        // drain at all. A job in that exact state at the moment of shutdown remains a leak this fix
+        // doesn't close.
+        for (auto& queue : m_jobQueues)
+        {
+            FiberJob* job = nullptr;
+            while (queue.try_dequeue(job))
+            {
+                if (job->HasContextAssigned())
+                {
+                    m_contextAllocator->Free(job->m_contextId);
+                }
+                m_fiberThreads.GetAllocator().Delete(job);
+            }
         }
     }
 
