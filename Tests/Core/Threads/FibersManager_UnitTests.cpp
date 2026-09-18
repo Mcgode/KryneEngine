@@ -375,4 +375,33 @@ namespace KryneEngine::Tests
         // for some unrelated reason) -- at least one "Out of Fiber stacks!" should have been caught.
         EXPECT_FALSE(catcher.GetCaughtMessages().empty());
     }
+
+    // Regression test for #13: a sufficiently negative requested thread count used to underflow
+    // FibersManager's internal u16 thread count instead of clamping it to 1.
+    //
+    // The constructor computes `fiberThreadCount -= eastl::min<u16>(abs(_requestedThreadCount),
+    // _requestedThreadCount - 1)`, intending the second argument to bound the subtraction so the
+    // result can't go below 1. But `_requestedThreadCount - 1` is computed on the (negative)
+    // request itself, not on `fiberThreadCount`: converted to u16, a negative value wraps around to
+    // something like 65,523, which the min() against `abs(_requestedThreadCount)` (always far
+    // smaller in practice) never actually binds. So the subtraction runs unclamped, and once
+    // abs(_requestedThreadCount) reaches or exceeds the machine's hardware_concurrency(),
+    // `fiberThreadCount` (itself a u16) underflows to a huge value instead of bottoming out at 1 --
+    // which would then have this constructor try to spin up tens of thousands of real OS threads.
+    //
+    // This deliberately does NOT also run the old, reverted code here to confirm the crash: doing
+    // so would actually attempt to create ~64k+ OS threads on whatever machine runs this suite,
+    // which is a real resource-exhaustion risk rather than a safe thing to assert against. The fix
+    // itself was instead verified by inspection (see the artifact's #13 writeup) and by this test
+    // passing with the corrected clamp, which compares against `fiberThreadCount - 1` instead.
+    //
+    // -10000 is arbitrary but comfortably exceeds any real hardware_concurrency(), so the clamp is
+    // exercised regardless of how many cores the test machine reports.
+    TEST(FibersManager, NegativeRequestedThreadCountClampsToOne)
+    {
+        AllocatorInstance allocator{};
+        FibersManager fibersManager(-10000, allocator);
+
+        EXPECT_EQ(fibersManager.GetFiberThreadCount(), 1);
+    }
 } // KryneEngine::Tests

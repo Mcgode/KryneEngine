@@ -39,8 +39,11 @@ namespace KryneEngine
 
             if (_requestedThreadCount < 0)
             {
-                // Make sure we can't go below 1
-                fiberThreadCount -= eastl::min<u16>(abs(_requestedThreadCount), _requestedThreadCount - 1);
+                // Make sure we can't go below 1. Clamp against fiberThreadCount itself, not
+                // _requestedThreadCount: the latter is negative here, so `_requestedThreadCount - 1`
+                // converted to u16 wraps to a huge value that never actually bounds the subtraction,
+                // letting fiberThreadCount underflow when abs(_requestedThreadCount) >= fiberThreadCount.
+                fiberThreadCount -= eastl::min<u16>(abs(_requestedThreadCount), fiberThreadCount - 1);
             }
         }
         else
