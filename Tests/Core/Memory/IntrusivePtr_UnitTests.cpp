@@ -13,21 +13,18 @@ namespace KryneEngine::Tests
 {
     namespace
     {
-        // Note: allocator access is exposed via GetAllocator() (IsAllocatorGetterIntrusible) rather than a
-        // plain public m_allocator member (IsAllocatorVarIntrusible), since the latter concept's compound
-        // requirement `{ T::m_allocator } -> std::same_as<AllocatorInstance>` can never be satisfied by a
-        // regular data member (member access is always an lvalue, so decltype((T::m_allocator)) deduces to
-        // AllocatorInstance&, never AllocatorInstance). That is a separate, pre-existing issue outside the
-        // scope of this regression test.
+        // Exercises IsAllocatorVarIntrusible (bare public m_allocator member), while
+        // IntrusiveSharedTestObject below exercises IsAllocatorGetterIntrusible (GetAllocator()).
         struct IntrusiveUniqueTestObject
         {
             u32 m_value;
+            AllocatorInstance m_allocator;
 
             static inline std::atomic<u32> s_instanceCount = 0;
 
             explicit IntrusiveUniqueTestObject(const AllocatorInstance _allocator, const u32 _value = 0)
                 : m_value(_value)
-                , m_allocatorInstance(_allocator)
+                , m_allocator(_allocator)
             {
                 s_instanceCount.fetch_add(1, std::memory_order::relaxed);
             }
@@ -36,11 +33,6 @@ namespace KryneEngine::Tests
             {
                 s_instanceCount.fetch_sub(1, std::memory_order::relaxed);
             }
-
-            [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocatorInstance; }
-
-        private:
-            AllocatorInstance m_allocatorInstance;
         };
 
         struct IntrusiveSharedTestObject

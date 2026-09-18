@@ -14,8 +14,8 @@
 namespace KryneEngine
 {
     template <class T>
-    concept IsAllocatorVarIntrusible = requires(T)
-    { { T::m_allocator } -> std::same_as<AllocatorInstance>; };
+    concept IsAllocatorVarIntrusible = requires(T _t)
+    { { _t.m_allocator } -> std::convertible_to<AllocatorInstance>; };
 
     template <class T>
     concept IsAllocatorGetterIntrusible = requires(T _t)
