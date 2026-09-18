@@ -19,6 +19,7 @@
 #include <KryneEngine/Modules/RenderGraph/Resource.hpp>
 #include <KryneEngine/Modules/RenderGraph/ImGuiDebugWindow.hpp>
 
+#include <Rendering/Compute/SkyAmbientPass.hpp>
 #include <Rendering/Fullscreen/ColorMappingPass.hpp>
 #include <Rendering/Fullscreen/DeferredShadingPass.hpp>
 #include <Rendering/Fullscreen/SkyPass.hpp>
@@ -72,6 +73,7 @@ int main()
 
     DeferredShadowPass deferredShadowPass { allocator };
     GiPass giPass { allocator };
+    SkyAmbientPass skyAmbientPass { allocator };
     DeferredShadingPass deferredShadingPass { allocator };
     SkyPass skyPass { allocator };
     ColorMappingPass colorMappingPass { allocator };
@@ -90,6 +92,7 @@ int main()
         deferredShadowView,
         deferredGi,
         deferredGiView,
+        skyAmbientBuffer,
         hdr,
         hdrRtv,
         hdrView;
@@ -275,6 +278,12 @@ int main()
         renderGraph.GetRegistry().GetResource(gBuffer1View).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(gBufferDepthView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView);
+    skyAmbientPass.Initialize(graphicsContext);
+
+    skyAmbientBuffer = renderGraph.GetRegistry().RegisterRawBuffer(
+        skyAmbientPass.GetSkyAmbientBuffer(),
+        "Sky ambient buffer");
+
     deferredShadingPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout(),
@@ -282,7 +291,8 @@ int main()
         renderGraph.GetRegistry().GetResource(gBuffer1View).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(gBufferDepthView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredShadowView).m_textureViewData.m_textureView,
-        renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView);
+        renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView,
+        skyAmbientPass.GetSkyAmbientBufferView());
     skyPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout());
@@ -296,6 +306,7 @@ int main()
         .m_colorFormats = { gbuffer0Format, gbuffer1Format },
         .m_depthStencilFormat = gbufferDepthFormat,
     });
+    skyAmbientPass.CreatePso(graphicsContext);
     deferredShadingPass.CreatePso(graphicsContext, {
         .m_numColorAttachments = 1,
         .m_colorFormats = { hdrFormat },
@@ -333,10 +344,14 @@ int main()
         imGuiContext->NewFrame(mainWindow, graphicsContext, swapChain);
 
         {
+            const u8 frameIndex = graphicsContext->GetCurrentFrameContextIndex();
             const DescriptorSetHandle sceneConstantsDescriptorSet =
-                sceneManager.GetSceneDescriptorSet(graphicsContext->GetCurrentFrameContextIndex());
+                sceneManager.GetSceneDescriptorSet(frameIndex);
             deferredShadowPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
             giPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
+            skyAmbientPass.UpdateSceneConstants(
+                graphicsContext,
+                sceneManager.GetSceneConstantsBufferView(frameIndex));
             deferredShadingPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
             skyPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
             colorMappingPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
@@ -430,6 +445,20 @@ int main()
                         .m_targetLayout = TextureLayout::UnorderedAccess,
                     })
                     .Done()
+                .DeclarePass(RenderGraph::PassType::Compute)
+                    .SetName("Sky ambient bake pass")
+                    .ReadDependency(frameCBufferReadDep)
+                    .WriteDependency({
+                        .m_resource = skyAmbientBuffer,
+                        .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                        .m_targetAccessFlags = BarrierAccessFlags::UnorderedAccess,
+                    })
+                    .SetExecuteFunction([&skyAmbientPass](const auto& _renderGraph, const auto& _passData)
+                        {
+                            KE_ZoneScoped("Bake sky ambient");
+                            skyAmbientPass.Dispatch(_renderGraph, _passData);
+                        })
+                    .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Deferred shading pass")
                     .SetExecuteFunction([&deferredShadingPass, renderSize](const auto& _, const auto& _passData) { deferredShadingPass.Render(_, _passData, renderSize); })
@@ -468,6 +497,11 @@ int main()
                         .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
+                    })
+                    .ReadDependency({
+                        .m_resource = skyAmbientBuffer,
+                        .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                        .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     })
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)

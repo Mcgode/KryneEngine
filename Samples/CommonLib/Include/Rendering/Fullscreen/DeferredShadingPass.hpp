@@ -7,7 +7,7 @@
 #pragma once
 
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
-
+#include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
 
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 
@@ -26,7 +26,8 @@ namespace KryneEngine::Samples
             TextureViewHandle _gBuffer1,
             TextureViewHandle _gBufferDepth,
             TextureViewHandle _deferredShadows,
-            TextureViewHandle _gBufferAmbient);
+            TextureViewHandle _gBufferAmbient,
+            BufferViewHandle  _skyAmbient);
 
         void UpdateSceneConstants(DescriptorSetHandle _sceneConstantsDescriptorSet)
         {

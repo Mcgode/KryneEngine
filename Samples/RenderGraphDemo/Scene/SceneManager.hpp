@@ -66,6 +66,11 @@ namespace KryneEngine::Samples::RenderGraphDemo
         [[nodiscard]] DescriptorSetLayoutHandle GetDescriptorSetLayout() const { return m_sceneDescriptorSetLayout; }
         [[nodiscard]] DescriptorSetHandle GetSceneDescriptorSet(u8 _index) const { return m_sceneDescriptorSets[_index]; }
 
+        // Raw buffer view onto the shared scene-constants buffer, whose first bytes are a
+        // `FullscreenPassConstants`. Needed by SkyAmbientPass, which binds its own constant-buffer
+        // slot rather than reusing GetSceneDescriptorSet's descriptor set.
+        [[nodiscard]] BufferViewHandle GetSceneConstantsBufferView(u8 _index) const { return m_sceneCbvs[_index]; }
+
         void RenderGBuffer(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder) const;
 
     private:

@@ -30,9 +30,10 @@ namespace KryneEngine::Samples
         const TextureViewHandle _gBuffer1,
         const TextureViewHandle _gBufferDepth,
         const TextureViewHandle _deferredShadows,
-        const TextureViewHandle _gBufferAmbient)
+        const TextureViewHandle _gBufferAmbient,
+        const BufferViewHandle  _skyAmbient)
     {
-        u32 indices[5];
+        u32 indices[6];
 
         // Create texture descriptor set layout
         {
@@ -57,9 +58,14 @@ namespace KryneEngine::Samples
                     .m_type = DescriptorBindingDesc::Type::SampledTexture,
                     .m_visibility = ShaderVisibility::Fragment
                 },
-                // Ambient
+                // Per-pixel ambient (gBuffer2)
                 {
                     .m_type = DescriptorBindingDesc::Type::SampledTexture,
+                    .m_visibility = ShaderVisibility::Fragment
+                },
+                // Sky ambient buffer (dual-hemisphere result from SkyAmbientPass)
+                {
+                    .m_type = DescriptorBindingDesc::Type::StorageReadOnlyBuffer,
                     .m_visibility = ShaderVisibility::Fragment
                 },
             };
@@ -104,6 +110,11 @@ namespace KryneEngine::Samples
                     .m_handle = _gBufferAmbient.m_handle,
                 }
             };
+            const DescriptorSetWriteInfo::DescriptorData skyAmbientDescriptorData[] {
+                {
+                    .m_handle = _skyAmbient.m_handle,
+                }
+            };
             const DescriptorSetWriteInfo writeInfo[] = {
                 {
                     .m_index = indices[0],
@@ -124,6 +135,10 @@ namespace KryneEngine::Samples
                 {
                     .m_index = indices[4],
                     .m_descriptorData = gBufferAmbientDescriptorData
+                },
+                {
+                    .m_index = indices[5],
+                    .m_descriptorData = skyAmbientDescriptorData
                 },
             };
             _graphicsContext->UpdateDescriptorSet(m_textureDescriptors, {writeInfo}, false);

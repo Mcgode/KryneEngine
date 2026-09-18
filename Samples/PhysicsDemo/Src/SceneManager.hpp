@@ -6,13 +6,14 @@
 
 #pragma once
 
+#include "Ecs/WorldObjectSystem.hpp"
+#include "Geometry/GeometryLibrary.hpp"
+#include "Rendering/Compute/SkyAmbientPass.hpp"
 #include "Rendering/DrawInstanceManager.hpp"
 #include "Rendering/Fullscreen/ColorMappingPass.hpp"
 #include "Rendering/Fullscreen/DeferredShadingPass.hpp"
 #include "Rendering/Fullscreen/SkyPass.hpp"
 #include "Rendering/MaterialManager.hpp"
-#include "Ecs/WorldObjectSystem.hpp"
-#include "Geometry/GeometryLibrary.hpp"
 
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
@@ -74,6 +75,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         [[nodiscard]] DeferredShadingPass& GetDeferredShadingPass() { return m_deferredShadingPass; }
         [[nodiscard]] SkyPass& GetSkyPass() { return m_skyPass; }
+        [[nodiscard]] SkyAmbientPass& GetSkyAmbientPass() { return m_skyAmbientPass; }
         [[nodiscard]] ColorMappingPass& GetColorPass() { return m_colorMappingPass; }
 
         void PrepareGBufferPass(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
@@ -115,6 +117,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         DeferredShadingPass m_deferredShadingPass;
         SkyPass m_skyPass;
+        SkyAmbientPass m_skyAmbientPass;
         ColorMappingPass m_colorMappingPass;
 
         SpinLock m_inputLock;

@@ -9,6 +9,7 @@
 #include "Math/CoordinateTransforms.hlsl"
 #include "Math/Quaternion.hlsl"
 #include "FullscreenPassConstants.hlsl"
+#include "Sky/SphericalHarmonics.hlsli"
 
 vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> constants : register(b0, space0);
 
@@ -19,6 +20,8 @@ vkBinding(1, 1) Texture2D<float4> gBuffer1 : register(t1, space1);
 vkBinding(2, 1) Texture2D<float4> gBufferDepth : register(t2, space1);
 vkBinding(3, 1) Texture2D<float4> deferredShadows : register(t3, space1);
 vkBinding(4, 1) Texture2D<float4> gBufferLight : register(t4, space1);
+// Sky ambient buffer: 9 pre-convolved SH coefficients (see SphericalHarmonics.hlsli).
+vkBinding(5, 1) StructuredBuffer<float4> skyAmbient : register(t5, space1);
 
 struct FsInput
 {
@@ -72,7 +75,13 @@ FsOutput DeferredShadingMain(const in FsInput _input)
     const float3 diffuseColor = albedo * (1.f - metalness);
     const float3 specularColor = lerp(0.04f.xxx, albedo, metalness.xxx);
 
-    const float3 diffuse = diffuseColor * (directLighting + gBufferLight.Load(int3(pixelCoords, 0)).rgb);
+    // Second-order SH ambient: keeps directional information beyond the up axis, so it captures
+    // sun-side vs anti-sun-side sky asymmetry (e.g. sunsets) instead of just a vertical gradient.
+    // Clamped to zero: a truncated SH reconstruction of a sharply-varying function can ring
+    // slightly negative, which isn't physical for an irradiance term.
+    const float3 skyAmbientIrradiance = max(EvalIrradianceSH9(normalW, skyAmbient), 0.0f.xxx);
+
+    const float3 diffuse = diffuseColor * (directLighting + gBufferLight.Load(int3(pixelCoords, 0)).rgb + skyAmbientIrradiance);
     const float3 specular = directLighting * BRDFSpecularGGX(
         -constants.m_sunLightDirection,
         cameraW,

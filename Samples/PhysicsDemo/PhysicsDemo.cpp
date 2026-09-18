@@ -136,6 +136,7 @@ int main(int _argc, const char* _argv[])
         gBufferDepthRtv,
         deferredShadows,
         deferredShadowsView,
+        skyAmbientBuffer,
         hdr,
         hdrView,
         hdrRtv;
@@ -283,6 +284,9 @@ int main(int _argc, const char* _argv[])
                 "Deferred shadows view");
         }
 
+        // Sky ambient buffer: registered after sceneManager is constructed so the UAV view exists.
+        // (Populated after sceneManager.InitPso() below.)
+
         {
             hdr = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
@@ -322,6 +326,13 @@ int main(int _argc, const char* _argv[])
         renderGraph.GetRegistry().GetTextureView(gBufferDepthView),
         renderGraph.GetRegistry().GetTextureView(deferredShadowsView),
         renderGraph.GetRegistry().GetTextureView(hdrView));
+
+    // Register the sky ambient buffer + UAV view now that InitPso() has created them.
+    {
+        skyAmbientBuffer = renderGraph.GetRegistry().RegisterRawBuffer(
+            sceneManager.GetSkyAmbientPass().GetSkyAmbientBuffer(),
+            "SkyAmbientBuffer");
+    }
 
     auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
     do
@@ -413,6 +424,19 @@ int main(int _argc, const char* _argv[])
                 })
                 .SetExecuteFunction([](const auto&, const auto&) { /* TODO*/ })
                 .Done()
+            .DeclarePass(RenderGraph::PassType::Compute)
+                .SetName("Sky ambient bake pass")
+                .ReadDependency({ .m_resource = fullscreenConstants })
+                .WriteDependency({
+                    .m_resource = skyAmbientBuffer,
+                    .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::UnorderedAccess,
+                })
+                .SetExecuteFunction([&sceneManager](const auto& _renderGraph, const auto& _executionData)
+                {
+                    sceneManager.GetSkyAmbientPass().Dispatch(_renderGraph, _executionData);
+                })
+                .Done()
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("Deferred shading pass")
                 .AddColorAttachment(hdrRtv)
@@ -450,6 +474,11 @@ int main(int _argc, const char* _argv[])
                     .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,
+                })
+                .ReadDependency({
+                    .m_resource = skyAmbientBuffer,
+                    .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                 })
                 .SetExecuteFunction([&sceneManager, frameBufferSize](const auto& _renderGraph, const auto& _executionPass)
                 {

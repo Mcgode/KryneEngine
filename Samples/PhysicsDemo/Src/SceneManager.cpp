@@ -40,6 +40,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_fullscreenConstantsBuffer(_allocator)
             , m_deferredShadingPass(_allocator)
             , m_skyPass(_allocator)
+            , m_skyAmbientPass(_allocator)
             , m_colorMappingPass(_allocator)
     {
         m_gBufferPassDispatcher = m_drawInstanceManager.CreatePassDispatcher(
@@ -127,6 +128,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
             m_deferredShadingPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
             m_skyPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
+            m_skyAmbientPass.UpdateSceneConstants(_graphicsContext, m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()]);
             m_colorMappingPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
         }
     }
@@ -335,7 +337,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             {
                 const Transform transform {
                     .m_position = Math::UpVector() * (2.0f + static_cast<float>(i) * 1.5f) + float3(0.1f * static_cast<float>(i), 0.f, 0.f),
-                    .m_rotation = {},
+                    .m_rotation = Math::Quaternion().FromAxisAngle(Math::UpVector(), static_cast<float>(i) * 0.4f),
                     .m_scale = float3(1.f, 1.f, 1.f),
                 };
 
@@ -397,6 +399,9 @@ namespace KryneEngine::Samples::PhysicsDemo
                 });
             }
 
+            m_skyAmbientPass.Initialize(&_graphicsContext);
+            m_skyAmbientPass.CreatePso(&_graphicsContext);
+
             m_deferredShadingPass.Initialize(
                 &_graphicsContext,
                 m_fullscreenPassesLayout,
@@ -404,7 +409,8 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _gBuffer1View,
                 _gBufferDepthView,
                 _deferredShadowsView,
-                _gBuffer2View);
+                _gBuffer2View,
+                m_skyAmbientPass.GetSkyAmbientBufferView());
             m_deferredShadingPass.CreatePso(&_graphicsContext, {
                 .m_numColorAttachments = 1,
                 .m_colorFormats = { kHdrFormat },
