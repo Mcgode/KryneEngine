@@ -42,10 +42,18 @@ namespace KryneEngine::Samples
         struct ConstantsBuffer
         {
             float4x4 m_cascadeViewProj[kMaxCascades];
-            float4 m_cascadeSplitDepths { 0.f }; // view-space far distance of each cascade, one per component
-            float m_lightSizeUv = 0.02f;    // PCSS light size, as a fraction of a cascade's shadow-map width
+            float4 m_cascadeSplitDepths { 0.f };    // view-space far distance of each cascade, one per component
+            float4 m_cascadeTexelWorldSize { 0.f }; // world units covered by one shadow-map texel, one per cascade
+            float4 m_cascadeDepthRangeInv { 0.f };  // 1 / (far - near) of each cascade's light-space depth range
+            // Light forward direction, the same across every cascade (one directional light): used
+            // for the normal-offset bias's N.L term in the shadow resolve shader. .w unused, kept
+            // as float4 for constant-buffer alignment.
+            float3 m_lightForward { 0.f };
+            u32 m_padding {};
+            float m_lightSizeUv = 0;    // PCSS light size, as a fraction of a cascade's shadow-map width
             u32 m_cascadeCount = 0;
-            float2 m_padding {};
+            float m_shadowBiasConstantTexels = 1.f; // Base normal-offset bias, in shadow-map texels of the receiving cascade
+            float m_shadowBiasSlopeScale = 3.f;     // Extra normal-offset added at grazing angles (scaled by 1 - N.L)
         };
         static_assert(sizeof(ConstantsBuffer) % 16 == 0, "ConstantsBuffer must match its HLSL counterpart's alignment");
 
@@ -59,6 +67,8 @@ namespace KryneEngine::Samples
             u32 _cascadeCount,
             u32 _resolution,
             TextureFormat _format = TextureFormat::D16);
+
+        void Debug();
 
         // Recomputes every cascade's light view/projection matrices (fit to slices of the main
         // camera's frustum between _cameraNear and _maxShadowDistance) and uploads them, along
@@ -96,6 +106,8 @@ namespace KryneEngine::Samples
             float4x4 m_viewMatrix;
             float4x4 m_projectionMatrix;
             float m_splitFar = 0.f;
+            float m_texelWorldSize = 0.f;
+            float m_depthRangeInv = 0.f;
             RenderTargetViewHandle m_rtv {};
         };
 
@@ -108,6 +120,9 @@ namespace KryneEngine::Samples
         TextureHandle m_shadowArrayTexture {};
         TextureViewHandle m_shadowArrayView {};
         Cascade m_cascades[kMaxCascades];
+        float m_lightSizeUv = 0.05f;
+        float m_shadowBiasConstantTexels = 1.f;
+        float m_shadowBiasSlopeScale = 3.f;
 
         Modules::GraphicsUtils::DynamicBuffer m_constantsBuffer;
         BufferViewHandle* m_constantsBufferViews = nullptr;

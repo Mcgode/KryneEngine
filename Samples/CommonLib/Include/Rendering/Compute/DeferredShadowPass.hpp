@@ -32,6 +32,7 @@ namespace KryneEngine::Samples
         void Initialize(
             GraphicsContext* _graphicsContext,
             TextureViewHandle _gBufferDepth,
+            TextureViewHandle _gBufferNormal,
             TextureViewHandle _shadowCascadeArray,
             TextureViewHandle _deferredShadows);
 
@@ -58,6 +59,7 @@ namespace KryneEngine::Samples
             u32 m_fullscreenConstants;
             u32 m_cascadeConstants;
             u32 m_gBufferDepth;
+            u32 m_gBufferNormal;
             u32 m_shadowCascades;
             u32 m_output;
 

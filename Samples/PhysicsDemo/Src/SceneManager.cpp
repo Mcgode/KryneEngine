@@ -117,6 +117,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         m_geometryLibrary.Update(*_graphicsContext);
 
         m_sunLight->Process();
+        m_cascadedShadowMap.Debug();
 
         // Interpolate between the last two fixed steps' worth of data and push the result to the
         // renderer; see WorldObjectSystem's threading contract (OrbitCamera::UpdatePose()/
@@ -456,6 +457,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_deferredShadowPass.Initialize(
                 &_graphicsContext,
                 _gBufferDepthView,
+                _gBuffer1View,
                 m_cascadedShadowMap.GetShadowArrayView(),
                 _deferredShadowsView);
             m_deferredShadowPass.CreatePso(&_graphicsContext);

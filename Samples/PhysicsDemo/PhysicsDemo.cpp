@@ -446,6 +446,12 @@ int main(int _argc, const char* _argv[])
                     .m_planes = TexturePlane::Depth,
                 })
                 .ReadDependency({
+                    .m_resource = gBuffer1,
+                    .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
+                })
+                .ReadDependency({
                     .m_resource = shadowCascadeArrayView,
                     .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,

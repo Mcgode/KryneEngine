@@ -21,6 +21,7 @@ namespace KryneEngine::Samples
     void DeferredShadowPass::Initialize(
         GraphicsContext* _graphicsContext,
         const TextureViewHandle _gBufferDepth,
+        const TextureViewHandle _gBufferNormal,
         const TextureViewHandle _shadowCascadeArray,
         const TextureViewHandle _deferredShadows)
     {
@@ -37,6 +38,11 @@ namespace KryneEngine::Samples
                     .m_visibility = ShaderVisibility::Compute,
                 },
                 // GBuffer depth
+                {
+                    .m_type = DescriptorBindingDesc::Type::SampledTexture,
+                    .m_visibility = ShaderVisibility::Compute,
+                },
+                // GBuffer normal (for normal-offset shadow bias)
                 {
                     .m_type = DescriptorBindingDesc::Type::SampledTexture,
                     .m_visibility = ShaderVisibility::Compute,
@@ -67,6 +73,12 @@ namespace KryneEngine::Samples
                     .m_handle = _gBufferDepth.m_handle,
                 }
             };
+            const DescriptorSetWriteInfo::DescriptorData gBufferNormalData[] {
+                {
+                    .m_textureLayout = TextureLayout::ShaderResource,
+                    .m_handle = _gBufferNormal.m_handle,
+                }
+            };
             const DescriptorSetWriteInfo::DescriptorData shadowCascadesData[] {
                 {
                     .m_textureLayout = TextureLayout::ShaderResource,
@@ -83,6 +95,10 @@ namespace KryneEngine::Samples
                 {
                     .m_index = m_indices.m_gBufferDepth,
                     .m_descriptorData = gBufferDepthData,
+                },
+                {
+                    .m_index = m_indices.m_gBufferNormal,
+                    .m_descriptorData = gBufferNormalData,
                 },
                 {
                     .m_index = m_indices.m_shadowCascades,

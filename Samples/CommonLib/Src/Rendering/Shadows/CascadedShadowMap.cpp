@@ -6,6 +6,8 @@
 
 #include "Rendering/Shadows/CascadedShadowMap.hpp"
 
+#include "imgui.h"
+
 #include <EASTL/numeric.h>
 #include <KryneEngine/Core/Common/Assert.hpp>
 #include <KryneEngine/Core/Graphics/MemoryBarriers.hpp>
@@ -118,6 +120,17 @@ namespace KryneEngine::Samples
         }
     }
 
+    void CascadedShadowMap::Debug()
+    {
+        if (ImGui::Begin("Cascaded Shadow Map"))
+        {
+            ImGui::InputFloat("Light UV", &m_lightSizeUv);
+            ImGui::InputFloat("Normal offset bias (texels)", &m_shadowBiasConstantTexels);
+            ImGui::InputFloat("Normal offset grazing-angle scale", &m_shadowBiasSlopeScale);
+        }
+        ImGui::End();
+    }
+
     void CascadedShadowMap::UpdateCascades(
         GraphicsContext* _graphicsContext,
         const TransferCommandEncoderHandle _transferEncoder,
@@ -159,9 +172,16 @@ namespace KryneEngine::Samples
         {
             lightUpHint = Math::RightVector();
         }
-        float3 lightRight = float3::CrossProduct(lightUpHint, lightForward);
+        // Operand order matters here: it must reproduce the same handedness relation as the
+        // engine's own canonical basis (cross(RightVector(), ForwardVector()) == UpVector()) or
+        // the resulting light basis comes out mirrored. That mirroring doesn't affect where
+        // shadow-map samples land (the resolve pass derives its UV from the same matrix), but it
+        // does flip triangle winding after the light's view/projection transform - which flips
+        // which faces the shadow PSO's back-face culling keeps, silently turning "render the
+        // faces toward the light" into "render the faces away from the light".
+        float3 lightRight = float3::CrossProduct(lightForward, lightUpHint);
         lightRight.Normalize();
-        float3 lightUp = float3::CrossProduct(lightForward, lightRight);
+        float3 lightUp = float3::CrossProduct(lightRight, lightForward);
         lightUp.Normalize();
 
         // Extends a cascade's near bound backward so casters just outside the visible frustum
@@ -195,25 +215,47 @@ namespace KryneEngine::Samples
                 }
             }
 
-            float minX = FLT_MAX, maxX = -FLT_MAX;
-            float minY = FLT_MAX, maxY = -FLT_MAX;
-            float minZ = FLT_MAX, maxZ = -FLT_MAX;
+            // Bound the slice with a sphere (centred on the frustum slice's view axis, at the
+            // midpoint between its near and far splits) rather than a tight per-axis AABB of the
+            // corners. A sphere's radius depends only on the slice's near/far/fov/aspect, not on
+            // which way the camera is currently facing, so the cascade's world-space size stays
+            // constant as the camera rotates - a tight AABB's extents change with orientation,
+            // which is what causes shadow-map texels to visibly swim/shimmer over the scene when
+            // just turning the camera in place, independent of any actual camera movement.
+            const float3 sphereCenter = invRotation.ApplyTo(
+                float3 { 0.f, (splitsNear[i] + splitsFar[i]) * 0.5f, 0.f } - _cameraViewTranslation);
+            float radius = 0.f;
             for (const float3& corner : corners)
             {
-                const float x = float3::Dot(corner, lightRight);
-                const float y = float3::Dot(corner, lightUp);
-                const float z = float3::Dot(corner, lightForward);
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
-                if (z < minZ) minZ = z;
-                if (z > maxZ) maxZ = z;
+                const float3 delta = corner - sphereCenter;
+                const float distance2 = float3::Dot(delta, delta);
+                if (distance2 > radius * radius)
+                    radius = std::sqrt(distance2);
             }
-            minZ -= kNearPadding;
+
+            float centerX = float3::Dot(sphereCenter, lightRight);
+            float centerY = float3::Dot(sphereCenter, lightUp);
+            const float centerZ = float3::Dot(sphereCenter, lightForward);
+
+            // Snap the sphere centre to whole shadow-map texels, in light space. Without this,
+            // the fitted bounds - and so where each world point lands within a texel - shift by a
+            // sub-texel amount every frame as the camera moves, which is what causes shimmering
+            // even when the sphere-bound radius above is otherwise stable.
+            const float texelWorldSize = (2.f * radius) / static_cast<float>(m_resolution);
+            if (texelWorldSize > 0.f)
+            {
+                centerX = std::floor(centerX / texelWorldSize) * texelWorldSize;
+                centerY = std::floor(centerY / texelWorldSize) * texelWorldSize;
+            }
+
+            const float minX = centerX - radius, maxX = centerX + radius;
+            const float minY = centerY - radius, maxY = centerY + radius;
+            const float minZ = centerZ - radius - kNearPadding, maxZ = centerZ + radius;
 
             Cascade& cascade = m_cascades[i];
             cascade.m_splitFar = splitsFar[i];
+            cascade.m_texelWorldSize = texelWorldSize;
+            cascade.m_depthRangeInv = 1.f / (maxZ - minZ);
 
             // Light view matrix: pure rotation into the light's local basis, no translation - the
             // bounds above are already expressed relative to the world origin. Row placement
@@ -239,8 +281,14 @@ namespace KryneEngine::Samples
         {
             constants->m_cascadeViewProj[i] = m_cascades[i].m_projectionMatrix * m_cascades[i].m_viewMatrix;
             constants->m_cascadeSplitDepths[i] = m_cascades[i].m_splitFar;
+            constants->m_cascadeTexelWorldSize[i] = m_cascades[i].m_texelWorldSize;
+            constants->m_cascadeDepthRangeInv[i] = m_cascades[i].m_depthRangeInv;
         }
         constants->m_cascadeCount = m_cascadeCount;
+        constants->m_lightSizeUv = m_lightSizeUv;
+        constants->m_shadowBiasConstantTexels = m_shadowBiasConstantTexels;
+        constants->m_shadowBiasSlopeScale = m_shadowBiasSlopeScale;
+        constants->m_lightForward = lightForward;
 
         m_constantsBuffer.Unmap(_graphicsContext);
         m_constantsBuffer.PrepareBuffers(

@@ -110,7 +110,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         PassDispatcher* m_shadowPassDispatchers[CascadedShadowMap::kMaxCascades] {};
 
         static constexpr u32 kCascadeCount = 4;
-        static constexpr u32 kCascadeResolution = 1024;
+        static constexpr u32 kCascadeResolution = 2048;
         static constexpr float kMaxShadowDistance = 60.f;
         CascadedShadowMap m_cascadedShadowMap;
 
