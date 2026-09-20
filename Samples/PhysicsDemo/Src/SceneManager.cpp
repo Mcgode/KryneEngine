@@ -337,7 +337,12 @@ namespace KryneEngine::Samples::PhysicsDemo
             {
                 const Transform transform {
                     .m_position = Math::UpVector() * (2.0f + static_cast<float>(i) * 1.5f) + float3(0.1f * static_cast<float>(i), 0.f, 0.f),
-                    .m_rotation = Math::Quaternion().FromAxisAngle(Math::UpVector(), static_cast<float>(i) * 0.4f),
+                    // Small per-box yaw for ambient-lighting normal diversity. Kept modest: these
+                    // boxes stack almost directly on top of each other as they fall, and a large
+                    // relative yaw between neighbours turns their contact into corner-on-face
+                    // instead of face-on-face, which is enough for box3d to topple/launch them
+                    // clean off the (effectively unbounded) ground plane and out of camera view.
+                    .m_rotation = Math::Quaternion().FromAxisAngle(Math::UpVector(), static_cast<float>(i) * 0.15f),
                     .m_scale = float3(1.f, 1.f, 1.f),
                 };
 
