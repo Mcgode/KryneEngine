@@ -45,13 +45,21 @@ set(CMAKE_BUILD_TYPE "${TypeName}")
 
 message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
 
+# Coverage instrumentation needs LLVM's source-based coverage (Clang/AppleClang only), a
+# compiler-rt profile runtime that's actually shipped for the target, and a RunCoverage
+# script to drive it (only written for Windows, macOS and Linux so far).
+set(KRYNE_ENGINE_COVERAGE_SUPPORTED FALSE)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_CROSSCOMPILING AND (WIN32 OR APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+    set(KRYNE_ENGINE_COVERAGE_SUPPORTED TRUE)
+endif ()
+
 function(AddCoverage TargetName)
-    # The LLVM profile runtime (compiler-rt) isn't shipped for the mingw target, so
-    # coverage instrumentation can't link in the macOS -> Windows cross build.
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT CMAKE_CROSSCOMPILING)
+    if (KRYNE_ENGINE_ENABLE_COVERAGE AND KRYNE_ENGINE_COVERAGE_SUPPORTED)
         target_compile_options(${TargetName} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
-        # The profile runtime (__llvm_profile_runtime) must also be pulled in at link time.
-        target_link_options(${TargetName} PRIVATE -fprofile-instr-generate)
+        # PUBLIC (rather than PRIVATE): for a STATIC library, CMake ignores non-interface
+        # link options, so this must propagate as an interface option to reach the final
+        # link step of whatever executable consumes this target (e.g. the test binaries).
+        target_link_options(${TargetName} PUBLIC -fprofile-instr-generate)
     endif()
 endfunction()
 
