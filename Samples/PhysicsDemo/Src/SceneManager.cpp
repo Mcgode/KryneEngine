@@ -36,6 +36,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
             , m_geometryLibrary(_allocator, *_graphicsContext)
             , m_worldObjectSystem(_allocator, _world)
+            , m_cascadedShadowMap(_allocator)
             , m_gameFramesQueue(_allocator, 3)
             , m_fullscreenConstantsBuffer(_allocator)
             , m_deferredShadingPass(_allocator)
@@ -49,6 +50,17 @@ namespace KryneEngine::Samples::PhysicsDemo
             &m_materialManager,
             static_cast<u8>(PassTypes::GBufferPass),
             "GBuffer pass dispatcher");
+
+        for (auto i = 0; i < CascadedShadowMap::kMaxCascades; ++i)
+        {
+            char name[128];
+            snprintf(name, sizeof(name), "Shadow pass dispatcher %d", i);
+            m_shadowPassDispatchers[i] = m_drawInstanceManager.CreatePassDispatcher(
+                *_graphicsContext,
+                &m_materialManager,
+                static_cast<u8>(PassTypes::ShadowPass),
+                name);
+        }
 
         m_defaultMaterial = m_materialManager.RegisterMaterial();
 
@@ -134,6 +146,10 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_skyPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
             m_skyAmbientPass.UpdateSceneConstants(_graphicsContext, m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()]);
             m_colorMappingPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
+            m_deferredShadowPass.UpdateSceneConstants(
+                _graphicsContext,
+                m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()],
+                m_cascadedShadowMap.GetConstantsBufferView(_graphicsContext->GetCurrentFrameContextIndex()));
         }
     }
 
@@ -435,7 +451,13 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_skyAmbientPass.Initialize(&_graphicsContext);
             m_skyAmbientPass.CreatePso(&_graphicsContext);
 
-            m_deferredShadowPass.Initialize(&_graphicsContext, _gBufferDepthView, _deferredShadowsView);
+            m_cascadedShadowMap.Initialize(&_graphicsContext, kCascadeCount, kCascadeResolution);
+
+            m_deferredShadowPass.Initialize(
+                &_graphicsContext,
+                _gBufferDepthView,
+                m_cascadedShadowMap.GetShadowArrayView(),
+                _deferredShadowsView);
             m_deferredShadowPass.CreatePso(&_graphicsContext);
 
             m_deferredShadingPass.Initialize(
@@ -500,6 +522,37 @@ namespace KryneEngine::Samples::PhysicsDemo
             _transferEncoder,
             BarrierAccessFlags::ConstantBuffer,
             _graphicsContext->GetCurrentFrameContextIndex());
+
+        m_cascadedShadowMap.UpdateCascades(
+            _graphicsContext,
+            _transferEncoder,
+            m_orbitCamera->GetViewRotation(),
+            m_orbitCamera->GetViewTranslation(),
+            std::tan(m_orbitCamera->GetFov() * 0.5f),
+            static_cast<float>(_screenResolution.x) / static_cast<float>(_screenResolution.y),
+            m_orbitCamera->GetNear(),
+            kMaxShadowDistance,
+            m_sunLight->GetDirection());
+    }
+
+    void SceneManager::PrepareShadowCascade(
+        const u32 _cascadeIndex,
+        GraphicsContext& _graphicsContext,
+        const TransferCommandEncoderHandle _transferEncoder)
+    {
+        m_shadowPassDispatchers[_cascadeIndex]->PrepareDispatch(
+            m_cascadedShadowMap.GetCascadeViewMatrix(_cascadeIndex),
+            m_cascadedShadowMap.GetCascadeProjectionMatrix(_cascadeIndex),
+            _graphicsContext,
+            _transferEncoder);
+    }
+
+    void SceneManager::RenderShadowCascade(
+        const u32 _cascadeIndex,
+        GraphicsContext& _graphicsContext,
+        const RenderCommandEncoderHandle _renderEncoder)
+    {
+        m_shadowPassDispatchers[_cascadeIndex]->Dispatch(_graphicsContext, _renderEncoder);
     }
 
     void SceneManager::PrepareGBufferPass(

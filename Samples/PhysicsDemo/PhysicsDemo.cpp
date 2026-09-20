@@ -5,6 +5,7 @@
  */
 
 #include "KryneEngine/Core/Window/Input/InputManager.hpp"
+#include "Rendering/Shadows/CascadedShadowMap.hpp"
 #include "Src/RenderTargetFormats.hpp"
 #include "Src/SceneManager.hpp"
 
@@ -121,6 +122,8 @@ int main(int _argc, const char* _argv[])
         gBufferDepthRtv,
         deferredShadows,
         deferredShadowsView,
+        shadowCascadeArray,
+        shadowCascadeArrayView,
         skyAmbientBuffer,
         hdr,
         hdrView,
@@ -313,10 +316,25 @@ int main(int _argc, const char* _argv[])
         renderGraph.GetRegistry().GetTextureView(hdrView));
 
     // Register the sky ambient buffer + UAV view now that InitPso() has created them.
+    SimplePoolHandle shadowCascadeRtvs[Samples::CascadedShadowMap::kMaxCascades] {};
+
     {
         skyAmbientBuffer = renderGraph.GetRegistry().RegisterRawBuffer(
             sceneManager.GetSkyAmbientPass().GetSkyAmbientBuffer(),
             "SkyAmbientBuffer");
+
+        Samples::CascadedShadowMap& csm = sceneManager.GetCascadedShadowMap();
+        shadowCascadeArray = renderGraph.GetRegistry().RegisterRawTexture(
+            csm.GetShadowArrayTexture(), "Shadow cascades");
+        shadowCascadeArrayView = renderGraph.GetRegistry().RegisterTextureView(
+            csm.GetShadowArrayView(), shadowCascadeArray, "Shadow cascades view");
+
+        eastl::string nameTmp2(allocator);
+        for (u32 i = 0; i < csm.GetCascadeCount(); ++i)
+        {
+            shadowCascadeRtvs[i] = renderGraph.GetRegistry().RegisterRenderTargetView(
+                csm.GetCascadeRtv(i), shadowCascadeArray, nameTmp2.sprintf("Shadow cascade %u RTV", i));
+        }
     }
 
     auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
@@ -363,7 +381,33 @@ int main(int _argc, const char* _argv[])
                 {
                     sceneManager.UpdateFullscreenConstantsBuffer(_executionData.m_graphicsContext, _executionData.m_transferEncoder, frameBufferSize);
                 })
-                .Done()
+                .Done();
+
+        // One depth-only pass per shadow cascade, rendering the same scene geometry as the
+        // GBuffer pass from each cascade's light view/projection instead of the main camera's.
+        for (u32 cascade = 0; cascade < sceneManager.GetCascadeCount(); ++cascade)
+        {
+            char name[64];
+            snprintf(name, sizeof(name), "Shadow cascade pass %u", cascade);
+            builder.DeclarePass(RenderGraph::PassType::Render)
+                .SetName(name)
+                .SetPrePassTransferFunction([&sceneManager, cascade](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
+                {
+                    sceneManager.PrepareShadowCascade(cascade, *_graphicsContext, _transferEncoder);
+                })
+                .SetDepthAttachment(shadowCascadeRtvs[cascade])
+                    .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Clear)
+                    .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                    .SetClearDepthStencil(1.f)
+                    .Done()
+                .SetExecuteFunction([&sceneManager, cascade](RenderGraph::RenderGraph&, const RenderGraph::PassExecutionData& _executionData)
+                {
+                    sceneManager.RenderShadowCascade(cascade, *_executionData.m_graphicsContext, _executionData.m_renderEncoder);
+                })
+                .Done();
+        }
+
+        builder
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("GBuffer pass")
                 .SetPrePassTransferFunction([&sceneManager](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
@@ -396,6 +440,13 @@ int main(int _argc, const char* _argv[])
                 .SetName("Deferred shadows pass")
                 .ReadDependency({
                     .m_resource = gBufferDepthView,
+                    .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
+                    .m_planes = TexturePlane::Depth,
+                })
+                .ReadDependency({
+                    .m_resource = shadowCascadeArrayView,
                     .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     .m_targetLayout = TextureLayout::ShaderResource,

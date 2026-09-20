@@ -35,6 +35,7 @@ namespace KryneEngine::Samples
         void Process();
 
         [[nodiscard]] const float& GetFov() const { return m_fov; }
+        [[nodiscard]] const float& GetNear() const { return m_near; }
         [[nodiscard]] const float2& GetDepthLinearizeConstants() const { return m_depthLinearizeConstants; }
         [[nodiscard]] const float3& GetViewTranslation() const { return m_renderTranslation; }
         [[nodiscard]] const Math::Quaternion& GetViewRotation() const { return m_renderRotation; }

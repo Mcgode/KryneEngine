@@ -25,6 +25,10 @@ add_library(Samples_CommonLib STATIC
         Include/Rendering/Fullscreen/ColorMappingPass.hpp
         Src/Rendering/Compute/SkyAmbientPass.cpp
         Include/Rendering/Compute/SkyAmbientPass.hpp
+        Src/Rendering/Compute/DeferredShadowPass.cpp
+        Include/Rendering/Compute/DeferredShadowPass.hpp
+        Src/Rendering/Shadows/CascadedShadowMap.cpp
+        Include/Rendering/Shadows/CascadedShadowMap.hpp
 )
 
 target_include_directories(Samples_CommonLib PUBLIC Include)

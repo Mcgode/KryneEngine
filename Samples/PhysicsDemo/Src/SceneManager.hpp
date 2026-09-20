@@ -15,6 +15,7 @@
 #include "Rendering/Fullscreen/DeferredShadingPass.hpp"
 #include "Rendering/Fullscreen/SkyPass.hpp"
 #include "Rendering/MaterialManager.hpp"
+#include "Rendering/Shadows/CascadedShadowMap.hpp"
 
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
@@ -83,6 +84,11 @@ namespace KryneEngine::Samples::PhysicsDemo
         void PrepareGBufferPass(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
         void RenderGBufferPass(GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
 
+        [[nodiscard]] u32 GetCascadeCount() const { return m_cascadedShadowMap.GetCascadeCount(); }
+        void PrepareShadowCascade(u32 _cascadeIndex, GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
+        void RenderShadowCascade(u32 _cascadeIndex, GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
+        [[nodiscard]] CascadedShadowMap& GetCascadedShadowMap() { return m_cascadedShadowMap; }
+
         [[nodiscard]] SpinLock& GetInputLock() { return m_inputLock; }
 
     private:
@@ -101,6 +107,12 @@ namespace KryneEngine::Samples::PhysicsDemo
         SunLight* m_sunLight = nullptr;
 
         PassDispatcher* m_gBufferPassDispatcher = nullptr;
+        PassDispatcher* m_shadowPassDispatchers[CascadedShadowMap::kMaxCascades] {};
+
+        static constexpr u32 kCascadeCount = 4;
+        static constexpr u32 kCascadeResolution = 1024;
+        static constexpr float kMaxShadowDistance = 60.f;
+        CascadedShadowMap m_cascadedShadowMap;
 
         u64 m_gameFrameId = 0;
         SpscQueue<u64> m_gameFramesQueue;
