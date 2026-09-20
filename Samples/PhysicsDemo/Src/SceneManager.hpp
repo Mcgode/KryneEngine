@@ -8,6 +8,7 @@
 
 #include "Ecs/WorldObjectSystem.hpp"
 #include "Geometry/GeometryLibrary.hpp"
+#include "Rendering/Compute/DeferredShadowPass.hpp"
 #include "Rendering/Compute/SkyAmbientPass.hpp"
 #include "Rendering/DrawInstanceManager.hpp"
 #include "Rendering/Fullscreen/ColorMappingPass.hpp"
@@ -77,6 +78,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         [[nodiscard]] SkyPass& GetSkyPass() { return m_skyPass; }
         [[nodiscard]] SkyAmbientPass& GetSkyAmbientPass() { return m_skyAmbientPass; }
         [[nodiscard]] ColorMappingPass& GetColorPass() { return m_colorMappingPass; }
+        [[nodiscard]] DeferredShadowPass& GetDeferredShadowPass() { return m_deferredShadowPass; }
 
         void PrepareGBufferPass(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
         void RenderGBufferPass(GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
@@ -119,6 +121,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         SkyPass m_skyPass;
         SkyAmbientPass m_skyAmbientPass;
         ColorMappingPass m_colorMappingPass;
+        DeferredShadowPass m_deferredShadowPass;
 
         SpinLock m_inputLock;
     };

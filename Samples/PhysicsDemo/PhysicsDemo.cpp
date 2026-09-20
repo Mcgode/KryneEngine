@@ -422,7 +422,10 @@ int main(int _argc, const char* _argv[])
                     .m_targetAccessFlags = BarrierAccessFlags::UnorderedAccess,
                     .m_targetLayout = TextureLayout::UnorderedAccess,
                 })
-                .SetExecuteFunction([](const auto&, const auto&) { /* TODO*/ })
+                .SetExecuteFunction([&sceneManager, frameBufferSize](const auto& _renderGraph, const auto& _executionData)
+                {
+                    sceneManager.GetDeferredShadowPass().Dispatch(_renderGraph, _executionData, frameBufferSize);
+                })
                 .Done()
             .DeclarePass(RenderGraph::PassType::Compute)
                 .SetName("Sky ambient bake pass")

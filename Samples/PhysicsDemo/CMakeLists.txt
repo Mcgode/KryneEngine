@@ -8,6 +8,8 @@ add_executable(PhysicsDemo
         Src/Ecs/WorldObjectSystem.hpp
         Src/Geometry/GeometryLibrary.cpp
         Src/Geometry/GeometryLibrary.hpp
+        Src/Rendering/Compute/DeferredShadowPass.cpp
+        Src/Rendering/Compute/DeferredShadowPass.hpp
 )
 
 target_link_libraries(PhysicsDemo

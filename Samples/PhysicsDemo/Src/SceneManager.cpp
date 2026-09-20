@@ -42,6 +42,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_skyPass(_allocator)
             , m_skyAmbientPass(_allocator)
             , m_colorMappingPass(_allocator)
+            , m_deferredShadowPass(_allocator)
     {
         m_gBufferPassDispatcher = m_drawInstanceManager.CreatePassDispatcher(
             *_graphicsContext,
@@ -406,6 +407,9 @@ namespace KryneEngine::Samples::PhysicsDemo
 
             m_skyAmbientPass.Initialize(&_graphicsContext);
             m_skyAmbientPass.CreatePso(&_graphicsContext);
+
+            m_deferredShadowPass.Initialize(&_graphicsContext, _gBufferDepthView, _deferredShadowsView);
+            m_deferredShadowPass.CreatePso(&_graphicsContext);
 
             m_deferredShadingPass.Initialize(
                 &_graphicsContext,
