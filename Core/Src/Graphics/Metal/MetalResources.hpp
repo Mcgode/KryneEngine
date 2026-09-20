@@ -139,7 +139,6 @@ namespace KryneEngine
         {
             TextureFormat m_pixelFormat;
             u16 m_slice;
-            u16 m_depthSlice;
             u8 m_mipLevel;
             TexturePlane m_plane;
         };

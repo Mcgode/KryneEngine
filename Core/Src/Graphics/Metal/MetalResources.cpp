@@ -352,8 +352,7 @@ namespace KryneEngine
         rtvHot->m_isSystemTexture = _desc.m_texture == GenPool::kInvalidHandle;
         *rtvCold = RtvColdData {
             .m_pixelFormat = _desc.m_format,
-            .m_slice = _desc.m_type == TextureTypes::Single3D ? u16(0u) : _desc.m_arrayRangeStart,
-            .m_depthSlice = _desc.m_type == TextureTypes::Single3D ? _desc.m_depthStartSlice : u16(0u),
+            .m_slice = _desc.m_type == TextureTypes::Single3D ? _desc.m_depthStartSlice : _desc.m_arrayRangeStart,
             .m_mipLevel = _desc.m_mipLevel,
             .m_plane = _desc.m_plane,
         };
@@ -385,6 +384,8 @@ namespace KryneEngine
             }
 
             attachment->setTexture(texture);
+            attachment->setSlice(rtvColdData->m_slice);
+            attachment->setLevel(rtvColdData->m_mipLevel);
             attachment->setLoadAction(MetalConverters::GetMetalLoadOperation(attachmentDesc.m_loadOperation));
             attachment->setStoreAction(MetalConverters::GetMetalStoreOperation(attachmentDesc.m_storeOperation));
             attachment->setClearColor(MTL::ClearColor(
@@ -405,6 +406,8 @@ namespace KryneEngine
             {
                 MTL::RenderPassDepthAttachmentDescriptor* attachment = hotData->m_descriptor->depthAttachment();
                 attachment->setTexture(rtvHot->m_texture);
+                attachment->setSlice(rtvCold->m_slice);
+                attachment->setLevel(rtvCold->m_mipLevel);
                 attachment->setLoadAction(MetalConverters::GetMetalLoadOperation(attachmentDesc.m_loadOperation));
                 attachment->setStoreAction(MetalConverters::GetMetalStoreOperation(attachmentDesc.m_storeOperation));
                 attachment->setClearDepth(attachmentDesc.m_clearColor.r);
@@ -414,6 +417,8 @@ namespace KryneEngine
             {
                 MTL::RenderPassStencilAttachmentDescriptor* attachment = hotData->m_descriptor->stencilAttachment();
                 attachment->setTexture(rtvHot->m_texture);
+                attachment->setSlice(rtvCold->m_slice);
+                attachment->setLevel(rtvCold->m_mipLevel);
                 attachment->setLoadAction(MetalConverters::GetMetalLoadOperation(attachmentDesc.m_stencilLoadOperation));
                 attachment->setStoreAction(MetalConverters::GetMetalStoreOperation(attachmentDesc.m_stencilStoreOperation));
                 attachment->setClearStencil(attachmentDesc.m_stencilClearValue);
