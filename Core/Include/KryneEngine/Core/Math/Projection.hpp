@@ -13,7 +13,12 @@
 namespace KryneEngine::Math
 {
     template<Matrix44Type Mat44 = float4x4, CoordinateSystem CS = kDefaultCoordinateSystem>
-    Mat44 PerspectiveProjection(float _fov, float _aspect, float _near, float _far, bool _reversedDepth)
+    Mat44 PerspectiveProjection(
+        const float _fov,
+        const float _aspect,
+        const float _near,
+        const float _far,
+        const bool _reversedDepth)
     {
         // Based on https://iolite-engine.com/blog_posts/reverse_z_cheatsheet
 
@@ -63,6 +68,63 @@ namespace KryneEngine::Math
     }
 
     /**
+     * @brief Builds an orthographic projection matrix, following the same view-space axis
+     * convention as #PerspectiveProjection (right is always the first input axis; which of the
+     * other two is "up" vs "forward" depends on `CS`), so it can be paired with the exact same
+     * kind of plain rotation+translation view matrix.
+     *
+     * @param _left Left bound of the view volume, in view-space right-axis units.
+     * @param _right Right bound of the view volume, in view-space right-axis units.
+     * @param _bottom Bottom bound of the view volume, in view-space up-axis units.
+     * @param _top Top bound of the view volume, in view-space up-axis units.
+     * @param _near Near clipping plane distance, in view-space forward-axis units.
+     * @param _far Far clipping plane distance, in view-space forward-axis units.
+     * @param _reversedDepth A boolean indicating whether reversed depth (1 at near, 0 at far) is
+     * being used; otherwise depth is 0 at near, 1 at far.
+     */
+    template<Matrix44Type Mat44 = float4x4, CoordinateSystem CS = kDefaultCoordinateSystem>
+    Mat44 OrthographicProjection(
+        const float _left,
+        const float _right,
+        const float _bottom,
+        const float _top,
+        const float _near,
+        const float _far,
+        const bool _reversedDepth)
+    {
+        Mat44 baseMat {
+            0.f, 0.f, 0.f, 0.f,
+            0.f, 0.f, 0.f, 0.f,
+            0.f, 0.f, 0.f, 0.f,
+            0.f, 0.f, 0.f, 1.f,
+        };
+
+        constexpr size_t projYCol = IsZUp(CS) ? 2 : 1;
+        constexpr size_t projZCol = IsZUp(CS) ? 1 : 2;
+        constexpr bool thirdAxisForward = IsZUp(CS) ^ IsLeftHanded(CS);
+
+        baseMat.Get(0, 0) = 2.f / (_right - _left);
+        baseMat.Get(0, 3) = -(_right + _left) / (_right - _left);
+
+        baseMat.Get(1, projYCol) = 2.f / (_top - _bottom);
+        baseMat.Get(1, 3) = -(_top + _bottom) / (_top - _bottom);
+
+        const float n = _near;
+        const float f = _far;
+
+        {
+            const float value = (_reversedDepth ? -1.f : 1.f) / (f - n);
+            baseMat.Get(2, projZCol) = thirdAxisForward ? value : -value;
+        }
+        // Unlike the scale term above, the offset here must not flip sign with thirdAxisForward:
+        // it depends only on where near/far sit along the (already CS-signed) forward axis, not
+        // on which physical direction that axis points in.
+        baseMat.Get(2, 3) = _reversedDepth ? f / (f - n) : -n / (f - n);
+
+        return baseMat;
+    }
+
+    /**
      * @brief Computes the depth linearization constants for a perspective projection.
      *
      * @details
@@ -87,7 +149,10 @@ namespace KryneEngine::Math
      * component represents an offset for the linearization formula.
      */
     template <Vector2Type Vec2 = float2>
-    Vec2 ComputePerspectiveDepthLinearizationConstants(float _near, float _far, bool _reversedDepth)
+    Vec2 ComputePerspectiveDepthLinearizationConstants(
+        const float _near,
+        const float _far,
+        const bool _reversedDepth)
     {
         if (_reversedDepth)
         {
