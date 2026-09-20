@@ -21,10 +21,16 @@
 
 namespace KryneEngine::Samples
 {
+    namespace
+    {
+        constexpr float kZoomSpeed = 0.1f;
+        constexpr float kMinDistance = 1.0f;
+        constexpr float kMaxDistance = 100.0f;
+    }
+
     OrbitCamera::OrbitCamera(const float _aspectRatio)
         : m_aspectRatio(_aspectRatio)
     {
-        // TODO: Retrieve scrolling for zooming (InputManager::GetScrollDelta)
     }
 
     OrbitCamera::~OrbitCamera() = default;
@@ -40,6 +46,10 @@ namespace KryneEngine::Samples
             m_phi += delta.y * 0.1f;
             m_phi = eastl::clamp(m_phi, -90.0f, 90.0f);
         }
+
+        const float scrollDelta = InputManager::Get().GetScrollDelta().y;
+        m_distance -= scrollDelta * m_distance * kZoomSpeed;
+        m_distance = eastl::clamp(m_distance, kMinDistance, kMaxDistance);
 
         Math::Quaternion yaw, pitch;
         yaw.FromAxisAngle(Math::UpVector(), m_theta * M_PI / 180.0f);
