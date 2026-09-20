@@ -55,7 +55,10 @@ namespace KryneEngine::Samples::PhysicsDemo
         const uint2 windowSize = _graphicsContext->GetSwapChainSize(_mainSwapChainHandle);
         const float aspectRatio = static_cast<float>(windowSize.x) / static_cast<float>(windowSize.y);
         m_orbitCamera = m_allocator.New<OrbitCamera>(aspectRatio);
+
         m_sunLight = m_allocator.New<SunLight>();
+        m_sunLight->SetTheta(30.f);
+        m_sunLight->SetPhi(30.f);
     }
 
     SceneManager::~SceneManager()
