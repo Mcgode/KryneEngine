@@ -18,6 +18,7 @@ namespace KryneEngine::Samples::PhysicsDemo
     enum class GeometryType : u8
     {
         Box,
+        Ground,
 
         Count,
     };
@@ -30,9 +31,9 @@ namespace KryneEngine::Samples::PhysicsDemo
     };
 
     /**
-     * @brief A hardcoded set of predefined geometries (currently just a unit box) that world
-     * objects can be spawned with: their GPU vertex/index buffers, and the matching Box3D
-     * collision shape to attach to a physics body.
+     * @brief A hardcoded set of predefined geometries (a unit box, and the static ground slab)
+     * that world objects can be spawned with: their GPU vertex/index buffers, and the matching
+     * Box3D collision shape to attach to a physics body.
      *
      * @details
      * This does not register anything with DrawInstanceManager itself - callers retrieve the

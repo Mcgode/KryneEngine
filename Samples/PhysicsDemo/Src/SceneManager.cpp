@@ -324,6 +324,30 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_allocator.deallocate(vertexBytecode.data(), vertexBytecode.size_bytes());
         }
 
+        // Static ground plane, registered as its own dedicated entity (rather than a bare,
+        // unrendered Box3D body) so it can be drawn like any other world object.
+        {
+            const GeometryBuffers& groundBuffers = m_geometryLibrary.GetBuffers(GeometryType::Ground);
+            const SimplePoolHandle groundModel = m_drawInstanceManager.RegisterModel(
+                groundBuffers.m_vertexBuffer,
+                groundBuffers.m_indexBuffer,
+                m_defaultMaterial,
+                groundBuffers.m_indexCount);
+
+            b3BodyDef bodyDef = b3DefaultBodyDef();
+            bodyDef.type = b3_staticBody;
+
+            // Lowered a couple of cube-heights below the falling boxes' resting height, so they
+            // have some room to drop before landing.
+            const Transform transform { .m_position = Math::UpVector() * -2.5f };
+            const EntityHandle groundEntity = m_worldObjectSystem.CreateEntity(transform, bodyDef, groundModel);
+
+            const b3BodyId groundBody = m_worldObjectSystem.GetBody(groundEntity);
+            b3ShapeDef shapeDef = b3DefaultShapeDef();
+            b3BoxHull hull = m_geometryLibrary.GetBoxHull(GeometryType::Ground);
+            b3CreateHullShape(groundBody, &shapeDef, &hull.base);
+        }
+
         // A handful of falling box entities: minimal proof-of-work content that exercises the
         // ECS end to end, not a real scene-loading format.
         {

@@ -21,12 +21,37 @@ namespace KryneEngine::Samples::PhysicsDemo
         // [vertex data for every geometry][index data for every geometry]. The single staging
         // buffer below mirrors that exact layout, so the whole upload only ever takes two
         // CopyBuffer calls, regardless of how many geometries exist.
-        const BoxMeshGenerator::BoxMesh boxMesh = BoxMeshGenerator::GenerateBoxMesh(float3(1.f, 1.f, 1.f), m_allocator);
-        const u64 boxVerticesSize = boxMesh.m_vertexCount * BoxMeshGenerator::kVertexSize;
-        const u64 boxIndicesSize = boxMesh.m_indexCount * sizeof(u32);
+        struct GeometryDesc
+        {
+            GeometryType m_type;
+            float3 m_meshSize;         // full extents of the generated box mesh
+            float3 m_collisionHalfExtents; // half extents passed to b3MakeBoxHull
+        };
 
-        m_vertexRegionSize = boxVerticesSize;
-        m_indexRegionSize = boxIndicesSize;
+        const GeometryDesc kGeometryDescs[] = {
+            {
+                .m_type = GeometryType::Box,
+                .m_meshSize = float3(1.f, 1.f, 1.f),
+                .m_collisionHalfExtents = float3(0.5f, 0.5f, 0.5f)
+            },
+            // Visually a thin slab, but the collision hull keeps a zero-thickness top plane so
+            // resting bodies sit exactly at the ground entity's origin.
+            {
+                .m_type = GeometryType::Ground,
+                .m_meshSize = float3(200.f, 200.f, 0.2f),
+                .m_collisionHalfExtents = float3(100.f, 100.f, 0.f)
+            },
+        };
+        constexpr size_t kGeometryCount = std::size(kGeometryDescs);
+        static_assert(kGeometryCount == static_cast<size_t>(GeometryType::Count));
+
+        BoxMeshGenerator::BoxMesh meshes[kGeometryCount];
+        for (size_t i = 0; i < kGeometryCount; i++)
+        {
+            meshes[i] = BoxMeshGenerator::GenerateBoxMesh(kGeometryDescs[i].m_meshSize, m_allocator);
+            m_vertexRegionSize += meshes[i].m_vertexCount * BoxMeshGenerator::kVertexSize;
+            m_indexRegionSize += meshes[i].m_indexCount * sizeof(u32);
+        }
 
         m_geometryBuffer = _graphicsContext.CreateBuffer({
             .m_desc = {
@@ -39,27 +64,6 @@ namespace KryneEngine::Samples::PhysicsDemo
                 | MemoryUsage::TransferDstBuffer,
         });
 
-        Geometry& box = m_geometries[static_cast<size_t>(GeometryType::Box)];
-        box.m_boxHalfExtents = float3(0.5f, 0.5f, 0.5f);
-        box.m_bufferViews = GeometryBuffers {
-            .m_vertexBuffer = {
-                .m_size = boxVerticesSize,
-                .m_offset = 0,
-                .m_stride = static_cast<u32>(BoxMeshGenerator::kVertexSize),
-                .m_buffer = m_geometryBuffer,
-            },
-            .m_indexBuffer = {
-                .m_size = boxIndicesSize,
-                .m_offset = m_vertexRegionSize,
-                .m_stride = sizeof(u32),
-                .m_buffer = m_geometryBuffer,
-            },
-            // Despite its name, DrawInstanceManager::Model::m_vertexCount is used directly as the
-            // indexed draw's element count by PassDispatcher::Dispatch, so callers registering a
-            // model with these buffers must pass this index count there, not the vertex count.
-            .m_indexCount = boxMesh.m_indexCount,
-        };
-
         m_stagingBuffer = _graphicsContext.CreateBuffer({
             .m_desc = {
                 .m_size = m_vertexRegionSize + m_indexRegionSize,
@@ -67,19 +71,55 @@ namespace KryneEngine::Samples::PhysicsDemo
                 .m_debugName = "Geometry library staging buffer",
 #endif
             },
-            .m_usage = MemoryUsage::StageEveryFrame_UsageType | MemoryUsage::TransferSrcBuffer,
+            .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferSrcBuffer,
         });
 
         {
             BufferMapping mapping { m_stagingBuffer };
             _graphicsContext.MapBuffer(mapping);
-            memcpy(mapping.m_ptr, boxMesh.m_vertices, boxVerticesSize);
-            memcpy(static_cast<std::byte*>(mapping.m_ptr) + m_vertexRegionSize, boxMesh.m_indices, boxIndicesSize);
+
+            u64 vertexCursor = 0;
+            u64 indexCursor = m_vertexRegionSize;
+            for (size_t i = 0; i < kGeometryCount; i++)
+            {
+                const BoxMeshGenerator::BoxMesh& mesh = meshes[i];
+                const u64 verticesSize = mesh.m_vertexCount * BoxMeshGenerator::kVertexSize;
+                const u64 indicesSize = mesh.m_indexCount * sizeof(u32);
+
+                Geometry& geometry = m_geometries[static_cast<size_t>(kGeometryDescs[i].m_type)];
+                geometry.m_boxHalfExtents = kGeometryDescs[i].m_collisionHalfExtents;
+                geometry.m_bufferViews = GeometryBuffers {
+                    .m_vertexBuffer = {
+                        .m_size = verticesSize,
+                        .m_offset = vertexCursor,
+                        .m_stride = static_cast<u32>(BoxMeshGenerator::kVertexSize),
+                        .m_buffer = m_geometryBuffer,
+                    },
+                    .m_indexBuffer = {
+                        .m_size = indicesSize,
+                        .m_offset = indexCursor,
+                        .m_stride = sizeof(u32),
+                        .m_buffer = m_geometryBuffer,
+                    },
+                    // Despite its name, DrawInstanceManager::Model::m_vertexCount is used directly
+                    // as the indexed draw's element count by PassDispatcher::Dispatch, so callers
+                    // registering a model with these buffers must pass this index count there, not
+                    // the vertex count.
+                    .m_indexCount = mesh.m_indexCount,
+                };
+
+                memcpy(mapping.m_ptr + vertexCursor, mesh.m_vertices, verticesSize);
+                memcpy(mapping.m_ptr + indexCursor, mesh.m_indices, indicesSize);
+
+                vertexCursor += verticesSize;
+                indexCursor += indicesSize;
+
+                m_allocator.deallocate(mesh.m_vertices, verticesSize);
+                m_allocator.deallocate(mesh.m_indices, indicesSize);
+            }
+
             _graphicsContext.UnmapBuffer(mapping);
         }
-
-        m_allocator.deallocate(boxMesh.m_vertices, boxVerticesSize);
-        m_allocator.deallocate(boxMesh.m_indices, boxIndicesSize);
     }
 
     GeometryLibrary::~GeometryLibrary() = default;
