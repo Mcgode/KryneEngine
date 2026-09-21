@@ -129,7 +129,7 @@ static const uint kFilterTaps = 64;
 // to a generous number of texels at maximum (an unbounded radius eventually starts averaging in
 // completely unrelated, unshadowed geometry near a contact point, which reads as the shadow
 // detaching from its caster - "peter-panning" - even though it is really just an over-wide blur).
-static const float kMinPenumbraTexels = 1.5f;
+static const float kMinPenumbraTexels = 2.5f;
 static const float kMaxPenumbraTexels = 64.f;
 
 [numthreads(8, 8, 1)]
@@ -274,7 +274,7 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
             continue;
         }
 
-        const float sampleDepth = ShadowCascades.Load(int4(int2(sampleUv * shadowWidth), cascadeIndex, 0)).r;
+        const float sampleDepth = SampleDepthBilinear(cascadeIndex, sampleUv);
         visibleTaps += sampleDepth >= receiverDepth ? 1.f : 0.f;
     }
 
