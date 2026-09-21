@@ -127,6 +127,7 @@ namespace KryneEngine::Samples
             ImGui::InputFloat("Light UV", &m_lightSizeUv);
             ImGui::InputFloat("Normal offset bias (texels)", &m_shadowBiasConstantTexels);
             ImGui::InputFloat("Normal offset grazing-angle scale", &m_shadowBiasSlopeScale);
+            ImGui::SliderFloat("Cascade blend band (fraction)", &m_cascadeBlendBandFraction, 0.f, 0.5f);
         }
         ImGui::End();
     }
@@ -288,6 +289,7 @@ namespace KryneEngine::Samples
         constants->m_lightSizeUv = m_lightSizeUv;
         constants->m_shadowBiasConstantTexels = m_shadowBiasConstantTexels;
         constants->m_shadowBiasSlopeScale = m_shadowBiasSlopeScale;
+        constants->m_cascadeBlendBandFraction = m_cascadeBlendBandFraction;
         constants->m_lightForward = lightForward;
 
         m_constantsBuffer.Unmap(_graphicsContext);

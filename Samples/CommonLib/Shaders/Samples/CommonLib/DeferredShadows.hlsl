@@ -18,9 +18,12 @@ struct CascadeConstants
     float4 m_cascadeSplitDepths;    // view-space far distance of each cascade, one per component
     float4 m_cascadeTexelWorldSize; // world units covered by one shadow-map texel, one per cascade
     float4 m_cascadeDepthRangeInv;  // 1 / (far - near) of each cascade's light-space depth range
-    // Light forward direction, the same across every cascade (one directional light). .w unused.
+    // Light forward direction, the same across every cascade (one directional light).
     float3 m_lightForward;
-    uint m_padding;
+    // Width of the dithered cascade-transition band, as a fraction of the split distance it
+    // straddles. Shared across every cascade, so a single float suffices - reuses what would
+    // otherwise be m_lightForward's trailing alignment padding.
+    float m_cascadeBlendBandFraction;
     float m_lightSizeUv;            // PCSS light size, as a fraction of a cascade's shadow-map width
     uint m_cascadeCount;
     float m_shadowBiasConstantTexels; // Base normal-offset bias, in shadow-map texels of the receiving cascade
@@ -34,25 +37,47 @@ vkBinding(3, 0) Texture2D<float4> GBufferNormal: register(t1, space0);
 vkBinding(4, 0) Texture2DArray<float> ShadowCascades: register(t2, space0);
 vkBinding(5, 0) RWTexture2D<float> DeferredShadows: register(u0, space0);
 
-uint SelectCascade(const in float _viewDepth)
-{
-    for (uint i = 0; i < Cascades.m_cascadeCount - 1; i++)
-    {
-        if (_viewDepth < Cascades.m_cascadeSplitDepths[i])
-        {
-            return i;
-        }
-    }
-    return Cascades.m_cascadeCount - 1;
-}
-
 // Interleaved gradient noise (Jorge Jimenez, "Next Generation Post Processing in Call of Duty:
-// Advanced Warfare"): a cheap per-pixel pseudo-random value used to rotate the sample pattern
-// below, turning what would otherwise be a fixed, banding-prone kernel into per-pixel dither.
+// Advanced Warfare"): a cheap per-pixel pseudo-random value, stable across frames (no temporal
+// accumulation/TAA needed to resolve it away) used both to rotate the PCF sample pattern below
+// and to dither the cascade transition (see SelectCascade).
 float InterleavedGradientNoise(const in float2 _pixelCoord)
 {
     const float3 magic = float3(0.06711056f, 0.00583715f, 52.9829189f);
     return frac(magic.z * frac(dot(_pixelCoord, magic.xy)));
+}
+
+// Picks which cascade a pixel resolves its shadow against, dithering between cascade i and i+1
+// over a band straddling their shared split distance instead of hard-cutting at it. Without this,
+// a pixel flips instantaneously from one cascade's shadow-map resolution/bias to another's as it
+// crosses the split, which reads as a visible seam; dithering trades that hard seam for a
+// stipple-noise transition, at no extra shadow-map sampling cost (the rest of the resolve still
+// only ever touches the one cascade index this function returns).
+uint SelectCascade(const in float _viewDepth, const in float2 _pixelCoord)
+{
+    for (uint i = 0; i < Cascades.m_cascadeCount - 1; i++)
+    {
+        const float splitFar = Cascades.m_cascadeSplitDepths[i];
+        const float halfBand = 0.5f * Cascades.m_cascadeBlendBandFraction * splitFar;
+        const float bandStart = splitFar - halfBand;
+
+        if (_viewDepth < bandStart)
+        {
+            return i;
+        }
+
+        const float bandEnd = splitFar + halfBand;
+        if (_viewDepth < bandEnd)
+        {
+            // Inside the transition band: dither between i and i+1 based on how far across the
+            // band _viewDepth sits, using a noise hash decorrelated from the PCF kernel rotation's
+            // (same function, different input) so the two dither patterns don't visibly align.
+            const float t = saturate((_viewDepth - bandStart) / max(bandEnd - bandStart, 1e-5f));
+            const float ditherNoise = InterleavedGradientNoise(_pixelCoord + 17.f);
+            return ditherNoise < t ? i + 1 : i;
+        }
+    }
+    return Cascades.m_cascadeCount - 1;
 }
 
 // One sample of a Vogel disk: N points distributed over a unit disk via the golden angle, giving
@@ -140,7 +165,7 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
     const float4 gBufferNormalSample = GBufferNormal.Load(int3(pixelCoordinates, 0));
     const float3 normalW = gBufferNormalSample.rgb * 2.f - 1.f;
 
-    const uint cascadeIndex = SelectCascade(depthV);
+    const uint cascadeIndex = SelectCascade(depthV, float2(pixelCoordinates));
     const float texelWorldSize = Cascades.m_cascadeTexelWorldSize[cascadeIndex];
 
     // Normal offset bias (as used e.g. by Unity's cascaded shadow maps): nudge the receiver along
