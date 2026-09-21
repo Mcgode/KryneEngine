@@ -6,7 +6,7 @@
 
 #include "Rendering/Shadows/CascadedShadowMap.hpp"
 
-#include "imgui.h"
+#include "Samples/CommonLib/CascadeConstants.h"
 
 #include <EASTL/numeric.h>
 #include <KryneEngine/Core/Common/Assert.hpp>
@@ -15,8 +15,8 @@
 #include <KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp>
 #include <KryneEngine/Core/Math/CoordinateSystem.hpp>
 #include <KryneEngine/Core/Math/Projection.hpp>
-#include <cfloat>
 #include <cmath>
+#include <imgui.h>
 
 namespace KryneEngine::Samples
 {
@@ -93,7 +93,7 @@ namespace KryneEngine::Samples
             _graphicsContext,
             {
                 .m_desc = {
-                    .m_size = sizeof(ConstantsBuffer),
+                    .m_size = sizeof(CascadeConstants),
 #if !defined(KE_FINAL)
                     .m_debugName = "CSM constants",
 #endif
@@ -110,8 +110,8 @@ namespace KryneEngine::Samples
             snprintf(name, sizeof(name), "CSM constants view %u", i);
             m_constantsBufferViews[i] = _graphicsContext->CreateBufferView({
                 .m_buffer = m_constantsBuffer.GetBuffer(i),
-                .m_size = sizeof(ConstantsBuffer),
-                .m_stride = sizeof(ConstantsBuffer),
+                .m_size = sizeof(CascadeConstants),
+                .m_stride = sizeof(CascadeConstants),
                 .m_accessType = BufferViewAccessType::Constant,
 #if !defined(KE_FINAL)
                 .m_debugName = name,
@@ -124,10 +124,25 @@ namespace KryneEngine::Samples
     {
         if (ImGui::Begin("Cascaded Shadow Map"))
         {
-            ImGui::InputFloat("Light UV", &m_lightSizeUv);
             ImGui::InputFloat("Normal offset bias (texels)", &m_shadowBiasConstantTexels);
             ImGui::InputFloat("Normal offset grazing-angle scale", &m_shadowBiasSlopeScale);
             ImGui::SliderFloat("Cascade blend band (fraction)", &m_cascadeBlendBandFraction, 0.f, 0.5f);
+
+            ImGui::Separator();
+
+            ImGui::Combo("Shadow technique", &m_shadowTechnique, "PCSS\0DPCF\0");
+
+            switch (m_shadowTechnique)
+            {
+                case SHADOW_TECHNIQUE_PCSS:
+                    ImGui::DragFloat("Light angle half tan", &m_pcssTanHalfLightAngle);
+                    break;
+                case SHADOW_TECHNIQUE_DPCF:
+                    ImGui::SliderFloat("DPCF kernel (texels)", &m_dpcfKernelTexels, 0.f, 32.f);
+                    break;
+                default:
+                    break;
+            }
         }
         ImGui::End();
     }
@@ -275,7 +290,7 @@ namespace KryneEngine::Samples
                 minX, maxX, minY, maxY, minZ, maxZ, false);
         }
 
-        auto* constants = static_cast<ConstantsBuffer*>(
+        auto* constants = static_cast<CascadeConstants*>(
             m_constantsBuffer.Map(_graphicsContext, _graphicsContext->GetCurrentFrameContextIndex()));
 
         for (u32 i = 0; i < m_cascadeCount; i++)
@@ -285,12 +300,16 @@ namespace KryneEngine::Samples
             constants->m_cascadeTexelWorldSize[i] = m_cascades[i].m_texelWorldSize;
             constants->m_cascadeDepthRangeInv[i] = m_cascades[i].m_depthRangeInv;
         }
+        constants->m_lightForward = lightForward;
+        constants->m_cascadeBlendBandFraction = m_cascadeBlendBandFraction;
+
         constants->m_cascadeCount = m_cascadeCount;
-        constants->m_lightSizeUv = m_lightSizeUv;
         constants->m_shadowBiasConstantTexels = m_shadowBiasConstantTexels;
         constants->m_shadowBiasSlopeScale = m_shadowBiasSlopeScale;
-        constants->m_cascadeBlendBandFraction = m_cascadeBlendBandFraction;
-        constants->m_lightForward = lightForward;
+        constants->m_shadowTechnique = static_cast<u32>(m_shadowTechnique);
+
+        constants->m_pcssTanHalfLightAngle = m_pcssTanHalfLightAngle;
+        constants->m_dpcfKernelTexels = m_dpcfKernelTexels;
 
         m_constantsBuffer.Unmap(_graphicsContext);
         m_constantsBuffer.PrepareBuffers(

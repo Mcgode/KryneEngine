@@ -39,28 +39,6 @@ namespace KryneEngine::Samples
     public:
         static constexpr u32 kMaxCascades = 4;
 
-        struct ConstantsBuffer
-        {
-            float4x4 m_cascadeViewProj[kMaxCascades];
-            float4 m_cascadeSplitDepths { 0.f };    // view-space far distance of each cascade, one per component
-            float4 m_cascadeTexelWorldSize { 0.f }; // world units covered by one shadow-map texel, one per cascade
-            float4 m_cascadeDepthRangeInv { 0.f };  // 1 / (far - near) of each cascade's light-space depth range
-            // Light forward direction, the same across every cascade (one directional light): used
-            // for the normal-offset bias's N.L term in the shadow resolve shader. .w unused, kept
-            // as float4 for constant-buffer alignment.
-            float3 m_lightForward { 0.f };
-            // Width of the dithered cascade-transition band, as a fraction of the split distance
-            // it straddles (e.g. 0.1 = the band spans the last/first 10% of view-space depth on
-            // either side of the split). Shared across every cascade, so a single float suffices -
-            // reuses what would otherwise be m_lightForward's trailing alignment padding.
-            float m_cascadeBlendBandFraction = 0.1f;
-            float m_lightSizeUv = 0;    // PCSS light size, as a fraction of a cascade's shadow-map width
-            u32 m_cascadeCount = 0;
-            float m_shadowBiasConstantTexels = 1.f; // Base normal-offset bias, in shadow-map texels of the receiving cascade
-            float m_shadowBiasSlopeScale = 3.f;     // Extra normal-offset added at grazing angles (scaled by 1 - N.L)
-        };
-        static_assert(sizeof(ConstantsBuffer) % 16 == 0, "ConstantsBuffer must match its HLSL counterpart's alignment");
-
         explicit CascadedShadowMap(AllocatorInstance _allocator);
         ~CascadedShadowMap();
 
@@ -124,10 +102,12 @@ namespace KryneEngine::Samples
         TextureHandle m_shadowArrayTexture {};
         TextureViewHandle m_shadowArrayView {};
         Cascade m_cascades[kMaxCascades];
-        float m_lightSizeUv = 0.05f;
+        float m_pcssTanHalfLightAngle = 0.05f;
         float m_shadowBiasConstantTexels = 1.f;
         float m_shadowBiasSlopeScale = 3.f;
         float m_cascadeBlendBandFraction = 0.1f;
+        s32 m_shadowTechnique = 0; // 0 = PCSS, 1 = DPCF; int (not u32) for ImGui::Combo's sake
+        float m_dpcfKernelTexels = 4.f;
 
         Modules::GraphicsUtils::DynamicBuffer m_constantsBuffer;
         BufferViewHandle* m_constantsBufferViews = nullptr;

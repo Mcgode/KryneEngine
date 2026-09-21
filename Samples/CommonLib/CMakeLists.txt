@@ -29,10 +29,11 @@ add_library(Samples_CommonLib STATIC
         Include/Rendering/Compute/DeferredShadowPass.hpp
         Src/Rendering/Shadows/CascadedShadowMap.cpp
         Include/Rendering/Shadows/CascadedShadowMap.hpp
+        Shaders/Samples/CommonLib/CascadeConstants.h
 )
 
 target_include_directories(Samples_CommonLib PUBLIC Include)
-target_include_directories(Samples_CommonLib PRIVATE Src)
+target_include_directories(Samples_CommonLib PRIVATE Src Shaders)
 
 target_link_libraries(Samples_CommonLib PUBLIC
         KryneEngine_Modules_ImGui

@@ -8,32 +8,7 @@
 #include "Math/CoordinateTransforms.hlsl"
 #include "Math/Quaternion.hlsl"
 #include "FullscreenPassConstants.hlsl"
-
-#define CSM_MAX_CASCADES 4
-
-// Keep in sync with `KryneEngine::Samples::CascadedShadowMap::ConstantsBuffer` (C++).
-struct CascadeConstants
-{
-    float4x4 m_cascadeViewProj[CSM_MAX_CASCADES];
-
-    float4 m_cascadeSplitDepths;    // view-space far distance of each cascade, one per component
-
-    float4 m_cascadeTexelWorldSize; // world units covered by one shadow-map texel, one per cascade
-
-    float4 m_cascadeDepthRangeInv;  // 1 / (far - near) of each cascade's light-space depth range
-
-    // Light forward direction, the same across every cascade (one directional light).
-    float3 m_lightForward;
-    // Width of the dithered cascade-transition band, as a fraction of the split distance it
-    // straddles. Shared across every cascade, so a single float suffices - reuses what would
-    // otherwise be m_lightForward's trailing alignment padding.
-    float m_cascadeBlendBandFraction;
-
-    float m_lightSizeUv;            // PCSS light size, as a fraction of a cascade's shadow-map width
-    uint m_cascadeCount;
-    float m_shadowBiasConstantTexels; // Base normal-offset bias, in shadow-map texels of the receiving cascade
-    float m_shadowBiasSlopeScale;     // Extra normal-offset added at grazing angles (scaled by 1 - N.L)
-};
+#include "CascadeConstants.h"
 
 vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> SceneConstants: register(b0, space0);
 vkBinding(1, 0) ConstantBuffer<CascadeConstants> Cascades: register(b1, space0);
@@ -138,6 +113,166 @@ static const uint kFilterTaps = 64;
 static const float kMinPenumbraTexels = 2.5f;
 static const float kMaxPenumbraTexels = 64.f;
 
+static const uint kDpcfTaps = 32;
+
+// Classic PCSS (Fernando, "Percentage-Closer Soft Shadows", NVIDIA 2005): unlike DPCF's single
+// fixed-radius pass, this resizes its filter kernel to the true per-pixel penumbra, found via a
+// separate blocker-search pass first. For a directional (orthographic) light, the eventual
+// penumbra radius is tan(0.5 * angularSize) * gap, where gap is the world-space distance between
+// receiver and blocker along the light's forward axis.
+float ResolvePcss(
+    const in uint _cascadeIndex,
+    const in float2 _shadowUv,
+    const in float _receiverDepth,
+    const in float _receiverWorldDepth,
+    const in float _texelWorldSize,
+    const in float _worldToUv,
+    const in float _depthToWorld,
+    const in float _rotation)
+{
+    // --- PCSS step 1: blocker search ---
+    // The true gap isn't known yet - that's exactly what this search is for - so use the
+    // receiver's own distance from the cascade's near plane as a conservative stand-in: a blocker
+    // can never be further from the receiver, along the light axis, than the receiver already is
+    // from the near plane.
+    const float searchRadiusWorld = clamp(
+        Cascades.m_pcssTanHalfLightAngle * _receiverWorldDepth,
+        kMinPenumbraTexels * _texelWorldSize,
+        kMaxPenumbraTexels * _texelWorldSize);
+    const float searchRadiusUv = searchRadiusWorld * _worldToUv;
+
+    float blockerSum = 0.f;
+    uint blockerCount = 0;
+    for (uint i = 0; i < kBlockerSearchTaps; i++)
+    {
+        const float2 offset = VogelDiskSample(i, kBlockerSearchTaps, _rotation) * searchRadiusUv;
+        const float2 sampleUv = _shadowUv + offset;
+        const float sampleDepth = any(sampleUv <= 0.f) || any(sampleUv >= 1.f)
+            ? 1.f :
+            SampleDepthBilinear(_cascadeIndex, sampleUv);
+
+        if (sampleDepth != 1.f && sampleDepth < _receiverDepth)
+        {
+            blockerSum += sampleDepth;
+            blockerCount++;
+        }
+    }
+
+    if (blockerCount == 0)
+    {
+        // No occluders found within the search radius: fully lit.
+        return 1.f;
+    }
+
+    const float avgBlockerDepth = blockerSum / float(blockerCount);
+    const float avgBlockerWorldDepth = avgBlockerDepth * _depthToWorld;
+
+    // --- PCSS step 2: penumbra size + filtered shadow test ---
+    const float gapWorld = _receiverWorldDepth - avgBlockerWorldDepth;
+    const float penumbraWorld = clamp(
+        Cascades.m_pcssTanHalfLightAngle * gapWorld,
+        kMinPenumbraTexels * _texelWorldSize,
+        kMaxPenumbraTexels * _texelWorldSize);
+    const float penumbraUv = penumbraWorld * _worldToUv;
+
+    // Percentage-closer filter over the penumbra disk: each tap is a plain binary occluded/lit
+    // test (no artificial softening of the individual comparison) - the softness of the final
+    // result comes entirely from averaging many taps spread across the penumbra radius, which is
+    // what actually makes the softening physically track the estimated penumbra size.
+    float visibleTaps = 0.f;
+    for (uint j = 0; j < kFilterTaps; j++)
+    {
+        const float2 offset = VogelDiskSample(j, kFilterTaps, _rotation) * penumbraUv;
+        const float2 sampleUv = _shadowUv + offset;
+        if (any(sampleUv <= 0.f) || any(sampleUv >= 1.f))
+        {
+            visibleTaps += 1.f;
+            continue;
+        }
+
+        const float sampleDepth = SampleDepthBilinear(_cascadeIndex, sampleUv);
+        visibleTaps += sampleDepth >= _receiverDepth ? 1.f : 0.f;
+    }
+
+    return visibleTaps / float(kFilterTaps);
+}
+
+// Dilated Percentage Closer Filtering (Myers, "Shadows of Cold War: A Scalable Approach to
+// Shadowing", GDC 2021): where PCSS resizes its filter kernel to the true per-pixel penumbra
+// (found via a separate blocker-search pass), DPCF instead samples a single, fixed-size kernel -
+// sized off Cascades.m_dpcfKernelTexels, not derived per pixel - and fakes the "hardens near
+// contact" look by reshaping the *response curve* of the raw PCF ratio using statistics gathered
+// for free from that same one pass (how many of its raw samples are occluders, and how close their
+// average is to the receiver). No second pass, no dependent search: this is the whole point of the
+// technique - trading the physical accuracy of a true per-pixel penumbra for a much cheaper single
+// fixed-radius loop.
+float ResolveDpcf(
+    const in uint _cascadeIndex,
+    const in float2 _shadowUv,
+    const in float _receiverDepth,
+    const in float _texelWorldSize,
+    const in float _worldToUv,
+    const in float _rotation)
+{
+    const float kernelUv = Cascades.m_dpcfKernelTexels * _texelWorldSize * _worldToUv;
+
+    float occluderCount = 0.f;
+    float occluderGapSum = 0.f;
+    for (uint i = 0; i < kDpcfTaps; i++)
+    {
+        const float2 offset = VogelDiskSample(i, kDpcfTaps, _rotation) * kernelUv;
+        const float2 sampleUv = _shadowUv + offset;
+        const float4 depths = any(sampleUv <= 0.f) || any(sampleUv >= 1.f)
+            ? float4(1.f, 1.f, 1.f, 1.f)
+            : ShadowCascades.GatherRed(Sampler, float3(sampleUv, _cascadeIndex));
+
+        for (uint d = 0; d < 4; d++)
+        {
+            // Positive when depths[d] is closer to the light than the receiver, i.e. an occluder -
+            // same sign convention as the PCSS blocker search above.
+            const float gap = _receiverDepth - depths[d];
+            const float occluder = gap > 0.f ? 1.f : 0.f;
+            occluderCount += occluder;
+            occluderGapSum += gap * occluder;
+        }
+    }
+
+    const float totalSamples = float(kDpcfTaps * 4);
+    if (occluderCount == 0.f)
+    {
+        // No occluders in the fixed kernel: fully lit, same fast-out as the PCSS path.
+        return 1.f;
+    }
+    if (occluderCount == totalSamples)
+    {
+        // Every sample occluded: fully shadowed, no point running the curve remap below.
+        return 0.f;
+    }
+
+    const float occluderAvgGap = occluderGapSum / occluderCount;
+    // 0 when the average occluder sits right at the receiver (contact), 1 when it's as far from
+    // the receiver as the receiver itself is from the light - i.e. how close to a hard contact
+    // this pixel's shadow is.
+    const float contactWeight = saturate(occluderAvgGap / _receiverDepth);
+
+    float percentageOccluded = occluderCount / totalSamples;
+
+    // Remap through -1..1 so a cubic curve can push values away from the midpoint (sharper
+    // transition) without disturbing the 0/1 endpoints, then blend that sharpened curve in as
+    // contactWeight -> 0 (occluder close: hardened) and back out to the raw linear PCF ratio as
+    // contactWeight -> 1 (occluder far: soft, ordinary PCF).
+    percentageOccluded = 2.f * percentageOccluded - 1.f;
+    const float occludedSign = sign(percentageOccluded);
+    percentageOccluded = 1.f - occludedSign * percentageOccluded;
+    const float hardened = percentageOccluded * percentageOccluded * percentageOccluded;
+    percentageOccluded = lerp(hardened, percentageOccluded, contactWeight);
+    percentageOccluded = 1.f - percentageOccluded;
+    percentageOccluded *= occludedSign;
+    percentageOccluded = 0.5f * percentageOccluded + 0.5f;
+
+    return 1.f - percentageOccluded;
+}
+
 [numthreads(8, 8, 1)]
 void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 {
@@ -217,72 +352,9 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 
     const float rotation = InterleavedGradientNoise(float2(pixelCoordinates)) * 6.2831853f;
 
-    // --- PCSS step 1: blocker search ---
-    // For a directional (orthographic) light, the eventual penumbra radius is
-    // tan(0.5 * angularSize) * gap, where gap is the world-space distance between receiver and
-    // blocker along the light's forward axis (see step 2 below). The true gap isn't known yet -
-    // that's exactly what this search is for - so use the receiver's own distance from the
-    // cascade's near plane as a conservative stand-in: a blocker can never be further from the
-    // receiver, along the light axis, than the receiver already is from the near plane.
-    const float searchRadiusWorld = clamp(
-        Cascades.m_lightSizeUv * receiverWorldDepth,
-        kMinPenumbraTexels * texelWorldSize,
-        kMaxPenumbraTexels * texelWorldSize);
-    const float searchRadiusUv = searchRadiusWorld * worldToUv;
+    const float visibility = (Cascades.m_shadowTechnique == ShadowTechnique::SHADOW_TECHNIQUE_DPCF)
+        ? ResolveDpcf(cascadeIndex, shadowUv, receiverDepth, texelWorldSize, worldToUv, rotation)
+        : ResolvePcss(cascadeIndex, shadowUv, receiverDepth, receiverWorldDepth, texelWorldSize, worldToUv, depthToWorld, rotation);
 
-    float blockerSum = 0.f;
-    uint blockerCount = 0;
-    for (uint i = 0; i < kBlockerSearchTaps; i++)
-    {
-        const float2 offset = VogelDiskSample(i, kBlockerSearchTaps, rotation) * searchRadiusUv;
-        const float2 sampleUv = shadowUv + offset;
-        const float sampleDepth = any(sampleUv <= 0.f) || any(sampleUv >= 1.f)
-            ? 1.f :
-            SampleDepthBilinear(cascadeIndex, sampleUv);
-
-        if (sampleDepth != 1.f && sampleDepth < receiverDepth)
-        {
-            blockerSum += sampleDepth;
-            blockerCount++;
-        }
-    }
-
-    if (blockerCount == 0)
-    {
-        // No occluders found within the search radius: fully lit.
-        DeferredShadows[pixelCoordinates] = 1.f;
-        return;
-    }
-
-    const float avgBlockerDepth = blockerSum / float(blockerCount);
-    const float avgBlockerWorldDepth = avgBlockerDepth * depthToWorld;
-
-    // --- PCSS step 2: penumbra size + filtered shadow test ---
-    const float gapWorld = receiverWorldDepth - avgBlockerWorldDepth;
-    const float penumbraWorld = clamp(
-        Cascades.m_lightSizeUv * gapWorld,
-        kMinPenumbraTexels * texelWorldSize,
-        kMaxPenumbraTexels * texelWorldSize);
-    const float penumbraUv = penumbraWorld * worldToUv;
-
-    // Percentage-closer filter over the penumbra disk: each tap is a plain binary occluded/lit
-    // test (no artificial softening of the individual comparison) - the softness of the final
-    // result comes entirely from averaging many taps spread across the penumbra radius, which is
-    // what actually makes the softening physically track the estimated penumbra size.
-    float visibleTaps = 0.f;
-    for (uint j = 0; j < kFilterTaps; j++)
-    {
-        const float2 offset = VogelDiskSample(j, kFilterTaps, rotation) * penumbraUv;
-        const float2 sampleUv = shadowUv + offset;
-        if (any(sampleUv <= 0.f) || any(sampleUv >= 1.f))
-        {
-            visibleTaps += 1.f;
-            continue;
-        }
-
-        const float sampleDepth = SampleDepthBilinear(cascadeIndex, sampleUv);
-        visibleTaps += sampleDepth >= receiverDepth ? 1.f : 0.f;
-    }
-
-    DeferredShadows[pixelCoordinates] = visibleTaps / float(kFilterTaps);
+    DeferredShadows[pixelCoordinates] = visibility;
 }
