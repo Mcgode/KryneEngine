@@ -61,11 +61,13 @@ namespace KryneEngine::Samples
             u32 m_gBufferDepth;
             u32 m_gBufferNormal;
             u32 m_shadowCascades;
+            u32 m_sampler;
             u32 m_output;
 
             [[nodiscard]] u32* Get() { return &m_fullscreenConstants; }
         } m_indices {};
 
+        SamplerHandle m_sampler {};
         PipelineLayoutHandle m_pipelineLayout {};
         ComputePipelineHandle m_pso {};
     };

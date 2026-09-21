@@ -40,7 +40,8 @@ vkBinding(1, 0) ConstantBuffer<CascadeConstants> Cascades: register(b1, space0);
 vkBinding(2, 0) Texture2D<float> GBufferDepth: register(t0, space0);
 vkBinding(3, 0) Texture2D<float4> GBufferNormal: register(t1, space0);
 vkBinding(4, 0) Texture2DArray<float> ShadowCascades: register(t2, space0);
-vkBinding(5, 0) RWTexture2D<float> DeferredShadows: register(u0, space0);
+vkBinding(5, 0) SamplerState Sampler: register(s0, space0);
+vkBinding(6, 0) RWTexture2D<float> DeferredShadows: register(u0, space0);
 
 // Interleaved gradient noise (Jorge Jimenez, "Next Generation Post Processing in Call of Duty:
 // Advanced Warfare"): a cheap per-pixel pseudo-random value, stable across frames (no temporal
@@ -117,12 +118,12 @@ float SampleDepthBilinear(const in uint _cascadeIndex, const in float2 _uv)
     const float2 f = texelCoord - base;
     const int2 baseInt = int2(base);
 
-    const float d00 = ShadowCascades.Load(int4(baseInt + int2(0, 0), _cascadeIndex, 0));
-    const float d10 = ShadowCascades.Load(int4(baseInt + int2(1, 0), _cascadeIndex, 0));
-    const float d01 = ShadowCascades.Load(int4(baseInt + int2(0, 1), _cascadeIndex, 0));
-    const float d11 = ShadowCascades.Load(int4(baseInt + int2(1, 1), _cascadeIndex, 0));
-
-    return lerp(lerp(d00, d10, f.x), lerp(d01, d11, f.x), f.y);
+    const float4 depths = ShadowCascades.GatherRed(Sampler, float3(_uv, _cascadeIndex));
+    // Gather4 pattern is:
+    // | W | Z |
+    // | X | Y |
+    // See https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/gather4--sm5---asm-
+    return lerp(lerp(depths.w, depths.z, f.x), lerp(depths.x, depths.y, f.x), f.y);
 }
 
 static const uint kBlockerSearchTaps = 32;

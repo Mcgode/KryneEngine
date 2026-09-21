@@ -26,6 +26,20 @@ namespace KryneEngine::Samples
         const TextureViewHandle _deferredShadows)
     {
         {
+            m_sampler = _graphicsContext->CreateSampler(SamplerDesc{
+                .m_minFilter = SamplerDesc::Filter::Point,
+                .m_magFilter = SamplerDesc::Filter::Point,
+                .m_mipFilter = SamplerDesc::Filter::Point,
+                .m_addressModeU = SamplerDesc::AddressMode::Border,
+                .m_addressModeV = SamplerDesc::AddressMode::Border,
+                .m_borderColor { 1.f, 0.f, 0.f, 0.f },
+#if !defined(KE_FINAL)
+                .m_debugName = "Deferred shadows sampler",
+#endif
+            });
+        }
+
+        {
             constexpr DescriptorBindingDesc bindings[] {
                 // Fullscreen pass constants (camera reconstruction + sun direction)
                 {
@@ -52,6 +66,11 @@ namespace KryneEngine::Samples
                     .m_type = DescriptorBindingDesc::Type::SampledTexture,
                     .m_visibility = ShaderVisibility::Compute,
                     .m_textureType = TextureTypes::Array2D,
+                },
+                // Shadow cascade sampler
+                {
+                    .m_type = DescriptorBindingDesc::Type::Sampler,
+                    .m_visibility = ShaderVisibility::Compute,
                 },
                 // Output shadow mask
                 {
@@ -85,6 +104,11 @@ namespace KryneEngine::Samples
                     .m_handle = _shadowCascadeArray.m_handle,
                 }
             };
+            const DescriptorSetWriteInfo::DescriptorData samplerData[] {
+                {
+                    .m_handle = m_sampler.m_handle,
+                },
+            };
             const DescriptorSetWriteInfo::DescriptorData outputData[] {
                 {
                     .m_textureLayout = TextureLayout::UnorderedAccess,
@@ -103,6 +127,10 @@ namespace KryneEngine::Samples
                 {
                     .m_index = m_indices.m_shadowCascades,
                     .m_descriptorData = shadowCascadesData,
+                },
+                {
+                    .m_index = m_indices.m_sampler,
+                    .m_descriptorData = samplerData,
                 },
                 {
                     .m_index = m_indices.m_output,
