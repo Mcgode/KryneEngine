@@ -15,6 +15,7 @@
 #include <KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp>
 #include <KryneEngine/Core/Math/CoordinateSystem.hpp>
 #include <KryneEngine/Core/Math/Projection.hpp>
+#include <algorithm>
 #include <cmath>
 #include <imgui.h>
 
@@ -124,8 +125,8 @@ namespace KryneEngine::Samples
     {
         if (ImGui::Begin("Cascaded Shadow Map"))
         {
-            ImGui::InputFloat("Normal offset bias (texels)", &m_shadowBiasConstantTexels);
-            ImGui::InputFloat("Normal offset grazing-angle scale", &m_shadowBiasSlopeScale);
+            ImGui::DragFloat("Normal offset bias (texels)", &m_shadowBiasConstantTexels, 0.1, 0, 0, "%.2f tx");
+            ImGui::DragFloat("Normal offset grazing-angle scale", &m_shadowBiasSlopeScale, 0.1, 0, 0, "%.2f tx");
             ImGui::SliderFloat("Cascade blend band (fraction)", &m_cascadeBlendBandFraction, 0.f, 0.5f);
 
             ImGui::Separator();
@@ -135,10 +136,16 @@ namespace KryneEngine::Samples
             switch (m_shadowTechnique)
             {
                 case SHADOW_TECHNIQUE_PCSS:
-                    ImGui::DragFloat("Light angle half tan", &m_pcssTanHalfLightAngle);
+                    ImGui::DragFloat("Light angle half tan", &m_pcssTanHalfLightAngle, 0.001f);
+                    ImGui::SliderFloat("Min penumbra (texels)", &m_pcssMinPenumbraTexels, 0.f, 16.f, "%.1f tx");
+                    ImGui::SliderFloat("Max penumbra (texels)", &m_pcssMaxPenumbraTexels, 1.f, 64.f, "%.1f tx");
+                    m_pcssMaxPenumbraTexels = std::max(m_pcssMaxPenumbraTexels, m_pcssMinPenumbraTexels);
+                    ImGui::SliderInt("Blocker search taps", &m_pcssBlockerSearchTaps, 1, 128, "%d", ImGuiSliderFlags_Logarithmic);
+                    ImGui::SliderInt("Filter taps", &m_pcssFilterTaps, 1, 128, "%d", ImGuiSliderFlags_Logarithmic);
                     break;
                 case SHADOW_TECHNIQUE_DPCF:
-                    ImGui::SliderFloat("DPCF kernel (texels)", &m_dpcfKernelTexels, 0.f, 32.f);
+                    ImGui::SliderFloat("DPCF kernel (texels)", &m_dpcfKernelTexels, 0.f, 32.f, "%.1f tx");
+                    ImGui::SliderInt("DPCF taps (x4 samples)", &m_dpcfTaps, 1, 128, "%d", ImGuiSliderFlags_Logarithmic);
                     break;
                 default:
                     break;
@@ -310,6 +317,11 @@ namespace KryneEngine::Samples
 
         constants->m_pcssTanHalfLightAngle = m_pcssTanHalfLightAngle;
         constants->m_dpcfKernelTexels = m_dpcfKernelTexels;
+        constants->m_pcssMinPenumbraTexels = m_pcssMinPenumbraTexels;
+        constants->m_pcssMaxPenumbraTexels = m_pcssMaxPenumbraTexels;
+        constants->m_pcssBlockerSearchTaps = static_cast<u32>(m_pcssBlockerSearchTaps);
+        constants->m_pcssFilterTaps = static_cast<u32>(m_pcssFilterTaps);
+        constants->m_dpcfTaps = static_cast<u32>(m_dpcfTaps);
 
         m_constantsBuffer.Unmap(_graphicsContext);
         m_constantsBuffer.PrepareBuffers(

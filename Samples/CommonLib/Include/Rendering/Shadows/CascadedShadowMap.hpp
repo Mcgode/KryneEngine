@@ -102,12 +102,17 @@ namespace KryneEngine::Samples
         TextureHandle m_shadowArrayTexture {};
         TextureViewHandle m_shadowArrayView {};
         Cascade m_cascades[kMaxCascades];
-        float m_pcssTanHalfLightAngle = 0.05f;
+        float m_pcssTanHalfLightAngle = 0.015f;
         float m_shadowBiasConstantTexels = 1.f;
         float m_shadowBiasSlopeScale = 3.f;
         float m_cascadeBlendBandFraction = 0.1f;
         s32 m_shadowTechnique = 0; // 0 = PCSS, 1 = DPCF; int (not u32) for ImGui::Combo's sake
         float m_dpcfKernelTexels = 4.f;
+        float m_pcssMinPenumbraTexels = 2.5f;
+        float m_pcssMaxPenumbraTexels = 64.f;
+        s32 m_pcssBlockerSearchTaps = 8;
+        s32 m_pcssFilterTaps = 8;
+        s32 m_dpcfTaps = 8;
 
         Modules::GraphicsUtils::DynamicBuffer m_constantsBuffer;
         BufferViewHandle* m_constantsBufferViews = nullptr;

@@ -49,5 +49,17 @@ struct CascadeConstants
     // PCSS's penumbra, this does not track the true per-pixel penumbra size - it's tuned once as a
     // plausible maximum. Unused when m_shadowTechnique is PCSS.
     float m_dpcfKernelTexels;
-    uint m_padding[2];
+    // PCSS blocker-search and penumbra radii are clamped to [min, max] shadow-map texels of the
+    // receiving cascade. Below the minimum, PCF can only smooth the transition between texels, not
+    // the underlying per-texel step pattern the depth buffer already recorded, so a smaller radius
+    // just reads as a jagged silhouette. An unbounded maximum eventually averages in completely
+    // unrelated, unshadowed geometry near a contact point, which reads as the shadow detaching
+    // from its caster ("peter-panning") even though it is really just an over-wide blur.
+    float m_pcssMinPenumbraTexels;
+    float m_pcssMaxPenumbraTexels;
+
+    uint m_pcssBlockerSearchTaps; // Must be >= 1
+    uint m_pcssFilterTaps;        // Must be >= 1
+    uint m_dpcfTaps;              // Must be >= 1; each tap is a Gather4, i.e. 4 depth samples
+    uint m_padding;
 };
