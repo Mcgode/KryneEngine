@@ -15,15 +15,20 @@
 struct CascadeConstants
 {
     float4x4 m_cascadeViewProj[CSM_MAX_CASCADES];
+
     float4 m_cascadeSplitDepths;    // view-space far distance of each cascade, one per component
+
     float4 m_cascadeTexelWorldSize; // world units covered by one shadow-map texel, one per cascade
+
     float4 m_cascadeDepthRangeInv;  // 1 / (far - near) of each cascade's light-space depth range
+
     // Light forward direction, the same across every cascade (one directional light).
     float3 m_lightForward;
     // Width of the dithered cascade-transition band, as a fraction of the split distance it
     // straddles. Shared across every cascade, so a single float suffices - reuses what would
     // otherwise be m_lightForward's trailing alignment padding.
     float m_cascadeBlendBandFraction;
+
     float m_lightSizeUv;            // PCSS light size, as a fraction of a cascade's shadow-map width
     uint m_cascadeCount;
     float m_shadowBiasConstantTexels; // Base normal-offset bias, in shadow-map texels of the receiving cascade
