@@ -83,11 +83,11 @@ namespace KryneEngine::Samples::PhysicsDemo
         [[nodiscard]] DeferredShadowPass& GetDeferredShadowPass() { return m_deferredShadowPass; }
 
         void PrepareGBufferPass(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
-        void RenderGBufferPass(GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
+        void RenderGBufferPass(GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder) const;
 
         [[nodiscard]] u32 GetCascadeCount() const { return m_cascadedShadowMap.GetCascadeCount(); }
-        void PrepareShadowCascade(u32 _cascadeIndex, GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder);
-        void RenderShadowCascade(u32 _cascadeIndex, GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder);
+        void PrepareShadowCascade(u32 _cascadeIndex, GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder) const;
+        void RenderShadowCascade(u32 _cascadeIndex, GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder) const;
         [[nodiscard]] CascadedShadowMap& GetCascadedShadowMap() { return m_cascadedShadowMap; }
 
         [[nodiscard]] SpinLock& GetInputLock() { return m_inputLock; }

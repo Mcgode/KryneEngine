@@ -85,37 +85,6 @@ namespace KryneEngine::Samples::PhysicsDemo
         m_sunLight->SetPhi(30.f);
     }
 
-    void SceneManager::RequestLoadScene(SceneTemplate* _template)
-    {
-        // If a previous request hasn't been picked up by the game loop yet, its instance would
-        // otherwise leak (it was never installed as m_currentSceneTemplate, so nothing else owns
-        // it); safe to destroy from any thread, since it never became the active template.
-        SceneTemplate* previous = m_templateToLoad.exchange(_template, std::memory_order_acq_rel);
-        if (previous != nullptr)
-        {
-            m_allocator.Delete(previous);
-        }
-    }
-
-    void SceneManager::SwapScene(SceneTemplate* _newTemplate)
-    {
-        for (const EntityHandle entity : m_sceneEntities)
-        {
-            m_worldObjectSystem.DestroyEntity(entity);
-        }
-        m_sceneEntities.clear();
-
-        if (m_currentSceneTemplate != nullptr)
-        {
-            m_allocator.Delete(m_currentSceneTemplate);
-        }
-
-        SceneBuildContext context(m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities);
-        _newTemplate->Build(context);
-
-        m_currentSceneTemplate = _newTemplate;
-    }
-
     SceneManager::~SceneManager()
     {
         if (SceneTemplate* pending = m_templateToLoad.exchange(nullptr, std::memory_order_acq_rel))
@@ -125,7 +94,9 @@ namespace KryneEngine::Samples::PhysicsDemo
         m_allocator.Delete(m_currentSceneTemplate);
 
         if (m_fullscreenConstantsBufferViews != nullptr)
+        {
             m_allocator.deallocate(m_fullscreenConstantsBufferViews);
+        }
         m_allocator.Delete(m_sunLight);
         m_allocator.Delete(m_orbitCamera);
     }
@@ -157,9 +128,13 @@ namespace KryneEngine::Samples::PhysicsDemo
             else
             {
                 m_fibersManager->InitAndBatchJobsNoCounter({
-                   .m_function = [this](u16) { GameLoop(); },
-                   .m_priority = FiberJob::Priority::High,
-               });
+                    .m_function =
+                        [this](u16)
+                    {
+                        GameLoop();
+                    },
+                    .m_priority = FiberJob::Priority::High,
+                });
             }
         }
 
@@ -177,24 +152,21 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         // Update fullscreen passes
         {
-            const DescriptorSetWriteInfo::DescriptorData descriptorData[] = {
-                {
-                    .m_handle = m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()].m_handle,
-                }
-            };
+            const DescriptorSetWriteInfo::DescriptorData descriptorData[] = {{
+                .m_handle = m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()].m_handle,
+            }};
 
-            const DescriptorSetWriteInfo writeInfo[] = {
-                {
-                    .m_index = m_fullscreenPassesCbIdx,
-                    .m_descriptorData = descriptorData,
-                }
-            };
+            const DescriptorSetWriteInfo writeInfo[] = {{
+                .m_index = m_fullscreenPassesCbIdx,
+                .m_descriptorData = descriptorData,
+            }};
 
             _graphicsContext->UpdateDescriptorSet(m_fullscreenDescriptorSet, writeInfo, true);
 
             m_deferredShadingPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
             m_skyPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
-            m_skyAmbientPass.UpdateSceneConstants(_graphicsContext, m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()]);
+            m_skyAmbientPass.UpdateSceneConstants(
+                _graphicsContext, m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()]);
             m_colorMappingPass.UpdateSceneConstants(m_fullscreenDescriptorSet);
             m_deferredShadowPass.UpdateSceneConstants(
                 _graphicsContext,
@@ -274,38 +246,51 @@ namespace KryneEngine::Samples::PhysicsDemo
                 file.seekg(0, std::ios::beg);
 
                 auto* buffer = static_cast<char*>(m_allocator.allocate(size));
-                if (!file.read(buffer, size)) return {};
+                if (!file.read(buffer, size))
+                {
+                    return {};
+                }
 
                 file.close();
 
-                return { buffer, static_cast<size_t>(size) };
+                return {buffer, static_cast<size_t>(size)};
             };
 
             eastl::span<char> vertexBytecode, fragmentBytecode;
             ShaderModuleHandle vertexShader, fragmentShader;
             {
                 char path[256];
-                snprintf(path, sizeof(path), "Shaders/Samples/PhysicsDemo/Basic_MainVs.%s", GraphicsContext::GetShaderFileExtension());
+                snprintf(
+                    path,
+                    sizeof(path),
+                    "Shaders/Samples/PhysicsDemo/Basic_MainVs.%s",
+                    GraphicsContext::GetShaderFileExtension());
                 vertexBytecode = readShaderFile(path);
-                snprintf(path, sizeof(path), "Shaders/Samples/PhysicsDemo/Basic_MainFs.%s", GraphicsContext::GetShaderFileExtension());
+                snprintf(
+                    path,
+                    sizeof(path),
+                    "Shaders/Samples/PhysicsDemo/Basic_MainFs.%s",
+                    GraphicsContext::GetShaderFileExtension());
                 fragmentBytecode = readShaderFile(path);
 
                 vertexShader = _graphicsContext.RegisterShaderModule(vertexBytecode.data(), vertexBytecode.size());
-                fragmentShader = _graphicsContext.RegisterShaderModule(fragmentBytecode.data(), fragmentBytecode.size());
+                fragmentShader =
+                    _graphicsContext.RegisterShaderModule(fragmentBytecode.data(), fragmentBytecode.size());
             }
 
             PipelineLayoutHandle defaultPipelineLayout;
             {
                 const DescriptorSetLayoutHandle sets[] = {
-                    m_drawInstanceManager.GetPassDescriptorSetLayout(_graphicsContext)
-                };
+                    m_drawInstanceManager.GetPassDescriptorSetLayout(_graphicsContext)};
 
                 defaultPipelineLayout = _graphicsContext.CreatePipelineLayout({
                     .m_descriptorSets = sets,
                 });
             }
-            m_materialManager.SetPipelineLayout(m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineLayout);
-            m_materialManager.SetPipelineLayout(m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineLayout);
+            m_materialManager.SetPipelineLayout(
+                m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineLayout);
+            m_materialManager.SetPipelineLayout(
+                m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineLayout);
 
             GraphicsPipelineHandle defaultPipelineGBuffer, defaultPipelineShadow;
             {
@@ -319,8 +304,7 @@ namespace KryneEngine::Samples::PhysicsDemo
                         .m_shaderModule = fragmentShader,
                         .m_stage = ShaderStage::Stage::Fragment,
                         .m_entryPoint = "MainFs",
-                    }
-                };
+                    }};
 
                 constexpr VertexLayoutElement vertexLayoutElements[] = {
                     {
@@ -343,10 +327,9 @@ namespace KryneEngine::Samples::PhysicsDemo
                         .m_format = TextureFormat::R32_UInt,
                         .m_offset = 0,
                         .m_location = 2,
-                    }
-                };
+                    }};
 
-                constexpr VertexBindingDesc vertexBindings[] {
+                constexpr VertexBindingDesc vertexBindings[]{
                     {
                         .m_stride = sizeof(float3) * 2,
                         .m_binding = 0,
@@ -356,52 +339,60 @@ namespace KryneEngine::Samples::PhysicsDemo
                         .m_stride = sizeof(u32),
                         .m_binding = 1,
                         .m_inputRate = VertexInputRate::Instance,
-                    }
-                };
+                    }};
 
                 defaultPipelineGBuffer = _graphicsContext.CreateGraphicsPipeline({
                     .m_stages = shaderStages,
-                    .m_vertexInput = {
-                        .m_elements = vertexLayoutElements,
-                        .m_bindings = vertexBindings,
-                    },
-                    .m_colorBlending = {
-                        .m_attachments = { ColorAttachmentBlendDesc {}, ColorAttachmentBlendDesc {}, ColorAttachmentBlendDesc {} },
-                    },
+                    .m_vertexInput =
+                        {
+                            .m_elements = vertexLayoutElements,
+                            .m_bindings = vertexBindings,
+                        },
+                    .m_colorBlending =
+                        {
+                            .m_attachments =
+                                {ColorAttachmentBlendDesc{}, ColorAttachmentBlendDesc{}, ColorAttachmentBlendDesc{}},
+                        },
                     // Reverse depth (near = 1, far = 0), matching the GBuffer pass's clear value of
                     // 0 and OrbitCamera's reversed-depth projection matrix.
-                    .m_depthStencil = {
-                        .m_depthCompare = DepthStencilStateDesc::CompareOp::Greater,
-                    },
-                    .m_renderTargets = {
-                        .m_numColorAttachments = 3,
-                        .m_colorFormats = { kGBuffer0Format, kGBuffer1Format, kGBuffer2Format },
-                        .m_depthStencilFormat = kGBufferDepthFormat,
-                    },
+                    .m_depthStencil =
+                        {
+                            .m_depthCompare = DepthStencilStateDesc::CompareOp::Greater,
+                        },
+                    .m_renderTargets =
+                        {
+                            .m_numColorAttachments = 3,
+                            .m_colorFormats = {kGBuffer0Format, kGBuffer1Format, kGBuffer2Format},
+                            .m_depthStencilFormat = kGBufferDepthFormat,
+                        },
                     .m_pipelineLayout = defaultPipelineLayout,
-    #if !defined(KE_FINAL)
+#if !defined(KE_FINAL)
                     .m_debugName = "Default GBuffer PSO",
-    #endif
+#endif
                 });
 
                 defaultPipelineShadow = _graphicsContext.CreateGraphicsPipeline({
-                    .m_stages = { shaderStages, 1 },
-                    .m_vertexInput = {
-                        .m_elements = vertexLayoutElements,
-                        .m_bindings = vertexBindings,
-                    },
-                    .m_renderTargets = {
-                        .m_numColorAttachments = 0,
-                        .m_depthStencilFormat = kShadowFormat,
-                    },
+                    .m_stages = {shaderStages, 1},
+                    .m_vertexInput =
+                        {
+                            .m_elements = vertexLayoutElements,
+                            .m_bindings = vertexBindings,
+                        },
+                    .m_renderTargets =
+                        {
+                            .m_numColorAttachments = 0,
+                            .m_depthStencilFormat = kShadowFormat,
+                        },
                     .m_pipelineLayout = defaultPipelineLayout,
-    #if !defined(KE_FINAL)
+#if !defined(KE_FINAL)
                     .m_debugName = "Default Shadow PSO",
-    #endif
+#endif
                 });
             }
-            m_materialManager.SetGraphicsPipeline(m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineGBuffer);
-            m_materialManager.SetGraphicsPipeline(m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineShadow);
+            m_materialManager.SetGraphicsPipeline(
+                m_defaultMaterial, static_cast<u8>(PassTypes::GBufferPass), defaultPipelineGBuffer);
+            m_materialManager.SetGraphicsPipeline(
+                m_defaultMaterial, static_cast<u8>(PassTypes::ShadowPass), defaultPipelineShadow);
 
             _graphicsContext.FreeShaderModule(fragmentShader);
             _graphicsContext.FreeShaderModule(vertexShader);
@@ -416,15 +407,15 @@ namespace KryneEngine::Samples::PhysicsDemo
         // Fullscreen passes
         {
             {
-                constexpr DescriptorBindingDesc bindings[] = {
+                constexpr DescriptorBindingDesc bindings[] = {{
+                    .m_type = DescriptorBindingDesc::Type::ConstantBuffer,
+                    .m_visibility = ShaderVisibility::Fragment,
+                }};
+                m_fullscreenPassesLayout = _graphicsContext.CreateDescriptorSetLayout(
                     {
-                        .m_type = DescriptorBindingDesc::Type::ConstantBuffer,
-                        .m_visibility = ShaderVisibility::Fragment,
-                    }
-                };
-                m_fullscreenPassesLayout = _graphicsContext.CreateDescriptorSetLayout({
-                   .m_bindings = bindings,
-                }, &m_fullscreenPassesCbIdx);
+                        .m_bindings = bindings,
+                    },
+                    &m_fullscreenPassesCbIdx);
             }
 
             m_fullscreenDescriptorSet = _graphicsContext.CreateDescriptorSet(m_fullscreenPassesLayout);
@@ -432,17 +423,20 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_fullscreenConstantsBuffer.Init(
                 &_graphicsContext,
                 {
-                    .m_desc = {
-                        .m_size = sizeof(FullscreenPassConstants),
+                    .m_desc =
+                        {
+                            .m_size = sizeof(FullscreenPassConstants),
 #if !defined(KE_FINAL)
-                        .m_debugName = "FullscreenConstants",
+                            .m_debugName = "FullscreenConstants",
 #endif
-                    },
-                    .m_usage = MemoryUsage::StageEveryFrame_UsageType | MemoryUsage::TransferDstBuffer | MemoryUsage::ConstantBuffer,
+                        },
+                    .m_usage = MemoryUsage::StageEveryFrame_UsageType | MemoryUsage::TransferDstBuffer
+                               | MemoryUsage::ConstantBuffer,
                 },
                 _graphicsContext.GetFrameContextCount());
 
-            m_fullscreenConstantsBufferViews = m_allocator.Allocate<BufferViewHandle>(_graphicsContext.GetFrameContextCount());
+            m_fullscreenConstantsBufferViews =
+                m_allocator.Allocate<BufferViewHandle>(_graphicsContext.GetFrameContextCount());
             for (u32 i = 0; i < _graphicsContext.GetFrameContextCount(); i++)
             {
                 char name[256];
@@ -480,28 +474,29 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _deferredShadowsView,
                 _gBuffer2View,
                 m_skyAmbientPass.GetSkyAmbientBufferView());
-            m_deferredShadingPass.CreatePso(&_graphicsContext, {
-                .m_numColorAttachments = 1,
-                .m_colorFormats = { kHdrFormat },
-            });
-
-            m_skyPass.Initialize(
+            m_deferredShadingPass.CreatePso(
                 &_graphicsContext,
-                m_fullscreenPassesLayout);
-            m_skyPass.CreatePso(&_graphicsContext, {
-                .m_numColorAttachments = 1,
-                .m_colorFormats = { kHdrFormat },
-                .m_depthStencilFormat = kGBufferDepthFormat,
-            });
+                {
+                    .m_numColorAttachments = 1,
+                    .m_colorFormats = {kHdrFormat},
+                });
 
-            m_colorMappingPass.Initialize(
+            m_skyPass.Initialize(&_graphicsContext, m_fullscreenPassesLayout);
+            m_skyPass.CreatePso(
                 &_graphicsContext,
-                m_fullscreenPassesLayout,
-                _hdrView);
-            m_colorMappingPass.CreatePso(&_graphicsContext, {
-                .m_numColorAttachments = 1,
-                .m_colorFormats = { _swapChainFormat },
-            });
+                {
+                    .m_numColorAttachments = 1,
+                    .m_colorFormats = {kHdrFormat},
+                    .m_depthStencilFormat = kGBufferDepthFormat,
+                });
+
+            m_colorMappingPass.Initialize(&_graphicsContext, m_fullscreenPassesLayout, _hdrView);
+            m_colorMappingPass.CreatePso(
+                &_graphicsContext,
+                {
+                    .m_numColorAttachments = 1,
+                    .m_colorFormats = {_swapChainFormat},
+                });
         }
     }
 
@@ -510,9 +505,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         const TransferCommandEncoderHandle _transferEncoder,
         const uint2 _screenResolution)
     {
-        auto* constants = static_cast<FullscreenPassConstants*>(m_fullscreenConstantsBuffer.Map(
-                _graphicsContext,
-                _graphicsContext->GetCurrentFrameContextIndex()));
+        auto* constants = static_cast<FullscreenPassConstants*>(
+            m_fullscreenConstantsBuffer.Map(_graphicsContext, _graphicsContext->GetCurrentFrameContextIndex()));
 
         constants->m_cameraQuaternion = float4(m_orbitCamera->GetViewRotation());
 
@@ -546,26 +540,6 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_sunLight->GetDirection());
     }
 
-    void SceneManager::PrepareShadowCascade(
-        const u32 _cascadeIndex,
-        GraphicsContext& _graphicsContext,
-        const TransferCommandEncoderHandle _transferEncoder)
-    {
-        m_shadowPassDispatchers[_cascadeIndex]->PrepareDispatch(
-            m_cascadedShadowMap.GetCascadeViewMatrix(_cascadeIndex),
-            m_cascadedShadowMap.GetCascadeProjectionMatrix(_cascadeIndex),
-            _graphicsContext,
-            _transferEncoder);
-    }
-
-    void SceneManager::RenderShadowCascade(
-        const u32 _cascadeIndex,
-        GraphicsContext& _graphicsContext,
-        const RenderCommandEncoderHandle _renderEncoder)
-    {
-        m_shadowPassDispatchers[_cascadeIndex]->Dispatch(_graphicsContext, _renderEncoder);
-    }
-
     void SceneManager::PrepareGBufferPass(
         GraphicsContext& _graphicsContext,
         const TransferCommandEncoderHandle _transferEncoder)
@@ -577,16 +551,64 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         m_drawInstanceManager.UpdateGpuData(_graphicsContext, _transferEncoder);
         m_gBufferPassDispatcher->PrepareDispatch(
-            m_orbitCamera->GetViewMatrix(),
-            m_orbitCamera->GetProjectionMatrix(),
-            _graphicsContext,
-            _transferEncoder);
+            m_orbitCamera->GetViewMatrix(), m_orbitCamera->GetProjectionMatrix(), _graphicsContext, _transferEncoder);
     }
 
     void SceneManager::RenderGBufferPass(
         GraphicsContext& _graphicsContext,
-        const RenderCommandEncoderHandle _renderEncoder)
+        const RenderCommandEncoderHandle _renderEncoder) const
     {
         m_gBufferPassDispatcher->Dispatch(_graphicsContext, _renderEncoder);
+    }
+
+    void SceneManager::PrepareShadowCascade(
+        const u32 _cascadeIndex,
+        GraphicsContext& _graphicsContext,
+        const TransferCommandEncoderHandle _transferEncoder) const
+    {
+        m_shadowPassDispatchers[_cascadeIndex]->PrepareDispatch(
+            m_cascadedShadowMap.GetCascadeViewMatrix(_cascadeIndex),
+            m_cascadedShadowMap.GetCascadeProjectionMatrix(_cascadeIndex),
+            _graphicsContext,
+            _transferEncoder);
+    }
+
+    void SceneManager::RenderShadowCascade(
+        const u32 _cascadeIndex,
+        GraphicsContext& _graphicsContext,
+        const RenderCommandEncoderHandle _renderEncoder) const
+    {
+        m_shadowPassDispatchers[_cascadeIndex]->Dispatch(_graphicsContext, _renderEncoder);
+    }
+
+    void SceneManager::RequestLoadScene(SceneTemplate* _template)
+    {
+        // If a previous request hasn't been picked up by the game loop yet, its instance would
+        // otherwise leak (it was never installed as m_currentSceneTemplate, so nothing else owns
+        // it); safe to destroy from any thread, since it never became the active template.
+        SceneTemplate* previous = m_templateToLoad.exchange(_template, std::memory_order_acq_rel);
+        if (previous != nullptr)
+        {
+            m_allocator.Delete(previous);
+        }
+    }
+
+    void SceneManager::SwapScene(SceneTemplate* _newTemplate)
+    {
+        for (const EntityHandle entity : m_sceneEntities)
+        {
+            m_worldObjectSystem.DestroyEntity(entity);
+        }
+        m_sceneEntities.clear();
+
+        if (m_currentSceneTemplate != nullptr)
+        {
+            m_allocator.Delete(m_currentSceneTemplate);
+        }
+
+        SceneBuildContext context(m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities);
+        _newTemplate->Build(context);
+
+        m_currentSceneTemplate = _newTemplate;
     }
 } // namespace KryneEngine::Samples::PhysicsDemo
