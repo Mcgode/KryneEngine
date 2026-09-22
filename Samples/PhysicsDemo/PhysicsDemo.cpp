@@ -389,9 +389,13 @@ int main(int _argc, const char* _argv[])
             snprintf(name, sizeof(name), "Shadow cascade pass %u", cascade);
             builder.DeclarePass(RenderGraph::PassType::Render)
                 .SetName(name)
-                .SetPrePassTransferFunction([&sceneManager, cascade, frameBufferSize](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
+                .SetPrePassTransferFunction([&sceneManager, cascade](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
                 {
-                    sceneManager.PrepareShadowCascade(cascade, *_graphicsContext, _transferEncoder, frameBufferSize);
+                    sceneManager.PrepareShadowCascade(
+                        cascade,
+                        *_graphicsContext,
+                        _transferEncoder,
+                        uint2(sceneManager.GetCascadedShadowMap().GetResolution()));
                 })
                 .SetDepthAttachment(shadowCascadeRtvs[cascade])
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Clear)
