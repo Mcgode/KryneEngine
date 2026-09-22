@@ -116,10 +116,13 @@ int main()
 
             swapChainTextures[i] = renderGraph.GetRegistry().RegisterRawTexture(
                 graphicsContext->GetSwapChainTexture(swapChain, i),
+                RenderGraph::RawTextureData::kNoArrayPartialIndexing,
+                RenderGraph::RawTextureData::kNoMipPartialIndexing,
                 name.sprintf("Swapchain buffer %u", i));
             swapChainRtvs[i] = renderGraph.GetRegistry().RegisterRenderTargetView(
                 graphicsContext->GetSwapChainRenderTargetView(swapChain, i),
                 swapChainTextures[i],
+                {},
                 name.sprintf("Swapchain RTV %u", i));
         }
 

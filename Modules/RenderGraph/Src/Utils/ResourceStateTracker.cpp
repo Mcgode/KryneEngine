@@ -6,6 +6,7 @@
 
 #include "KryneEngine/Modules/RenderGraph/Utils/ResourceStateTracker.hpp"
 
+#include <EASTL/algorithm.h>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include "KryneEngine/Modules/RenderGraph/Builder.hpp"
 #include "KryneEngine/Modules/RenderGraph/Registry.hpp"
@@ -13,14 +14,55 @@
 
 namespace KryneEngine::Modules::RenderGraph
 {
-    void ResourceStateTracker::Process(Builder& _builder, Registry& _registry)
+    void ResourceStateTracker::Process(Builder& _builder, const Registry& _registry)
     {
         KE_ZoneScoped("Track resource states");
 
         m_bufferMemoryBarriers.clear();
         m_textureMemoryBarriers.clear();
         m_passBarriers.resize(_builder.m_declaredPasses.size());
-        m_trackedStates.clear();
+        m_trackedBufferStates.clear();
+        m_trackedTextureStates.clear();
+
+        // Walks _range one mip level at a time, merging contiguous array layers that share an
+        // identical previous barrier-source state, and invokes _emit once per merged run with
+        // (arrayStart, arrayCount, mip, previousState). _range must already be resolved (see
+        // ResolveRange) - its counts are used directly as loop bounds.
+        const auto forEachMergedRun = [](TextureStates& _states, const TextureSubResourceRange& _range, auto&& _emit)
+        {
+            // if (_states.m_isUniform && !_range.IsPartial())
+            // {
+            //     _emit()
+            //     return;
+            // }
+
+            const u16 arrayEnd = _range.m_arrayStart + _range.m_arrayCount;
+            const u8 mipEnd = _range.m_mipStart + _range.m_mipCount;
+            for (u8 mip = _range.m_mipStart; mip < mipEnd; ++mip)
+            {
+                u16 runStart = _range.m_arrayStart;
+                const TextureState* runState = nullptr;
+
+                for (u16 layer = _range.m_arrayStart; layer < arrayEnd; ++layer)
+                {
+                    const TextureState& state = _states.m_isUniform
+                        ? _states.m_uniformState
+                        : _states.m_perSubResourceStates[_states.Index(layer, mip)];
+
+                    if (runState != nullptr && !SameBarrierSource(*runState, state))
+                    {
+                        _emit(runStart, static_cast<u16>(layer - runStart), mip, *runState);
+                        runStart = layer;
+                        runState = nullptr;
+                    }
+                    if (runState == nullptr)
+                    {
+                        runState = &state;
+                    }
+                }
+                _emit(runStart, static_cast<u16>(arrayEnd - runStart), mip, *runState);
+            }
+        };
 
         for (size_t i = 0; i < _builder.m_declaredPasses.size(); i++)
         {
@@ -39,75 +81,283 @@ namespace KryneEngine::Modules::RenderGraph
             {
                 for (const auto& dependency : _dependencies)
                 {
-                    const SimplePoolHandle underlyingResource = _registry.GetUnderlyingResource(dependency.m_resource);
-                    const auto it = m_trackedStates.find(underlyingResource);
+                    m_attachmentsToPurge.clear();
 
-                    const ResourceState& previousState = it != m_trackedStates.end() ? it->second : defaultState;
-
+                    const SimplePoolHandle underlyingResourceHandle = _registry.GetUnderlyingResource(dependency.m_resource);
                     const Resource& resource = _registry.GetResource(dependency.m_resource);
+                    const Resource& underlyingResource = _registry.GetResource(underlyingResourceHandle);
 
-                    if (previousState.m_attachment != nullptr)
+                    if (resource.IsBuffer())
                     {
-                        if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
-                        {
-                            previousState.m_attachment->m_layoutAfter = dependency.m_targetLayout;
-                        }
-                        else
-                        {
-                            const BarrierSyncStageFlags stageSrc = previousState.m_depthPass
-                                ? BarrierSyncStageFlags::DepthStencilTesting
-                                : BarrierSyncStageFlags::ColorBlending;
+                        const auto it = m_trackedBufferStates.find(underlyingResourceHandle);
+                        const ResourceState& previousState = it != m_trackedBufferStates.end() ? it->second : defaultState;
 
-                            auto accessSrc = BarrierAccessFlags::ColorAttachment;
-                            if (previousState.m_depthPass)
-                            {
-                                accessSrc = previousState.m_attachment->m_readOnly
-                                    ? BarrierAccessFlags::DepthStencilRead
-                                    : BarrierAccessFlags::DepthStencilWrite;
-                            }
-
-                            m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
-                                .m_stagesSrc = stageSrc,
-                                .m_stagesDst = dependency.m_targetSyncStage,
-                                .m_accessSrc = accessSrc,
-                                .m_accessDst = dependency.m_targetAccessFlags,
-                                .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
-                                .m_layoutSrc = previousState.m_attachment->m_layoutAfter,
-                                .m_layoutDst = dependency.m_targetLayout,
-                                .m_planes = dependency.m_planes,
-                            });
-                        }
-                    }
-                    else if (resource.IsTexture())
-                    {
-                        m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
-                            .m_stagesSrc = previousState.m_syncStage,
-                            .m_stagesDst = dependency.m_targetSyncStage,
-                            .m_accessSrc = previousState.m_accessFlags,
-                            .m_accessDst = dependency.m_targetAccessFlags,
-                            .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
-                            .m_layoutSrc = previousState.m_layout,
-                            .m_layoutDst = dependency.m_targetLayout,
-                            .m_planes = dependency.m_planes,
-                        });
-                    }
-                    else if (resource.IsBuffer())
-                    {
                         m_bufferMemoryBarriers.emplace_back(BufferMemoryBarrier {
                             .m_stagesSrc = previousState.m_syncStage,
                             .m_stagesDst = dependency.m_targetSyncStage,
                             .m_accessSrc = previousState.m_accessFlags,
                             .m_accessDst = dependency.m_targetAccessFlags,
-                            .m_buffer = _registry.GetResource(underlyingResource)
-                                            .m_bufferData.m_buffer,
+                            .m_buffer = underlyingResource.m_bufferData.m_buffer,
                         });
+
+                        m_trackedBufferStates[underlyingResourceHandle] = {
+                            ResourceState {
+                                .m_syncStage = dependency.m_targetSyncStage,
+                                .m_accessFlags = dependency.m_targetAccessFlags,
+                            }
+                        };
+                        continue;
                     }
 
-                    m_trackedStates[underlyingResource] = {
-                        .m_syncStage = dependency.m_targetSyncStage,
-                        .m_accessFlags = dependency.m_targetAccessFlags,
-                        .m_layout = dependency.m_targetLayout,
+                    if (!resource.IsTexture())
+                    {
+                        continue;
+                    }
+
+                    TextureStates& states = GetOrCreateTextureStates(underlyingResourceHandle, underlyingResource);
+                    const TextureSubResourceRange range = ResolveRange(resource.GetTextureSubResourceRange(), states);
+
+                    const TextureState newState {
+                        {
+                            .m_syncStage = dependency.m_targetSyncStage,
+                            .m_accessFlags = dependency.m_targetAccessFlags,
+                            .m_layout = dependency.m_targetLayout,
+                        },
                     };
+
+                    const auto handleTransition = [&](const TextureSubResourceRange _range, const TextureState& _previous, const bool _partial)
+                    {
+                        if (_previous.m_attachment != nullptr)
+                        {
+                            const BarrierSyncStageFlags stageSrc = _previous.m_depthPass
+                                        ? BarrierSyncStageFlags::DepthStencilTesting
+                                        : BarrierSyncStageFlags::ColorBlending;
+
+                            auto accessSrc = BarrierAccessFlags::ColorAttachment;
+                            if (_previous.m_depthPass)
+                            {
+                                accessSrc = _previous.m_attachment->m_readOnly
+                                    ? BarrierAccessFlags::DepthStencilRead
+                                    : BarrierAccessFlags::DepthStencilWrite;
+                            }
+
+                            if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
+                            {
+                                _previous.m_attachment->m_layoutAfter = dependency.m_targetLayout;
+
+                                // When using partial indexing, purge the attachment to update the state as the
+                                // attachment layout after can only be overridden once, subsequent state changes
+                                // must use barriers
+                                if (_partial)
+                                {
+                                    m_attachmentsToPurge.emplace(_previous.m_attachment);
+                                }
+                            }
+                            else
+                            {
+                                m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                                        .m_stagesSrc = stageSrc,
+                                        .m_stagesDst = dependency.m_targetSyncStage,
+                                        .m_accessSrc = accessSrc,
+                                        .m_accessDst = dependency.m_targetAccessFlags,
+                                        .m_texture = underlyingResource.m_rawTextureData.m_texture,
+                                        .m_arrayStart = _range.m_arrayStart,
+                                        .m_arrayCount = _range.m_arrayCount == 0 ? static_cast<u16>(0xffff) : _range.m_arrayCount,
+                                        .m_layoutSrc = _previous.m_attachment->m_layoutAfter,
+                                        .m_layoutDst = dependency.m_targetLayout,
+                                        .m_mipStart = _range.m_mipStart,
+                                        .m_mipCount = _range.m_mipCount == 0 ? static_cast<u8>(0xff) : _range.m_mipCount,
+                                        .m_planes = dependency.m_planes,
+                                    });
+                            }
+                        }
+                        else
+                        {
+                            m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                                    .m_stagesSrc = _previous.m_syncStage,
+                                    .m_stagesDst = dependency.m_targetSyncStage,
+                                    .m_accessSrc = _previous.m_accessFlags,
+                                    .m_accessDst = dependency.m_targetAccessFlags,
+                                    .m_texture = underlyingResource.m_rawTextureData.m_texture,
+                                    .m_arrayStart = _range.m_arrayStart,
+                                    .m_arrayCount = _range.m_arrayCount == 0 ? static_cast<u16>(0xffff) : _range.m_arrayCount,
+                                    .m_layoutSrc = _previous.m_layout,
+                                    .m_layoutDst = dependency.m_targetLayout,
+                                    .m_mipStart = _range.m_mipStart,
+                                    .m_mipCount = _range.m_mipCount == 0 ? static_cast<u8>(0xff) : _range.m_mipCount,
+                                    .m_planes = dependency.m_planes,
+                                });
+                        }
+                    };
+
+                    if (states.m_isUniform)
+                    {
+                        const bool partial = !states.CoversWholeExtent(range);
+                        if (partial)
+                            states.ExplodeIfNeeded();
+                        handleTransition(range, states.m_uniformState, partial);
+                    }
+                    else
+                    {
+                        KE_ASSERT_MSG(
+                            states.m_arraySize != RawTextureData::kNoArrayPartialIndexing
+                            || (range.m_arrayStart == 0 && range.m_arrayCount == TextureSubResourceRange::kAllArrayLayers),
+                            "Resource prohibits partial array slice indexing, array range should always be [0, kAllArrayLayers)");
+                        KE_ASSERT_MSG(
+                            states.m_mipCount != RawTextureData::kNoMipPartialIndexing
+                            || (range.m_mipStart == 0 && range.m_mipCount == TextureSubResourceRange::kAllMipLevels),
+                            "Resource prohibits partial mip level indexing, mip level range should always be [0, kAllMipLevels)");
+
+                        const u32 mipStart = states.m_mipCount == RawTextureData::kNoMipPartialIndexing ? 0u : range.m_mipStart;
+                        const u32 mipEnd = states.m_mipCount == RawTextureData::kNoMipPartialIndexing
+                            ? 1u
+                            : eastl::min<u32>(mipStart + range.m_mipCount, states.m_mipCount);
+                        const u32 arrayStart = states.m_arraySize == RawTextureData::kNoArrayPartialIndexing ? 0u : range.m_arrayStart;
+                        const u32 arrayEnd = states.m_arraySize == RawTextureData::kNoArrayPartialIndexing
+                            ? 1u
+                            : eastl::min<u32>(arrayStart + range.m_arrayCount, states.m_arraySize);
+
+                        u32 firstMip = mipStart;
+                        const TextureState* current = nullptr;
+                        for (u32 mip = mipStart; mip < mipEnd; ++mip)
+                        {
+                            const u8 mipCount = states.m_mipCount == RawTextureData::kNoMipPartialIndexing ? 0xff : 1;
+
+                            u32 firstSlice = arrayStart;
+                            for (u32 slice = arrayStart; slice < arrayEnd; ++slice)
+                            {
+                                const u32 index = states.Index(slice, mip);
+                                if (current == nullptr)
+                                {
+                                    current = &states.m_perSubResourceStates[index];
+                                }
+                                else if (!SameBarrierSource(states.m_perSubResourceStates[index], *current))
+                                {
+                                    if (firstMip != mip)
+                                    {
+                                        handleTransition(
+                                            {
+                                                .m_arrayStart = range.m_arrayStart,
+                                                .m_arrayCount = range.m_arrayCount,
+                                                .m_mipStart = static_cast<u8>(firstMip),
+                                                .m_mipCount = static_cast<u8>(mip - firstMip),
+                                            },
+                                            *current,
+                                            range.IsPartial());
+                                        firstMip = mip;
+                                    }
+                                    if (firstSlice != slice)
+                                    {
+                                        handleTransition(
+                                            {
+                                                .m_arrayStart = static_cast<u16>(firstSlice),
+                                                .m_arrayCount = static_cast<u16>(slice - firstSlice),
+                                                .m_mipStart = static_cast<u8>(mip),
+                                                .m_mipCount = mipCount,
+                                            },
+                                            *current,
+                                            range.IsPartial());
+                                        firstSlice = slice;
+                                    }
+
+                                    current = &states.m_perSubResourceStates[index];
+                                }
+                            }
+                            if (firstSlice != arrayStart)
+                            {
+                                handleTransition(
+                                    {
+                                        .m_arrayStart = static_cast<u16>(firstSlice),
+                                        .m_arrayCount = static_cast<u16>(arrayEnd - firstSlice),
+                                        .m_mipStart = static_cast<u8>(mip),
+                                        .m_mipCount = mipCount,
+                                    },
+                                    *current,
+                                    range.IsPartial());
+                                firstMip = mip + 1;
+                            }
+                        }
+                        if (firstMip != mipEnd)
+                        {
+                            handleTransition(
+                                   {
+                                       .m_arrayStart = range.m_arrayStart,
+                                       .m_arrayCount = range.m_arrayCount,
+                                       .m_mipStart = static_cast<u8>(firstMip),
+                                       .m_mipCount = static_cast<u8>(mipEnd),
+                                   },
+                                   *current,
+                                   range.IsPartial());
+                        }
+                    }
+
+                    // forEachMergedRun(
+                    //     states,
+                    //     range,
+                    //     [&](const u16 _arrayStart, const u16 _arrayCount, const u8 _mip, const TextureState& _previousState)
+                    //     {
+                    //         if (_previousState.m_attachment != nullptr)
+                    //         {
+                    //             if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
+                    //             {
+                    //                 _previousState.m_attachment->m_layoutAfter = dependency.m_targetLayout;
+                    //             }
+                    //             else
+                    //             {
+                    //                 const BarrierSyncStageFlags stageSrc = _previousState.m_depthPass
+                    //                     ? BarrierSyncStageFlags::DepthStencilTesting
+                    //                     : BarrierSyncStageFlags::ColorBlending;
+                    //
+                    //                 auto accessSrc = BarrierAccessFlags::ColorAttachment;
+                    //                 if (_previousState.m_depthPass)
+                    //                 {
+                    //                     accessSrc = _previousState.m_attachment->m_readOnly
+                    //                         ? BarrierAccessFlags::DepthStencilRead
+                    //                         : BarrierAccessFlags::DepthStencilWrite;
+                    //                 }
+                    //
+                    //                 m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                    //                     .m_stagesSrc = stageSrc,
+                    //                     .m_stagesDst = dependency.m_targetSyncStage,
+                    //                     .m_accessSrc = accessSrc,
+                    //                     .m_accessDst = dependency.m_targetAccessFlags,
+                    //                     .m_texture = underlyingResource.m_rawTextureData.m_texture,
+                    //                     .m_arrayStart = _arrayStart,
+                    //                     .m_arrayCount = _arrayCount == 0 ? static_cast<u16>(0xffff) : _arrayCount,
+                    //                     .m_layoutSrc = _previousState.m_attachment->m_layoutAfter,
+                    //                     .m_layoutDst = dependency.m_targetLayout,
+                    //                     .m_mipStart = _mip,
+                    //                     .m_mipCount = _mip,
+                    //                     .m_planes = dependency.m_planes,
+                    //                 });
+                    //             }
+                    //         }
+                    //         else
+                    //         {
+                    //             m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                    //                 .m_stagesSrc = _previousState.m_syncStage,
+                    //                 .m_stagesDst = dependency.m_targetSyncStage,
+                    //                 .m_accessSrc = _previousState.m_accessFlags,
+                    //                 .m_accessDst = dependency.m_targetAccessFlags,
+                    //                 .m_texture = underlyingResource.m_rawTextureData.m_texture,
+                    //                 .m_arrayStart = _arrayStart,
+                    //                 .m_arrayCount = _arrayCount,
+                    //                 .m_layoutSrc = _previousState.m_layout,
+                    //                 .m_layoutDst = dependency.m_targetLayout,
+                    //                 .m_mipStart = _mip,
+                    //                 .m_mipCount = 1,
+                    //                 .m_planes = dependency.m_planes,
+                    //             });
+                    //         }
+                    //     });
+
+                    SetRangeState(states, range, newState);
+
+                    for (const auto* attachment : m_attachmentsToPurge)
+                    {
+                        if (attachment != nullptr)
+                            states.PurgeAttachment(attachment);
+                    }
                 }
             };
 
@@ -117,12 +367,13 @@ namespace KryneEngine::Modules::RenderGraph
             const auto parseAttachment = [&](PassAttachmentDeclaration& _attachment, const bool _depth)
             {
                 const SimplePoolHandle underlyingResource = _registry.GetUnderlyingResource(_attachment.m_rtv);
+                const Resource& rtvResource = _registry.GetResource(_attachment.m_rtv);
+                const Resource& underlyingRes = _registry.GetResource(underlyingResource);
 
-                const auto it = m_trackedStates.find(underlyingResource);
-                const ResourceState newState {
-                    .m_depthPass = _depth,
-                    .m_attachment = &_attachment,
-                };
+                TextureStates& states = GetOrCreateTextureStates(underlyingResource, underlyingRes);
+                const TextureSubResourceRange range = ResolveRange(rtvResource.GetTextureSubResourceRange(), states);
+
+                const TextureState newState { {}, _depth, &_attachment };
 
                 // Set default layoutAfter based on attachment type
                 _attachment.m_layoutAfter =
@@ -151,89 +402,107 @@ namespace KryneEngine::Modules::RenderGraph
                         : BarrierAccessFlags::DepthStencilWrite;
                 }
 
-                // Update layoutBefore based on previous state
-                if (it == m_trackedStates.end())
-                {
-                    if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
+                // NOTE: if this attachment's range spans sub-resources with heterogeneous previous
+                // states (multiple merged runs), m_layoutBefore below reflects the last run
+                // processed. This can't currently happen: every attachment declaration maps to a
+                // single RTV range, and per-cascade shadow RTVs are always a single array layer.
+                forEachMergedRun(
+                    states,
+                    range,
+                    [&](const u16 _arrayStart, const u16 _arrayCount, const u8 _mip, const TextureState& _previousState)
                     {
-                        _attachment.m_layoutBefore = TextureLayout::Unknown;
-                    }
-                    else
-                    {
-                        m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
-                            .m_stagesSrc = BarrierSyncStageFlags::All,
-                            .m_stagesDst = stageDst,
-                            .m_accessSrc = BarrierAccessFlags::None,
-                            .m_accessDst = accessDst,
-                            .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
-                            .m_layoutSrc = TextureLayout::Unknown,
-                            .m_layoutDst = _attachment.m_layoutAfter,
-                            .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
-                        });
-                    }
-                    m_trackedStates.emplace(underlyingResource, newState);
-                }
-                else
-                {
-                    if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
-                    {
-                        if (it->second.m_attachment != nullptr)
+                        if (!WasTouched(_previousState))
                         {
-                            it->second.m_attachment->m_layoutAfter = _depth
-                                ? _attachment.m_readOnly
-                                    ? TextureLayout::DepthStencilReadOnly
-                                    : TextureLayout::DepthStencilAttachment
-                                : TextureLayout::ColorAttachment;
-                            _attachment.m_layoutBefore = it->second.m_attachment->m_layoutAfter;
-                        }
-                        else
-                        {
-                            _attachment.m_layoutBefore = it->second.m_layout;
-                        }
-                    }
-                    else
-                    {
-                        if (it->second.m_attachment != nullptr)
-                        {
-                            const BarrierSyncStageFlags stageSrc = it->second.m_depthPass
-                                ? BarrierSyncStageFlags::DepthStencilTesting
-                                : BarrierSyncStageFlags::ColorBlending;
-
-                            auto accessSrc = BarrierAccessFlags::ColorAttachment;
-                            if (it->second.m_depthPass)
+                            if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
                             {
-                                accessSrc = it->second.m_attachment->m_readOnly
-                                    ? BarrierAccessFlags::DepthStencilRead
-                                    : BarrierAccessFlags::DepthStencilWrite;
+                                _attachment.m_layoutBefore = TextureLayout::Unknown;
                             }
-
-                            m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
-                                .m_stagesSrc = stageSrc,
-                                .m_stagesDst = stageDst,
-                                .m_accessSrc = accessSrc,
-                                .m_accessDst = accessDst,
-                                .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
-                                .m_layoutSrc = it->second.m_attachment->m_layoutAfter,
-                                .m_layoutDst = _attachment.m_layoutAfter,
-                                .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
-                            });
+                            else
+                            {
+                                m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                                    .m_stagesSrc = BarrierSyncStageFlags::All,
+                                    .m_stagesDst = stageDst,
+                                    .m_accessSrc = BarrierAccessFlags::None,
+                                    .m_accessDst = accessDst,
+                                    .m_texture = underlyingRes.m_rawTextureData.m_texture,
+                                    .m_arrayStart = _arrayStart,
+                                    .m_arrayCount = _arrayCount,
+                                    .m_layoutSrc = TextureLayout::Unknown,
+                                    .m_layoutDst = _attachment.m_layoutAfter,
+                                    .m_mipStart = _mip,
+                                    .m_mipCount = 1,
+                                    .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
+                                });
+                            }
+                        }
+                        else if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
+                        {
+                            if (_previousState.m_attachment != nullptr)
+                            {
+                                _previousState.m_attachment->m_layoutAfter = _depth
+                                    ? _attachment.m_readOnly
+                                        ? TextureLayout::DepthStencilReadOnly
+                                        : TextureLayout::DepthStencilAttachment
+                                    : TextureLayout::ColorAttachment;
+                                _attachment.m_layoutBefore = _previousState.m_attachment->m_layoutAfter;
+                            }
+                            else
+                            {
+                                _attachment.m_layoutBefore = _previousState.m_layout;
+                            }
                         }
                         else
                         {
-                            m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
-                                .m_stagesSrc = it->second.m_syncStage,
-                                .m_stagesDst = stageDst,
-                                .m_accessSrc = it->second.m_accessFlags,
-                                .m_accessDst = accessDst,
-                                .m_texture = _registry.GetResource(underlyingResource).m_rawTextureData.m_texture,
-                                .m_layoutSrc = it->second.m_layout,
-                                .m_layoutDst = _attachment.m_layoutAfter,
-                                .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
-                            });
+                            if (_previousState.m_attachment != nullptr)
+                            {
+                                const BarrierSyncStageFlags stageSrc = _previousState.m_depthPass
+                                    ? BarrierSyncStageFlags::DepthStencilTesting
+                                    : BarrierSyncStageFlags::ColorBlending;
+
+                                auto accessSrc = BarrierAccessFlags::ColorAttachment;
+                                if (_previousState.m_depthPass)
+                                {
+                                    accessSrc = _previousState.m_attachment->m_readOnly
+                                        ? BarrierAccessFlags::DepthStencilRead
+                                        : BarrierAccessFlags::DepthStencilWrite;
+                                }
+
+                                m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                                    .m_stagesSrc = stageSrc,
+                                    .m_stagesDst = stageDst,
+                                    .m_accessSrc = accessSrc,
+                                    .m_accessDst = accessDst,
+                                    .m_texture = underlyingRes.m_rawTextureData.m_texture,
+                                    .m_arrayStart = _arrayStart,
+                                    .m_arrayCount = _arrayCount,
+                                    .m_layoutSrc = _previousState.m_attachment->m_layoutAfter,
+                                    .m_layoutDst = _attachment.m_layoutAfter,
+                                    .m_mipStart = _mip,
+                                    .m_mipCount = 1,
+                                    .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
+                                });
+                            }
+                            else
+                            {
+                                m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
+                                    .m_stagesSrc = _previousState.m_syncStage,
+                                    .m_stagesDst = stageDst,
+                                    .m_accessSrc = _previousState.m_accessFlags,
+                                    .m_accessDst = accessDst,
+                                    .m_texture = underlyingRes.m_rawTextureData.m_texture,
+                                    .m_arrayStart = _arrayStart,
+                                    .m_arrayCount = _arrayCount,
+                                    .m_layoutSrc = _previousState.m_layout,
+                                    .m_layoutDst = _attachment.m_layoutAfter,
+                                    .m_mipStart = _mip,
+                                    .m_mipCount = 1,
+                                    .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
+                                });
+                            }
                         }
-                    }
-                    it->second = newState;
-                }
+                    });
+
+                SetRangeState(states, range, newState);
             };
 
             for (PassAttachmentDeclaration& attachment : pass.m_colorAttachments)
@@ -267,5 +536,173 @@ namespace KryneEngine::Modules::RenderGraph
                 ranges.m_textureMemoryBarriersCount,
             },
         };
+    }
+
+    size_t ResourceStateTracker::TextureStates::GetSubResourceCount() const
+    {
+        return eastl::max<size_t>(m_arraySize, 1) * eastl::max<size_t>(m_mipCount, 1);
+    }
+
+    size_t ResourceStateTracker::TextureStates::Index(const u16 _arrayLayer, const u8 _mip) const
+    {
+        if (m_mipCount == RawTextureData::kNoMipPartialIndexing)
+        {
+            return _arrayLayer;
+        }
+        return _mip * m_arraySize + _arrayLayer;
+    }
+
+    void ResourceStateTracker::TextureStates::ExplodeIfNeeded()
+    {
+        if (!m_isUniform)
+        {
+            return;
+        }
+        KE_ASSERT_MSG(
+            m_arraySize != RawTextureData::kNoArrayPartialIndexing || m_mipCount != RawTextureData::kNoMipPartialIndexing,
+            "The resource does not support partial indexing");
+        m_perSubResourceStates.assign(
+            GetSubResourceCount(),
+            m_uniformState);
+        m_isUniform = false;
+    }
+
+    void ResourceStateTracker::TextureStates::PurgeAttachment(const PassAttachmentDeclaration* _attachment)
+    {
+        if (m_isUniform)
+            return;
+
+        const TextureState* current = nullptr;
+        for (auto& state: m_perSubResourceStates)
+        {
+            if (state.m_attachment == _attachment)
+            {
+                if (current == nullptr)
+                {
+                    state.m_syncStage = state.m_depthPass
+                        ? BarrierSyncStageFlags::DepthStencilTesting
+                        : BarrierSyncStageFlags::ColorBlending;
+
+                    state.m_accessFlags = BarrierAccessFlags::ColorAttachment;
+                    if (state.m_depthPass)
+                    {
+                        state.m_accessFlags = state.m_attachment->m_readOnly
+                            ? BarrierAccessFlags::DepthStencilRead
+                            : BarrierAccessFlags::DepthStencilWrite;
+                    }
+
+                    state.m_layout = _attachment->m_layoutAfter;
+                }
+                else
+                {
+                    state = *current;
+                }
+            }
+        }
+    }
+
+    ResourceStateTracker::TextureStates& ResourceStateTracker::GetOrCreateTextureStates(
+        const SimplePoolHandle _handle,
+        const Resource& _underlyingTexture)
+    {
+        const auto result = m_trackedTextureStates.try_emplace(_handle);
+        if (result.second)
+        {
+            result.first->second.m_arraySize = _underlyingTexture.m_rawTextureData.m_arraySize;
+            result.first->second.m_mipCount = _underlyingTexture.m_rawTextureData.m_mipCount;
+        }
+        return result.first->second;
+    }
+
+    bool ResourceStateTracker::TextureStates::CoversWholeExtent(const TextureSubResourceRange& _range) const
+    {
+        return !_range.IsPartial() ||
+            (_range.m_arrayStart == 0 && _range.m_arrayCount == m_arraySize
+            && _range.m_mipStart == 0 && _range.m_mipCount == m_mipCount);
+    }
+
+    void ResourceStateTracker::SetRangeState(
+        TextureStates& _states,
+        const TextureSubResourceRange& _range,
+        const TextureState& _newState)
+    {
+        const bool coversWholeExtent = _states.CoversWholeExtent(_range);
+
+        if (coversWholeExtent)
+        {
+            // Collapse back to the cheap uniform path: every sub-resource ends up in the same state.
+            _states.m_isUniform = true;
+            _states.m_uniformState = _newState;
+            _states.m_perSubResourceStates.clear();
+            return;
+        }
+
+        _states.ExplodeIfNeeded();
+        const u16 arrayEnd = _range.m_arrayStart + _range.m_arrayCount;
+        const u8 mipEnd = _range.m_mipStart + _range.m_mipCount;
+        for (u16 layer = _range.m_arrayStart; layer < arrayEnd; ++layer)
+        {
+            for (u8 mip = _range.m_mipStart; mip < mipEnd; ++mip)
+            {
+                _states.m_perSubResourceStates[_states.Index(layer, mip)] = _newState;
+            }
+        }
+    }
+
+    bool ResourceStateTracker::SameBarrierSource(const TextureState& _a, const TextureState& _b)
+    {
+        if ((_a.m_attachment != nullptr) != (_b.m_attachment != nullptr))
+        {
+            return false;
+        }
+        if (_a.m_attachment != nullptr)
+        {
+            // When render passes place attachment barriers automatically, each attachment's own
+            // m_layoutAfter gets individually overridden by the backend when its render pass runs -
+            // sub-resources can't be collapsed into a shared update even if they'd end up in the
+            // same state, so they must stay distinct per attachment (pointer identity).
+            // Otherwise, an explicit TextureMemoryBarrier is built from the tracked state itself, so
+            // sub-resources with an equivalent resulting transition can merge into a single barrier
+            // (value comparison).
+            if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
+            {
+                return _a.m_attachment == _b.m_attachment;
+            }
+            return _a.m_depthPass == _b.m_depthPass
+                && _a.m_attachment->m_layoutAfter == _b.m_attachment->m_layoutAfter
+                && _a.m_attachment->m_readOnly == _b.m_attachment->m_readOnly;
+        }
+        return _a.m_syncStage == _b.m_syncStage
+            && _a.m_accessFlags == _b.m_accessFlags
+            && _a.m_layout == _b.m_layout;
+    }
+
+    bool ResourceStateTracker::WasTouched(const TextureState& _state)
+    {
+        constexpr TextureState kNeverTouched {};
+        return _state.m_attachment != nullptr
+            || _state.m_syncStage != kNeverTouched.m_syncStage
+            || _state.m_accessFlags != kNeverTouched.m_accessFlags
+            || _state.m_layout != kNeverTouched.m_layout;
+    }
+
+    TextureSubResourceRange ResourceStateTracker::ResolveRange(
+        const TextureSubResourceRange& _range,
+        const TextureStates& _states)
+    {
+        TextureSubResourceRange resolved = _range;
+        if (resolved.m_arrayCount == TextureSubResourceRange::kAllArrayLayers && _states.m_arraySize != RawTextureData::kNoArrayPartialIndexing)
+        {
+            resolved.m_arrayCount = _states.m_arraySize > resolved.m_arrayStart
+                ? static_cast<u16>(_states.m_arraySize - resolved.m_arrayStart)
+                : 0;
+        }
+        if (resolved.m_mipCount == TextureSubResourceRange::kAllMipLevels && _states.m_mipCount != RawTextureData::kNoMipPartialIndexing)
+        {
+            resolved.m_mipCount = _states.m_mipCount > resolved.m_mipStart
+                ? static_cast<u8>(_states.m_mipCount - resolved.m_mipStart)
+                : 0;
+        }
+        return resolved;
     }
 } // namespace KryneEngine

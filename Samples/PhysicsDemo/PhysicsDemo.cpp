@@ -97,11 +97,14 @@ int main(int _argc, const char* _argv[])
         {
             swapChainTextures[i] = renderGraph.GetRegistry().RegisterRawTexture(
                 graphicsContext->GetSwapChainTexture(mainSwapChain, i),
+                RenderGraph::RawTextureData::kNoArrayPartialIndexing,
+                RenderGraph::RawTextureData::kNoArrayPartialIndexing,
                 nameTmp.sprintf("Swap chain texture %d", i));
 
             swapChainRtvs[i] = renderGraph.GetRegistry().RegisterRenderTargetView(
                 graphicsContext->GetSwapChainRenderTargetView(mainSwapChain, i),
                 swapChainTextures[i],
+                {},
                 nameTmp.sprintf("Swap chain RTV %d", i));
         }
     }
@@ -324,16 +327,27 @@ int main(int _argc, const char* _argv[])
             "SkyAmbientBuffer");
 
         Samples::CascadedShadowMap& csm = sceneManager.GetCascadedShadowMap();
+        const auto cascadeCount = static_cast<u16>(csm.GetCascadeCount());
         shadowCascadeArray = renderGraph.GetRegistry().RegisterRawTexture(
-            csm.GetShadowArrayTexture(), "Shadow cascades");
+            csm.GetShadowArrayTexture(),
+            cascadeCount,
+            RenderGraph::RawTextureData::kNoMipPartialIndexing,
+            "Shadow cascades");
         shadowCascadeArrayView = renderGraph.GetRegistry().RegisterTextureView(
-            csm.GetShadowArrayView(), shadowCascadeArray, "Shadow cascades view");
+            csm.GetShadowArrayView(),
+            shadowCascadeArray,
+            {},
+            "Shadow cascades view");
 
-        eastl::string nameTmp2(allocator);
+        char name[64];
         for (u32 i = 0; i < csm.GetCascadeCount(); ++i)
         {
+            snprintf(name, sizeof(name), "Shadow cascade %u RTV", i);
             shadowCascadeRtvs[i] = renderGraph.GetRegistry().RegisterRenderTargetView(
-                csm.GetCascadeRtv(i), shadowCascadeArray, nameTmp2.sprintf("Shadow cascade %u RTV", i));
+                csm.GetCascadeRtv(i),
+                shadowCascadeArray,
+                { .m_arrayStart = static_cast<u16>(i), .m_arrayCount = 1 },
+                name);
         }
     }
 
