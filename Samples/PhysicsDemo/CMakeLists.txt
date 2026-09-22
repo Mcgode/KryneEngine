@@ -9,8 +9,8 @@ add_executable(PhysicsDemo
         Src/Geometry/GeometryLibrary.cpp
         Src/Geometry/GeometryLibrary.hpp
         Src/Scene/SceneTemplate.hpp
-        Src/Scene/FallingBoxesTemplate.cpp
-        Src/Scene/FallingBoxesTemplate.hpp
+        Src/Scene/PrecariouslyStackingBoxesTemplate.cpp
+        Src/Scene/PrecariouslyStackingBoxesTemplate.hpp
 )
 
 target_link_libraries(PhysicsDemo

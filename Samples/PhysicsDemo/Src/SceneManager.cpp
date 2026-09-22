@@ -10,7 +10,7 @@
 #include "PassTypes.hpp"
 #include "RenderTargetFormats.hpp"
 #include "Rendering/Fullscreen/FullscreenPassConstants.hpp"
-#include "Scene/FallingBoxesTemplate.hpp"
+#include "Scene/PrecariouslyStackingBoxesTemplate.hpp"
 
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
@@ -402,7 +402,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         // Runs before the render/game loop starts, so calling SwapScene directly (rather than
         // going through RequestLoadScene) is safe here.
-        SwapScene(m_allocator.New<FallingBoxesTemplate>());
+        SwapScene(m_allocator.New<PrecariouslyStackingBoxesTemplate>());
 
         // Fullscreen passes
         {

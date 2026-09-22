@@ -4,13 +4,13 @@
  * @date 22/09/2026.
  */
 
-#include "FallingBoxesTemplate.hpp"
+#include "PrecariouslyStackingBoxesTemplate.hpp"
 
 #include <KryneEngine/Core/Math/CoordinateSystem.hpp>
 
 namespace KryneEngine::Samples::PhysicsDemo
 {
-    void FallingBoxesTemplate::Build(SceneBuildContext& _context)
+    void PrecariouslyStackingBoxesTemplate::Build(SceneBuildContext& _context)
     {
         // Static ground plane, registered as its own dedicated entity (rather than a bare,
         // unrendered Box3D body) so it can be drawn like any other world object.
