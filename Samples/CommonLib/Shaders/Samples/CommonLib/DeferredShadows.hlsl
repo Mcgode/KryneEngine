@@ -137,7 +137,7 @@ float ResolvePcss(
             ? 1.f :
             SampleDepthBilinear(_cascadeIndex, sampleUv);
 
-        if (sampleDepth != 1.f && sampleDepth < _receiverDepth)
+        if (sampleDepth < _receiverDepth)
         {
             blockerSum += sampleDepth;
             blockerCount++;
@@ -333,7 +333,9 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 
     // No depth bias left to apply here: self-shadowing acne is already handled geometrically, by
     // the normal offset applied to positionW above, before it was ever reprojected into the light.
-    const float receiverDepth = lightClip.z;
+    // We cap the receiver depth to 1, as it is the max value of the depth buffer. Going over it would
+    // result in incorrect shadowing.
+    const float receiverDepth = min(lightClip.z, 1);
     const float receiverWorldDepth = receiverDepth * depthToWorld;
 
     const float rotation = InterleavedGradientNoise(float2(pixelCoordinates)) * 6.2831853f;
