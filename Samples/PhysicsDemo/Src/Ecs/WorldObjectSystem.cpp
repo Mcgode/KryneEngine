@@ -54,7 +54,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
     EntityHandle WorldObjectSystem::CreateEntity(
         const Transform& _transform,
-        b3BodyDef _bodyDef,
+        b3BodyDef& _bodyDef,
         const SimplePoolHandle _renderModel)
     {
         // float3 <-> b3Pos share the same {x, y, z} layout (same convention already used elsewhere,

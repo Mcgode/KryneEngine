@@ -66,7 +66,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         // Creates the Box3D body (using _transform as its initial pose) and queues the registration
         // of a render instance of _renderModel. Call GetBody() right after to attach shapes (and
         // typically b3Body_ApplyMassFromShapes for dynamic bodies).
-        [[nodiscard]] EntityHandle CreateEntity(const Transform& _transform, b3BodyDef _bodyDef, SimplePoolHandle _renderModel);
+        [[nodiscard]] EntityHandle CreateEntity(const Transform& _transform, b3BodyDef& _bodyDef, SimplePoolHandle _renderModel);
 
         [[nodiscard]] b3BodyId GetBody(EntityHandle _entity) const;
 

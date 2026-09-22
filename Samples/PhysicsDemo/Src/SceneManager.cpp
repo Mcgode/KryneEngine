@@ -10,8 +10,8 @@
 #include "PassTypes.hpp"
 #include "RenderTargetFormats.hpp"
 #include "Rendering/Fullscreen/FullscreenPassConstants.hpp"
+#include "Scene/FallingBoxesTemplate.hpp"
 
-#include <KryneEngine/Core/Math/CoordinateSystem.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
@@ -38,6 +38,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_worldObjectSystem(_allocator, _world)
             , m_cascadedShadowMap(_allocator)
             , m_gameFramesQueue(_allocator, 3)
+            , m_sceneEntities(_allocator)
             , m_fullscreenConstantsBuffer(_allocator)
             , m_deferredShadingPass(_allocator)
             , m_skyPass(_allocator)
@@ -64,6 +65,17 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         m_defaultMaterial = m_materialManager.RegisterMaterial();
 
+        // Registered once and shared by every scene template (see GeometryModelArray).
+        for (u8 i = 0; i < static_cast<u8>(GeometryType::Count); ++i)
+        {
+            const GeometryBuffers& buffers = m_geometryLibrary.GetBuffers(static_cast<GeometryType>(i));
+            m_geometryModels[i] = m_drawInstanceManager.RegisterModel(
+                buffers.m_vertexBuffer,
+                buffers.m_indexBuffer,
+                m_defaultMaterial,
+                buffers.m_indexCount);
+        }
+
         const uint2 windowSize = _graphicsContext->GetSwapChainSize(_mainSwapChainHandle);
         const float aspectRatio = static_cast<float>(windowSize.x) / static_cast<float>(windowSize.y);
         m_orbitCamera = m_allocator.New<OrbitCamera>(aspectRatio);
@@ -73,8 +85,45 @@ namespace KryneEngine::Samples::PhysicsDemo
         m_sunLight->SetPhi(30.f);
     }
 
+    void SceneManager::RequestLoadScene(SceneTemplate* _template)
+    {
+        // If a previous request hasn't been picked up by the game loop yet, its instance would
+        // otherwise leak (it was never installed as m_currentSceneTemplate, so nothing else owns
+        // it); safe to destroy from any thread, since it never became the active template.
+        SceneTemplate* previous = m_templateToLoad.exchange(_template, std::memory_order_acq_rel);
+        if (previous != nullptr)
+        {
+            m_allocator.Delete(previous);
+        }
+    }
+
+    void SceneManager::SwapScene(SceneTemplate* _newTemplate)
+    {
+        for (const EntityHandle entity : m_sceneEntities)
+        {
+            m_worldObjectSystem.DestroyEntity(entity);
+        }
+        m_sceneEntities.clear();
+
+        if (m_currentSceneTemplate != nullptr)
+        {
+            m_allocator.Delete(m_currentSceneTemplate);
+        }
+
+        SceneBuildContext context(m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities);
+        _newTemplate->Build(context);
+
+        m_currentSceneTemplate = _newTemplate;
+    }
+
     SceneManager::~SceneManager()
     {
+        if (SceneTemplate* pending = m_templateToLoad.exchange(nullptr, std::memory_order_acq_rel))
+        {
+            m_allocator.Delete(pending);
+        }
+        m_allocator.Delete(m_currentSceneTemplate);
+
         if (m_fullscreenConstantsBufferViews != nullptr)
             m_allocator.deallocate(m_fullscreenConstantsBufferViews);
         m_allocator.Delete(m_sunLight);
@@ -162,6 +211,13 @@ namespace KryneEngine::Samples::PhysicsDemo
         {
             KE_ZoneScopedF("Game loop frame %lld", *frameId);
 
+            // Pick up any scene template switch requested from another thread since the last
+            // step, and apply it now: this is the only thread allowed to touch WorldObjectSystem.
+            if (SceneTemplate* pending = m_templateToLoad.exchange(nullptr, std::memory_order_acq_rel))
+            {
+                SwapScene(pending);
+            }
+
             // Process Input
             {
                 KE_ZoneScoped("Input: Process");
@@ -174,6 +230,15 @@ namespace KryneEngine::Samples::PhysicsDemo
             // must run on this same thread (see OrbitCamera::UpdatePose()'s own contract) so this
             // read is never concurrent with it.
             m_orbitCamera->UpdatePose();
+
+            // Let the active template drive its own custom interactions before the physics world
+            // is stepped (e.g. spawning entities, applying forces, reacting to input).
+            if (m_currentSceneTemplate != nullptr)
+            {
+                KE_ZoneScoped("Scene template: Process");
+                SceneBuildContext context(m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities);
+                m_currentSceneTemplate->Process(context, m_physicsTimeStep);
+            }
 
             // Run physics
             {
@@ -344,65 +409,9 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_allocator.deallocate(vertexBytecode.data(), vertexBytecode.size_bytes());
         }
 
-        // Static ground plane, registered as its own dedicated entity (rather than a bare,
-        // unrendered Box3D body) so it can be drawn like any other world object.
-        {
-            const GeometryBuffers& groundBuffers = m_geometryLibrary.GetBuffers(GeometryType::Ground);
-            const SimplePoolHandle groundModel = m_drawInstanceManager.RegisterModel(
-                groundBuffers.m_vertexBuffer,
-                groundBuffers.m_indexBuffer,
-                m_defaultMaterial,
-                groundBuffers.m_indexCount);
-
-            b3BodyDef bodyDef = b3DefaultBodyDef();
-            bodyDef.type = b3_staticBody;
-
-            // Lowered a couple of cube-heights below the falling boxes' resting height, so they
-            // have some room to drop before landing.
-            const Transform transform { .m_position = Math::UpVector() * -2.5f };
-            const EntityHandle groundEntity = m_worldObjectSystem.CreateEntity(transform, bodyDef, groundModel);
-
-            const b3BodyId groundBody = m_worldObjectSystem.GetBody(groundEntity);
-            b3ShapeDef shapeDef = b3DefaultShapeDef();
-            b3BoxHull hull = m_geometryLibrary.GetBoxHull(GeometryType::Ground);
-            b3CreateHullShape(groundBody, &shapeDef, &hull.base);
-        }
-
-        // A handful of falling box entities: minimal proof-of-work content that exercises the
-        // ECS end to end, not a real scene-loading format.
-        {
-            const GeometryBuffers& boxBuffers = m_geometryLibrary.GetBuffers(GeometryType::Box);
-            const SimplePoolHandle boxModel = m_drawInstanceManager.RegisterModel(
-                boxBuffers.m_vertexBuffer,
-                boxBuffers.m_indexBuffer,
-                m_defaultMaterial,
-                boxBuffers.m_indexCount);
-
-            for (u32 i = 0; i < 5; ++i)
-            {
-                const Transform transform {
-                    .m_position = Math::UpVector() * (2.0f + static_cast<float>(i) * 1.5f) + float3(0.1f * static_cast<float>(i), 0.f, 0.f),
-                    // Small per-box yaw for ambient-lighting normal diversity. Kept modest: these
-                    // boxes stack almost directly on top of each other as they fall, and a large
-                    // relative yaw between neighbours turns their contact into corner-on-face
-                    // instead of face-on-face, which is enough for box3d to topple/launch them
-                    // clean off the (effectively unbounded) ground plane and out of camera view.
-                    .m_rotation = Math::Quaternion().FromAxisAngle(Math::UpVector(), static_cast<float>(i) * 0.15f),
-                    .m_scale = float3(1.f, 1.f, 1.f),
-                };
-
-                b3BodyDef bodyDef = b3DefaultBodyDef();
-                bodyDef.type = b3_dynamicBody;
-
-                const EntityHandle entity = m_worldObjectSystem.CreateEntity(transform, bodyDef, boxModel);
-
-                const b3BodyId body = m_worldObjectSystem.GetBody(entity);
-                b3ShapeDef shapeDef = b3DefaultShapeDef();
-                b3BoxHull hull = m_geometryLibrary.GetBoxHull(GeometryType::Box);
-                b3CreateHullShape(body, &shapeDef, &hull.base);
-                b3Body_ApplyMassFromShapes(body);
-            }
-        }
+        // Runs before the render/game loop starts, so calling SwapScene directly (rather than
+        // going through RequestLoadScene) is safe here.
+        SwapScene(m_allocator.New<FallingBoxesTemplate>());
 
         // Fullscreen passes
         {

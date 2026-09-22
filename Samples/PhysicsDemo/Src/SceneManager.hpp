@@ -16,12 +16,13 @@
 #include "Rendering/Fullscreen/SkyPass.hpp"
 #include "Rendering/MaterialManager.hpp"
 #include "Rendering/Shadows/CascadedShadowMap.hpp"
+#include "Scene/SceneTemplate.hpp"
 
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 #include <KryneEngine/Core/Memory/Containers/SpscQueue.hpp>
-#include <box3d/box3d.h>
+#include <atomic>
 
 
 namespace KryneEngine
@@ -91,7 +92,13 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         [[nodiscard]] SpinLock& GetInputLock() { return m_inputLock; }
 
+        [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
+
+        void RequestLoadScene(SceneTemplate* _template);
+
     private:
+        void SwapScene(SceneTemplate* _newTemplate);
+
         AllocatorInstance m_allocator;
         FibersManager* m_fibersManager;
         b3WorldId m_world;
@@ -122,6 +129,12 @@ namespace KryneEngine::Samples::PhysicsDemo
         float m_timeProgress = 0.0f;
 
         MaterialHandle m_defaultMaterial {};
+
+        GeometryModelArray m_geometryModels {};
+        eastl::vector<EntityHandle> m_sceneEntities;
+
+        SceneTemplate* m_currentSceneTemplate = nullptr;
+        std::atomic<SceneTemplate*> m_templateToLoad { nullptr };
 
         DescriptorSetLayoutHandle m_fullscreenPassesLayout {};
         u32 m_fullscreenPassesCbIdx = 0;
