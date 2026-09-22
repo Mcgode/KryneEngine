@@ -211,6 +211,28 @@ namespace KryneEngine
         }
     }
 
+    TexturePlane Dx12Converters::RetrieveTexturePlanes(const DXGI_FORMAT _format)
+    {
+        switch (_format)
+        {
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        case DXGI_FORMAT_R24G8_TYPELESS:
+        case DXGI_FORMAT_R32G8X24_TYPELESS:
+            return TexturePlane::Depth | TexturePlane::Stencil;
+        case DXGI_FORMAT_D16_UNORM:
+        case DXGI_FORMAT_D32_FLOAT:
+        case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+        case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS:
+            return TexturePlane::Depth;
+        case DXGI_FORMAT_X24_TYPELESS_G8_UINT:
+        case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
+            return TexturePlane::Stencil;
+        default:
+            return TexturePlane::Color;
+        }
+    }
+
     D3D12_RESOURCE_STATES Dx12Converters::RetrieveState(BarrierAccessFlags _access, TextureLayout _layout)
     {
         D3D12_RESOURCE_STATES states = D3D12_RESOURCE_STATE_COMMON;
