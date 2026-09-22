@@ -75,18 +75,22 @@ namespace KryneEngine
             // check below -- reads through memory that was just poisoned by the call this same
             // expression made one line earlier. The local copy sidesteps that entirely.
             IAllocator* const allocator = m_allocator;
-            allocator->Free(_ptr, _size);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
+            // Report the free to Tracy *before* performing the real free: once Free() returns, another
+            // thread's allocate() can immediately reuse this address, and if its TracyAllocNS reaches the
+            // profiler before this thread's TracyFreeNS does, Tracy sees an allocation for an address it
+            // still considers live ("already tracked and not freed").
             if (!allocator->IsCustomProfiling())
                 TracyFreeNS(_ptr, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS, allocator->GetName());
 #endif
+            allocator->Free(_ptr, _size);
         }
         else
         {
-            StdAlloc::Free(_ptr);
 #if KE_PROFILE_MEMORY_ALLOCATIONS
             TracyFreeS(_ptr, KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS);
 #endif
+            StdAlloc::Free(_ptr);
         }
     }
 } // namespace KryneEngine
