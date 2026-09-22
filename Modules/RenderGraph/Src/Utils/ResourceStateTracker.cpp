@@ -28,39 +28,107 @@ namespace KryneEngine::Modules::RenderGraph
         // identical previous barrier-source state, and invokes _emit once per merged run with
         // (arrayStart, arrayCount, mip, previousState). _range must already be resolved (see
         // ResolveRange) - its counts are used directly as loop bounds.
-        const auto forEachMergedRun = [](TextureStates& _states, const TextureSubResourceRange& _range, auto&& _emit)
+        const auto forEachTransitioningSubResourceRange = [](TextureStates& _states, const TextureSubResourceRange& _range, auto&& _emit)
         {
-            // if (_states.m_isUniform && !_range.IsPartial())
-            // {
-            //     _emit()
-            //     return;
-            // }
-
-            const u16 arrayEnd = _range.m_arrayStart + _range.m_arrayCount;
-            const u8 mipEnd = _range.m_mipStart + _range.m_mipCount;
-            for (u8 mip = _range.m_mipStart; mip < mipEnd; ++mip)
+            if (_states.m_isUniform)
             {
-                u16 runStart = _range.m_arrayStart;
-                const TextureState* runState = nullptr;
+                const bool partial = !_states.CoversWholeExtent(_range);
+                if (partial)
+                    _states.ExplodeIfNeeded();
+                _emit(_range, _states.m_uniformState, partial);
+            }
+            else
+            {
+                KE_ASSERT_MSG(
+                    _states.m_arraySize != RawTextureData::kNoArrayPartialIndexing
+                    || (_range.m_arrayStart == 0 && _range.m_arrayCount == TextureSubResourceRange::kAllArrayLayers),
+                    "Resource prohibits partial array slice indexing, array range should always be [0, kAllArrayLayers)");
+                KE_ASSERT_MSG(
+                    _states.m_mipCount != RawTextureData::kNoMipPartialIndexing
+                    || (_range.m_mipStart == 0 && _range.m_mipCount == TextureSubResourceRange::kAllMipLevels),
+                    "Resource prohibits partial mip level indexing, mip level range should always be [0, kAllMipLevels)");
 
-                for (u16 layer = _range.m_arrayStart; layer < arrayEnd; ++layer)
+                const u32 mipStart = _states.m_mipCount == RawTextureData::kNoMipPartialIndexing ? 0u : _range.m_mipStart;
+                const u32 mipEnd = _states.m_mipCount == RawTextureData::kNoMipPartialIndexing
+                    ? 1u
+                    : eastl::min<u32>(mipStart + _range.m_mipCount, _states.m_mipCount);
+                const u32 arrayStart = _states.m_arraySize == RawTextureData::kNoArrayPartialIndexing ? 0u : _range.m_arrayStart;
+                const u32 arrayEnd = _states.m_arraySize == RawTextureData::kNoArrayPartialIndexing
+                    ? 1u
+                    : eastl::min<u32>(arrayStart + _range.m_arrayCount, _states.m_arraySize);
+
+                u32 firstMip = mipStart;
+                const TextureState* current = nullptr;
+                for (u32 mip = mipStart; mip < mipEnd; ++mip)
                 {
-                    const TextureState& state = _states.m_isUniform
-                        ? _states.m_uniformState
-                        : _states.m_perSubResourceStates[_states.Index(layer, mip)];
+                    const u8 mipCount = _states.m_mipCount == RawTextureData::kNoMipPartialIndexing ? 0xff : 1;
 
-                    if (runState != nullptr && !SameBarrierSource(*runState, state))
+                    u32 firstSlice = arrayStart;
+                    for (u32 slice = arrayStart; slice < arrayEnd; ++slice)
                     {
-                        _emit(runStart, static_cast<u16>(layer - runStart), mip, *runState);
-                        runStart = layer;
-                        runState = nullptr;
+                        const u32 index = _states.Index(slice, mip);
+                        if (current == nullptr)
+                        {
+                            current = &_states.m_perSubResourceStates[index];
+                        }
+                        else if (!SameBarrierSource(_states.m_perSubResourceStates[index], *current))
+                        {
+                            if (firstMip != mip)
+                            {
+                                _emit(
+                                    {
+                                        .m_arrayStart = _range.m_arrayStart,
+                                        .m_arrayCount = _range.m_arrayCount,
+                                        .m_mipStart = static_cast<u8>(firstMip),
+                                        .m_mipCount = static_cast<u8>(mip - firstMip),
+                                    },
+                                    *current,
+                                    _range.IsPartial());
+                                firstMip = mip;
+                            }
+                            if (firstSlice != slice)
+                            {
+                                _emit(
+                                    {
+                                        .m_arrayStart = static_cast<u16>(firstSlice),
+                                        .m_arrayCount = static_cast<u16>(slice - firstSlice),
+                                        .m_mipStart = static_cast<u8>(mip),
+                                        .m_mipCount = mipCount,
+                                    },
+                                    *current,
+                                    _range.IsPartial());
+                                firstSlice = slice;
+                            }
+
+                            current = &_states.m_perSubResourceStates[index];
+                        }
                     }
-                    if (runState == nullptr)
+                    if (firstSlice != arrayStart)
                     {
-                        runState = &state;
+                        _emit(
+                            {
+                                .m_arrayStart = static_cast<u16>(firstSlice),
+                                .m_arrayCount = static_cast<u16>(arrayEnd - firstSlice),
+                                .m_mipStart = static_cast<u8>(mip),
+                                .m_mipCount = mipCount,
+                            },
+                            *current,
+                            _range.IsPartial());
+                        firstMip = mip + 1;
                     }
                 }
-                _emit(runStart, static_cast<u16>(arrayEnd - runStart), mip, *runState);
+                if (firstMip != mipEnd)
+                {
+                    _emit(
+                       {
+                           .m_arrayStart = _range.m_arrayStart,
+                           .m_arrayCount = _range.m_arrayCount,
+                           .m_mipStart = static_cast<u8>(firstMip),
+                           .m_mipCount = static_cast<u8>(mipEnd),
+                       },
+                       *current,
+                       _range.IsPartial());
+                }
             }
         };
 
@@ -74,6 +142,8 @@ namespace KryneEngine::Modules::RenderGraph
             PassDeclaration& pass = _builder.m_declaredPasses[i];
             constexpr ResourceState defaultState {};
 
+            KE_ZoneScopedF("Parsing pass '%s'", pass.m_name.m_string.c_str());
+
             const size_t bufferSpanBegin = m_bufferMemoryBarriers.size();
             const size_t textureSpanBegin = m_textureMemoryBarriers.size();
 
@@ -85,6 +155,9 @@ namespace KryneEngine::Modules::RenderGraph
 
                     const SimplePoolHandle underlyingResourceHandle = _registry.GetUnderlyingResource(dependency.m_resource);
                     const Resource& resource = _registry.GetResource(dependency.m_resource);
+
+                    KE_ZoneScopedF("Parsing dependency '%s'", resource.m_name.c_str());
+
                     const Resource& underlyingResource = _registry.GetResource(underlyingResourceHandle);
 
                     if (resource.IsBuffer())
@@ -125,7 +198,10 @@ namespace KryneEngine::Modules::RenderGraph
                         },
                     };
 
-                    const auto handleTransition = [&](const TextureSubResourceRange _range, const TextureState& _previous, const bool _partial)
+                    forEachTransitioningSubResourceRange(
+                        states,
+                        range,
+                        [&](const TextureSubResourceRange _range, const TextureState& _previous, const bool _partial)
                     {
                         if (_previous.m_attachment != nullptr)
                         {
@@ -188,169 +264,7 @@ namespace KryneEngine::Modules::RenderGraph
                                     .m_planes = dependency.m_planes,
                                 });
                         }
-                    };
-
-                    if (states.m_isUniform)
-                    {
-                        const bool partial = !states.CoversWholeExtent(range);
-                        if (partial)
-                            states.ExplodeIfNeeded();
-                        handleTransition(range, states.m_uniformState, partial);
-                    }
-                    else
-                    {
-                        KE_ASSERT_MSG(
-                            states.m_arraySize != RawTextureData::kNoArrayPartialIndexing
-                            || (range.m_arrayStart == 0 && range.m_arrayCount == TextureSubResourceRange::kAllArrayLayers),
-                            "Resource prohibits partial array slice indexing, array range should always be [0, kAllArrayLayers)");
-                        KE_ASSERT_MSG(
-                            states.m_mipCount != RawTextureData::kNoMipPartialIndexing
-                            || (range.m_mipStart == 0 && range.m_mipCount == TextureSubResourceRange::kAllMipLevels),
-                            "Resource prohibits partial mip level indexing, mip level range should always be [0, kAllMipLevels)");
-
-                        const u32 mipStart = states.m_mipCount == RawTextureData::kNoMipPartialIndexing ? 0u : range.m_mipStart;
-                        const u32 mipEnd = states.m_mipCount == RawTextureData::kNoMipPartialIndexing
-                            ? 1u
-                            : eastl::min<u32>(mipStart + range.m_mipCount, states.m_mipCount);
-                        const u32 arrayStart = states.m_arraySize == RawTextureData::kNoArrayPartialIndexing ? 0u : range.m_arrayStart;
-                        const u32 arrayEnd = states.m_arraySize == RawTextureData::kNoArrayPartialIndexing
-                            ? 1u
-                            : eastl::min<u32>(arrayStart + range.m_arrayCount, states.m_arraySize);
-
-                        u32 firstMip = mipStart;
-                        const TextureState* current = nullptr;
-                        for (u32 mip = mipStart; mip < mipEnd; ++mip)
-                        {
-                            const u8 mipCount = states.m_mipCount == RawTextureData::kNoMipPartialIndexing ? 0xff : 1;
-
-                            u32 firstSlice = arrayStart;
-                            for (u32 slice = arrayStart; slice < arrayEnd; ++slice)
-                            {
-                                const u32 index = states.Index(slice, mip);
-                                if (current == nullptr)
-                                {
-                                    current = &states.m_perSubResourceStates[index];
-                                }
-                                else if (!SameBarrierSource(states.m_perSubResourceStates[index], *current))
-                                {
-                                    if (firstMip != mip)
-                                    {
-                                        handleTransition(
-                                            {
-                                                .m_arrayStart = range.m_arrayStart,
-                                                .m_arrayCount = range.m_arrayCount,
-                                                .m_mipStart = static_cast<u8>(firstMip),
-                                                .m_mipCount = static_cast<u8>(mip - firstMip),
-                                            },
-                                            *current,
-                                            range.IsPartial());
-                                        firstMip = mip;
-                                    }
-                                    if (firstSlice != slice)
-                                    {
-                                        handleTransition(
-                                            {
-                                                .m_arrayStart = static_cast<u16>(firstSlice),
-                                                .m_arrayCount = static_cast<u16>(slice - firstSlice),
-                                                .m_mipStart = static_cast<u8>(mip),
-                                                .m_mipCount = mipCount,
-                                            },
-                                            *current,
-                                            range.IsPartial());
-                                        firstSlice = slice;
-                                    }
-
-                                    current = &states.m_perSubResourceStates[index];
-                                }
-                            }
-                            if (firstSlice != arrayStart)
-                            {
-                                handleTransition(
-                                    {
-                                        .m_arrayStart = static_cast<u16>(firstSlice),
-                                        .m_arrayCount = static_cast<u16>(arrayEnd - firstSlice),
-                                        .m_mipStart = static_cast<u8>(mip),
-                                        .m_mipCount = mipCount,
-                                    },
-                                    *current,
-                                    range.IsPartial());
-                                firstMip = mip + 1;
-                            }
-                        }
-                        if (firstMip != mipEnd)
-                        {
-                            handleTransition(
-                                   {
-                                       .m_arrayStart = range.m_arrayStart,
-                                       .m_arrayCount = range.m_arrayCount,
-                                       .m_mipStart = static_cast<u8>(firstMip),
-                                       .m_mipCount = static_cast<u8>(mipEnd),
-                                   },
-                                   *current,
-                                   range.IsPartial());
-                        }
-                    }
-
-                    // forEachMergedRun(
-                    //     states,
-                    //     range,
-                    //     [&](const u16 _arrayStart, const u16 _arrayCount, const u8 _mip, const TextureState& _previousState)
-                    //     {
-                    //         if (_previousState.m_attachment != nullptr)
-                    //         {
-                    //             if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
-                    //             {
-                    //                 _previousState.m_attachment->m_layoutAfter = dependency.m_targetLayout;
-                    //             }
-                    //             else
-                    //             {
-                    //                 const BarrierSyncStageFlags stageSrc = _previousState.m_depthPass
-                    //                     ? BarrierSyncStageFlags::DepthStencilTesting
-                    //                     : BarrierSyncStageFlags::ColorBlending;
-                    //
-                    //                 auto accessSrc = BarrierAccessFlags::ColorAttachment;
-                    //                 if (_previousState.m_depthPass)
-                    //                 {
-                    //                     accessSrc = _previousState.m_attachment->m_readOnly
-                    //                         ? BarrierAccessFlags::DepthStencilRead
-                    //                         : BarrierAccessFlags::DepthStencilWrite;
-                    //                 }
-                    //
-                    //                 m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
-                    //                     .m_stagesSrc = stageSrc,
-                    //                     .m_stagesDst = dependency.m_targetSyncStage,
-                    //                     .m_accessSrc = accessSrc,
-                    //                     .m_accessDst = dependency.m_targetAccessFlags,
-                    //                     .m_texture = underlyingResource.m_rawTextureData.m_texture,
-                    //                     .m_arrayStart = _arrayStart,
-                    //                     .m_arrayCount = _arrayCount == 0 ? static_cast<u16>(0xffff) : _arrayCount,
-                    //                     .m_layoutSrc = _previousState.m_attachment->m_layoutAfter,
-                    //                     .m_layoutDst = dependency.m_targetLayout,
-                    //                     .m_mipStart = _mip,
-                    //                     .m_mipCount = _mip,
-                    //                     .m_planes = dependency.m_planes,
-                    //                 });
-                    //             }
-                    //         }
-                    //         else
-                    //         {
-                    //             m_textureMemoryBarriers.emplace_back(TextureMemoryBarrier {
-                    //                 .m_stagesSrc = _previousState.m_syncStage,
-                    //                 .m_stagesDst = dependency.m_targetSyncStage,
-                    //                 .m_accessSrc = _previousState.m_accessFlags,
-                    //                 .m_accessDst = dependency.m_targetAccessFlags,
-                    //                 .m_texture = underlyingResource.m_rawTextureData.m_texture,
-                    //                 .m_arrayStart = _arrayStart,
-                    //                 .m_arrayCount = _arrayCount,
-                    //                 .m_layoutSrc = _previousState.m_layout,
-                    //                 .m_layoutDst = dependency.m_targetLayout,
-                    //                 .m_mipStart = _mip,
-                    //                 .m_mipCount = 1,
-                    //                 .m_planes = dependency.m_planes,
-                    //             });
-                    //         }
-                    //     });
-
+                    });
                     SetRangeState(states, range, newState);
 
                     for (const auto* attachment : m_attachmentsToPurge)
@@ -366,8 +280,11 @@ namespace KryneEngine::Modules::RenderGraph
 
             const auto parseAttachment = [&](PassAttachmentDeclaration& _attachment, const bool _depth)
             {
+                m_attachmentsToPurge.clear();
+
                 const SimplePoolHandle underlyingResource = _registry.GetUnderlyingResource(_attachment.m_rtv);
                 const Resource& rtvResource = _registry.GetResource(_attachment.m_rtv);
+
                 const Resource& underlyingRes = _registry.GetResource(underlyingResource);
 
                 TextureStates& states = GetOrCreateTextureStates(underlyingResource, underlyingRes);
@@ -406,10 +323,10 @@ namespace KryneEngine::Modules::RenderGraph
                 // states (multiple merged runs), m_layoutBefore below reflects the last run
                 // processed. This can't currently happen: every attachment declaration maps to a
                 // single RTV range, and per-cascade shadow RTVs are always a single array layer.
-                forEachMergedRun(
+                forEachTransitioningSubResourceRange(
                     states,
                     range,
-                    [&](const u16 _arrayStart, const u16 _arrayCount, const u8 _mip, const TextureState& _previousState)
+                    [&](const TextureSubResourceRange& _range, const TextureState& _previousState, const bool _partial)
                     {
                         if (!WasTouched(_previousState))
                         {
@@ -425,12 +342,12 @@ namespace KryneEngine::Modules::RenderGraph
                                     .m_accessSrc = BarrierAccessFlags::None,
                                     .m_accessDst = accessDst,
                                     .m_texture = underlyingRes.m_rawTextureData.m_texture,
-                                    .m_arrayStart = _arrayStart,
-                                    .m_arrayCount = _arrayCount,
+                                    .m_arrayStart = _range.m_arrayStart,
+                                    .m_arrayCount = _range.m_arrayCount,
                                     .m_layoutSrc = TextureLayout::Unknown,
                                     .m_layoutDst = _attachment.m_layoutAfter,
-                                    .m_mipStart = _mip,
-                                    .m_mipCount = 1,
+                                    .m_mipStart = _range.m_mipStart,
+                                    .m_mipCount = _range.m_mipCount,
                                     .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
                                 });
                             }
@@ -445,6 +362,9 @@ namespace KryneEngine::Modules::RenderGraph
                                         : TextureLayout::DepthStencilAttachment
                                     : TextureLayout::ColorAttachment;
                                 _attachment.m_layoutBefore = _previousState.m_attachment->m_layoutAfter;
+
+                                if (_partial)
+                                    m_attachmentsToPurge.emplace(_previousState.m_attachment);
                             }
                             else
                             {
@@ -473,12 +393,12 @@ namespace KryneEngine::Modules::RenderGraph
                                     .m_accessSrc = accessSrc,
                                     .m_accessDst = accessDst,
                                     .m_texture = underlyingRes.m_rawTextureData.m_texture,
-                                    .m_arrayStart = _arrayStart,
-                                    .m_arrayCount = _arrayCount,
+                                    .m_arrayStart = _range.m_arrayStart,
+                                    .m_arrayCount = _range.m_arrayCount,
                                     .m_layoutSrc = _previousState.m_attachment->m_layoutAfter,
                                     .m_layoutDst = _attachment.m_layoutAfter,
-                                    .m_mipStart = _mip,
-                                    .m_mipCount = 1,
+                                    .m_mipStart = _range.m_mipStart,
+                                    .m_mipCount = _range.m_mipCount,
                                     .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
                                 });
                             }
@@ -490,12 +410,12 @@ namespace KryneEngine::Modules::RenderGraph
                                     .m_accessSrc = _previousState.m_accessFlags,
                                     .m_accessDst = accessDst,
                                     .m_texture = underlyingRes.m_rawTextureData.m_texture,
-                                    .m_arrayStart = _arrayStart,
-                                    .m_arrayCount = _arrayCount,
+                                    .m_arrayStart = _range.m_arrayStart,
+                                    .m_arrayCount = _range.m_arrayCount,
                                     .m_layoutSrc = _previousState.m_layout,
                                     .m_layoutDst = _attachment.m_layoutAfter,
-                                    .m_mipStart = _mip,
-                                    .m_mipCount = 1,
+                                    .m_mipStart = _range.m_mipStart,
+                                    .m_mipCount = _range.m_mipCount,
                                     .m_planes = _depth ? TexturePlane::Depth | TexturePlane::Stencil : TexturePlane::Color,
                                 });
                             }
@@ -503,6 +423,12 @@ namespace KryneEngine::Modules::RenderGraph
                     });
 
                 SetRangeState(states, range, newState);
+
+                for (const auto* attachment : m_attachmentsToPurge)
+                {
+                    if (attachment != nullptr)
+                        states.PurgeAttachment(attachment);
+                }
             };
 
             for (PassAttachmentDeclaration& attachment : pass.m_colorAttachments)
