@@ -18,6 +18,7 @@
 #include <Scene/OrbitCamera.hpp>
 #include <Scene/SunLight.hpp>
 #include <fstream>
+#include <imgui.h>
 
 namespace KryneEngine::Samples::PhysicsDemo
 {
@@ -139,6 +140,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         }
 
         m_geometryLibrary.Update(*_graphicsContext);
+
+        DrawMenuBar();
 
         m_sunLight->Process();
         m_cascadedShadowMap.Debug();
@@ -610,5 +613,24 @@ namespace KryneEngine::Samples::PhysicsDemo
         _newTemplate->Build(context);
 
         m_currentSceneTemplate = _newTemplate;
+    }
+
+    void SceneManager::DrawMenuBar()
+    {
+        if (!ImGui::BeginMainMenuBar())
+            return;
+
+        if (ImGui::BeginMenu("Scene"))
+        {
+            if (ImGui::BeginMenu("Load scene"))
+            {
+                if (ImGui::MenuItem(PrecariouslyStackingBoxesTemplate::kName))
+                    RequestLoadScene(m_allocator.New<PrecariouslyStackingBoxesTemplate>());
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMainMenuBar();
     }
 } // namespace KryneEngine::Samples::PhysicsDemo

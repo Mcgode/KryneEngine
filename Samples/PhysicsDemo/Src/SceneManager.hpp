@@ -99,6 +99,8 @@ namespace KryneEngine::Samples::PhysicsDemo
     private:
         void SwapScene(SceneTemplate* _newTemplate);
 
+        void DrawMenuBar();
+
         AllocatorInstance m_allocator;
         FibersManager* m_fibersManager;
         b3WorldId m_world;
