@@ -393,4 +393,146 @@ namespace KryneEngine::Modules::RenderGraph::Tests
 
         assertCatcher.ExpectNoMessage();
     }
+
+    TEST(ResourceStateTracker, PartialAttachmentRewritePreservesRemainderLayout)
+    {
+        // A shadow-cascade-like scenario: the whole array is first written as a single attachment,
+        // then only its first layer is re-written as a second, distinct (read-only) attachment - a
+        // partial write relative to the tracked extent. A later pass then reads the untouched
+        // remainder (layers 2-3).
+        //
+        // This exercises the `if (_partial) m_attachmentsToPurge.emplace(...)` branch in
+        // ResourceStateTracker::Process, only reachable when
+        // GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers() is true: the first
+        // attachment (WriteAll)'s m_layoutAfter is a single field, and the backend transitions
+        // *everything* WriteAll covers (all 4 layers) into it automatically once, so as soon as a
+        // more specific consumer (RewriteCascade0, layer 0 only) claims that field for its own
+        // needs, it becomes the real physical layout for the untouched layers 2-3 too - they just
+        // can no longer rely on that shared, still-mutable field for their own future transition,
+        // since a later consumer might claim it again for something else entirely. Purging must
+        // detach them from the attachment once their moment to read the field has passed, baking
+        // a concrete state from it so their own later transition goes through an explicit barrier
+        // instead of silently reusing (or further clobbering) WriteAll's field.
+        ScopedAssertCatcher assertCatcher;
+
+        Registry registry;
+        Builder builder(registry);
+
+        constexpr u16 kLayerCount = 4;
+        const SimplePoolHandle texture = registry.RegisterRawTexture(FakeTextureHandle(1), kLayerCount, 1, "ShadowArray");
+
+        const SimplePoolHandle rtvAll = registry.RegisterRenderTargetView(
+            FakeRtvHandle(1), texture, TextureSubResourceRange { .m_arrayStart = 0, .m_arrayCount = kLayerCount }, "AllRTV");
+        builder.DeclarePass(PassType::Render)
+            .SetName("WriteAll")
+            .SetDepthAttachment(rtvAll)
+                .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Clear)
+                .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                .Done()
+            .Done();
+
+        // Re-touches only layer 0, as a *read-only* attachment - deliberately a different
+        // resulting layout (DepthStencilReadOnly) than WriteAll's default (DepthStencilAttachment),
+        // so whichever one ends up governing the remainder's later transition is distinguishable.
+        const SimplePoolHandle rtvPartial = registry.RegisterRenderTargetView(
+            FakeRtvHandle(2), texture, TextureSubResourceRange { .m_arrayStart = 0, .m_arrayCount = 1 }, "PartialRTV");
+        builder.DeclarePass(PassType::Render)
+            .SetName("RewriteCascade0")
+            .SetDepthAttachment(rtvPartial)
+                .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
+                .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
+                .SetReadOnlyDepthStencil(true)
+                .Done()
+            .Done();
+
+        // Reads layers 2-3, which RewriteCascade0 never touched directly - but which WriteAll's
+        // whole-range attachment transition still physically carries along to whatever
+        // RewriteCascade0 claimed for it.
+        const SimplePoolHandle remainderView = registry.RegisterTextureView(
+            FakeTextureViewHandle(1),
+            texture,
+            TextureSubResourceRange { .m_arrayStart = 2, .m_arrayCount = 2 },
+            "RemainderView");
+        const SimplePoolHandle sink = registry.RegisterRawBuffer(FakeBufferHandle(99), "Sink");
+        builder.DeclarePass(PassType::Compute)
+            .SetName("ReadRemainder")
+            .ReadDependency({
+                .m_resource = remainderView,
+                .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                .m_targetLayout = TextureLayout::ShaderResource,
+                .m_planes = TexturePlane::Depth,
+            })
+            .WriteDependency({
+                .m_resource = sink,
+                .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                .m_targetAccessFlags = BarrierAccessFlags::UnorderedAccess,
+            })
+            .Done();
+
+        builder.DeclareTargetResource(texture);
+        builder.DeclareTargetResource(sink);
+        builder.BuildDag();
+
+        ResourceStateTracker tracker;
+        tracker.Process(builder, registry);
+
+        const PassDeclaration& writeAll = builder.GetPass(0);
+        const PassDeclaration& rewriteCascade0 = builder.GetPass(1);
+
+        if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
+        {
+            // WriteAll -> RewriteCascade0 is handled automatically by the backend (via
+            // m_layoutBefore/m_layoutAfter), so neither pass needs an explicit barrier...
+            EXPECT_EQ(tracker.GetPassBarriers(0).m_textureMemoryBarriers.size(), 0u);
+            EXPECT_EQ(tracker.GetPassBarriers(1).m_textureMemoryBarriers.size(), 0u);
+
+            // ...RewriteCascade0 claims WriteAll's shared m_layoutAfter field for its own
+            // (read-only) needs, and both ends of that automatic transition agree on it...
+            EXPECT_EQ(rewriteCascade0.m_depthAttachment->m_layoutBefore, TextureLayout::DepthStencilReadOnly);
+            EXPECT_EQ(writeAll.m_depthAttachment->m_layoutAfter, TextureLayout::DepthStencilReadOnly);
+
+            // ...and critically, ReadRemainder (layers 2-3, which RewriteCascade0 never touched)
+            // does NOT get to silently reuse or further overwrite that same field: it was purged
+            // once RewriteCascade0 claimed it, so it must fall back to an explicit barrier,
+            // correctly sourced from the layout WriteAll's attachment was just claimed into
+            // (DepthStencilReadOnly - the real physical layout the whole range ends up in), not
+            // ReadRemainder's own target layout and not left as a missing (zero-count) barrier.
+            EXPECT_EQ(writeAll.m_depthAttachment->m_layoutAfter, rewriteCascade0.m_depthAttachment->m_layoutBefore);
+            const auto remainderBarriers = tracker.GetPassBarriers(2);
+            ASSERT_EQ(remainderBarriers.m_textureMemoryBarriers.size(), 1u);
+            const auto& remainderBarrier = remainderBarriers.m_textureMemoryBarriers[0];
+            EXPECT_EQ(remainderBarrier.m_arrayStart, 2u);
+            EXPECT_EQ(remainderBarrier.m_arrayCount, 2u);
+            EXPECT_EQ(remainderBarrier.m_layoutSrc, TextureLayout::DepthStencilReadOnly);
+            EXPECT_EQ(remainderBarrier.m_layoutDst, TextureLayout::ShaderResource);
+        }
+        else
+        {
+            // No automatic placement: every transition already goes through an explicit barrier,
+            // so the purge path never triggers (its guarding `if` never runs) - each barrier's
+            // m_layoutSrc should still independently reflect the right predecessor.
+            const auto writeAllBarriers = tracker.GetPassBarriers(0);
+            ASSERT_EQ(writeAllBarriers.m_textureMemoryBarriers.size(), 1u);
+            EXPECT_EQ(writeAllBarriers.m_textureMemoryBarriers[0].m_layoutDst, TextureLayout::DepthStencilAttachment);
+
+            const auto rewriteBarriers = tracker.GetPassBarriers(1);
+            ASSERT_EQ(rewriteBarriers.m_textureMemoryBarriers.size(), 1u);
+            EXPECT_EQ(rewriteBarriers.m_textureMemoryBarriers[0].m_arrayStart, 0u);
+            EXPECT_EQ(rewriteBarriers.m_textureMemoryBarriers[0].m_arrayCount, 1u);
+            EXPECT_EQ(rewriteBarriers.m_textureMemoryBarriers[0].m_layoutSrc, TextureLayout::DepthStencilAttachment);
+            EXPECT_EQ(rewriteBarriers.m_textureMemoryBarriers[0].m_layoutDst, TextureLayout::DepthStencilReadOnly);
+
+            const auto remainderBarriers = tracker.GetPassBarriers(2);
+            ASSERT_EQ(remainderBarriers.m_textureMemoryBarriers.size(), 1u);
+            const auto& remainderBarrier = remainderBarriers.m_textureMemoryBarriers[0];
+            EXPECT_EQ(remainderBarrier.m_arrayStart, 2u);
+            EXPECT_EQ(remainderBarrier.m_arrayCount, 2u);
+            EXPECT_EQ(remainderBarrier.m_layoutSrc, TextureLayout::DepthStencilAttachment);
+            EXPECT_EQ(remainderBarrier.m_layoutDst, TextureLayout::ShaderResource);
+        }
+
+        assertCatcher.ExpectNoMessage();
+    }
+
 } // namespace KryneEngine::Modules::RenderGraph::Tests

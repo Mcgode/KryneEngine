@@ -498,31 +498,33 @@ namespace KryneEngine::Modules::RenderGraph
         if (m_isUniform)
             return;
 
-        const TextureState* current = nullptr;
         for (auto& state: m_perSubResourceStates)
         {
             if (state.m_attachment == _attachment)
             {
-                if (current == nullptr)
-                {
-                    state.m_syncStage = state.m_depthPass
-                        ? BarrierSyncStageFlags::DepthStencilTesting
-                        : BarrierSyncStageFlags::ColorBlending;
+                state.m_syncStage = state.m_depthPass
+                    ? BarrierSyncStageFlags::DepthStencilTesting
+                    : BarrierSyncStageFlags::ColorBlending;
 
-                    state.m_accessFlags = BarrierAccessFlags::ColorAttachment;
-                    if (state.m_depthPass)
-                    {
-                        state.m_accessFlags = state.m_attachment->m_readOnly
-                            ? BarrierAccessFlags::DepthStencilRead
-                            : BarrierAccessFlags::DepthStencilWrite;
-                    }
-
-                    state.m_layout = _attachment->m_layoutAfter;
-                }
-                else
+                state.m_accessFlags = BarrierAccessFlags::ColorAttachment;
+                if (state.m_depthPass)
                 {
-                    state = *current;
+                    state.m_accessFlags = _attachment->m_readOnly
+                        ? BarrierAccessFlags::DepthStencilRead
+                        : BarrierAccessFlags::DepthStencilWrite;
                 }
+
+                // _attachment's automatic layout transition applies uniformly to its whole
+                // covered range, so this (untouched) sub-resource physically ends up in
+                // _attachment's current m_layoutAfter too, same as the consumer that just
+                // claimed it.
+                state.m_layout = _attachment->m_layoutAfter;
+
+                // Detach from the attachment: its m_layoutAfter may be overwritten again for a
+                // future consumer, so this sub-resource can no longer rely on it - any future
+                // transition of it must go through an explicit barrier built from the concrete
+                // state baked above instead.
+                state.m_attachment = nullptr;
             }
         }
     }

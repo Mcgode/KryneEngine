@@ -74,6 +74,16 @@ namespace KryneEngine::Modules::RenderGraph
 
             void ExplodeIfNeeded();
 
+            // Detaches every sub-resource still pointing at _attachment from it, baking its
+            // concrete sync/access/layout from _attachment's current fields instead. Used once
+            // _attachment's own m_layoutAfter has been claimed by a different, more specific
+            // consumer: since the backend performs that attachment's automatic layout transition
+            // uniformly over its whole covered range, _attachment->m_layoutAfter (read here,
+            // after that claim) is exactly the physical layout these sub-resources end up in too -
+            // they just can no longer rely on the attachment's single shared field for their *own*
+            // future transition, since it may be overwritten again for someone else. Any future
+            // transition of them must therefore go through an explicit barrier built from the
+            // concrete state baked here.
             void PurgeAttachment(const PassAttachmentDeclaration* _attachment);
         };
 
