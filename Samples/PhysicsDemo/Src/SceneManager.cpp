@@ -549,7 +549,8 @@ namespace KryneEngine::Samples::PhysicsDemo
 
     void SceneManager::PrepareGBufferPass(
         GraphicsContext& _graphicsContext,
-        const TransferCommandEncoderHandle _transferEncoder)
+        const TransferCommandEncoderHandle _transferEncoder,
+        const uint2 _screenResolution)
     {
         // No-op after the first call: geometry buffers only need uploading once, but this must
         // happen from within a transfer encoder the render graph already opened for this frame,
@@ -558,7 +559,11 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         m_drawInstanceManager.UpdateGpuData(_graphicsContext, _transferEncoder);
         m_gBufferPassDispatcher->PrepareDispatch(
-            m_orbitCamera->GetViewMatrix(), m_orbitCamera->GetProjectionMatrix(), _graphicsContext, _transferEncoder);
+            m_orbitCamera->GetViewMatrix(),
+            m_orbitCamera->GetProjectionMatrix(),
+            _screenResolution,
+            _graphicsContext,
+            _transferEncoder);
     }
 
     void SceneManager::RenderGBufferPass(
@@ -571,11 +576,13 @@ namespace KryneEngine::Samples::PhysicsDemo
     void SceneManager::PrepareShadowCascade(
         const u32 _cascadeIndex,
         GraphicsContext& _graphicsContext,
-        const TransferCommandEncoderHandle _transferEncoder) const
+        const TransferCommandEncoderHandle _transferEncoder,
+        const uint2 _screenResolution) const
     {
         m_shadowPassDispatchers[_cascadeIndex]->PrepareDispatch(
             m_cascadedShadowMap.GetCascadeViewMatrix(_cascadeIndex),
             m_cascadedShadowMap.GetCascadeProjectionMatrix(_cascadeIndex),
+            _screenResolution,
             _graphicsContext,
             _transferEncoder);
     }

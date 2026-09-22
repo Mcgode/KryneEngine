@@ -389,9 +389,9 @@ int main(int _argc, const char* _argv[])
             snprintf(name, sizeof(name), "Shadow cascade pass %u", cascade);
             builder.DeclarePass(RenderGraph::PassType::Render)
                 .SetName(name)
-                .SetPrePassTransferFunction([&sceneManager, cascade](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
+                .SetPrePassTransferFunction([&sceneManager, cascade, frameBufferSize](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
                 {
-                    sceneManager.PrepareShadowCascade(cascade, *_graphicsContext, _transferEncoder);
+                    sceneManager.PrepareShadowCascade(cascade, *_graphicsContext, _transferEncoder, frameBufferSize);
                 })
                 .SetDepthAttachment(shadowCascadeRtvs[cascade])
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Clear)
@@ -408,9 +408,9 @@ int main(int _argc, const char* _argv[])
         builder
             .DeclarePass(RenderGraph::PassType::Render)
                 .SetName("GBuffer pass")
-                .SetPrePassTransferFunction([&sceneManager](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
+                .SetPrePassTransferFunction([&sceneManager, frameBufferSize](GraphicsContext* _graphicsContext, const TransferCommandEncoderHandle _transferEncoder)
                 {
-                    sceneManager.PrepareGBufferPass(*_graphicsContext, _transferEncoder);
+                    sceneManager.PrepareGBufferPass(*_graphicsContext, _transferEncoder, frameBufferSize);
                 })
                 .AddColorAttachment(gBuffer0Rtv)
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)

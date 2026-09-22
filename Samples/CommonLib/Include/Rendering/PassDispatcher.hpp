@@ -38,6 +38,7 @@ namespace KryneEngine::Samples
         void PrepareDispatch(
             const float4x4& _viewMatrix,
             const float4x4& _projectionMatrix,
+            uint2 _renderTargetResolution,
             GraphicsContext& _graphicsContext,
             TransferCommandEncoderHandle _transferEncoder);
 
@@ -61,6 +62,7 @@ namespace KryneEngine::Samples
         Modules::GraphicsUtils::DynamicBuffer m_constantBuffer;
 
         BufferViewHandle* m_constantBufferViews = nullptr;
+        uint2 m_renderTargetResolution {};
 
         struct DispatchData
         {

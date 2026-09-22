@@ -20,12 +20,15 @@ namespace KryneEngine::Samples
     void PassDispatcher::PrepareDispatch(
         const float4x4& _viewMatrix,
         const float4x4& _projectionMatrix,
+        const uint2 _renderTargetResolution,
         GraphicsContext& _graphicsContext,
         const TransferCommandEncoderHandle _transferEncoder)
     {
         m_dispatchData.emplace();
         m_dispatchData->m_models.set_allocator(m_drawInstanceManager->m_allocator);
         m_dispatchData->m_modelInstanceOffsets.set_allocator(m_drawInstanceManager->m_allocator);
+
+        m_renderTargetResolution = _renderTargetResolution;
 
         size_t totalInstances = 0;
 
@@ -153,6 +156,17 @@ namespace KryneEngine::Samples
             .m_stride = sizeof(u32),
             .m_buffer = m_instanceBuffer.GetBuffer(_graphicsContext.GetCurrentFrameContextIndex()),
         };
+
+        _graphicsContext.SetViewport(_renderEncoder, {
+            .m_width = static_cast<s32>(m_renderTargetResolution.x),
+            .m_height = static_cast<s32>(m_renderTargetResolution.y),
+        });
+        _graphicsContext.SetScissorsRect(_renderEncoder, {
+            .m_left = 0,
+            .m_top = 0,
+            .m_right = m_renderTargetResolution.x,
+            .m_bottom = m_renderTargetResolution.y,
+        });
 
         for (const u64 i : sortedModels)
         {
