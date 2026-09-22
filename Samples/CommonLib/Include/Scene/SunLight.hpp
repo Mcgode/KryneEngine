@@ -16,6 +16,7 @@ namespace KryneEngine::Samples
         SunLight();
 
         void Process();
+        void DebugWindow(bool* _windowOpen = nullptr);
 
         [[nodiscard]] const float3& GetDirection() const { return m_direction; }
         [[nodiscard]] float3 GetDiffuse() const { return m_color * m_intensity; }
@@ -29,6 +30,5 @@ namespace KryneEngine::Samples
         float3 m_direction;
         float3 m_color;
         float m_intensity;
-        bool m_windowOpen = true;
     };
 }

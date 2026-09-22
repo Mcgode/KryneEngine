@@ -371,8 +371,6 @@ int main(int _argc, const char* _argv[])
 
         const uint2 frameBufferSize = graphicsContext->GetSwapChainSize(mainSwapChain);
 
-        ::ImGui::ShowDemoWindow();
-
         builder
             .DeclarePass(RenderGraph::PassType::Transfer)
                 .SetName("Upload fullscreen constants")

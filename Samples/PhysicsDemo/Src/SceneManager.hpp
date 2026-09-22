@@ -151,5 +151,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         DeferredShadowPass m_deferredShadowPass;
 
         SpinLock m_inputLock;
+
+        bool m_showSunLightWindow = false;
+        bool m_showDeferredShadowsWindow = false;
     };
 }

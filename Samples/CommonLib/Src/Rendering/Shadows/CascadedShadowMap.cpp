@@ -121,9 +121,9 @@ namespace KryneEngine::Samples
         }
     }
 
-    void CascadedShadowMap::Debug()
+    void CascadedShadowMap::Debug(bool* _windowOpen)
     {
-        if (ImGui::Begin("Cascaded Shadow Map"))
+        if (ImGui::Begin("Cascaded Shadow Map", _windowOpen))
         {
             ImGui::DragFloat("Normal offset bias (texels)", &m_shadowBiasConstantTexels, 0.1, 0, 0, "%.2f tx");
             ImGui::DragFloat("Normal offset grazing-angle scale", &m_shadowBiasSlopeScale, 0.1, 0, 0, "%.2f tx");

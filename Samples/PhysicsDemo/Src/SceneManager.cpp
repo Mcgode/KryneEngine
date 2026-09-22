@@ -144,7 +144,11 @@ namespace KryneEngine::Samples::PhysicsDemo
         DrawMenuBar();
 
         m_sunLight->Process();
-        m_cascadedShadowMap.Debug();
+
+        if (m_showSunLightWindow)
+            m_sunLight->DebugWindow(&m_showSunLightWindow);
+        if (m_showDeferredShadowsWindow)
+            m_cascadedShadowMap.Debug(&m_showDeferredShadowsWindow);
 
         // Interpolate between the last two fixed steps' worth of data and push the result to the
         // renderer; see WorldObjectSystem's threading contract (OrbitCamera::UpdatePose()/
@@ -628,6 +632,14 @@ namespace KryneEngine::Samples::PhysicsDemo
                     RequestLoadScene(m_allocator.New<PrecariouslyStackingBoxesTemplate>());
                 ImGui::EndMenu();
             }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Rendering"))
+        {
+            ImGui::MenuItem("Sunlight options", nullptr, &m_showSunLightWindow);
+            ImGui::MenuItem("Shadows", nullptr, &m_showDeferredShadowsWindow);
+
             ImGui::EndMenu();
         }
 

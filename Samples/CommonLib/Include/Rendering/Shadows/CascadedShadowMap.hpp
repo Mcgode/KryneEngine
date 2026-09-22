@@ -50,7 +50,7 @@ namespace KryneEngine::Samples
             u32 _resolution,
             TextureFormat _format = TextureFormat::D16);
 
-        void Debug();
+        void Debug(bool* _windowOpen = nullptr);
 
         // Recomputes every cascade's light view/projection matrices (fit to slices of the main
         // camera's frustum between _cameraNear and _maxShadowDistance) and uploads them, along
