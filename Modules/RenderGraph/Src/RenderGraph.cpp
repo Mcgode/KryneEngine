@@ -183,7 +183,7 @@ namespace KryneEngine::Modules::RenderGraph
                 GraphicsContext* graphicsContext = _jobData->m_passExecutionData.m_graphicsContext;
 #if defined(KE_FINAL)
                 const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
-                    _jobData->m_passExecutionData.m_commandList, {});
+                    _jobData->m_passExecutionData.m_commandList, {}, {});
 #else
                 char name[256];
                 snprintf(name, sizeof(name), "%s (Pre-pass transfer", pass.m_name.m_string.c_str());

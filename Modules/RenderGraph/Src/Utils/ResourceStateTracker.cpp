@@ -156,8 +156,6 @@ namespace KryneEngine::Modules::RenderGraph
                     const SimplePoolHandle underlyingResourceHandle = _registry.GetUnderlyingResource(dependency.m_resource);
                     const Resource& resource = _registry.GetResource(dependency.m_resource);
 
-                    KE_ZoneScopedF("Parsing dependency '%s'", resource.m_name.c_str());
-
                     const Resource& underlyingResource = _registry.GetResource(underlyingResourceHandle);
 
                     if (resource.IsBuffer())
