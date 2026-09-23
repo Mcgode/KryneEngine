@@ -9,6 +9,8 @@ add_executable(PhysicsDemo
         Src/Geometry/GeometryLibrary.cpp
         Src/Geometry/GeometryLibrary.hpp
         Src/Scene/SceneTemplate.hpp
+        Src/Scene/FallingPrimitivesTemplate.cpp
+        Src/Scene/FallingPrimitivesTemplate.hpp
         Src/Scene/PrecariouslyStackingBoxesTemplate.cpp
         Src/Scene/PrecariouslyStackingBoxesTemplate.hpp
 )

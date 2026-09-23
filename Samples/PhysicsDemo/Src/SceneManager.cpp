@@ -10,6 +10,7 @@
 #include "PassTypes.hpp"
 #include "RenderTargetFormats.hpp"
 #include "Rendering/Fullscreen/FullscreenPassConstants.hpp"
+#include "Scene/FallingPrimitivesTemplate.hpp"
 #include "Scene/PrecariouslyStackingBoxesTemplate.hpp"
 
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
@@ -637,6 +638,8 @@ namespace KryneEngine::Samples::PhysicsDemo
             {
                 if (ImGui::MenuItem(PrecariouslyStackingBoxesTemplate::kName))
                     RequestLoadScene(m_allocator.New<PrecariouslyStackingBoxesTemplate>());
+                if (ImGui::MenuItem(FallingPrimitivesTemplate::kName))
+                    RequestLoadScene(m_allocator.New<FallingPrimitivesTemplate>());
                 ImGui::EndMenu();
             }
             ImGui::EndMenu();

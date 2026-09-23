@@ -9,6 +9,7 @@
 #include "../Ecs/WorldObjectSystem.hpp"
 #include "../Geometry/GeometryLibrary.hpp"
 
+#include <EASTL/algorithm.h>
 #include <EASTL/array.h>
 #include <EASTL/vector.h>
 #include <KryneEngine/Core/Memory/SimplePool.hpp>
@@ -66,6 +67,20 @@ namespace KryneEngine::Samples::PhysicsDemo
             const EntityHandle entity = m_worldObjectSystem.CreateEntity(_transform, _bodyDef, _renderModel);
             m_createdEntities.push_back(entity);
             return entity;
+        }
+
+        // Destroys an entity a previous CreateEntity() call on this same context returned, ahead
+        // of the caller (SceneManager) tearing down whatever is left when the template itself is
+        // unloaded. Lets a template recycle entities (e.g. a ring buffer of spawned objects)
+        // without waiting for a full scene swap.
+        void DestroyEntity(const EntityHandle _entity) const
+        {
+            m_worldObjectSystem.DestroyEntity(_entity);
+            const auto it = eastl::find(m_createdEntities.begin(), m_createdEntities.end(), _entity);
+            if (it != m_createdEntities.end())
+            {
+                m_createdEntities.erase_unsorted(it);
+            }
         }
 
     private:
