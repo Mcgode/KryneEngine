@@ -18,6 +18,10 @@ namespace KryneEngine::Samples::PhysicsDemo
     enum class GeometryType : u8
     {
         Box,
+        Sphere,
+        Capsule,
+        Cylinder,
+        Cone,
         Ground,
 
         Count,
@@ -60,8 +64,22 @@ namespace KryneEngine::Samples::PhysicsDemo
         [[nodiscard]] const GeometryBuffers& GetBuffers(GeometryType _type) const;
 
         // Returns a Box3D hull matching _type's visual dimensions, ready to pass to
-        // b3CreateHullShape. Only meaningful for box-shaped geometries.
+        // b3CreateHullShape. Only meaningful for GeometryType::Box and GeometryType::Ground.
         [[nodiscard]] b3BoxHull GetBoxHull(GeometryType _type) const;
+
+        // Returns a Box3D sphere matching _type's visual dimensions, ready to pass to
+        // b3CreateSphereShape. Only meaningful for GeometryType::Sphere.
+        [[nodiscard]] b3Sphere GetSphere(GeometryType _type) const;
+
+        // Returns a Box3D capsule matching _type's visual dimensions, ready to pass to
+        // b3CreateCapsuleShape. Only meaningful for GeometryType::Capsule.
+        [[nodiscard]] b3Capsule GetCapsule(GeometryType _type) const;
+
+        // Returns the pre-built Box3D hull matching _type's visual dimensions, ready to pass to
+        // b3CreateHullShape. Built once at construction and owned by this library (see
+        // Geometry::m_hull), so the same pointer may be reused across every body that needs it.
+        // Only meaningful for GeometryType::Cylinder and GeometryType::Cone.
+        [[nodiscard]] const b3HullData* GetHull(GeometryType _type) const;
 
         // Records this library's pending geometry uploads into _transferEncoder, which must have
         // already been opened by the caller. Must be called before any of this geometry is first
@@ -76,7 +94,10 @@ namespace KryneEngine::Samples::PhysicsDemo
         struct Geometry
         {
             GeometryBuffers m_bufferViews;
-            float3 m_boxHalfExtents; // only meaningful for box-shaped geometries
+            float3 m_boxHalfExtents {};  // Box, Ground
+            float m_radius = 0.f;        // Sphere, Capsule, Cylinder, Cone
+            float m_halfHeight = 0.f;    // Capsule, Cylinder, Cone
+            b3HullData* m_hull = nullptr; // Cylinder, Cone - owned, destroyed in ~GeometryLibrary
         };
 
         AllocatorInstance m_allocator;
