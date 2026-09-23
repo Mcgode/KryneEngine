@@ -3,6 +3,8 @@ add_library(Samples_CommonLib STATIC
         Include/Scene/TorusKnotMeshGenerator.hpp
         Src/Scene/BoxMeshGenerator.cpp
         Include/Scene/BoxMeshGenerator.hpp
+        Src/Scene/PrimitiveMeshGenerator.cpp
+        Include/Scene/PrimitiveMeshGenerator.hpp
         Src/Scene/OrbitCamera.cpp
         Include/Scene/OrbitCamera.hpp
         Src/Scene/SunLight.cpp
