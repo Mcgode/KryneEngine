@@ -8,6 +8,7 @@
 
 #include <KryneEngine/Core/Math/Matrix.hpp>
 #include <KryneEngine/Core/Math/Quaternion.hpp>
+#include <KryneEngine/Core/Math/Ray.hpp>
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
 
 namespace KryneEngine::Samples
@@ -24,6 +25,14 @@ namespace KryneEngine::Samples
         // the input-reading counterpart to whatever thread/lock InputManager::Update() runs
         // under, and must stay paired with it the same way.
         void UpdatePose();
+
+        // Computes a world-space ray through the given NDC coordinates (x/y in [-1, 1], y up),
+        // from the pose last published by UpdatePose(). Must only be called from the
+        // game/fixed-step thread, same as UpdatePose() itself - this always reads what that same
+        // call just wrote, so (unlike SyncRenderTransform()'s cross-thread read) no real
+        // synchronization is needed; the atomic load is kept only to reuse the same slot-picking
+        // logic as the render side.
+        [[nodiscard]] Math::Ray GetPickingRay(float2 _ndc, bool _nearPlaneShift = true);
 
         // Interpolates between the last two poses published by UpdatePose() by _alpha (expected
         // in [0, 1]) and rebuilds the view/projection matrices from the result. Must only be

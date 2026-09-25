@@ -66,6 +66,31 @@ namespace KryneEngine::Samples
         std::atomic_ref(m_activePoseSlot).store(back, std::memory_order::release);
     }
 
+    Math::Ray OrbitCamera::GetPickingRay(const float2 _ndc, const bool _nearPlaneShift)
+    {
+        const u8 active = std::atomic_ref(m_activePoseSlot).load(std::memory_order::acquire);
+        const Pose& pose = m_poseSlots[active];
+
+        // Same local basis (right/forward/up) as the view-space direction reconstructed in
+        // DeferredShading.hlsl, from screen-space NDC.
+        const float halfFovTan = std::tan(m_fov * 0.5f);
+        const float3 localDirection(
+            _ndc.x * m_aspectRatio * halfFovTan,
+            1.0f,
+            _ndc.y * halfFovTan);
+
+        Math::Quaternion viewToWorld = pose.m_rotation;
+        viewToWorld.Conjugate();
+
+        const float3 worldDirection = viewToWorld.ApplyTo(localDirection);
+
+        return {
+            viewToWorld.ApplyTo(pose.m_translation * -1.f)
+                + (_nearPlaneShift ? worldDirection * m_near : float3(0.f)),
+            worldDirection.Normalized(),
+        };
+    }
+
     void OrbitCamera::BuildMatrices(const float3& _translation, const Math::Quaternion& _rotation)
     {
         auto viewMatrix = ToMatrix44<float4x4_simd>(ToMatrix33<float3x3>(_rotation));
