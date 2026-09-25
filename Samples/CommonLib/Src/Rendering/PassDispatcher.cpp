@@ -52,9 +52,9 @@ namespace KryneEngine::Samples
             }
         }
 
-        if (totalInstances > m_instanceBuffer.GetSize(_graphicsContext.GetCurrentFrameContextIndex()))
+        if (totalInstances * sizeof(u32) > m_instanceBuffer.GetSize(_graphicsContext.GetCurrentFrameContextIndex()))
         {
-            m_instanceBuffer.RequestResize(Alignment::AlignUp(totalInstances, 128uz));
+            m_instanceBuffer.RequestResize(sizeof(u32) * Alignment::AlignUp(totalInstances, 128uz));
         }
 
         // Update and transfer instances buffer
@@ -241,7 +241,7 @@ namespace KryneEngine::Samples
             &_graphicsContext,
             {
                 .m_desc = {
-                    .m_size = Alignment::AlignUp(m_drawInstanceManager->m_instanceData.size() + 1, 128uz),
+                    .m_size = sizeof(u32) * Alignment::AlignUp(m_drawInstanceManager->m_instanceData.size() + 1, 128uz),
 #if !defined(KE_FINAL)
                     .m_debugName = name,
 #endif
