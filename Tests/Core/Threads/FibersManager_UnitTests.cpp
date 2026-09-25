@@ -5,6 +5,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <KryneEngine/Core/Platform/Cpu.hpp>
 #include <KryneEngine/Core/Platform/StdAlloc.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <atomic>
@@ -16,6 +17,34 @@
 
 namespace KryneEngine::Tests
 {
+    namespace
+    {
+        // FibersManager pins fiber thread i to core i (FiberThread::SetThreadHardwareAffinity()),
+        // so asking for more fiber threads than this process can actually be scheduled onto makes
+        // that pinning fail for the excess threads -- which, via the KE_ASSERT() around that call,
+        // crashes the whole test binary rather than just failing the one test. CI runners can have
+        // as few as 4 usable cores, well below the thread counts below (chosen to stress the
+        // scheduler with plenty of contention on a typical dev machine), so every FibersManager
+        // construction in this file is clamped through this instead of using a raw literal.
+        //
+        // Deliberately uses Platform::GetUsableCpuCoreCount() rather than
+        // std::thread::hardware_concurrency(): on Linux, hardware_concurrency() reports the host's
+        // total core count (sysconf(_SC_NPROCESSORS_ONLN)), which ignores any cgroup/cpuset
+        // restriction actually limiting which cores this process can be scheduled on -- e.g. inside
+        // a container capped to 4 cores on a bigger host, it can still report far more than 4,
+        // making this clamp a no-op exactly where it's needed most. GetUsableCpuCoreCount() reports
+        // the process' actual usable core set (the same number `nproc` would print on Linux), which
+        // is the number that matters for whether SetThreadHardwareAffinity()'s
+        // pthread_setaffinity_np() call below can succeed.
+        u16 ClampFiberThreadCount(const u16 _desired)
+        {
+            const u32 usableCores = Platform::GetUsableCpuCoreCount();
+            return usableCores > 0
+                ? eastl::min<u16>(_desired, static_cast<u16>(usableCores))
+                : _desired;
+        }
+    }
+
     // Regression test for a bug in FibersManager::WaitForCounters()'s non-fiber branch (the one
     // taken when it's called from a thread that isn't one of the fiber worker threads, e.g. the
     // main thread driving the engine's frame loop).
@@ -35,7 +64,7 @@ namespace KryneEngine::Tests
     TEST(FibersManager, WaitForCountersFromNonFiberThread)
     {
         AllocatorInstance allocator{};
-        FibersManager fibersManager(4, allocator);
+        FibersManager fibersManager(ClampFiberThreadCount(4), allocator);
 
         constexpr u32 kIterations = 200;
         constexpr u32 kJobsPerIteration = 4;
@@ -77,7 +106,7 @@ namespace KryneEngine::Tests
     TEST(FibersManager, WaitingJobIsNeverHandedBackToItselfAsNextJob)
     {
         AllocatorInstance allocator{};
-        FibersManager fibersManager(8, allocator);
+        FibersManager fibersManager(ClampFiberThreadCount(8), allocator);
 
         constexpr u32 kWaitingJobs = 2;
         constexpr u32 kRoundsPerJob = 200;
@@ -126,7 +155,7 @@ namespace KryneEngine::Tests
     TEST(FibersManager, StaleSyncCounterIdIsNeverReused)
     {
         AllocatorInstance allocator{};
-        FibersManager fibersManager(8, allocator);
+        FibersManager fibersManager(ClampFiberThreadCount(8), allocator);
 
         constexpr u32 kChurners = 16;
         constexpr u32 kRoundsPerChurner = 300;
@@ -183,7 +212,7 @@ namespace KryneEngine::Tests
     TEST(FibersManager, DecrementCounterValueNeverWakesAStaleWaiter)
     {
         AllocatorInstance allocator{};
-        FibersManager fibersManager(8, allocator);
+        FibersManager fibersManager(ClampFiberThreadCount(8), allocator);
 
         constexpr u32 kChurners = 48;
         constexpr u32 kRoundsPerChurner = 800;
@@ -230,7 +259,7 @@ namespace KryneEngine::Tests
     TEST(FibersManager, OnContextSwitchedNeverTouchesAFinishedJob)
     {
         AllocatorInstance allocator{};
-        FibersManager fibersManager(4, allocator);
+        FibersManager fibersManager(ClampFiberThreadCount(4), allocator);
 
         constexpr u32 kIterations = 50;
         constexpr u32 kJobsPerIteration = 4;
@@ -270,7 +299,7 @@ namespace KryneEngine::Tests
     TEST(FibersManager, WaitForCountersRegistersAllCountersBeforeYielding)
     {
         AllocatorInstance allocator{};
-        FibersManager fibersManager(4, allocator);
+        FibersManager fibersManager(ClampFiberThreadCount(4), allocator);
 
         std::atomic<bool> waiterCompleted = false;
 
@@ -331,7 +360,7 @@ namespace KryneEngine::Tests
     TEST(FibersManager, RetrieveNextJobRequeuesOnAllocationFailure)
     {
         AllocatorInstance allocator{};
-        FibersManager fibersManager(8, allocator);
+        FibersManager fibersManager(ClampFiberThreadCount(8), allocator);
 
         // kSmallStackCount (FiberContext.hpp) is 128; comfortably exceed it.
         constexpr u32 kJobsToStart = 128 + 16;
@@ -424,7 +453,7 @@ namespace KryneEngine::Tests
     TEST(FibersManager, InitAndBatchJobsNeverCopiesTheSharedCallable)
     {
         AllocatorInstance allocator{};
-        FibersManager fibersManager(4, allocator);
+        FibersManager fibersManager(ClampFiberThreadCount(4), allocator);
 
         struct CopyCounter
         {
