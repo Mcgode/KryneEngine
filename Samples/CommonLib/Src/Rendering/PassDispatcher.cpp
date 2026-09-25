@@ -136,7 +136,7 @@ namespace KryneEngine::Samples
     void PassDispatcher::Dispatch(GraphicsContext& _graphicsContext, const RenderCommandEncoderHandle _renderEncoder)
     {
         const DynamicArray<u64> sortedModels(m_drawInstanceManager->m_allocator, m_dispatchData->m_models.size());
-        eastl::copy(m_dispatchData->m_models.begin(), m_dispatchData->m_models.end(), sortedModels.begin());
+        for (size_t i = 0; i < m_dispatchData->m_models.size(); ++i) sortedModels[i] = i;
         eastl::sort(sortedModels.begin(), sortedModels.end(), [this](const u64 _a, const u64 _b)
         {
             const auto* a = m_materialManager->GetMaterialPipeline(
