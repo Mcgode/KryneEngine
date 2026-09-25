@@ -23,6 +23,15 @@ namespace Quaternion
         return float4(-_quaternion.xyz, _quaternion.w);
     }
 
+    // The three lowest components are packed as 20-bit two's complement signed integers; shifting
+    // the field up against the top of a 32-bit word and back down with an arithmetic shift sign-
+    // extends it.
+    int SignExtendBitfield(const in uint _value, const in uint _bits)
+    {
+        const uint shift = 32u - _bits;
+        return asint(_value << shift) >> shift;
+    }
+
     float4 Unpack64(const in uint2 _packed)
     {
         const uint highestIndex = bitfieldExtract(_packed.x, 2, 0);
@@ -31,10 +40,16 @@ namespace Quaternion
             bitfieldExtract(_packed.x, 10, 22) | (bitfieldExtract(_packed.y, 10, 0) << 10),
             bitfieldExtract(_packed.y, 20, 10)
         );
+        const int3 signedValues = int3(
+            SignExtendBitfield(packedValues.x, 20),
+            SignExtendBitfield(packedValues.y, 20),
+            SignExtendBitfield(packedValues.z, 20));
 
-        const float scale = sqrt(2) / (float(1 << 19) -1.f);
-        const float3 lowestComponents = float3(packedValues) * scale;
-        const float highestComponent = sqrt(1 - dot(lowestComponents, lowestComponents));
+        // Matches the encoding scale used by QuaternionBase<T>::Pack64() on the CPU:
+        // component = rawValue / (sqrt(2) * ((1 << 19) - 1))
+        const float scale = (sqrt(2) * 0.5f) / (float(1 << 19) - 1.f);
+        const float3 lowestComponents = float3(signedValues) * scale;
+        const float highestComponent = sqrt(saturate(1 - dot(lowestComponents, lowestComponents)));
 
         float4 quaternion;
         quaternion[highestIndex] = highestComponent;
