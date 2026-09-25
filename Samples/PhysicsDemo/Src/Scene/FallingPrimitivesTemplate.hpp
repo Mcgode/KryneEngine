@@ -30,10 +30,10 @@ namespace KryneEngine::Samples::PhysicsDemo
         void Process(SceneBuildContext& _context, float _deltaTime) override;
 
     private:
-        static constexpr u32 kRingBufferCapacity = 24;
-        static constexpr float kSpawnInterval = 0.35f;
+        static constexpr u32 kRingBufferCapacity = 128;
+        static constexpr float kSpawnInterval = 0.1f;
         static constexpr float kSpawnHeight = 6.f;
-        static constexpr float kSpawnAreaHalfExtent = 3.f; // half-width of the XY spawn square
+        static constexpr float kSpawnAreaHalfExtent = 5.f; // half-width of the XY spawn square
 
         eastl::array<EntityHandle, kRingBufferCapacity> m_ringBuffer {};
         u32 m_ringCursor = 0;
