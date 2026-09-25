@@ -13,6 +13,8 @@ add_executable(PhysicsDemo
         Src/Scene/FallingPrimitivesTemplate.hpp
         Src/Scene/PrecariouslyStackingBoxesTemplate.cpp
         Src/Scene/PrecariouslyStackingBoxesTemplate.hpp
+        Src/Scene/DraggableBoxesTemplate.cpp
+        Src/Scene/DraggableBoxesTemplate.hpp
 )
 
 target_link_libraries(PhysicsDemo

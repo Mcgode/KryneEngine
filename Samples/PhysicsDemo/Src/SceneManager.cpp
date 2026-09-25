@@ -10,6 +10,7 @@
 #include "PassTypes.hpp"
 #include "RenderTargetFormats.hpp"
 #include "Rendering/Fullscreen/FullscreenPassConstants.hpp"
+#include "Scene/DraggableBoxesTemplate.hpp"
 #include "Scene/FallingPrimitivesTemplate.hpp"
 #include "Scene/PrecariouslyStackingBoxesTemplate.hpp"
 
@@ -228,7 +229,8 @@ namespace KryneEngine::Samples::PhysicsDemo
             if (m_currentSceneTemplate != nullptr)
             {
                 KE_ZoneScoped("Scene template: Process");
-                SceneBuildContext context(m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities);
+                SceneBuildContext context(
+                    m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities, m_world, *m_orbitCamera);
                 m_currentSceneTemplate->Process(context, m_physicsTimeStep * m_simulationScale);
             }
 
@@ -636,7 +638,13 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_allocator.Delete(m_currentSceneTemplate);
         }
 
-        SceneBuildContext context(m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities);
+        SceneBuildContext context(
+            m_geometryLibrary,
+            m_worldObjectSystem,
+            m_geometryModels,
+            m_sceneEntities,
+            m_world,
+            *m_orbitCamera);
         _newTemplate->Build(context);
 
         m_currentSceneTemplate = _newTemplate;
@@ -655,6 +663,8 @@ namespace KryneEngine::Samples::PhysicsDemo
                     RequestLoadScene(m_allocator.New<PrecariouslyStackingBoxesTemplate>());
                 if (ImGui::MenuItem(FallingPrimitivesTemplate::kName))
                     RequestLoadScene(m_allocator.New<FallingPrimitivesTemplate>());
+                if (ImGui::MenuItem(DraggableBoxesTemplate::kName))
+                    RequestLoadScene(m_allocator.New<DraggableBoxesTemplate>());
                 ImGui::EndMenu();
             }
             ImGui::EndMenu();

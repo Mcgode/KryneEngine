@@ -13,6 +13,7 @@
 #include <EASTL/array.h>
 #include <EASTL/vector.h>
 #include <KryneEngine/Core/Memory/SimplePool.hpp>
+#include <Scene/OrbitCamera.hpp>
 
 namespace KryneEngine::Samples::PhysicsDemo
 {
@@ -43,14 +44,44 @@ namespace KryneEngine::Samples::PhysicsDemo
             GeometryLibrary& _geometryLibrary,
             WorldObjectSystem& _worldObjectSystem,
             const GeometryModelArray& _geometryModels,
-            eastl::vector<EntityHandle>& _createdEntities)
+            eastl::vector<EntityHandle>& _createdEntities,
+            b3WorldId _world,
+            OrbitCamera& _orbitCamera)
                 : m_geometryLibrary(_geometryLibrary)
                 , m_worldObjectSystem(_worldObjectSystem)
                 , m_geometryModels(_geometryModels)
                 , m_createdEntities(_createdEntities)
+                , m_world(_world)
+                , m_orbitCamera(_orbitCamera)
         {}
 
         [[nodiscard]] GeometryLibrary& GetGeometryLibrary() const { return m_geometryLibrary; }
+
+        // Computes a world-space picking ray through the given NDC coordinates (x/y in [-1, 1],
+        // y up); see OrbitCamera::GetPickingRay for the threading contract this follows (same as
+        // Build()/Process() themselves).
+        [[nodiscard]] Math::Ray GetPickingRay(const float2 _ndc) const
+        {
+            return m_orbitCamera.GetPickingRay(_ndc);
+        }
+
+        // Casts a ray against every shape in the physics world and returns the closest hit, if
+        // any (check the result's `hit` field). _translation is the ray's end point relative to
+        // _origin (i.e. direction * max distance, not a normalized direction).
+        [[nodiscard]] b3RayResult CastRayClosest(const float3& _origin, const float3& _translation) const
+        {
+            return b3World_CastRayClosest(
+                m_world,
+                b3Pos { _origin.x, _origin.y, _origin.z },
+                b3Vec3 { _translation.x, _translation.y, _translation.z },
+                b3DefaultQueryFilter());
+        }
+
+        // Escape hatch for physics objects that have no render representation and so don't belong
+        // in the entity bookkeeping CreateEntity()/DestroyEntity() provide (e.g. joints, or a
+        // kinematic body used purely as a joint anchor): a template using this is responsible for
+        // destroying whatever it creates through it (typically from its own destructor).
+        [[nodiscard]] b3WorldId GetWorld() const { return m_world; }
 
         [[nodiscard]] SimplePoolHandle GetModel(const GeometryType _type) const
         {
@@ -88,6 +119,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         WorldObjectSystem& m_worldObjectSystem;
         const GeometryModelArray& m_geometryModels;
         eastl::vector<EntityHandle>& m_createdEntities;
+        b3WorldId m_world;
+        OrbitCamera& m_orbitCamera;
     };
 
     /**
