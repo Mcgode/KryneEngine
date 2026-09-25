@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <EASTL/array.h>
 #include <EASTL/span.h>
 #include <KryneEngine/Core/Threads/FiberJob.hpp>
