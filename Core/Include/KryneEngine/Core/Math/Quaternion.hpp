@@ -92,6 +92,9 @@ namespace KryneEngine::Math
         [[nodiscard]] u32 Pack32() const;
         [[nodiscard]] u64 Pack64() const;
 
+        [[nodiscard]] static QuaternionBase Unpack32(u32 _packed);
+        [[nodiscard]] static QuaternionBase Unpack64(u64 _packed);
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCInconsistentNamingInspection"
         T w;

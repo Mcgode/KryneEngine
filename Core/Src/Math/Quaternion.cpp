@@ -181,6 +181,53 @@ namespace KryneEngine::Math
         return result;
     }
 
+    template <class T>
+    QuaternionBase<T> UnpackLowestThree(u32 _maxIdx, u32 _a, u32 _b, u32 _c, u8 _bits)
+    {
+        constexpr T halfSqrt = M_SQRT2 * 0.5;
+        const T scale = static_cast<T>((1 << (_bits - 1)) - 1) / halfSqrt;
+
+        const u32 signBit = 1u << (_bits - 1);
+        const auto unpackComponent = [signBit, scale](u32 _rawValue) -> T
+        {
+            const s32 signedValue = static_cast<s32>((_rawValue ^ signBit) - signBit);
+            return static_cast<T>(signedValue) / scale;
+        };
+
+        const T a = unpackComponent(_a);
+        const T b = unpackComponent(_b);
+        const T c = unpackComponent(_c);
+        const T d = std::sqrt(eastl::max(T(0), T(1) - a * a - b * b - c * c));
+
+        switch (_maxIdx)
+        {
+        case 0: return QuaternionBase<T>(d, a, b, c);
+        case 1: return QuaternionBase<T>(a, d, b, c);
+        case 2: return QuaternionBase<T>(a, b, d, c);
+        default: return QuaternionBase<T>(a, b, c, d);
+        }
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T> QuaternionBase<T>::Unpack32(u32 _packed)
+    {
+        const u32 maxIdx = BitUtils::BitfieldExtract(_packed, 2, 0);
+        const u32 a = BitUtils::BitfieldExtract(_packed, 10, 2);
+        const u32 b = BitUtils::BitfieldExtract(_packed, 10, 12);
+        const u32 c = BitUtils::BitfieldExtract(_packed, 10, 22);
+        return UnpackLowestThree<T>(maxIdx, a, b, c, 10);
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T> QuaternionBase<T>::Unpack64(u64 _packed)
+    {
+        const u32 maxIdx = static_cast<u32>(BitUtils::BitfieldExtract(_packed, 2, 0));
+        const u32 a = static_cast<u32>(BitUtils::BitfieldExtract(_packed, 20, 2));
+        const u32 b = static_cast<u32>(BitUtils::BitfieldExtract(_packed, 20, 22));
+        const u32 c = static_cast<u32>(BitUtils::BitfieldExtract(_packed, 20, 42));
+        return UnpackLowestThree<T>(maxIdx, a, b, c, 20);
+    }
+
     template struct QuaternionBase<float>;
     template struct QuaternionBase<double>;
 } // namespace KryneEngine::Math
