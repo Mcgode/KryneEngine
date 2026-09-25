@@ -58,6 +58,10 @@ namespace KryneEngine::Samples
 
         void UnregisterInstance(SimplePoolHandle _instance);
 
+        SimplePoolHandle GetInstanceModel(SimplePoolHandle _instance) const;
+        const float3& GetInstancePosition(SimplePoolHandle _instance) const;
+        Math::Quaternion GetInstanceRotation(SimplePoolHandle _instance) const;
+
         void SetInstanceTransform(
             SimplePoolHandle _instance,
             float3 _position,

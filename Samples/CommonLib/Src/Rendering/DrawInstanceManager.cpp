@@ -157,6 +157,26 @@ namespace KryneEngine::Samples
         m_instances.Free(_instance);
     }
 
+    SimplePoolHandle DrawInstanceManager::GetInstanceModel(const SimplePoolHandle _instance) const
+    {
+        KE_ASSERT(m_instances.Get(_instance).m_valid);
+        return m_instances.Get(_instance).m_model;
+    }
+
+    const float3& DrawInstanceManager::GetInstancePosition(const SimplePoolHandle _instance) const
+    {
+        KE_ASSERT(m_instances.Get(_instance).m_valid);
+        return m_instanceData[_instance].m_position;
+    }
+
+    Math::Quaternion DrawInstanceManager::GetInstanceRotation(const SimplePoolHandle _instance) const
+    {
+        KE_ASSERT(m_instances.Get(_instance).m_valid);
+        const u64 packed = static_cast<u64>(m_instanceData[_instance].m_packedRotation0)
+            | (static_cast<u64>(m_instanceData[_instance].m_packedRotation1) << 32);
+        return Math::Quaternion::Unpack64(packed);
+    }
+
     void DrawInstanceManager::SetInstanceTransform(
         const SimplePoolHandle _instance,
         const float3 _position,
