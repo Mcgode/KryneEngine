@@ -18,7 +18,14 @@ namespace KryneEngine::Samples::PhysicsDemo
     {
         b3Quat ToB3(const Math::Quaternion& _q)
         {
-            return b3Quat { { _q.x, _q.y, _q.z }, _q.w };
+            return b3Quat {
+                .v = {
+                    .x = _q.x,
+                    .y = _q.y,
+                    .z = _q.z
+                },
+                .s = _q.w
+            };
         }
 
         Math::Quaternion FromB3(const b3Quat& _q)

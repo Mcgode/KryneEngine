@@ -6,14 +6,13 @@
 
 #pragma once
 
-#include <box3d/box3d.h>
 #include <EASTL/vector.h>
 #include <KryneEngine/Core/Math/Quaternion.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
-#include <KryneEngine/Core/Memory/Containers/SpscQueue.hpp>
 #include <KryneEngine/Core/Memory/GenerationalPool.hpp>
 #include <KryneEngine/Core/Memory/SimplePool.hpp>
+#include <box3d/box3d.h>
 
 namespace KryneEngine::Samples
 {
