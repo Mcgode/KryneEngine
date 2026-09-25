@@ -43,11 +43,22 @@ namespace KryneEngine
                 return *reinterpret_cast<const u32*>(this);
             }
 
-            static Handle FromU32(u32 _rawHandle)
+            static Handle FromU32(const u32 _rawHandle)
             {
                 Handle handle {};
                 *reinterpret_cast<u32*>(&handle) = _rawHandle;
                 return handle;
+            }
+
+            explicit operator void*() const
+            {
+                static_assert(sizeof(void*) >= sizeof(Handle));
+                return reinterpret_cast<void*>(static_cast<u32>(*this));
+            }
+
+            static Handle FromVoidPtr(const void* _ptr)
+            {
+                return FromU32(reinterpret_cast<u64>(_ptr));
             }
         };
 
