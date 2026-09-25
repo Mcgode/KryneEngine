@@ -4,18 +4,8 @@ add_executable(RenderGraphDemo
         RenderGraphDemo.cpp
         Scene/SceneManager.cpp
         Scene/SceneManager.hpp
-        Scene/OrbitCamera.cpp
-        Scene/OrbitCamera.hpp
-        Scene/SunLight.cpp
-        Scene/SunLight.hpp
-        Rendering/DeferredShadingPass.cpp
-        Rendering/DeferredShadingPass.hpp
-        Rendering/FullscreenPassCommon.cpp
-        Rendering/FullscreenPassCommon.hpp
-        Rendering/SkyPass.cpp
-        Rendering/SkyPass.hpp
-        Rendering/ColorMappingPass.cpp
-        Rendering/ColorMappingPass.hpp
+        Scene/TorusKnot.cpp
+        Scene/TorusKnot.hpp
         Rendering/DeferredShadowPass.cpp
         Rendering/DeferredShadowPass.hpp
         Rendering/GiPass.cpp
@@ -32,7 +22,7 @@ target_link_libraries(RenderGraphDemo
 set_target_properties(RenderGraphDemo PROPERTIES FOLDER "EngineSamples")
 
 # Link shader libraries and compile sample shaders
-target_link_shader_libraries(RenderGraphDemo ShaderLib)
+target_link_shader_libraries(RenderGraphDemo ShaderLib Samples_CommonLib)
 target_compile_shaders(RenderGraphDemo Shaders Examples/RenderGraphDemo)
 
 # Symlink compiled shaders directory

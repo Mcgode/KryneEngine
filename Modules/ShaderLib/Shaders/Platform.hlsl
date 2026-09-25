@@ -14,3 +14,9 @@ float4 unpackUnorm4x8ToFloat(uint _packedUnorm)
     const uint4 rgba = (_packedUnorm >> shifts) & 0xff;
     return float4(rgba) / 255.0f;
 }
+
+uint bitfieldExtract(const in uint _value, const in uint _size, const in uint _offset)
+{
+    const uint bitmask = (1u << _size) - 1u;
+    return (_value >> _offset) & bitmask;
+}

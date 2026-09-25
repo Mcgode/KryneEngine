@@ -14,8 +14,8 @@
 namespace KryneEngine
 {
     template <class T>
-    concept IsAllocatorVarIntrusible = requires(T)
-    { { T::m_allocator } -> std::same_as<AllocatorInstance>; };
+    concept IsAllocatorVarIntrusible = requires(T _t)
+    { { _t.m_allocator } -> std::convertible_to<AllocatorInstance>; };
 
     template <class T>
     concept IsAllocatorGetterIntrusible = requires(T _t)
@@ -127,14 +127,14 @@ namespace KryneEngine
     };
 
     template <class T, class... Args> requires IsAllocatorIntrusible<T>
-    IntrusiveUniquePtr<T>&& MakeIntrusiveUniquePtr(AllocatorInstance _allocator, Args... _args)
+    IntrusiveUniquePtr<T> MakeIntrusiveUniquePtr(AllocatorInstance _allocator, Args&&... _args)
     {
-        return std::move(IntrusiveUniquePtr<T>(_allocator.New<T>(_allocator, _args...)));
+        return IntrusiveUniquePtr<T>(_allocator.New<T>(_allocator, std::forward<Args>(_args)...));
     }
 
     template <class T, class... Args> requires IsAllocatorIntrusible<T> && IsRefCountIntrusible<T>
-    IntrusiveSharedPtr<T>&& MakeIntrusiveSharedPtr(AllocatorInstance _allocator, Args... _args)
+    IntrusiveSharedPtr<T> MakeIntrusiveSharedPtr(AllocatorInstance _allocator, Args&&... _args)
     {
-        return std::move(IntrusiveSharedPtr<T>(_allocator.New<T>(_allocator, _args...)));
+        return IntrusiveSharedPtr<T>(_allocator.New<T>(_allocator, std::forward<Args>(_args)...));
     }
 }

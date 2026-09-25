@@ -7,14 +7,14 @@
 #pragma once
 
 #include <cstddef>
-#include <cstring>
+#include <utility>
 
 namespace KryneEngine
 {
     class IAllocator
     {
     public:
-        explicit IAllocator(const char* _name, const bool _customProfiling = false);
+        explicit IAllocator(const char* _name, bool _customProfiling = false);
         virtual ~IAllocator() = default;
 
         virtual void* Allocate(size_t _size, size_t _alignment) = 0;
@@ -38,8 +38,8 @@ namespace KryneEngine
         AllocatorInstance& operator=(AllocatorInstance&&) = default;
         ~AllocatorInstance() = default;
 
-        AllocatorInstance(const char*) {};
-        AllocatorInstance(AllocatorInstance& _other, const char*): m_allocator(_other.m_allocator) {};
+        explicit AllocatorInstance(const char*) {};
+        AllocatorInstance(const AllocatorInstance& _other, const char*): m_allocator(_other.m_allocator) {};
         AllocatorInstance(IAllocator* _allocator): m_allocator(_allocator) {}
 
         [[nodiscard]] void* allocate(size_t _size, int _flags = 0) const;
@@ -47,7 +47,7 @@ namespace KryneEngine
         void deallocate(void* _ptr, size_t _size = 0) const;
 
         template <class T>
-        inline T* Allocate(size_t _count = 1) const
+        inline T* Allocate(const size_t _count = 1) const
         {
             return static_cast<T*>(allocate(_count * sizeof(T), alignof(T)));
         }
@@ -55,7 +55,7 @@ namespace KryneEngine
         template <class T, class... Args>
         inline T* New(Args&&... _args) const
         {
-            return new (Allocate<T>()) T(_args...);
+            return new (Allocate<T>()) T(std::forward<Args>(_args)...);
         }
 
         template <class T>
@@ -84,7 +84,7 @@ namespace KryneEngine
     struct AllocatorInstanceDeleter final
     {
     public:
-        AllocatorInstanceDeleter(AllocatorInstance _allocator = {})
+        AllocatorInstanceDeleter(const AllocatorInstance _allocator = {})
             : m_allocator(_allocator)
         {}
 

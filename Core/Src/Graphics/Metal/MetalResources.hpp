@@ -139,7 +139,6 @@ namespace KryneEngine
         {
             TextureFormat m_pixelFormat;
             u16 m_slice;
-            u16 m_depthSlice;
             u8 m_mipLevel;
             TexturePlane m_plane;
         };
@@ -168,7 +167,7 @@ namespace KryneEngine
         GenerationalPool<RenderPassHotData> m_renderPasses;
 
     public:
-        ShaderModuleHandle LoadLibrary(MTL::Device& _device, void* _bytecode, size_t _size);
+        ShaderModuleHandle LoadLibrary(MTL::Device& _device, const void* _bytecode, size_t _size);
         bool FreeLibrary(ShaderModuleHandle _library);
 
     private:

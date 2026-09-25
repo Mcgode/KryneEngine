@@ -58,6 +58,7 @@ set(MathSrc
         Include/KryneEngine/Core/Math/Transform.hpp
         Include/KryneEngine/Core/Math/Projection.hpp
         Include/KryneEngine/Core/Math/BoundingBox.hpp
+        Include/KryneEngine/Core/Math/Ray.hpp
         Include/KryneEngine/Core/Math/Float16.hpp
         Src/Math/Float16.cpp
         Include/KryneEngine/Core/Math/Color.hpp
@@ -68,6 +69,7 @@ set(MathSrc
         Include/KryneEngine/Core/Math/Simd/SimdMathOperations.hpp
         Include/KryneEngine/Core/Math/Simd/SimdCompareOperations.hpp
         Include/KryneEngine/Core/Math/Simd/VectorUtils.hpp
+        Src/Math/Quaternion.cpp
 )
 
 set(MemorySrc
@@ -97,6 +99,7 @@ set(MemorySrc
         Include/KryneEngine/Core/Memory/Allocators/StackAllocator.hpp
         Include/KryneEngine/Core/Memory/Containers/LruCache.inl
         Include/KryneEngine/Core/Memory/Containers/LruCache.hpp
+        Include/KryneEngine/Core/Memory/Containers/SpscQueue.hpp
 )
 
 message(STATUS "Loading implementation for platform '${CMAKE_SYSTEM_NAME}'")
@@ -301,7 +304,14 @@ AddCoverage(KryneEngine_Core)
 add_library(KryneEngine_Core_Link INTERFACE)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        target_link_libraries(KryneEngine_Core_Link INTERFACE "$<LINK_GROUP:RESCAN,KryneEngine_Core,EASTL,EAStdC>")
+        # Wrapping KryneEngine_Core in a LINK_GROUP genex (to break the circular EASTL/EAStdC
+        # static-lib dependency on GNU ld) stops CMake from walking into it to propagate its
+        # OTHER public link dependencies (glfw, Tracy, Vulkan, etc.) to consumers of this
+        # interface target. Re-forward them explicitly via its INTERFACE_LINK_LIBRARIES property.
+        target_link_libraries(KryneEngine_Core_Link INTERFACE
+                "$<LINK_GROUP:RESCAN,KryneEngine_Core,EASTL,EAStdC>"
+                "$<TARGET_PROPERTY:KryneEngine_Core,INTERFACE_LINK_LIBRARIES>"
+        )
 else ()
         target_link_libraries(KryneEngine_Core_Link INTERFACE KryneEngine_Core)
 endif ()

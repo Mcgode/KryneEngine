@@ -18,24 +18,15 @@ namespace KryneEngine
         u32 _timestampPoolSize)
         : m_allocator(_allocator)
     {
-        const auto CreateCommandPool = [this, _device](
+        const auto InitCommandPoolSet = [this, _device](
                 const VkCommonStructures::QueueIndices::Pair& _pair,
                 CommandPoolSet& _commandPoolSet)
         {
-            KE_ZoneScopedFunction("VkFrameContext::CreateCommandPool");
+            KE_ZoneScopedFunction("VkFrameContext::InitCommandPoolSet");
 
             if (!_pair.IsInvalid())
             {
-                // Create command pool
-	            {
-		            const VkCommandPoolCreateInfo createInfo {
-                            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-                            .queueFamilyIndex =  static_cast<u32>(_pair.m_indexInFamily)
-		            };
-
-                    VkAssert(vkCreateCommandPool(_device, &createInfo, nullptr, &_commandPoolSet.m_commandPool));
-	            }
+                _commandPoolSet.m_queueFamilyIndex = static_cast<u32>(_pair.m_indexInFamily);
 
                 // Create fence
 	            {
@@ -60,9 +51,9 @@ namespace KryneEngine
             }
         };
 
-        CreateCommandPool(_queueIndices.m_graphicsQueueIndex, m_graphicsCommandPoolSet);
-        CreateCommandPool(_queueIndices.m_computeQueueIndex, m_computeCommandPoolSet);
-        CreateCommandPool(_queueIndices.m_transferQueueIndex, m_transferCommandPoolSet);
+        InitCommandPoolSet(_queueIndices.m_graphicsQueueIndex, m_graphicsCommandPoolSet);
+        InitCommandPoolSet(_queueIndices.m_computeQueueIndex, m_computeCommandPoolSet);
+        InitCommandPoolSet(_queueIndices.m_transferQueueIndex, m_transferCommandPoolSet);
 
         if (_timestampPoolSize > 0)
         {
@@ -85,9 +76,9 @@ namespace KryneEngine
 
     VkFrameContext::~VkFrameContext()
     {
-        KE_ASSERT(!m_graphicsCommandPoolSet.m_commandPool);
-        KE_ASSERT(!m_computeCommandPoolSet.m_commandPool);
-        KE_ASSERT(!m_transferCommandPoolSet.m_commandPool);
+        KE_ASSERT(m_graphicsCommandPoolSet.m_fence == VK_NULL_HANDLE);
+        KE_ASSERT(m_computeCommandPoolSet.m_fence == VK_NULL_HANDLE);
+        KE_ASSERT(m_transferCommandPoolSet.m_fence == VK_NULL_HANDLE);
     }
 
 #if !defined(KE_FINAL)
@@ -176,35 +167,53 @@ namespace KryneEngine
 
         const auto lock = m_mutex.AutoLock();
 
+        VkCommandPool commandPool;
+        VkCommandBuffer commandBuffer;
+
         if (m_availableCommandBuffers.empty())
         {
-            KE_ZoneScoped("Allocate new command buffer");
+            KE_ZoneScoped("Allocate new command pool & buffer");
+
+            const VkCommandPoolCreateInfo poolCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                    .queueFamilyIndex = m_queueFamilyIndex,
+            };
+            VkAssert(vkCreateCommandPool(_device, &poolCreateInfo, nullptr, &commandPool));
 
             const VkCommandBufferAllocateInfo allocateInfo {
                     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                    .commandPool = m_commandPool,
+                    .commandPool = commandPool,
                     .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                     .commandBufferCount = 1
             };
-            VkAssert(vkAllocateCommandBuffers(_device, &allocateInfo, &m_usedCommandBuffers.push_back()));
+            VkAssert(vkAllocateCommandBuffers(_device, &allocateInfo, &commandBuffer));
+
+            m_usedCommandPools.push_back(commandPool);
+            m_usedCommandBuffers.push_back(commandBuffer);
 
 #if !defined(KE_FINAL)
             if (m_debugHandler != nullptr)
             {
                 eastl::string name;
+                name.sprintf("%s/CommandPool[%zu]", m_baseDebugString.c_str(), m_usedCommandBuffers.size() - 1);
+                m_debugHandler->SetName(_device, VK_OBJECT_TYPE_COMMAND_POOL, (u64)commandPool, name);
+
                 name.sprintf("%s/CommandBuffer[%zu]", m_baseDebugString.c_str(), m_usedCommandBuffers.size() - 1);
                 ZoneText(name.c_str(), name.size());
-                m_debugHandler->SetName(_device, VK_OBJECT_TYPE_COMMAND_BUFFER, (u64)m_usedCommandBuffers.back(), name);
+                m_debugHandler->SetName(_device, VK_OBJECT_TYPE_COMMAND_BUFFER, (u64)commandBuffer, name);
             }
 #endif
         }
         else
         {
-            m_usedCommandBuffers.push_back(m_availableCommandBuffers.back());
+            commandPool = m_availableCommandPools.back();
+            commandBuffer = m_availableCommandBuffers.back();
+            m_availableCommandPools.pop_back();
             m_availableCommandBuffers.pop_back();
-        }
 
-        VkCommandBuffer commandBuffer = m_usedCommandBuffers.back();
+            m_usedCommandPools.push_back(commandPool);
+            m_usedCommandBuffers.push_back(commandBuffer);
+        }
 
         const VkCommandBufferBeginInfo beginInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -228,21 +237,26 @@ namespace KryneEngine
         }
     }
 
-    void VkFrameContext::CommandPoolSet::Reset()
+    void VkFrameContext::CommandPoolSet::Reset(VkDevice _device)
     {
         KE_ZoneScopedFunction("VkFrameContext::CommandPoolSet::Reset");
 
         const auto lock = m_mutex.AutoLock();
 
-        for (auto commandBuffer: m_usedCommandBuffers)
+        for (auto commandPool: m_usedCommandPools)
         {
-            vkResetCommandBuffer(commandBuffer, 0);
+            VkAssert(vkResetCommandPool(_device, commandPool, 0));
         }
 
+        m_availableCommandPools.insert(
+                m_availableCommandPools.end(),
+                m_usedCommandPools.begin(),
+                m_usedCommandPools.end());
         m_availableCommandBuffers.insert(
                 m_availableCommandBuffers.end(),
                 m_usedCommandBuffers.begin(),
                 m_usedCommandBuffers.end());
+        m_usedCommandPools.clear();
         m_usedCommandBuffers.clear();
     }
 
@@ -254,24 +268,28 @@ namespace KryneEngine
         KE_ASSERT_MSG(!m_fence || vkGetFenceStatus(_device, m_fence) == VK_SUCCESS, "Fence should be signaled by the time the frame is destroyed");
         vkDestroyFence(_device, SafeReset(m_fence), nullptr);
 
-        if (!m_usedCommandBuffers.empty())
+        if (!m_usedCommandPools.empty())
         {
-            Reset();
+            Reset(_device);
         }
 
         const auto lock = m_mutex.AutoLock();
-        KE_ASSERT_MSG(m_usedCommandBuffers.empty(), "PoolSet should be reset before destroy");
+        KE_ASSERT_MSG(m_usedCommandPools.empty(), "PoolSet should be reset before destroy");
 
-        if (!m_usedCommandBuffers.empty())
+        // Destroying a command pool implicitly frees every command buffer allocated from it.
+        for (VkCommandPool commandPool : m_usedCommandPools)
         {
-            vkFreeCommandBuffers(_device, m_commandPool, m_usedCommandBuffers.size(), m_usedCommandBuffers.data());
+            vkDestroyCommandPool(_device, commandPool, nullptr);
         }
-        if (!m_availableCommandBuffers.empty())
-        {
-            vkFreeCommandBuffers(_device, m_commandPool, m_availableCommandBuffers.size(), m_availableCommandBuffers.data());
-        }
+        m_usedCommandPools.clear();
+        m_usedCommandBuffers.clear();
 
-        vkDestroyCommandPool(_device, SafeReset(m_commandPool), nullptr);
+        for (VkCommandPool commandPool : m_availableCommandPools)
+        {
+            vkDestroyCommandPool(_device, commandPool, nullptr);
+        }
+        m_availableCommandPools.clear();
+        m_availableCommandBuffers.clear();
     }
 
 #if !defined(KE_FINAL)
@@ -285,8 +303,6 @@ namespace KryneEngine
 
         m_debugHandler->SetName(_device, VK_OBJECT_TYPE_SEMAPHORE, (u64)m_semaphore, m_baseDebugString + "Semaphore");
         m_debugHandler->SetName(_device, VK_OBJECT_TYPE_FENCE, (u64)m_fence, m_baseDebugString + "Fence");
-
-        m_debugHandler->SetName(_device, VK_OBJECT_TYPE_COMMAND_POOL, (u64)m_commandPool, m_baseDebugString + "CommandPool");
     }
 #endif
 } // KryneEngine

@@ -38,6 +38,8 @@ namespace KryneEngine::Modules::RenderGraph
 
         Builder& DeclareTargetResource(SimplePoolHandle _resource);
 
+        const PassDeclaration& GetPass(size_t _index) { return m_declaredPasses[_index]; }
+
         void BuildDag();
 
     private:

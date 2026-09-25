@@ -1,0 +1,53 @@
+/**
+ * @file
+ * @author Max Godefroy
+ * @date 03/04/2025.
+ */
+
+#pragma once
+
+#include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
+#include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
+
+#include <KryneEngine/Modules/RenderGraph/Builder.hpp>
+
+namespace KryneEngine::Samples
+{
+    class DeferredShadingPass
+    {
+    public:
+        DeferredShadingPass(AllocatorInstance _allocator);
+        ~DeferredShadingPass() = default;
+
+        void Initialize(
+            GraphicsContext* _graphicsContext,
+            DescriptorSetLayoutHandle _sceneConstantsDescriptorSetLayout,
+            TextureViewHandle _gBuffer0,
+            TextureViewHandle _gBuffer1,
+            TextureViewHandle _gBufferDepth,
+            TextureViewHandle _deferredShadows,
+            TextureViewHandle _gBufferAmbient,
+            BufferViewHandle  _skyAmbient);
+
+        void UpdateSceneConstants(DescriptorSetHandle _sceneConstantsDescriptorSet)
+        {
+            m_sceneConstantsDescriptorSet = _sceneConstantsDescriptorSet;
+        }
+
+        void Render(const Modules::RenderGraph::RenderGraph&, const Modules::RenderGraph::PassExecutionData& _passExecutionData,
+        uint2 _renderSize);
+
+        void CreatePso(GraphicsContext* _graphicsContext, const RenderTargetSetDesc& _renderTargets);
+
+    private:
+        AllocatorInstance m_allocator;
+
+        DescriptorSetLayoutHandle m_texturesDescriptorSetLayout {};
+        DescriptorSetHandle m_sceneConstantsDescriptorSet {};
+        DescriptorSetHandle m_textureDescriptors {};
+
+        PipelineLayoutHandle m_pipelineLayout {};
+        GraphicsPipelineHandle m_pso {};
+
+    };
+}

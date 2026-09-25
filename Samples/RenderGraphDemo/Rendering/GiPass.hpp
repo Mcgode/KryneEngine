@@ -19,8 +19,8 @@ namespace KryneEngine::Samples::RenderGraphDemo
         void Initialize(
             GraphicsContext* _graphicsContext,
             DescriptorSetLayoutHandle _sceneConstantsDescriptorSetLayout,
-            TextureViewHandle _gBufferAlbedo,
-            TextureViewHandle _gBufferNormal,
+            TextureViewHandle _gBuffer0,
+            TextureViewHandle _gBuffer1,
             TextureViewHandle _gBufferDepth,
             TextureViewHandle _gBufferAmbient);
 

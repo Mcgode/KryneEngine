@@ -68,7 +68,6 @@ namespace KryneEngine
 
         const auto fibersManager = FibersManager::GetInstance();
         VERIFY_OR_RETURN_VOID(fibersManager != nullptr);
-        fibersManager->OnContextSwitched();
 
         if (KE_VERIFY(_transfer.data != nullptr))
         {
@@ -77,12 +76,17 @@ namespace KryneEngine
             fiberContext->m_mutex.ManualUnlock(); // Mark previous fiber as free to be used again.
 
 #if defined(HAS_ASAN)
+            // Tell ASAN the switch onto this fiber's stack is complete before running any other
+            // code on it, so its fake-stack bookkeeping isn't left believing we're still on the
+            // previous fiber's stack.
             __sanitizer_finish_switch_fiber(
                 nullptr,
                 &fiberContext->m_stackBottom,
                 &fiberContext->m_stackSize);
 #endif
         }
+
+        fibersManager->OnContextSwitched();
 
         while (true)
         {
@@ -93,7 +97,7 @@ namespace KryneEngine
             if (KE_VERIFY(job->m_status.load(std::memory_order_acquire) == FiberJob::Status::PendingStart))
             {
                 job->m_status.store(FiberJob::Status::Running, std::memory_order_release);
-                job->m_function(job->m_jobIndex);
+                (*job->m_function)(job->m_jobIndex);
                 job->m_status.store(FiberJob::Status::Finished, std::memory_order_release);
             }
 
@@ -101,14 +105,15 @@ namespace KryneEngine
         }
     }
 
-    FiberContextAllocator::FiberContextAllocator(AllocatorInstance _allocator)
+    FiberContextAllocator::FiberContextAllocator(const AllocatorInstance _allocator)
+        : m_allocator(_allocator)
     {
         {
             const auto smallLock = m_availableSmallContextsIds.m_spinLock.AutoLock();
             const auto bigLock = m_availableBigContextsIds.m_spinLock.AutoLock();
 
-            m_availableSmallContextsIds.m_priorityQueue.get_container().set_allocator(_allocator);
-            m_availableBigContextsIds.m_priorityQueue.get_container().set_allocator(_allocator);
+            m_availableSmallContextsIds.m_priorityQueue.get_container().set_allocator(m_allocator);
+            m_availableBigContextsIds.m_priorityQueue.get_container().set_allocator(m_allocator);
 
             m_availableSmallContextsIds.m_priorityQueue.get_container().reserve(kSmallStackCount);
             for (u16 i = 0; i < kSmallStackCount; i++)
@@ -122,10 +127,10 @@ namespace KryneEngine
                 m_availableBigContextsIds.m_priorityQueue.push(i + kSmallStackCount);
             }
 
-            m_smallStacks = static_cast<SmallStack*>(_allocator.allocate(
+            m_smallStacks = static_cast<SmallStack*>(m_allocator.allocate(
                 sizeof(SmallStack) * static_cast<size_t>(kSmallStackCount),
                 kStackAlignment));
-            m_bigStacks = static_cast<BigStack*>(_allocator.allocate(
+            m_bigStacks = static_cast<BigStack*>(m_allocator.allocate(
                 sizeof(BigStack) * static_cast<size_t>(kBigStackCount),
                 kStackAlignment));
 
@@ -164,9 +169,8 @@ namespace KryneEngine
 
     FiberContextAllocator::~FiberContextAllocator()
     {
-        AllocatorInstance allocator {};
-        allocator.deallocate(m_smallStacks);
-        allocator.deallocate(m_bigStacks);
+        m_allocator.deallocate(m_smallStacks);
+        m_allocator.deallocate(m_bigStacks);
     }
 
     bool FiberContextAllocator::Allocate(bool _bigStack, u16 &id_)
@@ -176,6 +180,10 @@ namespace KryneEngine
                 : m_availableSmallContextsIds;
 
         const auto lock = queue.m_spinLock.AutoLock();
+        // Deliberately kept as a trapping assert rather than a silent log: the pool running dry is
+        // recoverable (RetrieveNextJob() requeues the job and retries once a context frees up), but
+        // still worth surfacing loudly in debug builds so it doesn't go unnoticed -- the caller
+        // handling it gracefully is a safety net, not a reason to stop flagging the condition.
         IF_NOT_VERIFY_MSG(!queue.m_priorityQueue.empty(), "Out of Fiber stacks!")
         {
             return false;

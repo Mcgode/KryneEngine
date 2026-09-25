@@ -390,6 +390,15 @@ namespace KryneEngine
         [[nodiscard]] D3D12_BARRIER_LAYOUT ToDx12BarrierLayout(TextureLayout _layout);
         [[nodiscard]] D3D12_RESOURCE_STATES RetrieveState(BarrierAccessFlags _access, TextureLayout _layout);
 
+        // Determines which plane(s) a DXGI_FORMAT covers: both a resource's own creation-time format
+        // (e.g. DXGI_FORMAT_D24_UNORM_S8_UINT, or its typeless base DXGI_FORMAT_R24G8_TYPELESS) and
+        // a single-plane view format of a combined depth/stencil resource (e.g.
+        // DXGI_FORMAT_R24_UNORM_X8_TYPELESS for the depth plane, DXGI_FORMAT_X24_TYPELESS_G8_UINT for
+        // the stencil plane) are recognized. Ambiguous formats - ones also used for plain color
+        // textures, such as DXGI_FORMAT_R32_FLOAT or DXGI_FORMAT_R16_UNORM used as an SRV view of a
+        // depth-only resource - can't be told apart from a genuine color format and read as Color.
+        [[nodiscard]] TexturePlane RetrieveTexturePlanes(DXGI_FORMAT _format);
+
         [[nodiscard]] D3D12_SHADER_VISIBILITY ToDx12ShaderVisibility(ShaderVisibility _visibility);
 
         [[nodiscard]] D3D12_BLEND ToDx12Blend(ColorAttachmentBlendDesc::BlendFactor _blendFactor);

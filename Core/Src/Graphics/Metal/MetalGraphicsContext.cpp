@@ -723,7 +723,7 @@ namespace KryneEngine
         }
     }
 
-    ShaderModuleHandle MetalGraphicsContext::RegisterShaderModule(void* _bytecodeData, const u64 _bytecodeSize)
+    ShaderModuleHandle MetalGraphicsContext::RegisterShaderModule(const void* _bytecodeData, const u64 _bytecodeSize)
     {
         return m_resources.LoadLibrary(*m_device, _bytecodeData, _bytecodeSize);
     }
@@ -846,8 +846,7 @@ namespace KryneEngine
     {
         const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
         VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
-        auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
-        auto* renderState = static_cast<RenderState*>(commandList->m_userData);
+        const auto* renderState = static_cast<RenderState*>(commandList->m_userData);
         KE_ASSERT_FATAL(renderState != nullptr);
 
         u32 i = 0;
@@ -1041,6 +1040,9 @@ namespace KryneEngine
         const size_t indexBufferSize = _desc.m_elementCount * (renderState->m_indexBufferIsU16 ? sizeof(u16) : sizeof(u32));
 
         const MTL::Buffer* indexBuffer = m_resources.m_buffers.Get(renderState->m_indexBufferView.m_buffer.m_handle)->m_buffer;
+
+        const MetalResources::BufferHotData* indexBufferData = m_resources.m_buffers.Get(renderState->m_indexBufferView.m_buffer.m_handle);
+        KE_ASSERT(indexBufferData != nullptr);
 
         KE_AUTO_RELEASE_POOL;
         encoder->drawIndexedPrimitives(

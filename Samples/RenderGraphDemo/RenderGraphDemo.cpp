@@ -19,15 +19,18 @@
 #include <KryneEngine/Modules/RenderGraph/Resource.hpp>
 #include <KryneEngine/Modules/RenderGraph/ImGuiDebugWindow.hpp>
 
-#include "Rendering/ColorMappingPass.hpp"
-#include "Rendering/DeferredShadingPass.hpp"
+#include <Rendering/Compute/SkyAmbientPass.hpp>
+#include <Rendering/Fullscreen/ColorMappingPass.hpp>
+#include <Rendering/Fullscreen/DeferredShadingPass.hpp>
+#include <Rendering/Fullscreen/SkyPass.hpp>
+
 #include "Rendering/DeferredShadowPass.hpp"
 #include "Rendering/GiPass.hpp"
-#include "Rendering/SkyPass.hpp"
 #include "Scene/SceneManager.hpp"
 
 using namespace KryneEngine;
 using namespace KryneEngine::Modules;
+using namespace KryneEngine::Samples;
 using namespace KryneEngine::Samples::RenderGraphDemo;
 
 int main()
@@ -70,17 +73,18 @@ int main()
 
     DeferredShadowPass deferredShadowPass { allocator };
     GiPass giPass { allocator };
+    SkyAmbientPass skyAmbientPass { allocator };
     DeferredShadingPass deferredShadingPass { allocator };
     SkyPass skyPass { allocator };
     ColorMappingPass colorMappingPass { allocator };
 
     SimplePoolHandle
-        gBufferAlbedo,
-        gBufferAlbedoRtv,
-        gBufferAlbedoView,
-        gBufferNormal,
-        gBufferNormalRtv,
-        gBufferNormalView,
+        gBuffer0,
+        gBuffer0Rtv,
+        gBuffer0View,
+        gBuffer1,
+        gBuffer1Rtv,
+        gBuffer1View,
         gBufferDepth,
         gBufferDepthRtv,
         gBufferDepthView,
@@ -88,12 +92,13 @@ int main()
         deferredShadowView,
         deferredGi,
         deferredGiView,
+        skyAmbientBuffer,
         hdr,
         hdrRtv,
         hdrView;
 
-    constexpr auto gbufferAlbedoFormat = TextureFormat::RGBA8_UNorm;
-    constexpr auto gbufferNormalFormat = TextureFormat::RGBA8_UNorm; // TODO: Implement RGB10A2 format support
+    constexpr auto gbuffer0Format = TextureFormat::RGBA8_UNorm;
+    constexpr auto gbuffer1Format = TextureFormat::RGBA8_UNorm;
     constexpr auto gbufferDepthFormat = TextureFormat::D32F;
     constexpr auto hdrFormat = TextureFormat::RGBA16_Float;
 
@@ -111,60 +116,63 @@ int main()
 
             swapChainTextures[i] = renderGraph.GetRegistry().RegisterRawTexture(
                 graphicsContext->GetSwapChainTexture(swapChain, i),
+                RenderGraph::RawTextureData::kNoArrayPartialIndexing,
+                RenderGraph::RawTextureData::kNoMipPartialIndexing,
                 name.sprintf("Swapchain buffer %u", i));
             swapChainRtvs[i] = renderGraph.GetRegistry().RegisterRenderTargetView(
                 graphicsContext->GetSwapChainRenderTargetView(swapChain, i),
                 swapChainTextures[i],
+                {},
                 name.sprintf("Swapchain RTV %u", i));
         }
 
-        gBufferAlbedo = renderGraph.GetRegistry().CreateRawTexture(
+        gBuffer0 = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
             {
                 .m_desc = {
                     .m_dimensions = dimensions,
-                    .m_format = gbufferAlbedoFormat,
+                    .m_format = gbuffer0Format,
 #if !defined(KE_FINAL)
-                    .m_debugName = "GBuffer albedo",
+                    .m_debugName = "GBuffer 0",
 #endif
                 },
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::ReadImage | MemoryUsage::SampledImage,
             });
-        gBufferAlbedoRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+        gBuffer0Rtv = renderGraph.GetRegistry().CreateRenderTargetView(
             graphicsContext,
             RenderGraph::RenderTargetViewDesc {
-                .m_textureResource = gBufferAlbedo,
-                .m_format = gbufferAlbedoFormat,
+                .m_textureResource = gBuffer0,
+                .m_format = gbuffer0Format,
             },
-            "GBuffer albedo RTV");
-        gBufferAlbedoView = renderGraph.GetRegistry().CreateTextureView(
+            "GBuffer 0 RTV");
+        gBuffer0View = renderGraph.GetRegistry().CreateTextureView(
             graphicsContext,
-            gBufferAlbedo,
-            { .m_format = gbufferAlbedoFormat });
+            gBuffer0,
+            { .m_format = gbuffer0Format });
 
-        gBufferNormal = renderGraph.GetRegistry().CreateRawTexture(
+        gBuffer1 = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
             {
                 .m_desc = {
                     .m_dimensions = dimensions,
-                    .m_format = gbufferNormalFormat,
+                    .m_format = gbuffer1Format,
 #if !defined(KE_FINAL)
-                    .m_debugName = "GBuffer normal",
+                    .m_debugName = "GBuffer 1",
 #endif
                 },
                 .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::ColorTargetImage | MemoryUsage::ReadImage | MemoryUsage::SampledImage,
             });
-        gBufferNormalRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+        gBuffer1Rtv = renderGraph.GetRegistry().CreateRenderTargetView(
             graphicsContext,
             RenderGraph::RenderTargetViewDesc {
-                .m_textureResource = gBufferNormal,
-                .m_format = gbufferNormalFormat,
+                .m_textureResource = gBuffer1,
+                .m_format = gbuffer1Format,
             },
-            "GBuffer normal RTV");
-        gBufferNormalView = renderGraph.GetRegistry().CreateTextureView(
+            "GBuffer 1 RTV");
+        gBuffer1View = renderGraph.GetRegistry().CreateTextureView(
             graphicsContext,
-            gBufferNormal,
-            { .m_format = gbufferNormalFormat });
+            gBuffer1,
+            { .m_format = gbuffer1Format });
 
         gBufferDepth = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
@@ -269,18 +277,25 @@ int main()
     giPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout(),
-        renderGraph.GetRegistry().GetResource(gBufferAlbedoView).m_textureViewData.m_textureView,
-        renderGraph.GetRegistry().GetResource(gBufferNormalView).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer0View).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer1View).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(gBufferDepthView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView);
+    skyAmbientPass.Initialize(graphicsContext);
+
+    skyAmbientBuffer = renderGraph.GetRegistry().RegisterRawBuffer(
+        skyAmbientPass.GetSkyAmbientBuffer(),
+        "Sky ambient buffer");
+
     deferredShadingPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout(),
-        renderGraph.GetRegistry().GetResource(gBufferAlbedoView).m_textureViewData.m_textureView,
-        renderGraph.GetRegistry().GetResource(gBufferNormalView).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer0View).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer1View).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(gBufferDepthView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredShadowView).m_textureViewData.m_textureView,
-        renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView);
+        renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView,
+        skyAmbientPass.GetSkyAmbientBufferView());
     skyPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout());
@@ -291,9 +306,10 @@ int main()
 
     sceneManager.PreparePsos(graphicsContext, {
         .m_numColorAttachments = 2,
-        .m_colorFormats = { gbufferAlbedoFormat, gbufferNormalFormat },
+        .m_colorFormats = { gbuffer0Format, gbuffer1Format },
         .m_depthStencilFormat = gbufferDepthFormat,
     });
+    skyAmbientPass.CreatePso(graphicsContext);
     deferredShadingPass.CreatePso(graphicsContext, {
         .m_numColorAttachments = 1,
         .m_colorFormats = { hdrFormat },
@@ -331,10 +347,14 @@ int main()
         imGuiContext->NewFrame(mainWindow, graphicsContext, swapChain);
 
         {
+            const u8 frameIndex = graphicsContext->GetCurrentFrameContextIndex();
             const DescriptorSetHandle sceneConstantsDescriptorSet =
-                sceneManager.GetSceneDescriptorSet(graphicsContext->GetCurrentFrameContextIndex());
+                sceneManager.GetSceneDescriptorSet(frameIndex);
             deferredShadowPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
             giPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
+            skyAmbientPass.UpdateSceneConstants(
+                graphicsContext,
+                sceneManager.GetSceneConstantsBufferView(frameIndex));
             deferredShadingPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
             skyPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
             colorMappingPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
@@ -365,11 +385,11 @@ int main()
                             KE_ZoneScoped("Render GBuffer");
                             sceneManager.RenderGBuffer(_passData.m_graphicsContext, _passData.m_renderEncoder);
                         })
-                    .AddColorAttachment(gBufferAlbedoRtv)
+                    .AddColorAttachment(gBuffer0Rtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                         .Done()
-                    .AddColorAttachment(gBufferNormalRtv)
+                    .AddColorAttachment(gBuffer1Rtv)
                         .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::DontCare)
                         .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                         .Done()
@@ -403,13 +423,13 @@ int main()
                     .SetExecuteFunction([&giPass, renderSize](const auto&, const auto& _passData) { giPass.Render(_passData, renderSize); })
                     .ReadDependency(frameCBufferReadDep)
                     .ReadDependency({
-                        .m_resource = gBufferAlbedoView,
+                        .m_resource = gBuffer0View,
                         .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
                     })
                     .ReadDependency({
-                        .m_resource = gBufferNormalView,
+                        .m_resource = gBuffer1View,
                         .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
@@ -428,6 +448,20 @@ int main()
                         .m_targetLayout = TextureLayout::UnorderedAccess,
                     })
                     .Done()
+                .DeclarePass(RenderGraph::PassType::Compute)
+                    .SetName("Sky ambient bake pass")
+                    .ReadDependency(frameCBufferReadDep)
+                    .WriteDependency({
+                        .m_resource = skyAmbientBuffer,
+                        .m_targetSyncStage = BarrierSyncStageFlags::ComputeShading,
+                        .m_targetAccessFlags = BarrierAccessFlags::UnorderedAccess,
+                    })
+                    .SetExecuteFunction([&skyAmbientPass](const auto& _renderGraph, const auto& _passData)
+                        {
+                            KE_ZoneScoped("Bake sky ambient");
+                            skyAmbientPass.Dispatch(_renderGraph, _passData);
+                        })
+                    .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)
                     .SetName("Deferred shading pass")
                     .SetExecuteFunction([&deferredShadingPass, renderSize](const auto& _, const auto& _passData) { deferredShadingPass.Render(_, _passData, renderSize); })
@@ -437,13 +471,13 @@ int main()
                         .Done()
                     .ReadDependency(frameCBufferReadDep)
                     .ReadDependency({
-                        .m_resource = gBufferAlbedoView,
+                        .m_resource = gBuffer0View,
                         .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
                     })
                     .ReadDependency({
-                        .m_resource = gBufferNormalView,
+                        .m_resource = gBuffer1View,
                         .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
@@ -466,6 +500,11 @@ int main()
                         .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                         .m_targetLayout = TextureLayout::ShaderResource,
+                    })
+                    .ReadDependency({
+                        .m_resource = skyAmbientBuffer,
+                        .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                        .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
                     })
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)

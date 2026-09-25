@@ -83,9 +83,18 @@ namespace KryneEngine
     private:
         struct CommandPoolSet
         {
-            VkCommandPool m_commandPool = VK_NULL_HANDLE;
+            u32 m_queueFamilyIndex = ~0u;
 
+            // Each used/available command buffer has its own dedicated command pool (parallel
+            // arrays, same index in both pairs): VkCommandPool is not thread-safe, and the spec
+            // requires external synchronization on the pool a command buffer was allocated from
+            // for every recording call on that buffer, not just allocation/reset. Giving each
+            // buffer its own pool lets it be recorded from whichever thread it's dispatched to
+            // without contending with any other in-flight buffer.
+            eastl::vector<VkCommandPool> m_availableCommandPools;
             eastl::vector<VkCommandBuffer> m_availableCommandBuffers;
+
+            eastl::vector<VkCommandPool> m_usedCommandPools;
             eastl::vector<VkCommandBuffer> m_usedCommandBuffers;
 
             LightweightMutex m_mutex {};
@@ -103,7 +112,7 @@ namespace KryneEngine
             VkCommandBuffer BeginCommandBuffer(VkDevice _device);
             void EndCommandBuffer(VkCommandBuffer _commandList);
 
-            void Reset();
+            void Reset(VkDevice _device);
 
             void Destroy(VkDevice _device);
         };

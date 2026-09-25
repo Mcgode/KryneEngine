@@ -23,8 +23,8 @@ namespace KryneEngine::Samples::RenderGraphDemo
     void GiPass::Initialize(
         GraphicsContext* _graphicsContext,
         DescriptorSetLayoutHandle _sceneConstantsDescriptorSetLayout,
-        TextureViewHandle _gBufferAlbedo,
-        TextureViewHandle _gBufferNormal,
+        TextureViewHandle _gBuffer0,
+        TextureViewHandle _gBuffer1,
         TextureViewHandle _gBufferDepth,
         TextureViewHandle _gBufferAmbient)
     {
@@ -33,12 +33,12 @@ namespace KryneEngine::Samples::RenderGraphDemo
         // Create texture descriptor set layout
         {
             const DescriptorBindingDesc bindings[] {
-                // GBuffer albedo
+                // GBuffer 0
                 {
                     .m_type = DescriptorBindingDesc::Type::SampledTexture,
                     .m_visibility = ShaderVisibility::Compute,
                 },
-                // GBuffer normal
+                // GBuffer 1
                 {
                     .m_type = DescriptorBindingDesc::Type::SampledTexture,
                     .m_visibility = ShaderVisibility::Compute,
@@ -65,16 +65,16 @@ namespace KryneEngine::Samples::RenderGraphDemo
         {
             m_texturesDescriptorSet = _graphicsContext->CreateDescriptorSet(m_texturesDescriptorSetLayout);
 
-            const DescriptorSetWriteInfo::DescriptorData gBufferAlbedoDescriptorData[] {
+            const DescriptorSetWriteInfo::DescriptorData gBuffer0DescriptorData[] {
                 {
                     .m_textureLayout = TextureLayout::ShaderResource,
-                    .m_handle = _gBufferAlbedo.m_handle,
+                    .m_handle = _gBuffer0.m_handle,
                 }
             };
-            const DescriptorSetWriteInfo::DescriptorData gBufferNormalDescriptorData[] {
+            const DescriptorSetWriteInfo::DescriptorData gBuffer1DescriptorData[] {
                 {
                     .m_textureLayout = TextureLayout::ShaderResource,
-                    .m_handle = _gBufferNormal.m_handle,
+                    .m_handle = _gBuffer1.m_handle,
                 }
             };
             const DescriptorSetWriteInfo::DescriptorData gBufferDepthDescriptorData[] {
@@ -91,11 +91,11 @@ namespace KryneEngine::Samples::RenderGraphDemo
             const DescriptorSetWriteInfo writeInfo[] = {
                 {
                     .m_index = indices[0],
-                    .m_descriptorData = gBufferAlbedoDescriptorData
+                    .m_descriptorData = gBuffer0DescriptorData
                 },
                 {
                     .m_index = indices[1],
-                    .m_descriptorData = gBufferNormalDescriptorData
+                    .m_descriptorData = gBuffer1DescriptorData
                 },
                 {
                     .m_index = indices[2],

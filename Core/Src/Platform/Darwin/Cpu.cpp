@@ -10,6 +10,8 @@
 #   include <cpuid.h>
 #endif
 
+#include <thread>
+
 #include "KryneEngine/Core/Math/Simd/SimdCommon.hpp"
 
 namespace KryneEngine::Platform
@@ -49,5 +51,13 @@ namespace KryneEngine::Platform
                 Simd::g_simdSupport |= Simd::SimdSupport::AVX2;
         }
 #endif
+    }
+
+    u32 GetUsableCpuCoreCount()
+    {
+        // macOS has no cgroup/cpuset-style mechanism restricting a process to a core subset, so
+        // hardware_concurrency() (backed by sysconf(_SC_NPROCESSORS_ONLN)) is already the usable
+        // count.
+        return std::thread::hardware_concurrency();
     }
 }

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "KryneEngine/Core/Graphics/Handles.hpp"
+#include "KryneEngine/Modules/RenderGraph/Resource.hpp"
 #include <KryneEngine/Core/Memory/SimplePool.hpp>
 
 namespace KryneEngine
@@ -19,7 +20,6 @@ namespace KryneEngine
 namespace KryneEngine::Modules::RenderGraph
 {
     struct RenderTargetViewDesc;
-    struct Resource;
 
     class Registry
     {
@@ -30,11 +30,16 @@ namespace KryneEngine::Modules::RenderGraph
         ~Registry();
 
     public:
-        SimplePoolHandle RegisterRawTexture(TextureHandle _texture, const eastl::string_view& _name = "");
+        SimplePoolHandle RegisterRawTexture(
+            TextureHandle _texture,
+            u16 _arraySize = RawTextureData::kNoArrayPartialIndexing,
+            u8 _mipCount = RawTextureData::kNoMipPartialIndexing,
+            const eastl::string_view& _name = "");
         SimplePoolHandle RegisterRawBuffer(BufferHandle _buffer, const eastl::string_view& _name = "");
         SimplePoolHandle RegisterTextureView(
             TextureViewHandle _textureView,
             SimplePoolHandle _textureResource,
+            const TextureSubResourceRange& _range = {},
             const eastl::string_view& _name = {});
         SimplePoolHandle RegisterBufferView(
             BufferViewHandle _bufferView,
@@ -43,7 +48,10 @@ namespace KryneEngine::Modules::RenderGraph
         SimplePoolHandle RegisterRenderTargetView(
             RenderTargetViewHandle _rtv,
             SimplePoolHandle _textureResource,
+            const TextureSubResourceRange& _range = {},
             const eastl::string_view& _name = {});
+
+        SimplePoolHandle RegisterDummy(const eastl::string_view& _name = {});
 
         SimplePoolHandle CreateRawTexture(
             GraphicsContext* _graphicsContext,

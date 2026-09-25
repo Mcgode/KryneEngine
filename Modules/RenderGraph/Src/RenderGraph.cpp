@@ -178,6 +178,22 @@ namespace KryneEngine::Modules::RenderGraph
                 .m_textureBarriers = passBarriers.m_textureMemoryBarriers,
             };
 
+            if (pass.m_prePassTransferFunction)
+            {
+                GraphicsContext* graphicsContext = _jobData->m_passExecutionData.m_graphicsContext;
+#if defined(KE_FINAL)
+                const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+                    _jobData->m_passExecutionData.m_commandList, {}, {});
+#else
+                char name[256];
+                snprintf(name, sizeof(name), "%s (Pre-pass transfer", pass.m_name.m_string.c_str());
+                const TransferCommandEncoderHandle transferEncoder = graphicsContext->BeginTransferPass(
+                    _jobData->m_passExecutionData.m_commandList, {}, name);
+#endif
+                pass.m_prePassTransferFunction(_jobData->m_passExecutionData.m_graphicsContext, transferEncoder);
+                graphicsContext->EndTransferPass(transferEncoder);
+            }
+
             CommandEncoderHandle encoder;
             if (pass.m_type == PassType::Render)
             {
@@ -291,6 +307,7 @@ namespace KryneEngine::Modules::RenderGraph
             desc.m_depthStencilAttachment.value().m_finalLayout = attachment.m_layoutAfter;
             desc.m_depthStencilAttachment.value().m_rtv = m_registry->GetRenderTargetView(attachment.m_rtv);
             desc.m_depthStencilAttachment.value().m_clearColor = float4(attachment.m_clearDepth, 0.0f, 0.0f, 0.0f);
+            desc.m_depthStencilAttachment.value().m_readOnly = attachment.m_readOnly;
         }
 
 #if !defined(KE_FINAL)

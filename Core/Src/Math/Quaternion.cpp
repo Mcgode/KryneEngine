@@ -1,0 +1,246 @@
+/**
+ * @file
+ * @author Max Godefroy
+ * @date 19/08/2026.
+ */
+
+#include "KryneEngine/Core/Math/Quaternion.hpp"
+
+#include <KryneEngine/Core/Math/Vector.hpp>
+
+
+namespace KryneEngine::Math
+{
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T> QuaternionBase<T>::operator*(const QuaternionBase& _other) const
+    {
+        return QuaternionBase(
+            w * _other.w - x * _other.x - y * _other.y - z * _other.z,
+            w * _other.x + x * _other.w + y * _other.z - z * _other.y,
+            w * _other.y - x * _other.z + y * _other.w + z * _other.x,
+            w * _other.z + x * _other.y - y * _other.x + z * _other.w);
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    bool QuaternionBase<T>::operator==(const QuaternionBase& _other) const
+    {
+        return std::abs(w - _other.w) < kQuaternionEpsilon && std::abs(x - _other.x) < kQuaternionEpsilon
+               && std::abs(y - _other.y) < kQuaternionEpsilon && std::abs(z - _other.z) < kQuaternionEpsilon;
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    T QuaternionBase<T>::Length2() const
+    {
+        return w * w + x * x + y * y + z * z;
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    T QuaternionBase<T>::Length() const
+    {
+        return std::sqrt(Length2());
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T>& QuaternionBase<T>::Normalize()
+    {
+        const T length = Length();
+        w /= length;
+        x /= length;
+        y /= length;
+        z /= length;
+        return *this;
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T>& QuaternionBase<T>::Conjugate()
+    {
+        x = -x;
+        y = -y;
+        z = -z;
+        return *this;
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T>& QuaternionBase<T>::Inverse()
+    {
+        return Conjugate();
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    T QuaternionBase<T>::Dot(const QuaternionBase& _a, const QuaternionBase& _b)
+    {
+        return _a.w * _b.w + _a.x * _b.x + _a.y * _b.y + _a.z * _b.z;
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T>& QuaternionBase<T>::Slerp(const QuaternionBase& _other, T _t)
+    {
+        if (_t == 0)
+        {
+            return *this;
+        }
+        else if (_t == 1)
+        {
+            *this = _other;
+            return *this;
+        }
+
+        T cosHalfTheta = Dot(*this, _other);
+
+        // If _a == _b or _a = -_b, then theta = 0, we can return a
+        if (std::abs(cosHalfTheta) >= 1.0f)
+        {
+            return *this;
+        }
+
+        if (cosHalfTheta < 0)
+        {
+            w = -w;
+            x = -x;
+            y = -y;
+            z = -z;
+            cosHalfTheta = -cosHalfTheta;
+        }
+
+        const T halfTheta = std::acos(cosHalfTheta);
+        const T sinHalfTheta = std::sqrt(1.0f - cosHalfTheta * cosHalfTheta);
+
+        // If theta = 180°, result is not clearly defined, as we could rotate around any angle
+        if (std::abs(sinHalfTheta) < kQuaternionEpsilon)
+        {
+            w = 0.5 * w + 0.5 * _other.w;
+            x = 0.5 * x + 0.5 * _other.x;
+            y = 0.5 * y + 0.5 * _other.y;
+            z = 0.5 * z + 0.5 * _other.z;
+            return *this;
+        }
+
+        const T ratioA = std::sin((1.0f - _t) * halfTheta) / sinHalfTheta;
+        const T ratioB = std::sin(_t * halfTheta) / sinHalfTheta;
+        w = ratioA * w + ratioB * _other.w;
+        x = ratioA * x + ratioB * _other.x;
+        y = ratioA * y + ratioB * _other.y;
+        z = ratioA * z + ratioB * _other.z;
+        return *this;
+    }
+
+
+    template <class T>
+    uint4 PackLowestThree(const QuaternionBase<T>& _q, u32 _bits)
+    {
+        u8 maxIdx = 0;
+        {
+            T maxVal = std::abs(_q.w);
+            if (maxVal < std::abs(_q.x)) { maxIdx = 1; maxVal = std::abs(_q.x); }
+            if (maxVal < std::abs(_q.y)) { maxIdx = 2; maxVal = std::abs(_q.y); }
+            if (maxVal < std::abs(_q.z)) { maxIdx = 3; maxVal = std::abs(_q.z); }
+        }
+
+        T sign = 1.;
+        if (_q.Ptr()[maxIdx] < 0) { sign = -1.; }
+
+        T a, b, c;
+        switch (maxIdx)
+        {
+        case 0: a = _q.x; b = _q.y; c = _q.z; break;
+        case 1: a = _q.w; b = _q.y; c = _q.z; break;
+        case 2: a = _q.w; b = _q.x; c = _q.z; break;
+        case 3: a = _q.w; b = _q.x; c = _q.y; break;
+        default: break;
+        }
+
+        constexpr T halfSqrt = M_SQRT2 * 0.5;
+        const T scale = static_cast<T>((1 << (_bits - 1)) - 1) / halfSqrt;
+
+        // Round to a signed integer first: converting a negative floating-point value directly to
+        // an unsigned type is undefined behavior (e.g. it saturates to 0 on ARM, instead of wrapping
+        // to the two's complement bit pattern as on x86). Going through `s32` keeps the encoding
+        // consistent across platforms, matching the sign-extension done when unpacking.
+        // The result is then masked down to `_bits` bits: a negative value sign-extends across the
+        // full 32 bits, and since the fields are later combined with plain shifts and ORs (with no
+        // masking of their own), those extra set bits would otherwise bleed into neighboring fields.
+        const u32 bitMask = BitUtils::BitMask<u32>(_bits);
+        const auto encodeComponent = [scale, sign, bitMask](T _value) -> u32
+        {
+            return static_cast<u32>(static_cast<s32>(std::round(_value * scale * sign))) & bitMask;
+        };
+
+        return {
+            maxIdx,
+            encodeComponent(a),
+            encodeComponent(b),
+            encodeComponent(c)
+        };
+    }
+
+    template <class T>requires(std::is_floating_point_v<T>)
+    u32 QuaternionBase<T>::Pack32() const
+    {
+        const uint4 packValues = PackLowestThree(*this, 10);
+        return packValues.x
+            | (packValues.y << 02)
+            | (packValues.z << 12)
+            | (packValues.w << 22);
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    u64 QuaternionBase<T>::Pack64() const
+    {
+        const uint4 packValues = PackLowestThree(*this, 20);
+        u64 result = packValues.x;
+        result = BitUtils::BitfieldInsert<u64>(result, packValues.y, 20, 2);
+        result = BitUtils::BitfieldInsert<u64>(result, packValues.z, 20, 22);
+        result = BitUtils::BitfieldInsert<u64>(result, packValues.w, 20, 42);
+        return result;
+    }
+
+    template <class T>
+    QuaternionBase<T> UnpackLowestThree(u32 _maxIdx, u32 _a, u32 _b, u32 _c, u8 _bits)
+    {
+        constexpr T halfSqrt = M_SQRT2 * 0.5;
+        const T scale = static_cast<T>((1 << (_bits - 1)) - 1) / halfSqrt;
+
+        const u32 signBit = 1u << (_bits - 1);
+        const auto unpackComponent = [signBit, scale](u32 _rawValue) -> T
+        {
+            const s32 signedValue = static_cast<s32>((_rawValue ^ signBit) - signBit);
+            return static_cast<T>(signedValue) / scale;
+        };
+
+        const T a = unpackComponent(_a);
+        const T b = unpackComponent(_b);
+        const T c = unpackComponent(_c);
+        const T d = std::sqrt(eastl::max(T(0), T(1) - a * a - b * b - c * c));
+
+        switch (_maxIdx)
+        {
+        case 0: return QuaternionBase<T>(d, a, b, c);
+        case 1: return QuaternionBase<T>(a, d, b, c);
+        case 2: return QuaternionBase<T>(a, b, d, c);
+        default: return QuaternionBase<T>(a, b, c, d);
+        }
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T> QuaternionBase<T>::Unpack32(u32 _packed)
+    {
+        const u32 maxIdx = BitUtils::BitfieldExtract(_packed, 2, 0);
+        const u32 a = BitUtils::BitfieldExtract(_packed, 10, 2);
+        const u32 b = BitUtils::BitfieldExtract(_packed, 10, 12);
+        const u32 c = BitUtils::BitfieldExtract(_packed, 10, 22);
+        return UnpackLowestThree<T>(maxIdx, a, b, c, 10);
+    }
+
+    template <class T> requires(std::is_floating_point_v<T>)
+    QuaternionBase<T> QuaternionBase<T>::Unpack64(u64 _packed)
+    {
+        const u32 maxIdx = static_cast<u32>(BitUtils::BitfieldExtract(_packed, 2, 0));
+        const u32 a = static_cast<u32>(BitUtils::BitfieldExtract(_packed, 20, 2));
+        const u32 b = static_cast<u32>(BitUtils::BitfieldExtract(_packed, 20, 22));
+        const u32 c = static_cast<u32>(BitUtils::BitfieldExtract(_packed, 20, 42));
+        return UnpackLowestThree<T>(maxIdx, a, b, c, 20);
+    }
+
+    template struct QuaternionBase<float>;
+    template struct QuaternionBase<double>;
+} // namespace KryneEngine::Math

@@ -1,0 +1,11 @@
+project(KryneEngine_Modules_RenderGraph_Tests)
+
+cmake_minimum_required(VERSION 3.20)
+
+add_executable(Modules_RenderGraph_UnitTests
+        ResourceStateTracker_UnitTests.cpp)
+
+target_link_libraries(Modules_RenderGraph_UnitTests KryneEngine_Core_Link KryneEngine_Modules_RenderGraph TestUtils gtest gtest_main)
+set_target_properties(Modules_RenderGraph_UnitTests PROPERTIES FOLDER "EngineTesting")
+
+add_test(NAME Modules_RenderGraph_UnitTests COMMAND Modules_RenderGraph_UnitTests)

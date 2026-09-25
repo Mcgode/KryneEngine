@@ -33,13 +33,13 @@ namespace KryneEngine::Modules
 
 namespace KryneEngine::Samples
 {
-    class TorusKnot;
+    class OrbitCamera;
+    class SunLight;
 }
 
 namespace KryneEngine::Samples::RenderGraphDemo
 {
-    class OrbitCamera;
-    class SunLight;
+    class TorusKnot;
 
     class SceneManager
     {
@@ -65,6 +65,11 @@ namespace KryneEngine::Samples::RenderGraphDemo
         [[nodiscard]] SimplePoolHandle GetSceneConstantsCbv() const { return m_currentCbv; }
         [[nodiscard]] DescriptorSetLayoutHandle GetDescriptorSetLayout() const { return m_sceneDescriptorSetLayout; }
         [[nodiscard]] DescriptorSetHandle GetSceneDescriptorSet(u8 _index) const { return m_sceneDescriptorSets[_index]; }
+
+        // Raw buffer view onto the shared scene-constants buffer, whose first bytes are a
+        // `FullscreenPassConstants`. Needed by SkyAmbientPass, which binds its own constant-buffer
+        // slot rather than reusing GetSceneDescriptorSet's descriptor set.
+        [[nodiscard]] BufferViewHandle GetSceneConstantsBufferView(u8 _index) const { return m_sceneCbvs[_index]; }
 
         void RenderGBuffer(GraphicsContext* _graphicsContext, RenderCommandEncoderHandle _renderEncoder) const;
 

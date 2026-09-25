@@ -39,6 +39,7 @@ namespace KryneEngine::Modules::RenderGraph
         explicit PassDeclaration(PassType _type, size_t _id);
 
         using ExecuteFunction = eastl::function<void(RenderGraph&, PassExecutionData&)>;
+        using TransferFunction = eastl::function<void(GraphicsContext*, TransferCommandEncoderHandle)>;
         using RenderPassCallBack = eastl::function<void(GraphicsContext*, RenderPassHandle)>;
 
         [[nodiscard]] u64 GetRenderPassHash();
@@ -52,6 +53,10 @@ namespace KryneEngine::Modules::RenderGraph
         eastl::vector<Dependency> m_writeDependencies;
         eastl::optional<u64> m_renderPassHash;
         ExecuteFunction m_executeFunction;
+
+        /// @brief An optional callback for executing code before the pass is executed.
+        /// Called before any Compute or Render pass is started, allowing for last minute transfer commands.
+        TransferFunction m_prePassTransferFunction = nullptr;
     };
 
     class Builder;
@@ -67,6 +72,7 @@ namespace KryneEngine::Modules::RenderGraph
         PassDeclarationBuilder& ReadDependency(const Dependency& _dependency);
         PassDeclarationBuilder& WriteDependency(const Dependency& _dependency);
         PassDeclarationBuilder& SetExecuteFunction(PassDeclaration::ExecuteFunction&& _function);
+        PassDeclarationBuilder& SetPrePassTransferFunction(PassDeclaration::TransferFunction&& _function);
     };
 } // namespace KryneEngine::Module::RenderGraph
 

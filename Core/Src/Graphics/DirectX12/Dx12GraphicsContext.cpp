@@ -1191,7 +1191,7 @@ namespace KryneEngine
 
                 barrierGroups.push_back(D3D12_BARRIER_GROUP{
                     .Type = D3D12_BARRIER_TYPE_BUFFER,
-                    .NumBarriers = (u32)bufferMemoryBarriers.Size(),
+                    .NumBarriers = static_cast<u32>(bufferMemoryBarriers.Size()),
                     .pBufferBarriers = bufferMemoryBarriers.Data(),
                 });
             }
@@ -1202,6 +1202,22 @@ namespace KryneEngine
                 {
                     const TextureMemoryBarrier& barrier = _barriers.m_textureBarriers[i];
                     ID3D12Resource** texture = m_resources.m_textures.Get(barrier.m_texture.m_handle);
+
+                    const D3D12_RESOURCE_DESC desc = (*texture)->GetDesc();
+                    const TexturePlane planes = RetrieveTexturePlanes(desc.Format);
+                    const u32 mipCount = barrier.m_mipCount == 0xff
+                        ? desc.MipLevels - barrier.m_mipStart
+                        : barrier.m_mipCount;
+                    const u32 sliceCount = barrier.m_arrayCount == 0xff'ff
+                        ? desc.DepthOrArraySize - barrier.m_arrayStart
+                        : barrier.m_arrayCount;
+
+                    const u32 planeCount = std::popcount(static_cast<u32>(barrier.m_planes));
+                    u32 firstPlane = 0;
+                    if (planes == (TexturePlane::Depth | TexturePlane::Stencil) && barrier.m_planes == TexturePlane::Stencil)
+                    {
+                        firstPlane = 1;
+                    }
 
                     textureMemoryBarriers[i] = D3D12_TEXTURE_BARRIER{
                         .SyncBefore = ToDx12BarrierSync(barrier.m_stagesSrc),
@@ -1214,11 +1230,11 @@ namespace KryneEngine
                         .Subresources =
                             {
                                 .IndexOrFirstMipLevel = barrier.m_mipStart,
-                                .NumMipLevels = barrier.m_mipCount,
+                                .NumMipLevels = mipCount,
                                 .FirstArraySlice = barrier.m_arrayStart,
-                                .NumArraySlices = barrier.m_arrayCount,
-                                .FirstPlane = 0,
-                                .NumPlanes = static_cast<u32>(std::popcount(static_cast<u8>(barrier.m_planes)))
+                                .NumArraySlices = sliceCount,
+                                .FirstPlane = firstPlane,
+                                .NumPlanes = planeCount,
                             },
                         .Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE,
                     };
@@ -1226,7 +1242,7 @@ namespace KryneEngine
 
                 barrierGroups.push_back(D3D12_BARRIER_GROUP{
                     .Type = D3D12_BARRIER_TYPE_TEXTURE,
-                    .NumBarriers = (u32)textureMemoryBarriers.Size(),
+                    .NumBarriers = static_cast<u32>(textureMemoryBarriers.Size()),
                     .pTextureBarriers = textureMemoryBarriers.Data(),
                 });
             }
@@ -1248,21 +1264,61 @@ namespace KryneEngine
                 D3D12_RESOURCE_STATES before = RetrieveState(barrier.m_accessSrc, barrier.m_layoutSrc);
                 D3D12_RESOURCE_STATES after = RetrieveState(barrier.m_accessDst, barrier.m_layoutDst);
 
-                for (u8 mip = barrier.m_mipStart; mip < barrier.m_mipCount; mip++)
-                {
-                    for (u16 slice = barrier.m_arrayStart; slice < barrier.m_arrayCount; slice++)
-                    {
-                        u32 subResourceIndex = D3D12CalcSubresource(mip, slice, 0, barrier.m_mipCount, barrier.m_arrayCount);
 
-                        resourceBarriers.push_back(D3D12_RESOURCE_BARRIER {
-                            .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-                            .Transition = {
-                                .pResource = *texture,
-                                .Subresource = subResourceIndex,
-                                .StateBefore = before,
-                                .StateAfter = after,
+                // Legacy transition barriers address subresources by an absolute index computed from
+                // the resource's *true* mip/array counts, unlike the barrier's own (possibly partial)
+                // range - so the true extent has to be queried from the resource itself.
+                const D3D12_RESOURCE_DESC desc = (*texture)->GetDesc();
+                const TexturePlane planes = RetrieveTexturePlanes(desc.Format);
+                const u32 mipEnd = barrier.m_mipCount == 0xff
+                    ? desc.MipLevels
+                    : static_cast<u32>(barrier.m_mipStart) + barrier.m_mipCount;
+                const u32 arrayEnd = barrier.m_arrayCount == 0xff'ff
+                    ? desc.DepthOrArraySize
+                    : static_cast<u32>(barrier.m_arrayStart) + barrier.m_arrayCount;
+
+                if (barrier.m_mipStart == 0 && mipEnd == desc.MipLevels
+                    && barrier.m_arrayStart == 0 && arrayEnd == desc.DepthOrArraySize
+                    && barrier.m_planes == planes)
+                {
+                    resourceBarriers.push_back(D3D12_RESOURCE_BARRIER {
+                        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+                        .Transition = {
+                            .pResource = *texture,
+                            .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+                            .StateBefore = before,
+                            .StateAfter = after,
+                        }
+                    });
+                }
+                else
+                {
+                    const u32 planeCount = std::popcount(static_cast<u32>(barrier.m_planes));
+                    u32 firstPlane = 0;
+                    if (planes == (TexturePlane::Depth | TexturePlane::Stencil) && barrier.m_planes == TexturePlane::Stencil)
+                    {
+                        firstPlane = 1;
+                    }
+                    for (u32 mip = barrier.m_mipStart; mip < mipEnd; mip++)
+                    {
+                        for (u32 slice = barrier.m_arrayStart; slice < arrayEnd; slice++)
+                        {
+                            for (u32 plane = firstPlane; plane < planeCount; plane++)
+                            {
+                                const u32 subResourceIndex =
+                                D3D12CalcSubresource(mip, slice, plane, desc.MipLevels, desc.DepthOrArraySize);
+
+                                resourceBarriers.push_back(D3D12_RESOURCE_BARRIER {
+                                    .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+                                    .Transition = {
+                                        .pResource = *texture,
+                                        .Subresource = subResourceIndex,
+                                        .StateBefore = before,
+                                        .StateAfter = after,
+                                    }
+                                });
                             }
-                        });
+                        }
                     }
                 }
 
@@ -1324,7 +1380,7 @@ namespace KryneEngine
         }
     }
 
-    ShaderModuleHandle Dx12GraphicsContext::RegisterShaderModule(void* _bytecodeData, u64 _bytecodeSize)
+    ShaderModuleHandle Dx12GraphicsContext::RegisterShaderModule(const void* _bytecodeData, u64 _bytecodeSize)
     {
         return m_resources.RegisterShaderModule(_bytecodeData, _bytecodeSize);
     }

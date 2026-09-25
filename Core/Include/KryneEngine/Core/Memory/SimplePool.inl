@@ -70,7 +70,7 @@ namespace KryneEngine
         const SimplePoolHandle result = m_nextFreeIndex;
         m_nextFreeIndex = m_hotData[result].m_nextFreeIndex;
 
-        if (RefCounting)
+        if constexpr (RefCounting)
         {
             KE_ASSERT(m_refCounts[result].load(std::memory_order::relaxed) <= 0);
             m_refCounts[result].store(1, std::memory_order::seq_cst);

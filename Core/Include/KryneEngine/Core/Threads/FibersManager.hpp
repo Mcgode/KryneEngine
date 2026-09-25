@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <EASTL/array.h>
 #include <EASTL/span.h>
 #include <KryneEngine/Core/Threads/FiberJob.hpp>
@@ -67,8 +68,8 @@ namespace KryneEngine
 
         [[nodiscard]] FiberJob* GetCurrentJob();
 
-        [[nodiscard]] SyncCounterId InitAndBatchJobs(const FiberJob::Desc& _desc);
-        void InitAndBatchJobsNoCounter(const FiberJob::Desc& _desc);
+        [[nodiscard]] SyncCounterId InitAndBatchJobs(FiberJob::Desc _desc);
+        void InitAndBatchJobsNoCounter(FiberJob::Desc _desc);
 
         [[nodiscard]] SyncCounterPool::AutoSyncCounter AcquireAutoSyncCounter(u32 _count = 1);
 
@@ -105,11 +106,15 @@ namespace KryneEngine
 
         bool RetrieveNextJob(FiberJob*& job_, u16 _fiberIndex);
 
+        void FinalizeLeavingJob(FiberJob* _job);
+
         void OnContextSwitched();
 
         void ThreadWaitForJob();
 
         void UpdateRoundRobinTotal();
+
+        void DrainQueuedJobs();
 
     private:
         using JobQueue = moodycamel::ConcurrentQueue<FiberJob*>;
@@ -134,7 +139,7 @@ namespace KryneEngine
         FiberTls<Status> m_statuses;
         FiberTls<FiberContext> m_baseContexts;
 
-        FiberContextAllocator* m_contextAllocator;
+        FiberContextAllocator* m_contextAllocator = nullptr;
 
         SyncCounterPool m_syncCounterPool {};
 

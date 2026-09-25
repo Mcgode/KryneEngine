@@ -19,7 +19,7 @@ vkBinding(1, 1) RWTexture2D<float> DeferredShadows: register(u0, space1);
 void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 {
     const uint2 pixelCoordinates = id.xy;
-    const uint2 resolution = uint2(SceneConstants.m_screenResolution);
+    const uint2 resolution = uint2(SceneConstants.m_fullscreen.m_screenResolution);
 
     if (any(pixelCoordinates >= resolution))
     {
@@ -37,16 +37,16 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 
     const float aspect = float(resolution.x) / float(resolution.y);
     const float3 cameraV = float3(
-        ndc.x * aspect * SceneConstants.m_tanHalfFov,
+        ndc.x * aspect * SceneConstants.m_fullscreen.m_tanHalfFov,
         1.0f,
-        ndc.y * SceneConstants.m_tanHalfFov
+        ndc.y * SceneConstants.m_fullscreen.m_tanHalfFov
     );
 
-    const float depthV = SceneConstants.m_depthLinearizationConstants.x / (depthSs + SceneConstants.m_depthLinearizationConstants.y);
+    const float depthV = SceneConstants.m_fullscreen.m_depthLinearizationConstants.x / (depthSs + SceneConstants.m_fullscreen.m_depthLinearizationConstants.y);
     const float3 positionV = depthV * cameraV;
-    const float4 vsToWsQuaternion = Quaternion::Conjugate(SceneConstants.m_cameraQuaternion);
-    const float3 positionW = Quaternion::Apply(vsToWsQuaternion, positionV - SceneConstants.m_cameraTranslation);
-    const float3 directionW = -SceneConstants.m_sunLightDirection;
+    const float4 vsToWsQuaternion = Quaternion::Conjugate(SceneConstants.m_fullscreen.m_cameraQuaternion);
+    const float3 positionW = Quaternion::Apply(vsToWsQuaternion, positionV - SceneConstants.m_fullscreen.m_cameraTranslation);
+    const float3 directionW = -SceneConstants.m_fullscreen.m_sunLightDirection;
 
     const float3 positionM = mul(float4(positionW, 1.0f), SceneConstants.m_torusKnotInverseWorldMatrix).xyz;
     const float3 directionM = normalize(mul(float4(directionW, 0.0f), SceneConstants.m_torusKnotInverseWorldMatrix).xyz);

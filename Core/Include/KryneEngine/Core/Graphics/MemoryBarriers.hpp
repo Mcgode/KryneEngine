@@ -119,11 +119,11 @@ namespace KryneEngine
 
         TextureHandle m_texture;
         u16 m_arrayStart = 0;
-        u16 m_arrayCount = 1;
+        u16 m_arrayCount = 0xff'ff; // Max value indicates to select all the remaining slices
         TextureLayout m_layoutSrc;
         TextureLayout m_layoutDst;
         u8 m_mipStart = 0;
-        u8 m_mipCount = 1;
+        u8 m_mipCount = 0xff; // Max value indicates to retrieve all the remaining levels
 
         TexturePlane m_planes = TexturePlane::Color;
     };

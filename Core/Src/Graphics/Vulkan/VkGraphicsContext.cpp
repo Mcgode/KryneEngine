@@ -407,9 +407,9 @@ namespace KryneEngine
         if (nextFrameId >= m_frameContextCount)
         {
             nextFrameContext.WaitForFences(m_device, nextFrameId - m_frameContextCount);
-            nextFrameContext.m_graphicsCommandPoolSet.Reset();
-            nextFrameContext.m_computeCommandPoolSet.Reset();
-            nextFrameContext.m_transferCommandPoolSet.Reset();
+            nextFrameContext.m_graphicsCommandPoolSet.Reset(m_device);
+            nextFrameContext.m_computeCommandPoolSet.Reset(m_device);
+            nextFrameContext.m_transferCommandPoolSet.Reset(m_device);
             if (m_lastResolvedFrame == ~0ull || m_lastResolvedFrame < nextFrameId - m_frameContextCount)
             {
                 nextFrameContext.ResolveTimestamps(m_device, m_gpuTimestampPeriod, m_cpuTimestampOffset);
@@ -1670,7 +1670,7 @@ namespace KryneEngine
         }
     }
 
-    ShaderModuleHandle VkGraphicsContext::RegisterShaderModule(void* _bytecodeData, const u64 _bytecodeSize)
+    ShaderModuleHandle VkGraphicsContext::RegisterShaderModule(const void* _bytecodeData, const u64 _bytecodeSize)
     {
         return m_resources.CreateShaderModule(_bytecodeData, _bytecodeSize, m_device);
     }

@@ -21,6 +21,7 @@
 
 #include "Input.hpp"
 #include "ViewportBackend.hpp"
+#include "KryneEngine_Modules_ImGui_EmbeddedShaders.h"
 
 
 namespace KryneEngine::Modules::ImGui
@@ -778,47 +779,13 @@ namespace KryneEngine::Modules::ImGui
     {
         KE_ZoneScopedFunction("Modules::ImGui::Context_InitPso");
 
-        eastl::span<char> vsBytecode = _externalVsBytecode;
-        eastl::span<char> fsBytecode = _externalFsBytecode;
-
         ShaderModuleHandle vsModule;
         ShaderModuleHandle fsModule;
 
-        // Read shader files
+        // Register shader modules
         {
-            constexpr auto readShaderFile = [](const auto& _path, eastl::span<char>& _span, const AllocatorInstance _allocator)
-            {
-                std::ifstream file(_path.c_str(), std::ios::binary);
-                VERIFY_OR_RETURN_VOID(file);
-
-                file.seekg(0, std::ios::end);
-                const auto size = static_cast<size_t>(file.tellg());
-                char* data = _allocator.Allocate<char>(size);
-                file.seekg(0, std::ios::beg);
-
-                KE_VERIFY(file.read(data, size));
-                _span = { data, size };
-            };
-
-            AllocatorInstance allocator = m_setIndices.get_allocator();
-
-            if (_externalVsBytecode.empty())
-            {
-                readShaderFile(
-                   eastl::string("Shaders/ImGui/ImGui_vs_MainVS.", allocator) + GraphicsContext::GetShaderFileExtension(),
-                   vsBytecode,
-                   allocator);
-            }
-            if (_externalFsBytecode.empty())
-            {
-                readShaderFile(
-                   eastl::string("Shaders/ImGui/ImGui_ps_MainPS.", allocator) + GraphicsContext::GetShaderFileExtension(),
-                   fsBytecode,
-                   allocator);
-            }
-
-            vsModule = _graphicsContext->RegisterShaderModule(vsBytecode.data(), vsBytecode.size());
-            fsModule = _graphicsContext->RegisterShaderModule(fsBytecode.data(), fsBytecode.size());
+            vsModule = _graphicsContext->RegisterShaderModule(EmbeddedShaders::KryneEngine_Modules_ImGui::ImGui_ImGui_vs_MainVS());
+            fsModule = _graphicsContext->RegisterShaderModule(EmbeddedShaders::KryneEngine_Modules_ImGui::ImGui_ImGui_ps_MainPS());
         }
 
         // Set up descriptor set layout
@@ -942,10 +909,6 @@ namespace KryneEngine::Modules::ImGui
         {
             _graphicsContext->FreeShaderModule(fsModule);
             _graphicsContext->FreeShaderModule(vsModule);
-            if (_externalFsBytecode.empty())
-                m_setIndices.get_allocator().deallocate(fsBytecode.data(), fsBytecode.size());
-            if (_externalVsBytecode.empty())
-                m_setIndices.get_allocator().deallocate(vsBytecode.data(), vsBytecode.size());
         }
     }
 } // namespace KryneEngine

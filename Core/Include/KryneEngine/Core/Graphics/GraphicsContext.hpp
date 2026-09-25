@@ -472,6 +472,15 @@ namespace KryneEngine
          */
         [[nodiscard]] virtual uint2 GetSwapChainSize(SwapChainHandle _swapChain) = 0;
 
+        /**
+         * @brief Retrieves the texture format of the swap chain's present images.
+         *
+         * @details
+         * This is the format that render target views obtained from #GetPresentRenderTargetView expect, and
+         * that render passes and graphics pipelines writing to the swap chain must be compatible with.
+         *
+         * @return The `TextureFormat` of the presentation images.
+         */
         [[nodiscard]] virtual TextureFormat GetSwapChainFormat(SwapChainHandle _swapChain) = 0;
 
         /**
@@ -553,11 +562,25 @@ namespace KryneEngine
          */
         virtual void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) = 0;
 
+        /**
+         * @brief Begins a transfer (copy/upload) pass in the given command list.
+         *
+         * @param _commandList The command list in which to record the transfer pass begin.
+         * @param _debugName A label identifying the transfer pass in GPU debugging and profiling tools.
+         *
+         * @return The encoder for all the transfer pass related commands (see #CopyBuffer, #SetTextureData,
+         * #SetTextureRegionData).
+         */
         virtual TransferCommandEncoderHandle BeginTransferPass(
             CommandListHandle _commandList,
             const MemoryBarriers& _barriers,
             eastl::string_view _debugName) = 0;
 
+        /**
+         * @brief Ends the transfer pass previously started with #BeginTransferPass.
+         *
+         * @param _utilEncoder The transfer command encoder associated with the transfer pass.
+         */
         virtual void EndTransferPass(TransferCommandEncoderHandle _utilEncoder) = 0;
 
         /**
@@ -658,7 +681,13 @@ namespace KryneEngine
          *
          * @return A handle to the newly created shader module.
          */
-        [[nodiscard]] virtual ShaderModuleHandle RegisterShaderModule(void* _bytecodeData, u64 _bytecodeSize) = 0;
+        [[nodiscard]] virtual ShaderModuleHandle RegisterShaderModule(const void* _bytecodeData, u64 _bytecodeSize) = 0;
+
+        template <class T>
+        [[nodiscard]] ShaderModuleHandle RegisterShaderModule(eastl::span<const T> _bytecodeData)
+        {
+            return RegisterShaderModule(_bytecodeData.data(), _bytecodeData.size_bytes());
+        }
 
         /**
          * @brief Creates a descriptor set layout, describing the bindings available in a descriptor set.
@@ -1043,14 +1072,25 @@ namespace KryneEngine
          * @brief Records a GPU timestamp query in the given command list.
          *
          * @param _commandList The command list in which to record the timestamp.
-         * @param _placement
-         * @param _placement
+         * @param _placement Whether the timestamp is written when the GPU reaches the start of the pipe
+         * (`TimestampPlacement::StartOfPipe`) or once all prior work has finished (`TimestampPlacement::EndOfPipe`).
          *
          * @return A handle to the recorded timestamp, to be resolved later with #GetResolvedTimestamp
          * or #GetResolvedTimestamps.
          */
         virtual TimestampHandle PutTimestamp(CommandListHandle _commandList, TimestampPlacement _placement) = 0;
 
+        /**
+         * @brief Records a GPU timestamp query at the start of the pipe.
+         *
+         * @details
+         * Convenience overload equivalent to `PutTimestamp(_commandList, TimestampPlacement::StartOfPipe)`.
+         *
+         * @param _commandList The command list in which to record the timestamp.
+         *
+         * @return A handle to the recorded timestamp, to be resolved later with #GetResolvedTimestamp
+         * or #GetResolvedTimestamps.
+         */
         [[nodiscard]] TimestampHandle PutTimestamp(CommandListHandle _commandList)
         {
             return PutTimestamp(_commandList, TimestampPlacement::StartOfPipe);
