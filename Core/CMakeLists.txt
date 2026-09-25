@@ -304,7 +304,14 @@ AddCoverage(KryneEngine_Core)
 add_library(KryneEngine_Core_Link INTERFACE)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        target_link_libraries(KryneEngine_Core_Link INTERFACE "$<LINK_GROUP:RESCAN,KryneEngine_Core,EASTL,EAStdC>")
+        # Wrapping KryneEngine_Core in a LINK_GROUP genex (to break the circular EASTL/EAStdC
+        # static-lib dependency on GNU ld) stops CMake from walking into it to propagate its
+        # OTHER public link dependencies (glfw, Tracy, Vulkan, etc.) to consumers of this
+        # interface target. Re-forward them explicitly via its INTERFACE_LINK_LIBRARIES property.
+        target_link_libraries(KryneEngine_Core_Link INTERFACE
+                "$<LINK_GROUP:RESCAN,KryneEngine_Core,EASTL,EAStdC>"
+                "$<TARGET_PROPERTY:KryneEngine_Core,INTERFACE_LINK_LIBRARIES>"
+        )
 else ()
         target_link_libraries(KryneEngine_Core_Link INTERFACE KryneEngine_Core)
 endif ()
