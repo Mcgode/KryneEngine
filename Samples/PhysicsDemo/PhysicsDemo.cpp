@@ -138,7 +138,7 @@ int main(int _argc, const char* _argv[])
         {
             gBuffer0 = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
+                    .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kGBuffer0Format,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer0",
@@ -167,7 +167,7 @@ int main(int _argc, const char* _argv[])
         {
             gBuffer1 = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
+                    .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kGBuffer1Format,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer1",
@@ -196,7 +196,7 @@ int main(int _argc, const char* _argv[])
         {
             gBuffer2 = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
+                    .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kGBuffer2Format,
 #if !defined(KE_FINAL)
                     .m_debugName = "GBuffer2",
@@ -225,7 +225,7 @@ int main(int _argc, const char* _argv[])
         {
             gBufferDepth = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
+                    .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kGBufferDepthFormat,
                     .m_planes = TexturePlane::Depth,
 #if !defined(KE_FINAL)
@@ -257,7 +257,7 @@ int main(int _argc, const char* _argv[])
         {
             deferredShadows = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
+                    .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kDeferredShadowsFormat,
 #if !defined(KE_FINAL)
                     .m_debugName = "Deferred shadows"
@@ -281,7 +281,7 @@ int main(int _argc, const char* _argv[])
         {
             hdr = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
-                    .m_dimensions { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
+                    .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
                     .m_format = kHdrFormat,
 #if !defined(KE_FINAL)
                     .m_debugName = "HDR"
