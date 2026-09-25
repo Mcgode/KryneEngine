@@ -40,13 +40,12 @@ namespace KryneEngine::Samples::PhysicsDemo
 
     WorldObjectSystem::WorldObjectSystem(
         const AllocatorInstance _allocator,
-        const b3WorldId _world,
-        const size_t _maxPendingEvents)
+        const b3WorldId _world)
             : m_allocator(_allocator)
             , m_world(_world)
             , m_entities(_allocator)
             , m_liveHandles(_allocator)
-            , m_events(_allocator, _maxPendingEvents)
+            , m_events(_allocator)
             , m_renderStates(_allocator)
     {}
 
@@ -71,7 +70,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
         m_liveHandles.push_back(handle);
 
-        KE_VERIFY(m_events.TryEmplace(_transform, _renderModel, handle, EntityEvent::Kind::Created));
+        m_events.emplace_back(_transform, _renderModel, handle, EntityEvent::Kind::Created);
 
         return handle;
     }
@@ -91,14 +90,13 @@ namespace KryneEngine::Samples::PhysicsDemo
         }
 
         b3DestroyBody(copy.m_body);
+        m_events.emplace_back(Transform {}, SimplePoolHandle {}, _entity, EntityEvent::Kind::Destroyed);
 
         const auto it = eastl::find(m_liveHandles.begin(), m_liveHandles.end(), _entity);
         if (it != m_liveHandles.end())
         {
             m_liveHandles.erase_unsorted(it);
         }
-
-        KE_VERIFY(m_events.TryEmplace(Transform {}, SimplePoolHandle {}, _entity, EntityEvent::Kind::Destroyed));
     }
 
     void WorldObjectSystem::Update()
@@ -112,35 +110,35 @@ namespace KryneEngine::Samples::PhysicsDemo
             entity->m_transform.m_position = *reinterpret_cast<const float3*>(&worldTransform.p);
             entity->m_transform.m_rotation = FromB3(worldTransform.q);
 
-            KE_VERIFY(m_events.TryEmplace(entity->m_transform, SimplePoolHandle {}, handle, EntityEvent::Kind::Moved));
+            m_events.emplace_back(entity->m_transform, SimplePoolHandle {}, handle, EntityEvent::Kind::Moved);
         }
     }
 
-    void WorldObjectSystem::SyncRenderInstances(DrawInstanceManager& _drawInstanceManager, const float _alpha)
+    void WorldObjectSystem::FlushEvents(DrawInstanceManager& _drawInstanceManager)
     {
-        for (EntityEvent* event; (event = m_events.Front()) != nullptr; m_events.Pop())
+        for (const auto& event: m_events)
         {
-            const size_t index = event->m_entity.m_handle.m_index;
+            const size_t index = event.m_entity.m_handle.m_index;
             if (index >= m_renderStates.size())
             {
                 m_renderStates.resize(index + 1);
             }
             RenderEntityState& state = m_renderStates[index];
 
-            switch (event->m_kind)
+            switch (event.m_kind)
             {
             case EntityEvent::Kind::Created:
-                state.m_previous = state.m_current = event->m_transform;
+                state.m_previous = state.m_current = event.m_transform;
                 state.m_drawInstance = _drawInstanceManager.RegisterInstance(
-                    event->m_renderModel,
-                    event->m_transform.m_position,
-                    event->m_transform.m_rotation,
-                    event->m_transform.m_scale);
+                    event.m_renderModel,
+                    event.m_transform.m_position,
+                    event.m_transform.m_rotation,
+                    event.m_transform.m_scale);
                 state.m_registered = true;
                 break;
             case EntityEvent::Kind::Moved:
                 state.m_previous = state.m_current;
-                state.m_current = event->m_transform;
+                state.m_current = event.m_transform;
                 break;
             case EntityEvent::Kind::Destroyed:
                 if (state.m_registered)
@@ -151,11 +149,15 @@ namespace KryneEngine::Samples::PhysicsDemo
                 break;
             }
         }
+        m_events.clear();
 
         // Only now that this frame's "destroyed" events have all been drained (and their render
         // instances unregistered) is it safe to let CreateEntity reuse those slots.
         m_entities.FlushDeferredFrees();
+    }
 
+    void WorldObjectSystem::SyncRenderInstances(DrawInstanceManager& _drawInstanceManager, const float _alpha)
+    {
         for (RenderEntityState& state : m_renderStates)
         {
             if (!state.m_registered)

@@ -59,8 +59,7 @@ namespace KryneEngine::Samples::PhysicsDemo
     public:
         explicit WorldObjectSystem(
             AllocatorInstance _allocator,
-            b3WorldId _world,
-            size_t _maxPendingEvents = 4096);
+            b3WorldId _world);
         ~WorldObjectSystem();
 
         // Creates the Box3D body (using _transform as its initial pose) and queues the registration
@@ -75,9 +74,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         // Must be called once per fixed physics step, right after b3World_Step.
         void Update();
 
-        // Must be called once per rendered frame. Registers/unregisters/moves render instances
-        // based on the events published since the last call, and interpolates transforms by
-        // _alpha (expected in [0, 1]) between the last two fixed steps.
+        void FlushEvents(DrawInstanceManager& _drawInstanceManager);
+
         void SyncRenderInstances(DrawInstanceManager& _drawInstanceManager, float _alpha);
 
     private:
@@ -111,8 +109,10 @@ namespace KryneEngine::Samples::PhysicsDemo
         GenerationalPool<EntityInternal> m_entities;
         eastl::vector<EntityHandle> m_liveHandles; // game-loop-thread-owned only
 
-        SpscQueue<EntityEvent> m_events;
+        // Invariant contract : can only be written to by the game loop, and read by the render loop.
+        // The render loop can only access it after ensuring game loop work is done, and before queueing some more.
+        eastl::vector<EntityEvent> m_events;
 
-        eastl::vector<RenderEntityState> m_renderStates; // main-thread-owned only
+        eastl::vector<RenderEntityState> m_renderStates; // render-thread-owned only
     };
 }

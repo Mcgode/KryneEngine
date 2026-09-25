@@ -21,7 +21,7 @@
 #include <KryneEngine/Core/Common/Types.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
-#include <KryneEngine/Core/Memory/Containers/SpscQueue.hpp>
+#include <KryneEngine/Core/Threads/SyncCounterPool.hpp>
 #include <atomic>
 
 
@@ -127,8 +127,10 @@ namespace KryneEngine::Samples::PhysicsDemo
         static constexpr float kMaxShadowDistance = 60.f;
         CascadedShadowMap m_cascadedShadowMap;
 
+        static constexpr size_t kMaxGameLoopsQueueSize = 3;
         u64 m_gameFrameId = 0;
-        SpscQueue<u64> m_gameFramesQueue;
+        eastl::fixed_vector<u64, kMaxGameLoopsQueueSize, false> m_gameFramesQueue;
+        SyncCounterId m_gameLoopSyncCounter { kInvalidSyncCounterId };
 
         float m_physicsTimeStep = 1.0f / 60.0f;
         s32 m_physicsSubSteps = 4;

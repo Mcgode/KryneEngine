@@ -354,6 +354,8 @@ int main(int _argc, const char* _argv[])
     auto lastFrameTimePoint = std::chrono::high_resolution_clock::now();
     do
     {
+        ZoneScopedC(0xb02000); ZoneNameF("Render loop #%lld", graphicsContext->GetFrameId());
+
         {
             const auto lock = sceneManager.GetInputLock().AutoLock();
             windowManager.PollEvents();

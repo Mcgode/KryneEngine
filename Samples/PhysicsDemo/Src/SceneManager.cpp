@@ -39,7 +39,6 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_geometryLibrary(_allocator, *_graphicsContext)
             , m_worldObjectSystem(_allocator, _world)
             , m_cascadedShadowMap(_allocator)
-            , m_gameFramesQueue(_allocator, 3)
             , m_sceneEntities(_allocator)
             , m_fullscreenConstantsBuffer(_allocator)
             , m_deferredShadingPass(_allocator)
@@ -108,28 +107,43 @@ namespace KryneEngine::Samples::PhysicsDemo
         KE_ZoneScopedFunction("SceneManager::Process");
 
         m_timeProgress += _deltaTime;
-        const bool gameLoopRunning = !m_gameFramesQueue.Empty();
 
-        bool queuedGameLoopFrame = false;
+        size_t gameLoopsToQueue = 0;
         while (m_timeProgress >= m_physicsTimeStep)
         {
             m_timeProgress -= m_physicsTimeStep;
-            if (m_gameFramesQueue.TryEmplace(m_gameFrameId))
+            if (gameLoopsToQueue < kMaxGameLoopsQueueSize)
             {
-                queuedGameLoopFrame = true;
-                ++m_gameFrameId;
+                ++gameLoopsToQueue;
             }
         }
 
-        if (!gameLoopRunning && queuedGameLoopFrame)
+
+        if (gameLoopsToQueue > 0 && m_gameLoopSyncCounter != kInvalidSyncCounterId)
         {
+            KE_ASSERT(!m_singleThreadedMode);
+            m_fibersManager->WaitForCounterAndReset(m_gameLoopSyncCounter);
+            m_gameLoopSyncCounter = kInvalidSyncCounterId;
+
+            m_worldObjectSystem.FlushEvents(m_drawInstanceManager);
+        }
+
+        if (gameLoopsToQueue > 0)
+        {
+            KE_ASSERT(m_gameFramesQueue.empty());
+            for (size_t i = 0; i < gameLoopsToQueue; ++i)
+            {
+                m_gameFramesQueue.push_back(++m_gameFrameId);
+            }
+
             if (m_singleThreadedMode)
             {
                 GameLoop();
+                m_worldObjectSystem.FlushEvents(m_drawInstanceManager);
             }
             else
             {
-                m_fibersManager->InitAndBatchJobsNoCounter({
+                m_gameLoopSyncCounter = m_fibersManager->InitAndBatchJobs({
                     .m_function =
                         [this](u16)
                     {
@@ -185,11 +199,9 @@ namespace KryneEngine::Samples::PhysicsDemo
 
     void SceneManager::GameLoop()
     {
-        const u64* frameId = m_gameFramesQueue.Front();
-
-        while (!m_gameFramesQueue.Empty())
+        for (const u64 frameId: m_gameFramesQueue)
         {
-            KE_ZoneScopedF("Game loop frame %lld", *frameId);
+            ZoneScopedC(0x008c0e); ZoneNameF("Game loop #%lld", frameId);
 
             // Pick up any scene template switch requested from another thread since the last
             // step, and apply it now: this is the only thread allowed to touch WorldObjectSystem.
@@ -227,9 +239,8 @@ namespace KryneEngine::Samples::PhysicsDemo
                 m_worldObjectSystem.Update();
             }
 
-            m_gameFramesQueue.Pop();
-            frameId = m_gameFramesQueue.Front();
         }
+        m_gameFramesQueue.clear();
     }
 
     void SceneManager::InitPso(
