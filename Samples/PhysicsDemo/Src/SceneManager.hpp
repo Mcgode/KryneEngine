@@ -133,6 +133,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         SyncCounterId m_gameLoopSyncCounter { kInvalidSyncCounterId };
 
         float m_physicsTimeStep = 1.0f / 60.0f;
+        float m_simulationScale = 1.f;
         s32 m_physicsSubSteps = 4;
         float m_timeProgress = 0.0f;
 

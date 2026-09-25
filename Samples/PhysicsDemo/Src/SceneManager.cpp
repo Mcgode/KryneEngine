@@ -229,16 +229,20 @@ namespace KryneEngine::Samples::PhysicsDemo
             {
                 KE_ZoneScoped("Scene template: Process");
                 SceneBuildContext context(m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities);
-                m_currentSceneTemplate->Process(context, m_physicsTimeStep);
+                m_currentSceneTemplate->Process(context, m_physicsTimeStep * m_simulationScale);
             }
 
             // Run physics
             {
                 KE_ZoneScoped("Physics: World step");
-                b3World_Step(m_world, m_physicsTimeStep, m_physicsSubSteps);
+                b3World_Step(m_world, m_physicsTimeStep * m_simulationScale, m_physicsSubSteps);
                 m_worldObjectSystem.Update();
             }
 
+            if (InputManager::Get().WasKeyJustPressed(InputKeys::P))
+            {
+                m_simulationScale = m_simulationScale == 0.f ? 1.f : 0.f;
+            }
         }
         m_gameFramesQueue.clear();
     }
