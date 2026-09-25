@@ -152,11 +152,24 @@ namespace KryneEngine::Math
         constexpr T halfSqrt = M_SQRT2 * 0.5;
         const T scale = static_cast<T>((1 << (_bits - 1)) - 1) / halfSqrt;
 
+        // Round to a signed integer first: converting a negative floating-point value directly to
+        // an unsigned type is undefined behavior (e.g. it saturates to 0 on ARM, instead of wrapping
+        // to the two's complement bit pattern as on x86). Going through `s32` keeps the encoding
+        // consistent across platforms, matching the sign-extension done when unpacking.
+        // The result is then masked down to `_bits` bits: a negative value sign-extends across the
+        // full 32 bits, and since the fields are later combined with plain shifts and ORs (with no
+        // masking of their own), those extra set bits would otherwise bleed into neighboring fields.
+        const u32 bitMask = BitUtils::BitMask<u32>(_bits);
+        const auto encodeComponent = [scale, sign, bitMask](T _value) -> u32
+        {
+            return static_cast<u32>(static_cast<s32>(std::round(_value * scale * sign))) & bitMask;
+        };
+
         return {
             maxIdx,
-            std::round(a * scale * sign),
-            std::round(b * scale * sign),
-            std::round(c * scale * sign)
+            encodeComponent(a),
+            encodeComponent(b),
+            encodeComponent(c)
         };
     }
 
