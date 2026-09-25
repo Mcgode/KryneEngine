@@ -154,6 +154,7 @@ namespace KryneEngine::Samples
 
         m_models.Get(instance.m_model).m_instanceCount--;
         instance.m_valid = false;
+        m_instances.Free(_instance);
     }
 
     void DrawInstanceManager::SetInstanceTransform(
