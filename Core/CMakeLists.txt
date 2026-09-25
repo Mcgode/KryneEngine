@@ -58,6 +58,7 @@ set(MathSrc
         Include/KryneEngine/Core/Math/Transform.hpp
         Include/KryneEngine/Core/Math/Projection.hpp
         Include/KryneEngine/Core/Math/BoundingBox.hpp
+        Include/KryneEngine/Core/Math/Ray.hpp
         Include/KryneEngine/Core/Math/Float16.hpp
         Src/Math/Float16.cpp
         Include/KryneEngine/Core/Math/Color.hpp
