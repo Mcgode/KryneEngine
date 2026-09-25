@@ -100,12 +100,14 @@ jobs:
         KryneEngine_Modules_SdfTexture
         KryneEngine_Modules_ShaderReflection
         KryneEngine_Modules_TextRendering
+        KryneEngine_Modules_Box3D
 
     - name: Build Modules Unit tests
       run: >
         cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target
         Modules_FileSystem_UnitTests
         Modules_GraphicsUtils_UnitTests
+        Modules_RenderGraph_UnitTests
 
     - name: Upload Modules Unit tests
       uses: actions/upload-artifact@v7
@@ -120,6 +122,7 @@ jobs:
         ImGuiDemo
         RenderGraphDemo
         UiDemo
+        PhysicsDemo
 
   test-core:
     runs-on: ubuntu-latest
