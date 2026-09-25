@@ -10,6 +10,10 @@
 #   include <intrin.h>
 #endif
 
+#include <bit>
+#include <thread>
+#include <windows.h>
+
 #include "KryneEngine/Core/Math/Simd/SimdCommon.hpp"
 
 namespace KryneEngine::Platform
@@ -49,5 +53,21 @@ namespace KryneEngine::Platform
                 Simd::g_simdSupport |= Simd::SimdSupport::AVX2;
         }
 #endif
+    }
+
+    u32 GetUsableCpuCoreCount()
+    {
+        // The process affinity mask reports the cores this process is actually allowed to run on
+        // (e.g. restricted via `start /affinity` or job object limits) -- unlike
+        // hardware_concurrency(), which reports the host's total core count regardless of such a
+        // restriction.
+        DWORD_PTR processMask, systemMask;
+        if (GetProcessAffinityMask(GetCurrentProcess(), &processMask, &systemMask) != 0)
+        {
+            const u32 usableCores = static_cast<u32>(std::popcount(static_cast<u64>(processMask)));
+            if (usableCores > 0)
+                return usableCores;
+        }
+        return std::thread::hardware_concurrency();
     }
 }

@@ -10,6 +10,7 @@
 #include <condition_variable>
 
 #include "KryneEngine/Core/Common/Assert.hpp"
+#include "KryneEngine/Core/Platform/Cpu.hpp"
 #include "KryneEngine/Core/Profiling/TracyHeader.hpp"
 #include "KryneEngine/Core/Threads/FiberJob.hpp"
 #include "KryneEngine/Core/Threads/FiberThread.hpp"
@@ -35,7 +36,7 @@ namespace KryneEngine
         if (_requestedThreadCount <= 0)
         {
             // Always at least 1 thread, the current thread
-            fiberThreadCount = eastl::max<u16>(std::thread::hardware_concurrency(), 1);
+            fiberThreadCount = eastl::max<u16>(Platform::GetUsableCpuCoreCount(), 1);
 
             if (_requestedThreadCount < 0)
             {

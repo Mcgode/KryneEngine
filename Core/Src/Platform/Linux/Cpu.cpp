@@ -10,6 +10,9 @@
 #   include <cpuid.h>
 #endif
 
+#include <sched.h>
+#include <thread>
+
 #include "KryneEngine/Core/Math/Simd/SimdCommon.hpp"
 
 namespace KryneEngine::Platform
@@ -49,5 +52,21 @@ namespace KryneEngine::Platform
                 Simd::g_simdSupport |= Simd::SimdSupport::AVX2;
         }
 #endif
+    }
+
+    u32 GetUsableCpuCoreCount()
+    {
+        // sched_getaffinity() reports the process' actual usable core set (the same number `nproc`
+        // would print), honoring any cgroup/cpuset restriction -- unlike hardware_concurrency(),
+        // which reports the host's total core count regardless of such a restriction.
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        if (sched_getaffinity(0, sizeof(set), &set) == 0)
+        {
+            const u32 usableCores = static_cast<u32>(CPU_COUNT(&set));
+            if (usableCores > 0)
+                return usableCores;
+        }
+        return std::thread::hardware_concurrency();
     }
 }
