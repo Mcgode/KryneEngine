@@ -7,6 +7,7 @@ add_executable(Core_Math_UnitTests
         Matrix44_UnitTests.cpp
         Projection_UnitTests.cpp
         Float16_UnitTests.cpp
+        Quaternion_UnitTests.cpp
 )
 
 target_link_libraries(Core_Math_UnitTests KryneEngine_Core_Link TestUtils gtest gtest_main)
