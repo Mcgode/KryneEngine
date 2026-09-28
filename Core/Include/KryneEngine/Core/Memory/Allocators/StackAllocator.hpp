@@ -51,6 +51,14 @@ namespace KryneEngine
          */
         void Reset();
 
+        [[nodiscard]] AllocatorInstance GetAllocator() const { return m_parentAllocator; }
+
+        /**
+         * @brief RAII handle that pops the allocator back to the stack index it captured on construction.
+         *
+         * @warning Scopes must be destroyed in the reverse order they were created (LIFO), and are neither
+         * copyable nor movable.
+         */
         struct Scope
         {
             friend class StackAllocator;
@@ -65,6 +73,8 @@ namespace KryneEngine
 
         public:
             ~Scope() { m_allocator->Pop(m_stackIndex); }
+
+            KE_DEFINE_COPY_MOVE_SEMANTICS(Scope, delete, delete);
 
             [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
         };

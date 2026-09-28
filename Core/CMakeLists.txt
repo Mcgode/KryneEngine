@@ -100,6 +100,8 @@ set(MemorySrc
         Include/KryneEngine/Core/Memory/Containers/LruCache.inl
         Include/KryneEngine/Core/Memory/Containers/LruCache.hpp
         Include/KryneEngine/Core/Memory/Containers/SpscQueue.hpp
+        Src/Memory/Allocators/GlobalScratchAllocator.cpp
+        Include/KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp
 )
 
 message(STATUS "Loading implementation for platform '${CMAKE_SYSTEM_NAME}'")
