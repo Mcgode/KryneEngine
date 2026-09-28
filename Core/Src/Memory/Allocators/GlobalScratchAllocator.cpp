@@ -42,8 +42,14 @@ namespace KryneEngine
     {
         if (tl_scratchAllocator == nullptr)
         {
-            tl_scratchAllocator = IntrusiveUniquePtr<StackAllocator>(
-                s_parentAllocator.New<StackAllocator>(s_parentAllocator, s_initialScratchAllocatorSize));
+            char name[256];
+            std::thread::id id = std::this_thread::get_id();
+            snprintf(name, sizeof(name), "ScratchAllocator_0x%lx", *reinterpret_cast<size_t*>(&id));
+            tl_scratchAllocator.Reset(s_parentAllocator.New<StackAllocator>(
+                s_parentAllocator,
+                s_initialScratchAllocatorSize,
+                5,
+                name));
         }
 
         return ScopedScratchAllocator(tl_scratchAllocator.Get());
