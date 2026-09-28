@@ -128,6 +128,10 @@ int main(int _argc, const char* _argv[])
         shadowCascadeArray,
         shadowCascadeArrayView,
         skyAmbientBuffer,
+        aoTextures,
+        aoTermAView,
+        aoTermBView,
+        aoEdgesView,
         hdr,
         hdrView,
         hdrRtv;
@@ -279,6 +283,53 @@ int main(int _argc, const char* _argv[])
         // (Populated after sceneManager.InitPso() below.)
 
         {
+            aoTextures = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
+                .m_desc = {
+                    .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
+                    .m_format = kAmbientOcclusionFormat,
+                    .m_arraySize = 3,
+                    .m_type = TextureTypes::Array2D,
+#if !defined(KE_FINAL)
+                    .m_debugName = "AO textures",
+#endif
+                },
+                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::ReadWriteImage,
+            });
+            aoTermAView = renderGraph.GetRegistry().CreateTextureView(
+                graphicsContext,
+                aoTextures,
+                {
+                    .m_arrayStart = 0,
+                    .m_arrayRange = 1,
+                    .m_format = kAmbientOcclusionFormat,
+                    .m_accessType = TextureViewAccessType::ReadWrite,
+                },
+                "AO term A view");
+
+            aoTermBView = renderGraph.GetRegistry().CreateTextureView(
+                graphicsContext,
+                aoTextures,
+                {
+                    .m_arrayStart = 1,
+                    .m_arrayRange = 1,
+                    .m_format = kAmbientOcclusionFormat,
+                    .m_accessType = TextureViewAccessType::ReadWrite,
+                },
+                "AO term B view");
+
+            aoEdgesView = renderGraph.GetRegistry().CreateTextureView(
+                graphicsContext,
+                aoTextures,
+                {
+                    .m_arrayStart = 2,
+                    .m_arrayRange = 1,
+                    .m_format = kAmbientOcclusionFormat,
+                    .m_accessType = TextureViewAccessType::ReadWrite,
+                },
+                "AO edges view");
+        }
+
+        {
             hdr = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
                 .m_desc = {
                     .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
@@ -316,7 +367,11 @@ int main(int _argc, const char* _argv[])
         renderGraph.GetRegistry().GetTextureView(gBuffer2View),
         renderGraph.GetRegistry().GetTextureView(gBufferDepthView),
         renderGraph.GetRegistry().GetTextureView(deferredShadowsView),
-        renderGraph.GetRegistry().GetTextureView(hdrView));
+        renderGraph.GetRegistry().GetTextureView(hdrView),
+        renderGraph.GetRegistry().GetTextureView(aoTermAView),
+        renderGraph.GetRegistry().GetTextureView(aoTermBView),
+        renderGraph.GetRegistry().GetTextureView(aoEdgesView),
+        renderGraph.GetRegistry().GetResource(aoTextures).m_rawTextureData.m_texture);
 
     // Register the sky ambient buffer + UAV view now that InitPso() has created them.
     SimplePoolHandle shadowCascadeRtvs[Samples::CascadedShadowMap::kMaxCascades] {};
@@ -486,7 +541,18 @@ int main(int _argc, const char* _argv[])
                 {
                     sceneManager.GetDeferredShadowPass().Dispatch(_renderGraph, _executionData, frameBufferSize);
                 })
-                .Done()
+                .Done();
+
+        sceneManager.GetAmbientOcclusionPass().DeclareRenderGraphPass(
+            builder,
+            gBufferDepthView,
+            gBuffer1,
+            aoTermAView,
+            aoTermBView,
+            aoEdgesView,
+            frameBufferSize);
+
+        builder
             .DeclarePass(RenderGraph::PassType::Compute)
                 .SetName("Sky ambient bake pass")
                 .ReadDependency({ .m_resource = fullscreenConstants })
@@ -542,6 +608,12 @@ int main(int _argc, const char* _argv[])
                     .m_resource = skyAmbientBuffer,
                     .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                     .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                })
+                .ReadDependency({
+                    .m_resource = aoTermAView,
+                    .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                    .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    .m_targetLayout = TextureLayout::ShaderResource,
                 })
                 .SetExecuteFunction([&sceneManager, frameBufferSize](const auto& _renderGraph, const auto& _executionPass)
                 {

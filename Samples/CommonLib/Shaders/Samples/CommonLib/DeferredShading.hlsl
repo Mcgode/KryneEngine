@@ -22,6 +22,8 @@ vkBinding(3, 1) Texture2D<float4> deferredShadows : register(t3, space1);
 vkBinding(4, 1) Texture2D<float4> gBufferLight : register(t4, space1);
 // Sky ambient buffer: 9 pre-convolved SH coefficients (see SphericalHarmonics.hlsli).
 vkBinding(5, 1) StructuredBuffer<float4> skyAmbient : register(t5, space1);
+// Ambient occlusion: AmbientOcclusionPass's final term, 1 = fully visible, 0 = fully occluded.
+vkBinding(6, 1) Texture2D<float> ambientOcclusion : register(t6, space1);
 
 struct FsInput
 {
@@ -81,7 +83,13 @@ FsOutput DeferredShadingMain(const in FsInput _input)
     // slightly negative, which isn't physical for an irradiance term.
     const float3 skyAmbientIrradiance = max(EvalIrradianceSH9(normalW, skyAmbient), 0.0f.xxx);
 
-    const float3 diffuse = diffuseColor * (directLighting + gBufferLight.Load(int3(pixelCoords, 0)).rgb + skyAmbientIrradiance);
+    // Ambient occlusion only darkens the indirect/ambient terms (baked light + sky irradiance),
+    // not the direct sun contribution below - it approximates nearby geometry blocking incoming
+    // ambient light, not a substitute for a direct shadow.
+    const float ao = ambientOcclusion.Load(int3(pixelCoords, 0)).r;
+    const float3 indirectDiffuse = (gBufferLight.Load(int3(pixelCoords, 0)).rgb + skyAmbientIrradiance) * ao;
+
+    const float3 diffuse = diffuseColor * (directLighting + indirectDiffuse);
     const float3 specular = directLighting * BRDFSpecularGGX(
         -constants.m_sunLightDirection,
         cameraW,

@@ -27,7 +27,8 @@ namespace KryneEngine::Samples
             TextureViewHandle _gBufferDepth,
             TextureViewHandle _deferredShadows,
             TextureViewHandle _gBufferAmbient,
-            BufferViewHandle  _skyAmbient);
+            BufferViewHandle  _skyAmbient,
+            TextureViewHandle _ambientOcclusion);
 
         void UpdateSceneConstants(DescriptorSetHandle _sceneConstantsDescriptorSet)
         {
