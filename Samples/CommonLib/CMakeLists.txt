@@ -29,9 +29,12 @@ add_library(Samples_CommonLib STATIC
         Include/Rendering/Compute/SkyAmbientPass.hpp
         Src/Rendering/Compute/DeferredShadowPass.cpp
         Include/Rendering/Compute/DeferredShadowPass.hpp
+        Src/Rendering/Compute/AmbientOcclusionPass.cpp
+        Include/Rendering/Compute/AmbientOcclusionPass.hpp
         Src/Rendering/Shadows/CascadedShadowMap.cpp
         Include/Rendering/Shadows/CascadedShadowMap.hpp
         Shaders/Samples/CommonLib/CascadeConstants.h
+        Shaders/Samples/CommonLib/AmbientOcclusionConstants.h
 )
 
 target_include_directories(Samples_CommonLib PUBLIC Include)

@@ -47,6 +47,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_skyAmbientPass(_allocator)
             , m_colorMappingPass(_allocator)
             , m_deferredShadowPass(_allocator)
+            , m_ambientOcclusionPass(_allocator)
     {
         m_gBufferPassDispatcher = m_drawInstanceManager.CreatePassDispatcher(
             *_graphicsContext,
@@ -165,6 +166,8 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_sunLight->DebugWindow(&m_showSunLightWindow);
         if (m_showDeferredShadowsWindow)
             m_cascadedShadowMap.Debug(&m_showDeferredShadowsWindow);
+        if (m_showAmbientOcclusionWindow)
+            m_ambientOcclusionPass.Debug(&m_showAmbientOcclusionWindow);
 
         // Interpolate between the last two fixed steps' worth of data and push the result to the
         // renderer; see WorldObjectSystem's threading contract (OrbitCamera::UpdatePose()/
@@ -195,6 +198,9 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _graphicsContext,
                 m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()],
                 m_cascadedShadowMap.GetConstantsBufferView(_graphicsContext->GetCurrentFrameContextIndex()));
+            m_ambientOcclusionPass.UpdateSceneConstants(
+                _graphicsContext,
+                m_fullscreenConstantsBufferViews[_graphicsContext->GetCurrentFrameContextIndex()]);
         }
     }
 
@@ -257,7 +263,11 @@ namespace KryneEngine::Samples::PhysicsDemo
         const TextureViewHandle _gBuffer2View,
         const TextureViewHandle _gBufferDepthView,
         const TextureViewHandle _deferredShadowsView,
-        const TextureViewHandle _hdrView)
+        const TextureViewHandle _hdrView,
+        const TextureViewHandle _aoTermAView,
+        const TextureViewHandle _aoTermBView,
+        const TextureViewHandle _aoEdgesView,
+        const TextureHandle _aoTextures)
     {
         // Default material PSOs
         {
@@ -490,6 +500,16 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _deferredShadowsView);
             m_deferredShadowPass.CreatePso(&_graphicsContext);
 
+            m_ambientOcclusionPass.Initialize(
+                &_graphicsContext,
+                _gBufferDepthView,
+                _gBuffer1View,
+                _aoTermAView,
+                _aoTermBView,
+                _aoEdgesView,
+                _aoTextures);
+            m_ambientOcclusionPass.CreatePso(&_graphicsContext);
+
             m_deferredShadingPass.Initialize(
                 &_graphicsContext,
                 m_fullscreenPassesLayout,
@@ -498,7 +518,8 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _gBufferDepthView,
                 _deferredShadowsView,
                 _gBuffer2View,
-                m_skyAmbientPass.GetSkyAmbientBufferView());
+                m_skyAmbientPass.GetSkyAmbientBufferView(),
+                m_ambientOcclusionPass.GetFinalOutputView());
             m_deferredShadingPass.CreatePso(
                 &_graphicsContext,
                 {
@@ -674,6 +695,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         {
             ImGui::MenuItem("Sunlight options", nullptr, &m_showSunLightWindow);
             ImGui::MenuItem("Shadows", nullptr, &m_showDeferredShadowsWindow);
+            ImGui::MenuItem("Ambient Occlusion", nullptr, &m_showAmbientOcclusionWindow);
 
             ImGui::EndMenu();
         }

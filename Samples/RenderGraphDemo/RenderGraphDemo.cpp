@@ -4,21 +4,22 @@
  * @date 13/11/2024.
  */
 
-#include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
+#include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
 #include <KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Threads/FibersManager.hpp>
-#include <KryneEngine/Core/Window/Window.hpp>
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
+#include <KryneEngine/Core/Window/Window.hpp>
 #include <KryneEngine/Core/Window/WindowManager.hpp>
 #include <KryneEngine/Modules/ImGui/Context.hpp>
 #include <KryneEngine/Modules/RenderGraph/Builder.hpp>
 #include <KryneEngine/Modules/RenderGraph/Descriptors/RenderTargetViewDesc.hpp>
+#include <KryneEngine/Modules/RenderGraph/ImGuiDebugWindow.hpp>
 #include <KryneEngine/Modules/RenderGraph/Registry.hpp>
 #include <KryneEngine/Modules/RenderGraph/RenderGraph.hpp>
 #include <KryneEngine/Modules/RenderGraph/Resource.hpp>
-#include <KryneEngine/Modules/RenderGraph/ImGuiDebugWindow.hpp>
 
+#include <Rendering/Compute/AmbientOcclusionPass.hpp>
 #include <Rendering/Compute/SkyAmbientPass.hpp>
 #include <Rendering/Fullscreen/ColorMappingPass.hpp>
 #include <Rendering/Fullscreen/DeferredShadingPass.hpp>
@@ -74,6 +75,7 @@ int main()
     DeferredShadowPass deferredShadowPass { allocator };
     GiPass giPass { allocator };
     SkyAmbientPass skyAmbientPass { allocator };
+    AmbientOcclusionPass ambientOcclusionPass { allocator };
     DeferredShadingPass deferredShadingPass { allocator };
     SkyPass skyPass { allocator };
     ColorMappingPass colorMappingPass { allocator };
@@ -93,6 +95,10 @@ int main()
         deferredGi,
         deferredGiView,
         skyAmbientBuffer,
+        aoTextures,
+        aoTermAView,
+        aoTermBView,
+        aoEdgesView,
         hdr,
         hdrRtv,
         hdrView;
@@ -242,6 +248,52 @@ int main()
             },
             "Deferred GI SRV");
 
+        aoTextures = renderGraph.GetRegistry().CreateRawTexture(
+            graphicsContext,
+            {
+                .m_desc = {
+                    .m_dimensions = dimensions,
+                    .m_format = TextureFormat::R8_UNorm,
+                    .m_arraySize = 3,
+                    .m_type = TextureTypes::Array2D,
+#if !defined(KE_FINAL)
+                    .m_debugName = "AO textures",
+#endif
+                },
+                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::ReadWriteImage,
+            });
+        aoTermAView = renderGraph.GetRegistry().CreateTextureView(
+            graphicsContext,
+            aoTextures,
+            {
+                .m_arrayStart = 0,
+                .m_arrayRange = 1,
+                .m_format = TextureFormat::R8_UNorm,
+                .m_accessType = TextureViewAccessType::ReadWrite,
+            },
+            "AO term A view");
+
+        aoTermBView = renderGraph.GetRegistry().CreateTextureView(
+            graphicsContext,
+            aoTextures,
+            {
+                .m_arrayStart = 1,
+                .m_arrayRange = 1,
+                .m_format = TextureFormat::R8_UNorm,
+                .m_accessType = TextureViewAccessType::ReadWrite,
+            },
+            "AO term B view");
+        aoEdgesView = renderGraph.GetRegistry().CreateTextureView(
+            graphicsContext,
+            aoTextures,
+            {
+                .m_arrayStart = 2,
+                .m_arrayRange = 1,
+                .m_format = TextureFormat::R8_UNorm,
+                .m_accessType = TextureViewAccessType::ReadWrite,
+            },
+            "AO edges view");
+
         hdr = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
             {
@@ -287,6 +339,15 @@ int main()
         skyAmbientPass.GetSkyAmbientBuffer(),
         "Sky ambient buffer");
 
+    ambientOcclusionPass.Initialize(
+        graphicsContext,
+        renderGraph.GetRegistry().GetResource(gBufferDepthView).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(gBuffer1View).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(aoTermAView).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(aoTermBView).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(aoEdgesView).m_textureViewData.m_textureView,
+        renderGraph.GetRegistry().GetResource(aoTextures).m_rawTextureData.m_texture);
+
     deferredShadingPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout(),
@@ -295,7 +356,8 @@ int main()
         renderGraph.GetRegistry().GetResource(gBufferDepthView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredShadowView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(deferredGiView).m_textureViewData.m_textureView,
-        skyAmbientPass.GetSkyAmbientBufferView());
+        skyAmbientPass.GetSkyAmbientBufferView(),
+        renderGraph.GetRegistry().GetResource(aoTermAView).m_textureViewData.m_textureView);
     skyPass.Initialize(
         graphicsContext,
         sceneManager.GetDescriptorSetLayout());
@@ -310,6 +372,7 @@ int main()
         .m_depthStencilFormat = gbufferDepthFormat,
     });
     skyAmbientPass.CreatePso(graphicsContext);
+    ambientOcclusionPass.CreatePso(graphicsContext);
     deferredShadingPass.CreatePso(graphicsContext, {
         .m_numColorAttachments = 1,
         .m_colorFormats = { hdrFormat },
@@ -353,6 +416,9 @@ int main()
             deferredShadowPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
             giPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
             skyAmbientPass.UpdateSceneConstants(
+                graphicsContext,
+                sceneManager.GetSceneConstantsBufferView(frameIndex));
+            ambientOcclusionPass.UpdateSceneConstants(
                 graphicsContext,
                 sceneManager.GetSceneConstantsBufferView(frameIndex));
             deferredShadingPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
@@ -447,7 +513,18 @@ int main()
                         .m_targetAccessFlags = BarrierAccessFlags::UnorderedAccess,
                         .m_targetLayout = TextureLayout::UnorderedAccess,
                     })
-                    .Done()
+                    .Done();
+
+            ambientOcclusionPass.DeclareRenderGraphPass(
+                builder,
+                gBufferDepthView,
+                gBuffer1View,
+                aoTermAView,
+                aoTermBView,
+                aoEdgesView,
+                renderSize);
+
+            builder
                 .DeclarePass(RenderGraph::PassType::Compute)
                     .SetName("Sky ambient bake pass")
                     .ReadDependency(frameCBufferReadDep)
@@ -505,6 +582,12 @@ int main()
                         .m_resource = skyAmbientBuffer,
                         .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
                         .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                    })
+                    .ReadDependency({
+                        .m_resource = aoTermAView,
+                        .m_targetSyncStage = BarrierSyncStageFlags::FragmentShading,
+                        .m_targetAccessFlags = BarrierAccessFlags::ShaderResource,
+                        .m_targetLayout = TextureLayout::ShaderResource,
                     })
                     .Done()
                 .DeclarePass(Modules::RenderGraph::PassType::Render)

@@ -31,9 +31,10 @@ namespace KryneEngine::Samples
         const TextureViewHandle _gBufferDepth,
         const TextureViewHandle _deferredShadows,
         const TextureViewHandle _gBufferAmbient,
-        const BufferViewHandle  _skyAmbient)
+        const BufferViewHandle  _skyAmbient,
+        const TextureViewHandle _ambientOcclusion)
     {
-        u32 indices[6];
+        u32 indices[7];
 
         // Create texture descriptor set layout
         {
@@ -66,6 +67,11 @@ namespace KryneEngine::Samples
                 // Sky ambient buffer (dual-hemisphere result from SkyAmbientPass)
                 {
                     .m_type = DescriptorBindingDesc::Type::StorageReadOnlyBuffer,
+                    .m_visibility = ShaderVisibility::Fragment
+                },
+                // Ambient occlusion (AmbientOcclusionPass's final term)
+                {
+                    .m_type = DescriptorBindingDesc::Type::SampledTexture,
                     .m_visibility = ShaderVisibility::Fragment
                 },
             };
@@ -115,6 +121,12 @@ namespace KryneEngine::Samples
                     .m_handle = _skyAmbient.m_handle,
                 }
             };
+            const DescriptorSetWriteInfo::DescriptorData ambientOcclusionDescriptorData[] {
+                {
+                    .m_textureLayout = TextureLayout::ShaderResource,
+                    .m_handle = _ambientOcclusion.m_handle,
+                }
+            };
             const DescriptorSetWriteInfo writeInfo[] = {
                 {
                     .m_index = indices[0],
@@ -139,6 +151,10 @@ namespace KryneEngine::Samples
                 {
                     .m_index = indices[5],
                     .m_descriptorData = skyAmbientDescriptorData
+                },
+                {
+                    .m_index = indices[6],
+                    .m_descriptorData = ambientOcclusionDescriptorData
                 },
             };
             _graphicsContext->UpdateDescriptorSet(m_textureDescriptors, {writeInfo}, false);

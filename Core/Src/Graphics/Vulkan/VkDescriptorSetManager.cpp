@@ -225,6 +225,8 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("VkDescriptorSetManager::UpdateDescriptorSet");
 
+        const auto lock = m_writeLock.AutoLock();
+
         m_tmpWriteOps.clear();
 
         for (const auto& write: _writes)
@@ -253,7 +255,10 @@ namespace KryneEngine
 
         m_multiFrameTracker.AdvanceToNextFrame();
 
-        _ProcessUpdates(m_multiFrameTracker.GetData(), _device, _resources, _frameIndex);
+        {
+            const auto lock = m_writeLock.AutoLock();
+            _ProcessUpdates(m_multiFrameTracker.GetData(), _device, _resources, _frameIndex);
+        }
 
         m_multiFrameTracker.ClearData();
 

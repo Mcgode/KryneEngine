@@ -74,6 +74,8 @@ namespace KryneEngine
         eastl::vector<WriteOp> m_tmpWriteOps;
         eastl::vector<VkWriteDescriptorSet> m_tmpWrites;
 
+        SpinLock m_writeLock;
+
         union DescriptorData
         {
             static_assert(sizeof(VkDescriptorImageInfo) == sizeof(VkDescriptorBufferInfo), "Types must take full size");

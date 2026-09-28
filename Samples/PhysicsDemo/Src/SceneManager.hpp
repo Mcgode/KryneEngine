@@ -8,6 +8,7 @@
 
 #include "Ecs/WorldObjectSystem.hpp"
 #include "Geometry/GeometryLibrary.hpp"
+#include "Rendering/Compute/AmbientOcclusionPass.hpp"
 #include "Rendering/Compute/DeferredShadowPass.hpp"
 #include "Rendering/Compute/SkyAmbientPass.hpp"
 #include "Rendering/DrawInstanceManager.hpp"
@@ -69,7 +70,11 @@ namespace KryneEngine::Samples::PhysicsDemo
             TextureViewHandle _gBuffer2View,
             TextureViewHandle _gBufferDepthView,
             TextureViewHandle _deferredShadowsView,
-            TextureViewHandle _hdrView);
+            TextureViewHandle _hdrView,
+            TextureViewHandle _aoTermAView,
+            TextureViewHandle _aoTermBView,
+            TextureViewHandle _aoEdgesView,
+            TextureHandle _aoTextures);
 
         void UpdateFullscreenConstantsBuffer(
             GraphicsContext* _graphicsContext,
@@ -81,6 +86,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         [[nodiscard]] SkyAmbientPass& GetSkyAmbientPass() { return m_skyAmbientPass; }
         [[nodiscard]] ColorMappingPass& GetColorPass() { return m_colorMappingPass; }
         [[nodiscard]] DeferredShadowPass& GetDeferredShadowPass() { return m_deferredShadowPass; }
+        [[nodiscard]] AmbientOcclusionPass& GetAmbientOcclusionPass() { return m_ambientOcclusionPass; }
 
         void PrepareGBufferPass(GraphicsContext& _graphicsContext, TransferCommandEncoderHandle _transferEncoder, uint2 _screenResolution);
         void RenderGBufferPass(GraphicsContext& _graphicsContext, RenderCommandEncoderHandle _renderEncoder) const;
@@ -156,10 +162,12 @@ namespace KryneEngine::Samples::PhysicsDemo
         SkyAmbientPass m_skyAmbientPass;
         ColorMappingPass m_colorMappingPass;
         DeferredShadowPass m_deferredShadowPass;
+        AmbientOcclusionPass m_ambientOcclusionPass;
 
         SpinLock m_inputLock;
 
         bool m_showSunLightWindow = false;
         bool m_showDeferredShadowsWindow = false;
+        bool m_showAmbientOcclusionWindow = false;
     };
 }
