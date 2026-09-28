@@ -69,26 +69,14 @@ namespace KryneEngine
             u16 m_arrayOffset;
         };
 
-        MultiFrameDataTracker<WriteOp> m_multiFrameTracker;
-
-        eastl::vector<WriteOp> m_tmpWriteOps;
-        eastl::vector<VkWriteDescriptorSet> m_tmpWrites;
+        MultiFrameDataTracker<WriteOp> m_multiFrameTracker {};
 
         SpinLock m_writeLock;
 
-        union DescriptorData
-        {
-            static_assert(sizeof(VkDescriptorImageInfo) == sizeof(VkDescriptorBufferInfo), "Types must take full size");
-
-            VkDescriptorImageInfo m_imageInfo;
-            VkDescriptorBufferInfo m_bufferImageInfo;
-        };
-        eastl::vector<DescriptorData> m_tmpDescriptorData;
-
         [[nodiscard]] AllocatorInstance GetAllocator() const;
 
-        void _ProcessUpdates(
-            const eastl::vector<WriteOp>& _writes,
+        void ProcessUpdates(
+            eastl::span<const WriteOp> _writeOps,
             VkDevice _device,
             const VkResources& _resources,
             u8 _frameIndex);

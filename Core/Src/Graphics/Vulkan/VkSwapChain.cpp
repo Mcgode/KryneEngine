@@ -13,6 +13,7 @@
 #include "KryneEngine/Core/Common/Assert.hpp"
 #include "KryneEngine/Core/Common/EastlHelpers.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/RenderTargetView.hpp"
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 
 namespace KryneEngine
 {
@@ -29,6 +30,8 @@ namespace KryneEngine
             u64 _currentFrameIndex)
     {
         KE_ZoneScopedFunction("VkSwapChain::VkSwapChain");
+
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
 
         m_desc = _desc;
         m_queueIndices = _queueIndices;
@@ -121,7 +124,7 @@ namespace KryneEngine
             capabilities.m_surfaceCapabilities.minImageCount,
             capabilities.m_surfaceCapabilities.maxImageCount);
 
-        eastl::vector<u32> queueFamilyIndices{};
+        eastl::vector<u32> queueFamilyIndices { scopedScratchAllocator.GetAllocator() };
         m_sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         if (_appInfo.m_features.m_concurrentQueues)
         {
@@ -166,7 +169,7 @@ namespace KryneEngine
         {
             u32 imageCount;
             VkAssert(vkGetSwapchainImagesKHR(_device, m_currentSwapChain->m_swapChain,  &imageCount, nullptr));
-            DynamicArray<VkImage> images;
+            DynamicArray<VkImage> images(scopedScratchAllocator.GetAllocator());
             images.Resize(imageCount);
             VkAssert(vkGetSwapchainImagesKHR(_device, m_currentSwapChain->m_swapChain, &imageCount, images.Data()));
             KE_ASSERT_MSG(imageCount > 0, "Unable to retrieve swapchain images");
@@ -216,6 +219,8 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("VkSwapChain::RecreateSwapChain");
 
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
         if (m_nextSwapChain != nullptr)
             return false;
 
@@ -253,7 +258,7 @@ namespace KryneEngine
         m_nextSwapChain->m_framebufferSize = { extent.width, extent.height };
 
         {
-            eastl::vector<u32> queueFamilyIndices {};
+            eastl::vector<u32> queueFamilyIndices { scopedScratchAllocator.GetAllocator() };
             if (m_sharingMode == VK_SHARING_MODE_CONCURRENT)
                 queueFamilyIndices = m_queueIndices.RetrieveDifferentFamilies();
 
@@ -270,7 +275,7 @@ namespace KryneEngine
         {
             u32 imageCount;
             VkAssert(vkGetSwapchainImagesKHR(_device, m_nextSwapChain->m_swapChain,  &imageCount, nullptr));
-            DynamicArray<VkImage> images(m_allocator);
+            DynamicArray<VkImage> images(scopedScratchAllocator.GetAllocator());
             images.Resize(imageCount);
             VkAssert(vkGetSwapchainImagesKHR(_device, m_nextSwapChain->m_swapChain, &imageCount, images.Data()));
             KE_ASSERT_MSG(imageCount > 0, "Unable to retrieve swapchain images");
@@ -390,7 +395,8 @@ namespace KryneEngine
             m_debugHandler->SetName(_device, VK_OBJECT_TYPE_SWAPCHAIN_KHR, reinterpret_cast<u64>(m_currentSwapChain->m_swapChain), name);
         }
 
-        DynamicArray<VkImage> imageArray;
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+        DynamicArray<VkImage> imageArray(scopedScratchAllocator.GetAllocator());
         u32 imageCount = m_currentSwapChain->m_imageAvailableSemaphores.Size();
         imageArray.Resize(imageCount);
         vkGetSwapchainImagesKHR(_device, m_currentSwapChain->m_swapChain, &imageCount, imageArray.Data());
