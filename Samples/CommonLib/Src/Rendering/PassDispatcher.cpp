@@ -172,6 +172,9 @@ namespace KryneEngine::Samples
         {
             const DrawInstanceManager::Model& model = m_drawInstanceManager->m_models.Get(m_dispatchData->m_models[i]);
 
+            if (model.m_instanceCount == 0)
+                continue;
+
             const MaterialManager::MaterialPipeline* materialPipeline = m_materialManager->GetMaterialPipeline(
                 model.m_material, m_passType);
 
