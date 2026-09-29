@@ -37,6 +37,8 @@ namespace KryneEngine
             size_t _maxExtraHeapCount = 5,
             const char* _name = "StackScratchAllocator");
 
+        ~StackAllocator();
+
         void* Allocate(size_t _size, size_t _alignment) override;
 
         void Free(void* _ptr, size_t _alignment) override {}

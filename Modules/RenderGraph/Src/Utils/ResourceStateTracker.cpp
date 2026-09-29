@@ -14,15 +14,36 @@
 
 namespace KryneEngine::Modules::RenderGraph
 {
-    void ResourceStateTracker::Process(Builder& _builder, const Registry& _registry)
+    ResourceStateTracker::ResourceStateTracker(AllocatorInstance _allocator)
+        : m_bufferMemoryBarriers(_allocator)
+        , m_textureMemoryBarriers(_allocator)
+        , m_passBarriers(_allocator)
+    {}
+
+    void ResourceStateTracker::Process(Builder& _builder, const Registry& _registry, AllocatorInstance _scratchAllocator)
     {
         KE_ZoneScoped("Track resource states");
 
         m_bufferMemoryBarriers.clear();
         m_textureMemoryBarriers.clear();
         m_passBarriers.resize(_builder.m_declaredPasses.size());
-        m_trackedBufferStates.clear();
-        m_trackedTextureStates.clear();
+
+        eastl::vector_set<PassAttachmentDeclaration*> attachmentsToPurge { _scratchAllocator };
+
+        eastl::hash_map<SimplePoolHandle, BufferState> trackedBufferStates { _scratchAllocator };
+        eastl::hash_map<SimplePoolHandle, TextureStates> trackedTextureStates { _scratchAllocator };
+
+        const auto getOrCreateTextureStates = [&](const SimplePoolHandle _handle, const Resource& _underlyingTexture)
+            -> TextureStates&
+        {
+            const auto result = trackedTextureStates.try_emplace(_handle);
+            if (result.second)
+            {
+                result.first->second.m_arraySize = _underlyingTexture.m_rawTextureData.m_arraySize;
+                result.first->second.m_mipCount = _underlyingTexture.m_rawTextureData.m_mipCount;
+            }
+            return result.first->second;
+        };
 
         // Walks _range one mip level at a time, merging contiguous array layers that share an
         // identical previous barrier-source state, and invokes _emit once per merged run with
@@ -151,7 +172,7 @@ namespace KryneEngine::Modules::RenderGraph
             {
                 for (const auto& dependency : _dependencies)
                 {
-                    m_attachmentsToPurge.clear();
+                    attachmentsToPurge.clear();
 
                     const SimplePoolHandle underlyingResourceHandle = _registry.GetUnderlyingResource(dependency.m_resource);
                     const Resource& resource = _registry.GetResource(dependency.m_resource);
@@ -160,8 +181,8 @@ namespace KryneEngine::Modules::RenderGraph
 
                     if (resource.IsBuffer())
                     {
-                        const auto it = m_trackedBufferStates.find(underlyingResourceHandle);
-                        const ResourceState& previousState = it != m_trackedBufferStates.end() ? it->second : defaultState;
+                        const auto it = trackedBufferStates.find(underlyingResourceHandle);
+                        const ResourceState& previousState = it != trackedBufferStates.end() ? it->second : defaultState;
 
                         m_bufferMemoryBarriers.emplace_back(BufferMemoryBarrier {
                             .m_stagesSrc = previousState.m_syncStage,
@@ -171,7 +192,7 @@ namespace KryneEngine::Modules::RenderGraph
                             .m_buffer = underlyingResource.m_bufferData.m_buffer,
                         });
 
-                        m_trackedBufferStates[underlyingResourceHandle] = {
+                        trackedBufferStates[underlyingResourceHandle] = {
                             ResourceState {
                                 .m_syncStage = dependency.m_targetSyncStage,
                                 .m_accessFlags = dependency.m_targetAccessFlags,
@@ -185,7 +206,7 @@ namespace KryneEngine::Modules::RenderGraph
                         continue;
                     }
 
-                    TextureStates& states = GetOrCreateTextureStates(underlyingResourceHandle, underlyingResource);
+                    TextureStates& states = getOrCreateTextureStates(underlyingResourceHandle, underlyingResource);
                     const TextureSubResourceRange range = ResolveRange(resource.GetTextureSubResourceRange(), states);
 
                     const TextureState newState {
@@ -224,7 +245,7 @@ namespace KryneEngine::Modules::RenderGraph
                                 // must use barriers
                                 if (_partial)
                                 {
-                                    m_attachmentsToPurge.emplace(_previous.m_attachment);
+                                    attachmentsToPurge.emplace(_previous.m_attachment);
                                 }
                             }
                             else
@@ -265,7 +286,7 @@ namespace KryneEngine::Modules::RenderGraph
                     });
                     SetRangeState(states, range, newState);
 
-                    for (const auto* attachment : m_attachmentsToPurge)
+                    for (const auto* attachment : attachmentsToPurge)
                     {
                         if (attachment != nullptr)
                             states.PurgeAttachment(attachment);
@@ -278,14 +299,14 @@ namespace KryneEngine::Modules::RenderGraph
 
             const auto parseAttachment = [&](PassAttachmentDeclaration& _attachment, const bool _depth)
             {
-                m_attachmentsToPurge.clear();
+                attachmentsToPurge.clear();
 
                 const SimplePoolHandle underlyingResource = _registry.GetUnderlyingResource(_attachment.m_rtv);
                 const Resource& rtvResource = _registry.GetResource(_attachment.m_rtv);
 
                 const Resource& underlyingRes = _registry.GetResource(underlyingResource);
 
-                TextureStates& states = GetOrCreateTextureStates(underlyingResource, underlyingRes);
+                TextureStates& states = getOrCreateTextureStates(underlyingResource, underlyingRes);
                 const TextureSubResourceRange range = ResolveRange(rtvResource.GetTextureSubResourceRange(), states);
 
                 const TextureState newState { {}, _depth, &_attachment };
@@ -362,7 +383,7 @@ namespace KryneEngine::Modules::RenderGraph
                                 _attachment.m_layoutBefore = _previousState.m_attachment->m_layoutAfter;
 
                                 if (_partial)
-                                    m_attachmentsToPurge.emplace(_previousState.m_attachment);
+                                    attachmentsToPurge.emplace(_previousState.m_attachment);
                             }
                             else
                             {
@@ -422,7 +443,7 @@ namespace KryneEngine::Modules::RenderGraph
 
                 SetRangeState(states, range, newState);
 
-                for (const auto* attachment : m_attachmentsToPurge)
+                for (const auto* attachment : attachmentsToPurge)
                 {
                     if (attachment != nullptr)
                         states.PurgeAttachment(attachment);
@@ -525,19 +546,6 @@ namespace KryneEngine::Modules::RenderGraph
                 state.m_attachment = nullptr;
             }
         }
-    }
-
-    ResourceStateTracker::TextureStates& ResourceStateTracker::GetOrCreateTextureStates(
-        const SimplePoolHandle _handle,
-        const Resource& _underlyingTexture)
-    {
-        const auto result = m_trackedTextureStates.try_emplace(_handle);
-        if (result.second)
-        {
-            result.first->second.m_arraySize = _underlyingTexture.m_rawTextureData.m_arraySize;
-            result.first->second.m_mipCount = _underlyingTexture.m_rawTextureData.m_mipCount;
-        }
-        return result.first->second;
     }
 
     bool ResourceStateTracker::TextureStates::CoversWholeExtent(const TextureSubResourceRange& _range) const

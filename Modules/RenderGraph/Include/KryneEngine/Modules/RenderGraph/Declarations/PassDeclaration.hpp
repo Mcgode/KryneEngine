@@ -36,11 +36,10 @@ namespace KryneEngine::Modules::RenderGraph
     struct PassDeclaration
     {
     public:
-        explicit PassDeclaration(PassType _type, size_t _id);
+        PassDeclaration(PassType _type, size_t _id, AllocatorInstance _allocator);
 
         using ExecuteFunction = eastl::function<void(RenderGraph&, PassExecutionData&)>;
         using TransferFunction = eastl::function<void(GraphicsContext*, TransferCommandEncoderHandle)>;
-        using RenderPassCallBack = eastl::function<void(GraphicsContext*, RenderPassHandle)>;
 
         [[nodiscard]] u64 GetRenderPassHash();
 

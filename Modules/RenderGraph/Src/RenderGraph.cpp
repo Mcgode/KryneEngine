@@ -6,11 +6,13 @@
 
 #include "KryneEngine/Modules/RenderGraph/RenderGraph.hpp"
 
+#include "KryneEngine/Core/Memory/Allocators/StackAllocator.hpp"
+
 #include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
-#include <KryneEngine/Core/Profiling/TracyGpuScope.hpp>
-#include <KryneEngine/Core/Threads/FibersManager.hpp>
 #include <KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp>
 #include <KryneEngine/Core/Math/Color.hpp>
+#include <KryneEngine/Core/Profiling/TracyGpuScope.hpp>
+#include <KryneEngine/Core/Threads/FibersManager.hpp>
 
 #include "KryneEngine/Modules/RenderGraph/Builder.hpp"
 #include "KryneEngine/Modules/RenderGraph/Registry.hpp"
@@ -19,22 +21,36 @@
 
 namespace KryneEngine::Modules::RenderGraph
 {
-    RenderGraph::RenderGraph()
+    RenderGraph::RenderGraph(const AllocatorInstance _allocator)
+        : m_allocator(_allocator)
+        , m_previousFramePassPerformance(_allocator)
+        , m_currentFramePassPerformance(_allocator)
+        , m_renderPassCache(_allocator)
     {
-        m_registry = eastl::make_unique<Registry>();
-        m_resourceStateTracker = eastl::make_unique<ResourceStateTracker>();
+        m_scratchAllocator = m_allocator.New<StackAllocator>(_allocator, kScratchAllocatorSize, 5, "Render graph stack allocator");
+        m_registry = m_allocator.New<Registry>(_allocator);
+        m_resourceStateTracker = m_allocator.New<ResourceStateTracker>(_allocator);
     }
 
-    RenderGraph::~RenderGraph() = default;
-
-    Builder& RenderGraph::BeginFrame(GraphicsContext& _graphicsContext)
+    RenderGraph::~RenderGraph()
     {
-        m_builder = eastl::make_unique<Builder>(GetRegistry());
+        m_allocator.Delete(m_resourceStateTracker);
+        m_allocator.Delete(m_registry);
+        m_allocator.Delete(m_scratchAllocator);
+    }
+
+    Builder& RenderGraph::BeginFrame()
+    {
+        const AllocatorInstance scratchAllocator { m_scratchAllocator };
+        m_builder = scratchAllocator.New<Builder>(GetRegistry(), scratchAllocator);
         return *m_builder;
     }
 
     void RenderGraph::SubmitFrame(GraphicsContext& _graphicsContext, FibersManager* _fibersManager)
     {
+        const AllocatorInstance scratchAllocator = m_scratchAllocator;
+        eastl::vector<JobData> jobs { scratchAllocator };
+
         {
             KE_ZoneScoped("Build and cull render DAG (if not already done)");
             m_builder->BuildDag();
@@ -43,7 +59,7 @@ namespace KryneEngine::Modules::RenderGraph
         {
             KE_ZoneScoped("Prepare render jobs");
 
-            m_resourceStateTracker->Process(*m_builder, *m_registry);
+            m_resourceStateTracker->Process(*m_builder, *m_registry, scratchAllocator);
 
             const auto initJobData = [&](JobData& _jobData, u32 _start)
             {
@@ -82,7 +98,7 @@ namespace KryneEngine::Modules::RenderGraph
 
                 if (currentJob == nullptr)
                 {
-                    currentJob = &m_jobs.emplace_back();
+                    currentJob = &jobs.emplace_back();
                     initJobData(*currentJob, i);
                 }
 
@@ -114,30 +130,30 @@ namespace KryneEngine::Modules::RenderGraph
             {
                 // Execute the last job in this thread/fiber, schedule the other ones for dispatch.
                 // Small optimization.
-                if (m_jobs.size() > 1)
+                if (jobs.size() > 1)
                 {
                     const SyncCounterId jobsCounter = _fibersManager->InitAndBatchJobs({
-                        .m_function = [this](const u16 _jobIndex)
+                        .m_function = [&jobs](const u16 _jobIndex)
                         {
-                            ExecuteJob(&m_jobs[_jobIndex], _jobIndex);
+                            ExecuteJob(&jobs[_jobIndex], _jobIndex);
                         },
-                        .m_jobCount = static_cast<u16>(m_jobs.size() - 1)
+                        .m_jobCount = static_cast<u16>(jobs.size() - 1)
                     });
-                    ExecuteJob(&m_jobs.back(), m_jobs.size() - 1);
+                    ExecuteJob(&jobs.back(), jobs.size() - 1);
                     _fibersManager->WaitForCounterAndReset(jobsCounter);
                 }
-                else if (!m_jobs.empty())
+                else if (!jobs.empty())
                 {
-                    ExecuteJob(&m_jobs.back(), m_jobs.size() - 1);
+                    ExecuteJob(&jobs.back(), jobs.size() - 1);
                 }
             }
             else {
-                for (u16 i = 0; i < m_jobs.size(); i++)
+                for (size_t i = 0; i < jobs.size(); i++)
                 {
-                    ExecuteJob(&m_jobs[i], i);
+                    ExecuteJob(&jobs[i], i);
                 }
             }
-            m_jobs.clear();
+            jobs.clear();
         }
 
         {
@@ -149,7 +165,12 @@ namespace KryneEngine::Modules::RenderGraph
             m_previousFrameTotalDuration = m_currentFrameTotalDuration.load(std::memory_order_acquire);
             m_currentFrameTotalDuration.store(0, std::memory_order_relaxed);
 
-            m_builder.reset();
+            scratchAllocator.Delete(m_builder);
+            m_builder = nullptr;
+
+            // Keeps the grown heaps around for reuse next frame, instead of freeing and
+            // re-allocating them every frame (which Reset() would do).
+            m_scratchAllocator->Clear();
         }
     }
 
@@ -194,7 +215,6 @@ namespace KryneEngine::Modules::RenderGraph
                 graphicsContext->EndTransferPass(transferEncoder);
             }
 
-            CommandEncoderHandle encoder;
             if (pass.m_type == PassType::Render)
             {
                 auto it = _jobData->m_renderGraph->m_renderPassCache.find(pass.m_renderPassHash.value());
@@ -207,7 +227,6 @@ namespace KryneEngine::Modules::RenderGraph
                         _jobData->m_passExecutionData.m_commandList, it->second,
                         passEntryBarriers,
                         pass.m_name.m_string);
-                encoder = _jobData->m_passExecutionData.m_renderEncoder;
             }
             else if (pass.m_type == PassType::Compute)
             {
@@ -216,7 +235,6 @@ namespace KryneEngine::Modules::RenderGraph
                         _jobData->m_passExecutionData.m_commandList,
                         passEntryBarriers,
                         pass.m_name.m_string);
-                encoder = _jobData->m_passExecutionData.m_computeEncoder;
             }
             else if (pass.m_type == PassType::Transfer)
             {
@@ -225,7 +243,6 @@ namespace KryneEngine::Modules::RenderGraph
                         _jobData->m_passExecutionData.m_commandList,
                         passEntryBarriers,
                         pass.m_name.m_string);
-                encoder = _jobData->m_passExecutionData.m_transferEncoder;
             }
 
             {

@@ -58,8 +58,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
 
     TEST(ResourceStateTracker, BufferReadAfterWrite)
     {
-        Registry registry;
-        Builder builder(registry);
+        Registry registry {{}};
+        Builder builder(registry, {});
 
         const BufferHandle bufferHandle = FakeBufferHandle(1);
         const SimplePoolHandle buffer = registry.RegisterRawBuffer(bufferHandle, "TestBuffer");
@@ -97,8 +97,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
         builder.DeclareTargetResource(sink);
         builder.BuildDag();
 
-        ResourceStateTracker tracker;
-        tracker.Process(builder, registry);
+        ResourceStateTracker tracker { {} };
+        tracker.Process(builder, registry, {});
 
         const auto writeBarriers = tracker.GetPassBarriers(0);
         ASSERT_EQ(writeBarriers.m_bufferMemoryBarriers.size(), 1u);
@@ -117,8 +117,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
 
     TEST(ResourceStateTracker, ConfiguredWholeTextureReadAfterWrite)
     {
-        Registry registry;
-        Builder builder(registry);
+        Registry registry {{}};
+        Builder builder(registry, {});
 
         // A texture with a real (non-sentinel) array size/mip count, always addressed as a whole:
         // this exercises the uniform fast path, and ResolveRange turning a raw-texture dependency's
@@ -157,8 +157,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
         builder.DeclareTargetResource(sink);
         builder.BuildDag();
 
-        ResourceStateTracker tracker;
-        tracker.Process(builder, registry);
+        ResourceStateTracker tracker { {} };
+        tracker.Process(builder, registry, {});
 
         const auto readBarriers = tracker.GetPassBarriers(1);
         ASSERT_EQ(readBarriers.m_textureMemoryBarriers.size(), 1u); // sink is a buffer, so it doesn't add a texture barrier here
@@ -176,8 +176,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
     {
         ScopedAssertCatcher assertCatcher;
 
-        Registry registry;
-        Builder builder(registry);
+        Registry registry {{}};
+        Builder builder(registry, {});
 
         // Registered without a real array size or mip count in either dimension: this resource has
         // not opted into partial sub-resource indexing, so slicing it should be caught loudly
@@ -205,8 +205,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
         builder.DeclareTargetResource(texture);
         builder.BuildDag();
 
-        ResourceStateTracker tracker;
-        tracker.Process(builder, registry);
+        ResourceStateTracker tracker { {} };
+        tracker.Process(builder, registry, {});
 
         assertCatcher.ExpectMessageCount(1);
     }
@@ -215,8 +215,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
     {
         ScopedAssertCatcher assertCatcher;
 
-        Registry registry;
-        Builder builder(registry);
+        Registry registry {{}};
+        Builder builder(registry, {});
 
         constexpr u16 kLayerCount = 4;
         const SimplePoolHandle texture = registry.RegisterRawTexture(FakeTextureHandle(1), kLayerCount, 1, "ShadowArray");
@@ -272,8 +272,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
         builder.DeclareTargetResource(sink);
         builder.BuildDag();
 
-        ResourceStateTracker tracker;
-        tracker.Process(builder, registry);
+        ResourceStateTracker tracker { {} };
+        tracker.Process(builder, registry, {});
 
         if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
         {
@@ -333,8 +333,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
         // and misreads "0" as partial) - caught here rather than left to crash the whole binary.
         ScopedAssertCatcher assertCatcher;
 
-        Registry registry;
-        Builder builder(registry);
+        Registry registry {{}};
+        Builder builder(registry, {});
 
         const SimplePoolHandle texture = registry.RegisterRawTexture(
             FakeTextureHandle(1),
@@ -371,8 +371,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
         builder.DeclareTargetResource(sink);
         builder.BuildDag();
 
-        ResourceStateTracker tracker;
-        tracker.Process(builder, registry);
+        ResourceStateTracker tracker { {} };
+        tracker.Process(builder, registry, {});
 
         if (GraphicsContext::RenderPassesAutomaticallyPlaceAttachmentBarriers())
         {
@@ -415,8 +415,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
         // instead of silently reusing (or further clobbering) WriteAll's field.
         ScopedAssertCatcher assertCatcher;
 
-        Registry registry;
-        Builder builder(registry);
+        Registry registry {{}};
+        Builder builder(registry, {});
 
         constexpr u16 kLayerCount = 4;
         const SimplePoolHandle texture = registry.RegisterRawTexture(FakeTextureHandle(1), kLayerCount, 1, "ShadowArray");
@@ -474,8 +474,8 @@ namespace KryneEngine::Modules::RenderGraph::Tests
         builder.DeclareTargetResource(sink);
         builder.BuildDag();
 
-        ResourceStateTracker tracker;
-        tracker.Process(builder, registry);
+        ResourceStateTracker tracker { {} };
+        tracker.Process(builder, registry, {});
 
         const PassDeclaration& writeAll = builder.GetPass(0);
         const PassDeclaration& rewriteCascade0 = builder.GetPass(1);

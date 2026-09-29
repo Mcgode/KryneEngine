@@ -16,7 +16,10 @@
 
 namespace KryneEngine::Modules::RenderGraph
 {
-    Registry::Registry() = default;
+    Registry::Registry(const AllocatorInstance _allocator)
+        : m_resources(_allocator)
+    {}
+
     Registry::~Registry() = default;
 
     SimplePoolHandle Registry::RegisterRawTexture(
