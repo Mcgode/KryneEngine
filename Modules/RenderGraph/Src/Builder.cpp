@@ -49,7 +49,10 @@ namespace KryneEngine::Modules::RenderGraph
 
         KE_ZoneScopedFunction("Builder::BuildDag");
 
-        m_dag.resize(m_declaredPasses.size(), { .m_children { m_allocator }, .m_parents { m_allocator } });
+        m_dag.resize(m_declaredPasses.size(), {
+            .m_children = eastl::vector_set<size_t>(m_allocator),
+            .m_parents = eastl::vector_set<size_t>(m_allocator)
+        });
         m_passAlive.resize(m_declaredPasses.size(), false);
 
         m_isBuilt = true;
