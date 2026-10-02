@@ -96,8 +96,8 @@ namespace KryneEngine::Samples
     }
 
     SimplePoolHandle DrawInstanceManager::RegisterModel(
-        const BufferSpan _vertexBuffer,
-        const BufferSpan _indexBuffer,
+        const BufferSpan& _vertexBuffer,
+        const BufferSpan& _indexBuffer,
         const MaterialHandle _material,
         const u32 _elementCount,
         const u32 _indexOffset,

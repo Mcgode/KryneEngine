@@ -42,8 +42,8 @@ namespace KryneEngine::Samples
         // Registers a model (a single draw call's worth of geometry) that instances can be registered against.
         // Models are expected to be long-lived (registered once at scene setup); there is no UnregisterModel.
         [[nodiscard]] SimplePoolHandle RegisterModel(
-            BufferSpan _vertexBuffer,
-            BufferSpan _indexBuffer,
+            const BufferSpan& _vertexBuffer,
+            const BufferSpan& _indexBuffer,
             MaterialHandle _material,
             u32 _elementCount,
             u32 _indexOffset = 0,
