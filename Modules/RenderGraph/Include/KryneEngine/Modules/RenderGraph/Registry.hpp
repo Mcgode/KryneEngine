@@ -26,7 +26,7 @@ namespace KryneEngine::Modules::RenderGraph
         friend class Builder;
 
     public:
-        Registry();
+        explicit Registry(AllocatorInstance _allocator);
         ~Registry();
 
     public:

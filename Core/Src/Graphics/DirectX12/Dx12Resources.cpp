@@ -16,6 +16,7 @@
 #include "KryneEngine/Core/Graphics/ResourceViews/RenderTargetView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
 
 namespace KryneEngine
@@ -869,10 +870,12 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12Resources::CreatePipelineLayout");
 
-        eastl::vector<D3D12_ROOT_PARAMETER> rootParameters;
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
 
-        eastl::vector<D3D12_DESCRIPTOR_RANGE> ranges {};
-        eastl::vector<u32> offsets {};
+        eastl::vector<D3D12_ROOT_PARAMETER> rootParameters { scopedScratchAllocator.GetAllocator() };
+
+        eastl::vector<D3D12_DESCRIPTOR_RANGE> ranges { scopedScratchAllocator.GetAllocator() };
+        eastl::vector<u32> offsets { scopedScratchAllocator.GetAllocator() };
 
         const GenPool::Handle handle = m_pipelineLayouts.Allocate();
         PipelineLayoutHotData& hotData = *m_pipelineLayouts.Get(handle);

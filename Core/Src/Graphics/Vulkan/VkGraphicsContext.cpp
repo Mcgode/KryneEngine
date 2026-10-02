@@ -19,6 +19,7 @@
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
 #include "KryneEngine/Core/Math/Color.hpp"
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
 #include "KryneEngine/Core/Profiling/TracyGpuProfilerContext.hpp"
 #include "KryneEngine/Core/Window/Window.hpp"
@@ -120,6 +121,8 @@ namespace KryneEngine
         {
             KE_ZoneScoped("VkInstance creation");
 
+            const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
             const VkApplicationInfo applicationInfo{
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 .pApplicationName = m_appInfo.m_applicationName.c_str(),
@@ -140,7 +143,7 @@ namespace KryneEngine
                 .ppEnabledLayerNames = nullptr,
             };
 
-            DynamicArray<VkExtensionProperties> availableExtensions;
+            DynamicArray<VkExtensionProperties> availableExtensions(scopedScratchAllocator.GetAllocator());
             VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateInstanceExtensionProperties, nullptr);
 
             VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo;
@@ -435,7 +438,9 @@ namespace KryneEngine
 
     bool VkGraphicsContext::PrepareValidationLayers(VkInstanceCreateInfo& _createInfo)
     {
-         DynamicArray<VkLayerProperties> availableLayers;
+         const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+         DynamicArray<VkLayerProperties> availableLayers(scopedScratchAllocator.GetAllocator());
          VkHelperFunctions::VkArrayFetch(availableLayers, vkEnumerateInstanceLayerProperties);
 
         bool found = false;
@@ -475,7 +480,8 @@ namespace KryneEngine
         {
             result.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 
-            DynamicArray<VkExtensionProperties> availableExtensions;
+            const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+            DynamicArray<VkExtensionProperties> availableExtensions(scopedScratchAllocator.GetAllocator());
             VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateInstanceExtensionProperties, nullptr);
             const auto has = [&availableExtensions](const char* _name)
             {
@@ -601,15 +607,17 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("VkPhysicalDevice::_SelectPhysicalDevice");
 
-        DynamicArray<VkPhysicalDevice> availablePhysicalDevices;
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+        DynamicArray<VkPhysicalDevice> availablePhysicalDevices(scopedScratchAllocator.GetAllocator());
         VkHelperFunctions::VkArrayFetch(availablePhysicalDevices, vkEnumeratePhysicalDevices, m_instance);
 
-        eastl::vector<VkPhysicalDevice> suitableDevices(m_allocator);
+        eastl::vector<VkPhysicalDevice> suitableDevices(scopedScratchAllocator.GetAllocator());
         eastl::copy_if(availablePhysicalDevices.begin(), availablePhysicalDevices.end(),
                        eastl::back_inserter(suitableDevices),
-                       [this](const VkPhysicalDevice& _physicalDevice)
+                       [this, &scopedScratchAllocator](const VkPhysicalDevice& _physicalDevice)
         {
-            DynamicArray<VkExtensionProperties> extensions;
+            DynamicArray<VkExtensionProperties> extensions(scopedScratchAllocator.GetAllocator());
             VkHelperFunctions::VkArrayFetch(extensions, vkEnumerateDeviceExtensionProperties, _physicalDevice, nullptr);
             auto requiredExtensions = _GetRequiredDeviceExtensions();
 
@@ -656,9 +664,11 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("VkGraphicsContext::_SelectQueues");
 
-        DynamicArray<VkQueueFamilyProperties> familyProperties;
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+        DynamicArray<VkQueueFamilyProperties> familyProperties(scopedScratchAllocator.GetAllocator());
         VkHelperFunctions::VkArrayFetch(familyProperties, vkGetPhysicalDeviceQueueFamilyProperties, _physicalDevice);
-        eastl::vector_map<u32, u32> indices(m_allocator);
+        eastl::vector_map<u32, u32> indices(scopedScratchAllocator.GetAllocator());
 
         bool foundAll = true;
 
@@ -759,8 +769,10 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("VkGraphicsContext::_CreateDevice");
 
-        eastl::vector<VkDeviceQueueCreateInfo> queueCreateInfo(m_allocator);
-        eastl::vector<eastl::vector<float>> queuePriorities(m_allocator);
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+        eastl::vector<VkDeviceQueueCreateInfo> queueCreateInfo(scopedScratchAllocator.GetAllocator());
+        eastl::vector<eastl::vector<float>> queuePriorities(scopedScratchAllocator.GetAllocator());
 
         KE_ASSERT(_SelectQueues(m_appInfo, m_physicalDevice, m_queueIndices));
         {
@@ -779,7 +791,7 @@ namespace KryneEngine
                 if (!alreadyInserted)
                 {
                     it = queueCreateInfo.emplace(queueCreateInfo.end());
-                    queuePriorities.push_back().set_allocator(m_allocator);
+                    queuePriorities.push_back().set_allocator(scopedScratchAllocator.GetAllocator());
                     it->sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
                     it->flags = 0;
                     it->queueFamilyIndex = _index.m_familyIndex;
@@ -829,7 +841,7 @@ namespace KryneEngine
         VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilitySubsetFeatures{};
         VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
         {
-            DynamicArray<VkExtensionProperties> availableExtensions;
+            DynamicArray<VkExtensionProperties> availableExtensions(scopedScratchAllocator.GetAllocator());
             VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateDeviceExtensionProperties, m_physicalDevice, nullptr);
 
             const auto find = [&availableExtensions](const char* _name)
@@ -1468,11 +1480,13 @@ namespace KryneEngine
 
         using namespace VkHelperFunctions;
 
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
         if (m_vkCmdPipelineBarrier2KHR != nullptr)
         {
-            DynamicArray<VkMemoryBarrier2> globalMemoryBarriers(_barriers.m_globalBarriers.size());
-            DynamicArray<VkBufferMemoryBarrier2> bufferMemoryBarriers(_barriers.m_bufferBarriers.size());
-            DynamicArray<VkImageMemoryBarrier2> imageMemoryBarriers(_barriers.m_textureBarriers.size());
+            DynamicArray<VkMemoryBarrier2> globalMemoryBarriers(scopedScratchAllocator.GetAllocator(), _barriers.m_globalBarriers.size());
+            DynamicArray<VkBufferMemoryBarrier2> bufferMemoryBarriers(scopedScratchAllocator.GetAllocator(), _barriers.m_bufferBarriers.size());
+            DynamicArray<VkImageMemoryBarrier2> imageMemoryBarriers(scopedScratchAllocator.GetAllocator(), _barriers.m_textureBarriers.size());
 
             for (auto i = 0u; i < globalMemoryBarriers.Size(); i++)
             {
@@ -1545,9 +1559,9 @@ namespace KryneEngine
         }
         else
         {
-            eastl::vector<VkMemoryBarrier> globalMemoryBarriers(m_allocator);
-            eastl::vector<VkBufferMemoryBarrier> bufferMemoryBarriers(m_allocator);
-            eastl::vector<VkImageMemoryBarrier> imageMemoryBarriers(m_allocator);
+            eastl::vector<VkMemoryBarrier> globalMemoryBarriers(scopedScratchAllocator.GetAllocator());
+            eastl::vector<VkBufferMemoryBarrier> bufferMemoryBarriers(scopedScratchAllocator.GetAllocator());
+            eastl::vector<VkImageMemoryBarrier> imageMemoryBarriers(scopedScratchAllocator.GetAllocator());
 
             globalMemoryBarriers.reserve(_barriers.m_globalBarriers.size());
             bufferMemoryBarriers.reserve(_barriers.m_bufferBarriers.size());

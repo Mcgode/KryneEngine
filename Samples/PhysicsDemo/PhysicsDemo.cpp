@@ -4,6 +4,7 @@
  * @date 18/08/2026.
  */
 
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 #include "KryneEngine/Core/Window/Input/InputManager.hpp"
 #include "Rendering/Shadows/CascadedShadowMap.hpp"
 #include "Src/RenderTargetFormats.hpp"
@@ -85,7 +86,7 @@ int main(int _argc, const char* _argv[])
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 
-    RenderGraph::RenderGraph renderGraph {};
+    RenderGraph::RenderGraph renderGraph { allocator };
 
     DynamicArray<SimplePoolHandle> swapChainTextures(allocator, graphicsContext->GetFrameContextCount());
     DynamicArray<SimplePoolHandle> swapChainRtvs(allocator, graphicsContext->GetFrameContextCount());
@@ -435,7 +436,7 @@ int main(int _argc, const char* _argv[])
         sceneManager.Process(graphicsContext, static_cast<float>(deltaTime));
         lastFrameTimePoint = timePoint;
 
-        RenderGraph::Builder& builder = renderGraph.BeginFrame(*graphicsContext);
+        RenderGraph::Builder& builder = renderGraph.BeginFrame();
 
         SimplePoolHandle swapChainTexture = swapChainTextures[graphicsContext->GetSwapChainCurrentImageIndex(mainSwapChain)];
         SimplePoolHandle swapChainRtv = swapChainRtvs[graphicsContext->GetSwapChainCurrentImageIndex(mainSwapChain)];

@@ -69,6 +69,9 @@ namespace KryneEngine
         IntrusiveUniquePtr& operator=(std::nullptr_t) noexcept { Reset(); return *this; }
         IntrusiveUniquePtr& operator=(T* _ptr) { Reset(_ptr); return *this; }
 
+        bool operator==(std::nullptr_t) const noexcept { return m_ptr == nullptr; }
+        bool operator==(const IntrusiveUniquePtr& _other) const noexcept { return m_ptr == _other.m_ptr; }
+
         T* Get() const { return m_ptr; }
         T& operator*() const { return *m_ptr; }
         T* operator->() const { return m_ptr; }

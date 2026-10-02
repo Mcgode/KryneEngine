@@ -23,7 +23,9 @@ namespace KryneEngine::Modules::RenderGraph
     class ResourceStateTracker
     {
     public:
-        void Process(Builder& _builder, const Registry& _registry);
+        explicit ResourceStateTracker(AllocatorInstance _allocator);
+
+        void Process(Builder& _builder, const Registry& _registry, AllocatorInstance _scratchAllocator);
 
         struct PassBarriers
         {
@@ -95,10 +97,6 @@ namespace KryneEngine::Modules::RenderGraph
             size_t m_textureMemoryBarriersCount = 0;
         };
 
-        [[nodiscard]] TextureStates& GetOrCreateTextureStates(
-            SimplePoolHandle _handle,
-            const Resource& _underlyingTexture);
-
         // Applies _newState to every sub-resource in _range. If _range covers the whole tracked
         // extent, the state collapses back to the uniform fast path.
         static void SetRangeState(TextureStates& _states, const TextureSubResourceRange& _range, const TextureState& _newState);
@@ -122,9 +120,6 @@ namespace KryneEngine::Modules::RenderGraph
         eastl::vector<TextureMemoryBarrier> m_textureMemoryBarriers;
         eastl::vector<PassBarriersRaw> m_passBarriers;
 
-        eastl::vector_set<PassAttachmentDeclaration*> m_attachmentsToPurge;
 
-        eastl::hash_map<SimplePoolHandle, BufferState> m_trackedBufferStates;
-        eastl::hash_map<SimplePoolHandle, TextureStates> m_trackedTextureStates;
     };
 } // namespace KryneEngine

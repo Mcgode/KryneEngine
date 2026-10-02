@@ -11,6 +11,7 @@
 #include "Graphics/Vulkan/HelperFunctions.hpp"
 #include "Graphics/Vulkan/VkResources.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
 
 namespace KryneEngine
@@ -26,18 +27,15 @@ namespace KryneEngine
         u32 m_packed;
     };
 
-    VkDescriptorSetManager::VkDescriptorSetManager(AllocatorInstance _allocator)
+    VkDescriptorSetManager::VkDescriptorSetManager(const AllocatorInstance _allocator)
         : m_descriptorSetLayouts(_allocator)
         , m_descriptorSetPools(_allocator)
         , m_descriptorSets(_allocator)
-        , m_tmpWriteOps(_allocator)
-        , m_tmpWrites(_allocator)
-        , m_tmpDescriptorData(_allocator)
     {}
 
     VkDescriptorSetManager::~VkDescriptorSetManager() = default;
 
-    void VkDescriptorSetManager::Init(u8 _frameCount, u8 _frameIndex, bool _partiallyBoundDescriptors)
+    void VkDescriptorSetManager::Init(const u8 _frameCount, const u8 _frameIndex, const bool _partiallyBoundDescriptors)
     {
         KE_ZoneScopedFunction("VkDescriptorSetManager::Init");
         m_frameCount = _frameCount;
@@ -52,10 +50,12 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("VkDescriptorSetManager::CreateDescriptorSetLayout");
 
-        eastl::vector<VkDescriptorSetLayoutBinding> bindings;
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+        eastl::vector<VkDescriptorSetLayoutBinding> bindings { scopedScratchAllocator.GetAllocator() };
         bindings.reserve(_desc.m_bindings.size());
 
-        eastl::vector_map<VkDescriptorType, u32> countPerType;
+        eastl::vector_map<VkDescriptorType, u32> countPerType { scopedScratchAllocator.GetAllocator() };
 
         for (auto i = 0u; i < _desc.m_bindings.size(); i++)
         {
@@ -81,7 +81,7 @@ namespace KryneEngine
         }
 
         // Flag arrayed bindings as partially bound so the shader may leave unused slots unwritten.
-        eastl::vector<VkDescriptorBindingFlags> bindingFlags { this->m_descriptorSets.get_allocator() };
+        eastl::vector<VkDescriptorBindingFlags> bindingFlags { scopedScratchAllocator.GetAllocator() };
         VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo {};
         const void* createInfoNext = nullptr;
         if (m_partiallyBoundDescriptors)
@@ -216,40 +216,44 @@ namespace KryneEngine
     }
 
     void VkDescriptorSetManager::UpdateDescriptorSet(
-        DescriptorSetHandle _descriptorSet,
+        const DescriptorSetHandle _descriptorSet,
         const eastl::span<const DescriptorSetWriteInfo>& _writes,
-        bool _singleFrame,
+        const bool _singleFrame,
         VkDevice _device,
         const VkResources& _resources,
-        u8 _frameIndex)
+        const u8 _frameIndex)
     {
         KE_ZoneScopedFunction("VkDescriptorSetManager::UpdateDescriptorSet");
 
-        const auto lock = m_writeLock.AutoLock();
-
-        m_tmpWriteOps.clear();
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+        eastl::vector<WriteOp> writeOps { scopedScratchAllocator.GetAllocator() };
+        writeOps.reserve(_writes.size());
 
         for (const auto& write: _writes)
         {
-            WriteOp& writeOp = m_tmpWriteOps.emplace_back();
+            WriteOp& writeOp = writeOps.emplace_back();
             writeOp.m_descriptorSet = _descriptorSet;
             writeOp.m_index = write.m_index;
             writeOp.m_arrayOffset = write.m_arrayOffset;
 
             writeOp.m_descriptorData.set_allocator(GetAllocator());
             writeOp.m_descriptorData.reserve(write.m_descriptorData.size());
-            writeOp.m_descriptorData.insert(writeOp.m_descriptorData.end(), write.m_descriptorData.begin(), write.m_descriptorData.end());;
+            writeOp.m_descriptorData.insert(writeOp.m_descriptorData.end(), write.m_descriptorData.begin(), write.m_descriptorData.end());
+        }
 
-            if (!_singleFrame)
+        if (!_singleFrame)
+        {
+            const auto lock = m_writeLock.AutoLock();
+            for (auto& writeOp : writeOps)
             {
                 m_multiFrameTracker.TrackForOtherFrames(writeOp);
             }
         }
 
-        _ProcessUpdates(m_tmpWriteOps, _device, _resources, _frameIndex);
+        ProcessUpdates(writeOps, _device, _resources, _frameIndex);
     }
 
-    void VkDescriptorSetManager::NextFrame(VkDevice _device, const VkResources& _resources, u8 _frameIndex)
+    void VkDescriptorSetManager::NextFrame(VkDevice _device, const VkResources& _resources, const u8 _frameIndex)
     {
         KE_ZoneScopedFunction("VkDescriptorSetManager::NextFrame");
 
@@ -257,7 +261,7 @@ namespace KryneEngine
 
         {
             const auto lock = m_writeLock.AutoLock();
-            _ProcessUpdates(m_multiFrameTracker.GetData(), _device, _resources, _frameIndex);
+            ProcessUpdates(m_multiFrameTracker.GetData(), _device, _resources, _frameIndex);
         }
 
         m_multiFrameTracker.ClearData();
@@ -271,22 +275,31 @@ namespace KryneEngine
         return m_descriptorSetLayouts.GetAllocator();
     }
 
-    void VkDescriptorSetManager::_ProcessUpdates(
-        const eastl::vector<WriteOp>& _writes,
+    void VkDescriptorSetManager::ProcessUpdates(
+        const eastl::span<const WriteOp> _writeOps,
         VkDevice _device,
         const VkResources& _resources,
-        u8 _frameIndex)
+        const u8 _frameIndex)
     {
-        KE_ZoneScopedFunction("VkDescriptorSetManager::_ProcessUpdates");
+        KE_ZoneScopedFunction("VkDescriptorSetManager::ProcessUpdates");
 
-        m_tmpWrites.clear();
-        m_tmpWrites.reserve(_writes.size());
+        union DescriptorData
+        {
+            static_assert(sizeof(VkDescriptorImageInfo) == sizeof(VkDescriptorBufferInfo), "Types must take full size");
 
-        m_tmpDescriptorData.clear();
+            VkDescriptorImageInfo m_imageInfo;
+            VkDescriptorBufferInfo m_bufferImageInfo;
+        };
+
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+        eastl::vector<VkWriteDescriptorSet> writes { scopedScratchAllocator.GetAllocator() };
+        eastl::vector<DescriptorData> descriptorData { scopedScratchAllocator.GetAllocator() };
+
+        writes.reserve(_writeOps.size());
 
         VkDescriptorSet set = VK_NULL_HANDLE;
         GenPool::Handle lastSet = GenPool::kInvalidHandle;
-        for (const auto writeOp: _writes)
+        for (const auto& writeOp: _writeOps)
         {
             if (lastSet != writeOp.m_descriptorSet.m_handle)
             {
@@ -310,10 +323,10 @@ namespace KryneEngine
             const PackedIndex packedIndex = { .m_packed = writeOp.m_index };
             const bool isImageInfo = packedIndex.m_type <= VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
-            m_tmpWrites.push_back(VkWriteDescriptorSet {
+            writes.push_back(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 // We save the vector offset as it may grow during the operation
-                .pNext = reinterpret_cast<void*>(m_tmpDescriptorData.size()),
+                .pNext = reinterpret_cast<void*>(descriptorData.size()),
                 .dstSet = set,
                 .dstBinding = packedIndex.m_binding,
                 .dstArrayElement = writeOp.m_arrayOffset,
@@ -323,7 +336,7 @@ namespace KryneEngine
 
             for (const auto& descriptor : writeOp.m_descriptorData)
             {
-                auto& data = m_tmpDescriptorData.emplace_back();
+                auto& data = descriptorData.emplace_back();
 
                 if (packedIndex.m_type == VK_DESCRIPTOR_TYPE_SAMPLER)
                 {
@@ -346,29 +359,28 @@ namespace KryneEngine
                     data.m_bufferImageInfo.range = bufferView->m_size;
                 }
             }
-
         }
 
         // Set the definitive pointers
-        for (auto& write: m_tmpWrites)
+        for (auto& write: writes)
         {
             const bool isImageInfo = write.descriptorType <= VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             const auto offset = reinterpret_cast<size_t>(write.pNext);
             write.pNext = nullptr;
             if (isImageInfo)
             {
-                write.pImageInfo = &m_tmpDescriptorData[offset].m_imageInfo;
+                write.pImageInfo = &descriptorData[offset].m_imageInfo;
             }
             else
             {
-                write.pBufferInfo = &m_tmpDescriptorData[offset].m_bufferImageInfo;
+                write.pBufferInfo = &descriptorData[offset].m_bufferImageInfo;
             }
         }
 
         vkUpdateDescriptorSets(
             _device,
-            m_tmpWrites.size(),
-            m_tmpWrites.data(),
+            writes.size(),
+            writes.data(),
             0,
             nullptr);
     }

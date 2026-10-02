@@ -18,6 +18,7 @@
 #include "KryneEngine/Core/Graphics/ResourceViews/RenderTargetView.hpp"
 #include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
 #include "KryneEngine/Core/Math/Hashing.hpp"
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
 #include "KryneEngine/Core/Memory/Containers//FlatHashMap.inl"
 
@@ -771,14 +772,16 @@ namespace KryneEngine
         const GenPool::Handle handle = m_pipelineLayouts.Allocate();
         auto [pLayout, pColdData] = m_pipelineLayouts.GetAll(handle);
 
-        DynamicArray<VkDescriptorSetLayout> setLayouts(_desc.m_descriptorSets.size());
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+        DynamicArray<VkDescriptorSetLayout> setLayouts(scopedScratchAllocator.GetAllocator(), _desc.m_descriptorSets.size());
         for (auto i = 0u; i < setLayouts.Size(); i++)
         {
             setLayouts[i] = _setManager->GetDescriptorSetLayout(_desc.m_descriptorSets[i]);
         }
 
         *pColdData = LayoutColdData{};
-        DynamicArray<VkPushConstantRange> pushConstants(_desc.m_pushConstants.size());
+        DynamicArray<VkPushConstantRange> pushConstants(scopedScratchAllocator.GetAllocator(), _desc.m_pushConstants.size());
         for (auto i = 0u; i < pushConstants.Size(); i++)
         {
             const PushConstantDesc& pushConstant = _desc.m_pushConstants[i];
@@ -826,7 +829,9 @@ namespace KryneEngine
 
         // Shader stages
 
-        DynamicArray<VkPipelineShaderStageCreateInfo> shaderStages(_desc.m_stages.size());
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+        DynamicArray<VkPipelineShaderStageCreateInfo> shaderStages(scopedScratchAllocator.GetAllocator(), _desc.m_stages.size());
         for (auto i = 0u; i < shaderStages.Size(); i++)
         {
             const ShaderStage& stage = _desc.m_stages[i];
@@ -844,7 +849,7 @@ namespace KryneEngine
 
         // Vertex input
 
-        DynamicArray<VkVertexInputBindingDescription> vertexInputBindings(_desc.m_vertexInput.m_bindings.size());
+        DynamicArray<VkVertexInputBindingDescription> vertexInputBindings(scopedScratchAllocator.GetAllocator(), _desc.m_vertexInput.m_bindings.size());
         for (auto i = 0u; i < vertexInputBindings.Size(); i++)
         {
             VkVertexInputRate inputRate;
@@ -865,7 +870,7 @@ namespace KryneEngine
             };
         }
 
-        DynamicArray<VkVertexInputAttributeDescription> vertexInputAttributes(_desc.m_vertexInput.m_elements.size());
+        DynamicArray<VkVertexInputAttributeDescription> vertexInputAttributes(scopedScratchAllocator.GetAllocator(), _desc.m_vertexInput.m_elements.size());
         for (auto i = 0; i < vertexInputAttributes.Size(); i++)
         {
             const VertexLayoutElement& element = _desc.m_vertexInput.m_elements[i];
@@ -963,7 +968,7 @@ namespace KryneEngine
 
         // Color blend state
 
-        DynamicArray<VkPipelineColorBlendAttachmentState> attachments(_desc.m_colorBlending.m_attachments.size());
+        DynamicArray<VkPipelineColorBlendAttachmentState> attachments(scopedScratchAllocator.GetAllocator(), _desc.m_colorBlending.m_attachments.size());
         for (auto i = 0; i < attachments.Size(); i++)
         {
             const ColorAttachmentBlendDesc& attachmentBlendDesc = _desc.m_colorBlending.m_attachments[i];
@@ -995,7 +1000,8 @@ namespace KryneEngine
 
         // Dynamic state
 
-        eastl::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT };
+        eastl::vector<VkDynamicState> dynamicStates(
+            { VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT }, scopedScratchAllocator.GetAllocator());
 
         if (_desc.m_colorBlending.m_dynamicBlendFactor)
         {

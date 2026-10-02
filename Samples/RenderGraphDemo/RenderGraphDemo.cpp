@@ -69,7 +69,7 @@ int main()
 
     Modules::ImGui::Context* imGuiContext = nullptr;
 
-    RenderGraph::RenderGraph renderGraph {};
+    RenderGraph::RenderGraph renderGraph { allocator };
     SceneManager sceneManager(allocator, *mainWindow, graphicsContext, renderGraph.GetRegistry());
 
     DeferredShadowPass deferredShadowPass { allocator };
@@ -426,7 +426,7 @@ int main()
             colorMappingPass.UpdateSceneConstants(sceneConstantsDescriptorSet);
         }
 
-        RenderGraph::Builder& builder = renderGraph.BeginFrame(*graphicsContext);
+        RenderGraph::Builder& builder = renderGraph.BeginFrame();
 
         const uint2 renderSize = graphicsContext->GetSwapChainSize(swapChain);
 

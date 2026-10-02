@@ -11,6 +11,7 @@
 #include "Graphics/Metal/MetalHeaders.hpp"
 #include "Graphics/Metal/MetalResources.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
 
 namespace KryneEngine
@@ -116,7 +117,9 @@ namespace KryneEngine
         {
             const ArgumentDescriptorHotData* argDescHot = m_argumentDescriptors.Get(_descriptor.m_handle);
 
-            DynamicArray<NsPtr<MTL::ArgumentDescriptor>> array(GetAllocator(), argDescHot->m_argDescriptors.Size());
+            const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+            DynamicArray<NsPtr<MTL::ArgumentDescriptor>> array(
+                scopedScratchAllocator.GetAllocator(), argDescHot->m_argDescriptors.Size());
             for (auto i = 0u; i < argDescHot->m_argDescriptors.Size(); i++)
             {
                 array.Init(i, argDescHot->m_argDescriptors[i]->copy());
@@ -239,8 +242,9 @@ namespace KryneEngine
         DescriptorSetHandle _descriptorSet,
         u8 _frameIndex)
     {
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
         eastl::fixed_vector<ArgumentBufferWriteInfo, 128> updates;
-        updates.set_overflow_allocator(GetAllocator());
+        updates.set_overflow_allocator(scopedScratchAllocator.GetAllocator());
 
         for (const DescriptorSetWriteInfo& writeInfo: _writes)
         {

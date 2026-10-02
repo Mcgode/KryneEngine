@@ -30,7 +30,7 @@ namespace KryneEngine::Modules::RenderGraph
         friend class ImGuiDebugWindow;
 
     public:
-        explicit Builder(Registry& _registry);
+        Builder(Registry& _registry, AllocatorInstance _allocator);
         ~Builder();
 
     public:
@@ -53,6 +53,7 @@ namespace KryneEngine::Modules::RenderGraph
 
     private:
         Registry& m_registry;
+        AllocatorInstance m_allocator;
         bool m_isBuilt = false;
 
         eastl::vector<PassDeclaration> m_declaredPasses;

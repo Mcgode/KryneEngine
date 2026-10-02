@@ -16,15 +16,23 @@
 
 namespace KryneEngine::Modules::RenderGraph
 {
-    Builder::Builder(Registry& _registry)
+    Builder::Builder(Registry& _registry, const AllocatorInstance _allocator)
         : m_registry(_registry)
+        , m_allocator(_allocator)
+        , m_declaredPasses(_allocator)
+        , m_resourceVersions(_allocator)
+        , m_versionedReads(_allocator)
+        , m_versionedWrites(_allocator)
+        , m_dag(_allocator)
+        , m_targetResources(_allocator)
+        , m_passAlive(_allocator)
     {}
 
     Builder::~Builder() = default;
 
     PassDeclarationBuilder Builder::DeclarePass(PassType _type)
     {
-        return { m_declaredPasses.emplace_back(_type, m_declaredPasses.size()), this };
+        return { m_declaredPasses.emplace_back(_type, m_declaredPasses.size(), m_allocator), this };
     }
 
     Builder& Builder::DeclareTargetResource(SimplePoolHandle _resource)
@@ -41,7 +49,10 @@ namespace KryneEngine::Modules::RenderGraph
 
         KE_ZoneScopedFunction("Builder::BuildDag");
 
-        m_dag.resize(m_declaredPasses.size());
+        m_dag.resize(m_declaredPasses.size(), {
+            .m_children = eastl::vector_set<size_t>(m_allocator),
+            .m_parents = eastl::vector_set<size_t>(m_allocator)
+        });
         m_passAlive.resize(m_declaredPasses.size(), false);
 
         m_isBuilt = true;
@@ -358,12 +369,16 @@ namespace KryneEngine::Modules::RenderGraph
     {
         KE_ZoneScopedFunction("Builder::PrintFlattenedPasses");
 
-        eastl::vector<size_t> renderPasses;
-        eastl::vector<size_t> computePasses;
-        eastl::vector<size_t> transferPasses;
+        eastl::vector<size_t> renderPasses(m_allocator);
+        eastl::vector<size_t> computePasses(m_allocator);
+        eastl::vector<size_t> transferPasses(m_allocator);
 
         constexpr auto typeCount = static_cast<size_t>(PassType::COUNT);
         eastl::vector<eastl::pair<size_t, size_t>> crossQueueDependencyMatrix[typeCount * typeCount];
+        for (auto& dependencies : crossQueueDependencyMatrix)
+        {
+            dependencies.set_allocator(m_allocator);
+        }
 
         for (size_t i = 0; i < m_declaredPasses.size(); i++)
         {

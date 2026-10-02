@@ -30,6 +30,17 @@ namespace KryneEngine
 #endif
     }
 
+    StackAllocator::~StackAllocator()
+    {
+        for (auto* heap: m_heaps)
+        {
+            if (heap != nullptr)
+            {
+                m_parentAllocator.deallocate(heap);
+            }
+        }
+    }
+
     void* StackAllocator::Allocate(const size_t _size, const size_t _alignment)
     {
         const size_t alignment = eastl::max<size_t>(1ul, _alignment);

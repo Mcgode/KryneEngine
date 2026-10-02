@@ -19,6 +19,7 @@
 #include "KryneEngine/Core/Graphics/Buffer.hpp"
 #include "KryneEngine/Core/Graphics/Drawing.hpp"
 #include "KryneEngine/Core/Math/Color.hpp"
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
 #include "KryneEngine/Core/Window/Window.hpp"
 
@@ -429,7 +430,8 @@ namespace KryneEngine
 
         const u32 numSubResources = _desc.m_arraySize * _desc.m_mipCount;
 
-        DynamicArray<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> footprints(m_allocator);
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+        DynamicArray<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> footprints(scopedScratchAllocator.GetAllocator());
         footprints.Resize(numSubResources);
 
         m_device->GetCopyableFootprints(&resourceDesc, 0, numSubResources, 0, footprints.Data(), nullptr, nullptr, nullptr);
@@ -1142,13 +1144,15 @@ namespace KryneEngine
 
         using namespace Dx12Converters;
 
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
         if (m_enhancedBarriersEnabled)
         {
             eastl::fixed_vector<D3D12_BARRIER_GROUP, 3> barrierGroups;
 
-            DynamicArray<D3D12_GLOBAL_BARRIER> globalMemoryBarriers(m_allocator, _barriers.m_globalBarriers.size());
-            DynamicArray<D3D12_BUFFER_BARRIER> bufferMemoryBarriers(m_allocator, _barriers.m_bufferBarriers.size());
-            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(m_allocator, _barriers.m_textureBarriers.size());
+            DynamicArray<D3D12_GLOBAL_BARRIER> globalMemoryBarriers(scopedScratchAllocator.GetAllocator(), _barriers.m_globalBarriers.size());
+            DynamicArray<D3D12_BUFFER_BARRIER> bufferMemoryBarriers(scopedScratchAllocator.GetAllocator(), _barriers.m_bufferBarriers.size());
+            DynamicArray<D3D12_TEXTURE_BARRIER> textureMemoryBarriers(scopedScratchAllocator.GetAllocator(), _barriers.m_textureBarriers.size());
 
             if (!_barriers.m_globalBarriers.empty())
             {
@@ -1251,7 +1255,7 @@ namespace KryneEngine
         }
         else
         {
-            eastl::vector<D3D12_RESOURCE_BARRIER> resourceBarriers(m_allocator);
+            eastl::vector<D3D12_RESOURCE_BARRIER> resourceBarriers(scopedScratchAllocator.GetAllocator());
 
             for (const auto& barrier: _barriers.m_textureBarriers)
             {

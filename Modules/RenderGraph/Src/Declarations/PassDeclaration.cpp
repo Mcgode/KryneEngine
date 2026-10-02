@@ -8,10 +8,16 @@
 
 namespace KryneEngine::Modules::RenderGraph
 {
-    PassDeclaration::PassDeclaration(PassType _type, size_t _id)
+    PassDeclaration::PassDeclaration(const PassType _type, const size_t _id, const AllocatorInstance _allocator)
         : m_type(_type)
-        , m_name(eastl::string().sprintf("Pass %zu", _id))
-    {}
+        , m_name(0, "", _allocator)
+        , m_readDependencies(_allocator)
+        , m_writeDependencies(_allocator)
+    {
+        char defaultName[32];
+        snprintf(defaultName, sizeof(defaultName), "Pass %zu", _id);
+        m_name = StringHash(defaultName, _allocator);
+    }
 
     u64 PassDeclaration::GetRenderPassHash()
     {
@@ -30,7 +36,7 @@ namespace KryneEngine::Modules::RenderGraph
 
     PassDeclarationBuilder& PassDeclarationBuilder::SetName(const eastl::string_view& _name)
     {
-        m_item.m_name = StringHash(_name);
+        m_item.m_name = StringHash(_name, m_item.m_name.m_string.get_allocator());
         return *this;
     }
 
