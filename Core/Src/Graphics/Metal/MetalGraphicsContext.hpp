@@ -55,6 +55,7 @@ namespace KryneEngine
 
     private:
         NsPtr<MTL::Device> m_device;
+        bool m_hasUnifiedMemory = false;
 
         NsPtr<MTL4::CommandQueue> m_graphicsQueue;
         NsPtr<MTL4::CommandQueue> m_computeQueue;
@@ -81,6 +82,7 @@ namespace KryneEngine
 
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
         [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;
+        [[nodiscard]] bool IsGpuReadOptimal(MemoryUsage _usage) const override;
         bool DestroyBuffer(BufferHandle _bufferHandle) override;
 
         [[nodiscard]] TextureHandle CreateTexture(const TextureCreateDesc& _createDesc) override;

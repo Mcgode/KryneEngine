@@ -1089,6 +1089,11 @@ namespace KryneEngine
         return !BitUtils::EnumHasAny(memoryPropertyFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     }
 
+    bool VkGraphicsContext::IsGpuReadOptimal(const MemoryUsage _usage) const
+    {
+        return m_resources.IsGpuReadOptimal(_usage);
+    }
+
     bool VkGraphicsContext::DestroyBuffer(const BufferHandle _bufferHandle)
     {
         return m_resources.DestroyBuffer(_bufferHandle);

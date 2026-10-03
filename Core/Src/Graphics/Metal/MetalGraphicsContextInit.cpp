@@ -25,6 +25,8 @@ namespace KryneEngine
 
         KE_ASSERT(m_device->supportsFamily(MTL::GPUFamilyMetal4));
 
+        m_hasUnifiedMemory = m_device->hasUnifiedMemory();
+
         {
             MTL::ResidencySetDescriptor* descriptor = MTL::ResidencySetDescriptor::alloc()->init();
             descriptor->setInitialCapacity(128);

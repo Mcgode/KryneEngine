@@ -135,6 +135,8 @@ namespace KryneEngine
 
         void DestroyAllocator();
 
+        [[nodiscard]] bool IsGpuReadOptimal(MemoryUsage _usage) const;
+
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc, VkDevice _device);
         [[nodiscard]] BufferHandle CreateStagingBuffer(
             const TextureDesc& _createDesc,
@@ -178,6 +180,10 @@ namespace KryneEngine
 
     private:
         VmaAllocator m_allocator {};
+        /// @brief Bit `n` is set if the memory picked for usage type `n` is device-local.
+        u8 m_gpuReadOptimalMask = 0;
+
+        [[nodiscard]] static VmaAllocationCreateInfo GetAllocationCreateInfo(MemoryUsage _usage);
 
         [[nodiscard]] VkImageView CreateImageView(
             VkDevice _device,

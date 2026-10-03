@@ -191,6 +191,12 @@ namespace KryneEngine
         return false;
     }
 
+    bool MetalGraphicsContext::IsGpuReadOptimal(const MemoryUsage _usage) const
+    {
+        // Shared storage is the same memory as private storage on unified memory devices
+        return (_usage & MemoryUsage::USAGE_TYPE_MASK) == MemoryUsage::GpuOnly_UsageType || m_hasUnifiedMemory;
+    }
+
     bool MetalGraphicsContext::DestroyBuffer(const BufferHandle _bufferHandle)
     {
         return m_resources.DestroyBuffer(_bufferHandle);

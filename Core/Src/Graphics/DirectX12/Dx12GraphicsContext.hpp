@@ -71,6 +71,7 @@ namespace KryneEngine
         DWORD m_validationLayerMessageCallbackHandle = 0;
 
         bool m_enhancedBarriersEnabled = false;
+        bool m_hasUnifiedMemory = false;
 
         ComPtr<ID3D12QueryHeap> m_timestampQueryHeap { nullptr };
         double m_directQueueTimestampPeriod = 0;
@@ -84,6 +85,7 @@ namespace KryneEngine
     public:
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
         [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;
+        [[nodiscard]] bool IsGpuReadOptimal(MemoryUsage _usage) const override;
         bool DestroyBuffer(BufferHandle _buffer) override;
 
         [[nodiscard]] TextureHandle CreateTexture(const TextureCreateDesc& _createDesc) override;

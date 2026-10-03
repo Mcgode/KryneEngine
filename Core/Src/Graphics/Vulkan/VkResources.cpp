@@ -127,11 +127,49 @@ namespace KryneEngine
         };
 
         vmaCreateAllocator(&createInfo, &m_allocator);
+
+        {
+            // The allocator needs a temporary buffer to pick a memory type, so resolve every usage type once
+            constexpr VkBufferCreateInfo probeInfo {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .size = 256,
+                .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                         | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                         | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            };
+            constexpr MemoryUsage usages [] = {
+                MemoryUsage::GpuOnly_UsageType,
+                MemoryUsage::StageOnce_UsageType,
+                MemoryUsage::StageEveryFrame_UsageType,
+                MemoryUsage::Readback_UsageType,
+                MemoryUsage::CpuReadWrite_UsageType,
+            };
+            for (const MemoryUsage usageType: usages)
+            {
+                const VmaAllocationCreateInfo allocationInfo = GetAllocationCreateInfo(usageType);
+                u32 memoryTypeIndex;
+                if (vmaFindMemoryTypeIndexForBufferInfo(m_allocator, &probeInfo, &allocationInfo, &memoryTypeIndex) == VK_SUCCESS)
+                {
+                    VkMemoryPropertyFlags flags;
+                    vmaGetMemoryTypeProperties(m_allocator, memoryTypeIndex, &flags);
+                    if ((flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0)
+                    {
+                        m_gpuReadOptimalMask |= 1 << static_cast<u32>(usageType);
+                    }
+                }
+            }
+        }
     }
 
     void VkResources::DestroyAllocator()
     {
         vmaDestroyAllocator(m_allocator);
+    }
+
+    bool VkResources::IsGpuReadOptimal(const MemoryUsage _usage) const
+    {
+        return (m_gpuReadOptimalMask & (1 << static_cast<u32>(_usage & MemoryUsage::USAGE_TYPE_MASK))) != 0;
     }
 
     BufferHandle VkResources::CreateBuffer(const BufferCreateDesc& _desc, VkDevice _device)
@@ -151,36 +189,7 @@ namespace KryneEngine
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         };
 
-        VmaAllocationCreateInfo allocationInfo {};
-        const MemoryUsage usageType = _desc.m_usage & MemoryUsage::USAGE_TYPE_MASK;
-        if (usageType == MemoryUsage::GpuOnly_UsageType)
-        {
-            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-        }
-        else if (usageType == MemoryUsage::StageOnce_UsageType)
-        {
-            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
-            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-        }
-        else if (usageType == MemoryUsage::StageEveryFrame_UsageType)
-        {
-            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
-            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
-                                   | VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                   | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT;
-        }
-        else if (usageType == MemoryUsage::Readback_UsageType)
-        {
-            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
-            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
-                                   | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        }
-        else if (usageType == MemoryUsage::CpuReadWrite_UsageType)
-        {
-            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
-            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
-                                   | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        }
+        const VmaAllocationCreateInfo allocationInfo = GetAllocationCreateInfo(_desc.m_usage);
 
         const GenPool::Handle handle = m_buffers.Allocate();
 
@@ -1120,6 +1129,41 @@ namespace KryneEngine
             return true;
         }
         return false;
+    }
+
+    VmaAllocationCreateInfo VkResources::GetAllocationCreateInfo(const MemoryUsage _usage)
+    {
+        VmaAllocationCreateInfo allocationInfo {};
+        const MemoryUsage usageType = _usage & MemoryUsage::USAGE_TYPE_MASK;
+        if (usageType == MemoryUsage::GpuOnly_UsageType)
+        {
+            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        }
+        else if (usageType == MemoryUsage::StageOnce_UsageType)
+        {
+            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        }
+        else if (usageType == MemoryUsage::StageEveryFrame_UsageType)
+        {
+            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
+            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+                                   | VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                   | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT;
+        }
+        else if (usageType == MemoryUsage::Readback_UsageType)
+        {
+            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
+            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+                                   | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        }
+        else if (usageType == MemoryUsage::CpuReadWrite_UsageType)
+        {
+            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+                                   | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        }
+        return allocationInfo;
     }
 
     VkImageView VkResources::CreateImageView(

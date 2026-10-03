@@ -311,6 +311,22 @@ namespace KryneEngine
         [[nodiscard]] virtual bool NeedsStagingBuffer(BufferHandle _buffer) = 0;
 
         /**
+         * @brief Checks whether the GPU reads memory of the given usage type at device-local speed.
+         *
+         * @details
+         * `GpuOnly_UsageType` always is. For the other usage types, the answer depends on the hardware: on unified
+         * memory architectures (integrated GPUs, Apple silicon), CPU-visible memory is the memory the GPU uses, so
+         * the GPU reads it at full speed. On discrete GPUs, CPU-visible memory is generally read across the bus,
+         * unless the backend can place that usage type in device-local memory.
+         *
+         * When this returns `false` for the usage a resource was created with and the resource is read heavily by
+         * the GPU, the caller should copy it into a `GpuOnly_UsageType` resource through a transfer.
+         *
+         * @param _usage Only the usage type bits (see `MemoryUsage::USAGE_TYPE_MASK`) are considered.
+         */
+        [[nodiscard]] virtual bool IsGpuReadOptimal(MemoryUsage _usage) const = 0;
+
+        /**
          * @brief Destroys a buffer previously created with #CreateBuffer.
          *
          * @param _bufferHandle The handle of the buffer to destroy.

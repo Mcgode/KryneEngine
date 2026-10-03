@@ -295,6 +295,15 @@ namespace KryneEngine
             Dx12Assert(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &options12, sizeof(options12)));
             m_enhancedBarriersEnabled = options12.EnhancedBarriersSupported;
         }
+
+        {
+            D3D12_FEATURE_DATA_ARCHITECTURE1 architecture = {};
+            m_hasUnifiedMemory = SUCCEEDED(m_device->CheckFeatureSupport(
+                D3D12_FEATURE_ARCHITECTURE1,
+                &architecture,
+                sizeof(architecture)))
+                && architecture.UMA;
+        }
     }
 
     void Dx12GraphicsContext::_FindAdapter(IDXGIFactory4 *_factory, IDXGIAdapter1 **_adapter)
@@ -399,7 +408,13 @@ namespace KryneEngine
         VERIFY_OR_RETURN(pAllocation != nullptr, false);
         D3D12MA::Allocation* allocation = *pAllocation;
 
-        return Dx12GetHeapDesc(allocation->GetHeap()).Properties.Type != D3D12_HEAP_TYPE_UPLOAD;
+        return Dx12GetHeapDesc(allocation->GetHeap()).Properties.Type == D3D12_HEAP_TYPE_DEFAULT;
+    }
+
+    bool Dx12GraphicsContext::IsGpuReadOptimal(const MemoryUsage _usage) const
+    {
+        // Upload, readback and custom heaps all live in system memory, unless it is shared with the GPU.
+        return (_usage & MemoryUsage::USAGE_TYPE_MASK) == MemoryUsage::GpuOnly_UsageType || m_hasUnifiedMemory;
     }
 
     bool Dx12GraphicsContext::DestroyBuffer(BufferHandle _buffer) {
