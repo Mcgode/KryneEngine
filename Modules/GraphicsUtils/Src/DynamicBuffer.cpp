@@ -10,31 +10,42 @@
 
 namespace KryneEngine::Modules::GraphicsUtils
 {
-    DynamicBuffer::DynamicBuffer(AllocatorInstance _allocator)
+    DynamicBuffer::DynamicBuffer(const AllocatorInstance _allocator)
         : m_mappableBuffers(_allocator)
         , m_sizes(_allocator)
         , m_gpuBuffersToFree(_allocator)
     {}
 
-    void DynamicBuffer::Init(GraphicsContext* _graphicsContext, const BufferCreateDesc& _bufferDesc, u8 _frameCount)
+    void DynamicBuffer::Init(
+        GraphicsContext* _graphicsContext,
+        const BufferCreateDesc& _bufferDesc,
+        const u8 _frameCount,
+        const bool _makeGpuReadOptimal)
     {
+        const MemoryUsage usageType = _bufferDesc.m_usage & MemoryUsage::USAGE_TYPE_MASK;
         KE_ASSERT_MSG(
-            (_bufferDesc.m_usage & MemoryUsage::USAGE_TYPE_MASK) == MemoryUsage::StageEveryFrame_UsageType,
-            "Buffer usage type should be `StageEveryFrame_UsageType`");
+            usageType == MemoryUsage::StageEveryFrame_UsageType || usageType == MemoryUsage::CpuReadWrite_UsageType,
+            "Buffer usage type should be `StageEveryFrame_UsageType` or `CpuReadWrite_UsageType`");
+        KE_ASSERT_MSG(
+            !BitUtils::EnumHasAny(_bufferDesc.m_usage, MemoryUsage::WriteBuffer),
+            "Dynamic buffers are written by the CPU only, `WriteBuffer` is not supported");
 
         m_mappableBuffers.Resize(_frameCount);
-        BufferHandle baseBuffer = _graphicsContext->CreateBuffer(_bufferDesc);
 
-        if (_graphicsContext->NeedsStagingBuffer(baseBuffer))
+        if (_makeGpuReadOptimal && !_graphicsContext->IsGpuReadOptimal(usageType))
         {
-            // Must go through staging buffers
+            // The GPU would read CPU-visible memory across the bus: write to mappable buffers, and copy them into
+            // a device-local buffer that the GPU reads from.
 
-            m_gpuBuffer = baseBuffer;
             m_gpuRecreateDesc = _bufferDesc;
+            m_gpuRecreateDesc.m_usage = (_bufferDesc.m_usage & ~MemoryUsage::USAGE_TYPE_MASK)
+                | MemoryUsage::GpuOnly_UsageType
+                | MemoryUsage::TransferDstBuffer;
+            m_gpuBuffer = _graphicsContext->CreateBuffer(m_gpuRecreateDesc);
 
             m_mappableRecreateDesc = {
                 .m_desc = _bufferDesc.m_desc,
-                .m_usage = MemoryUsage::StageOnce_UsageType | MemoryUsage::TransferSrcBuffer,
+                .m_usage = usageType | MemoryUsage::TransferSrcBuffer,
             };
             for (u8 i = 0; i < _frameCount; i++)
             {
@@ -43,14 +54,13 @@ namespace KryneEngine::Modules::GraphicsUtils
         }
         else
         {
-            // Will be able to use cpu-writable directly on the GPU
+            // The GPU can read the mappable buffers directly
 
 #if !defined(KE_FINAL)
             m_mappableRecreateDesc.m_desc.m_debugName.set_allocator(m_mappableBuffers.GetAllocator());
 #endif
             m_mappableRecreateDesc = _bufferDesc;
-            m_mappableBuffers[0] = baseBuffer;
-            for (u8 i = 1; i < _frameCount; i++)
+            for (u8 i = 0; i < _frameCount; i++)
             {
                 m_mappableBuffers[i] = _graphicsContext->CreateBuffer(m_mappableRecreateDesc);
             }

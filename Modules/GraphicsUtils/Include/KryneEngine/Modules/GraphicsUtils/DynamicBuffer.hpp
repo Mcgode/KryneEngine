@@ -19,7 +19,22 @@ namespace KryneEngine::Modules::GraphicsUtils
     public:
         explicit DynamicBuffer(AllocatorInstance _allocator);
 
-        void Init(GraphicsContext* _graphicsContext, const BufferCreateDesc& _bufferDesc, u8 _frameCount);
+        /**
+         * @brief Creates one CPU-mappable buffer per frame, plus a device-local buffer if requested and beneficial.
+         *
+         * @param _bufferDesc Description of the buffer. Its usage type must be `StageEveryFrame_UsageType` or
+         * `CpuReadWrite_UsageType`.
+         * @param _makeGpuReadOptimal If `true` and the GPU doesn't read CPU-visible memory at full speed, the GPU
+         * reads a device-local buffer that #PrepareBuffers fills from the mappable buffers. Has no effect otherwise.
+         *
+         * @warning `WriteBuffer` usage is not supported: the buffer is written by the CPU only, and GPU writes would
+         * not reach the mappable buffers when a device-local buffer is used.
+         */
+        void Init(
+            GraphicsContext* _graphicsContext,
+            const BufferCreateDesc& _bufferDesc,
+            u8 _frameCount,
+            bool _makeGpuReadOptimal = true);
         void RequestResize(u64 _size);
         void* Map(GraphicsContext* _graphicsContext, u8 _frameIndex);
         void Unmap(GraphicsContext* _graphicsContext);
@@ -30,10 +45,10 @@ namespace KryneEngine::Modules::GraphicsUtils
             u8 _frameIndex) const;
 
         /**
-         * @brief Informs you whether your destination buffer is GPU memory-only (and thus requires explicit transfer)
-         * or CPU-mappable and GPU visible (aka ReBar,...)
+         * @brief Informs you whether the GPU reads the CPU-mappable buffers directly, or reads a device-local buffer
+         * that the mappable buffers are copied into by #PrepareBuffers.
          *
-         * @returns `true` if the final buffer is directly CPU mappable, `false` if there are intermediate buffers for
+         * @returns `true` if the final buffer is the mappable one, `false` if there are intermediate buffers for
          * data transfer.
          */
         [[nodiscard]] bool IsDirectMapping() const { return m_gpuBuffer == GenPool::kInvalidHandle; }
@@ -50,8 +65,8 @@ namespace KryneEngine::Modules::GraphicsUtils
         [[nodiscard]] bool NeedsInit() const { return m_mappableBuffers.Empty(); }
 
     private:
-        BufferCreateDesc m_mappableRecreateDesc;
-        BufferCreateDesc m_gpuRecreateDesc;
+        BufferCreateDesc m_mappableRecreateDesc {};
+        BufferCreateDesc m_gpuRecreateDesc {};
         DynamicArray<BufferHandle> m_mappableBuffers;
         DynamicArray<u64> m_sizes;
         BufferHandle m_gpuBuffer { GenPool::kInvalidHandle };
