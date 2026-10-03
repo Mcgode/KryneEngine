@@ -17,6 +17,7 @@ namespace D3D12MA
 {
     class Allocator;
     class Allocation;
+    class Pool;
 }
 
 namespace KryneEngine
@@ -178,5 +179,6 @@ namespace KryneEngine
         u32 m_samplerDescriptorSize = 0;
 
         D3D12MA::Allocator* m_memoryAllocator = nullptr;
+        D3D12MA::Pool* m_cpuReadWritePool = nullptr;
     };
 } // KryneEngine

@@ -1428,6 +1428,12 @@ namespace KryneEngine
             vmaMapMemory(m_resources.m_allocator, coldData->m_allocation, &ptr);
             _mapping.m_ptr = static_cast<std::byte*>(ptr) + _mapping.m_offset;
         }
+
+        if (!_mapping.m_pureWrite)
+        {
+            // Make GPU writes visible to the CPU on non-coherent memory
+            vmaInvalidateAllocation(m_resources.m_allocator, coldData->m_allocation, _mapping.m_offset, _mapping.m_size);
+        }
     }
 
     void VkGraphicsContext::UnmapBuffer(BufferMapping& _mapping)

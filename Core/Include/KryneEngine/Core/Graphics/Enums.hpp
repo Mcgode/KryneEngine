@@ -109,11 +109,26 @@ namespace KryneEngine
     enum class MemoryUsage : u16
     {
         // Memory usage type saved in first 3 bits
+
+        /// Default value, not a valid usage type for creating a resource.
         Undefined_UsageType         = 0 << 0,
+        /// Device-local memory, not accessible by the CPU. Fastest for GPU access, filled through a transfer.
+        /// This is the only usage type accepted for textures.
         GpuOnly_UsageType           = 1 << 0,
+        /// Host memory written by the CPU once, then consumed by the GPU, typically as the source of a transfer
+        /// into a GpuOnly resource.
         StageOnce_UsageType         = 2 << 0,
+        /// Host memory rewritten by the CPU every frame and read directly by the GPU.
+        /// @warning The CPU must not overwrite a region the GPU may still be reading from a previous frame.
         StageEveryFrame_UsageType   = 3 << 0,
+        /// Host memory written by the GPU and read back by the CPU.
+        /// @note The data is only valid on the CPU once the GPU work writing to it has completed.
         Readback_UsageType          = 4 << 0,
+        /// Host-cached memory the CPU can efficiently both read and write, for data that goes back and forth
+        /// between the CPU and the GPU. Currently only supported for buffers.
+        /// @note On discrete GPUs the GPU accesses this memory across the PCIe bus, so prefer GpuOnly for data
+        /// the GPU reads heavily.
+        CpuReadWrite_UsageType      = 5 << 0,
         USAGE_TYPE_MASK             = BitUtils::BitMask<u16>(3, 0),
 
         // Buffer specific flags

@@ -337,53 +337,37 @@ namespace KryneEngine::MetalConverters
     {
         switch (_memoryUsage & MemoryUsage::USAGE_TYPE_MASK)
         {
+        case MemoryUsage::Readback_UsageType:
         case MemoryUsage::StageOnce_UsageType:
-            return MTL::ResourceStorageModeShared;
         case MemoryUsage::StageEveryFrame_UsageType:
-#if defined(TARGET_OS_MAC)
-            return MTL::ResourceStorageModeManaged;
-#else
+        case MemoryUsage::CpuReadWrite_UsageType: // Shared memory is CPU-cached
             return MTL::ResourceStorageModeShared;
-#endif
         case MemoryUsage::GpuOnly_UsageType:
             return MTL::ResourceStorageModePrivate;
-        case MemoryUsage::Readback_UsageType:
-#if defined(TARGET_OS_MAC)
-            return MTL::ResourceStorageModeManaged;
-#else
-            return MTL::ResourceStorageModeShared;
-#endif
         default:
+            KE_ERROR("Unreachable code");
             return 0;
         }
     }
 
-    MTL::StorageMode GetStorageMode(MemoryUsage _memoryUsage)
+    MTL::StorageMode GetStorageMode(const MemoryUsage _memoryUsage)
     {
         switch (_memoryUsage & MemoryUsage::USAGE_TYPE_MASK)
         {
         case MemoryUsage::StageOnce_UsageType:
-            return MTL::StorageModeShared;
         case MemoryUsage::StageEveryFrame_UsageType:
-#if defined(TARGET_OS_MAC)
-            return MTL::StorageModeManaged;
-#else
+        case MemoryUsage::Readback_UsageType:
+        case MemoryUsage::CpuReadWrite_UsageType:
             return MTL::StorageModeShared;
-#endif
         case MemoryUsage::GpuOnly_UsageType:
             return MTL::StorageModePrivate;
-        case MemoryUsage::Readback_UsageType:
-#if defined(TARGET_OS_MAC)
-            return MTL::StorageModeManaged;
-#else
-            return MTL::StorageModeShared;
-#endif
         default:
+            KE_ERROR("Invalid memory usage enum value");
             return MTL::StorageModeShared;
         }
     }
 
-    MTL::TextureSwizzle GetSwizzle(TextureComponentMapping _mapping)
+    MTL::TextureSwizzle GetSwizzle(const TextureComponentMapping _mapping)
     {
         switch (_mapping)
         {
@@ -399,6 +383,9 @@ namespace KryneEngine::MetalConverters
             return MTL::TextureSwizzleZero;
         case TextureComponentMapping::One:
             return MTL::TextureSwizzleOne;
+        default:
+            KE_ERROR("Unreachable code");
+            return MTL::TextureSwizzleZero;
         }
     }
 

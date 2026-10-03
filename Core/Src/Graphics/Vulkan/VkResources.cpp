@@ -175,6 +175,12 @@ namespace KryneEngine
             allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
                                    | VMA_ALLOCATION_CREATE_MAPPED_BIT;
         }
+        else if (usageType == MemoryUsage::CpuReadWrite_UsageType)
+        {
+            allocationInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+            allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+                                   | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        }
 
         const GenPool::Handle handle = m_buffers.Allocate();
 

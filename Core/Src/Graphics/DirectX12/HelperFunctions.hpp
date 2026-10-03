@@ -368,6 +368,8 @@ namespace KryneEngine
                 return D3D12_HEAP_TYPE_UPLOAD;
             case MemoryUsage::Readback_UsageType:
                 return D3D12_HEAP_TYPE_READBACK;
+            case MemoryUsage::CpuReadWrite_UsageType:
+                return D3D12_HEAP_TYPE_CUSTOM;
             default:
                 KE_ERROR("Unsupported memory usage type");
                 return D3D12_HEAP_TYPE_DEFAULT;

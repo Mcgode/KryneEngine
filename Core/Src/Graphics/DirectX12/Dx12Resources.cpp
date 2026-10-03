@@ -36,7 +36,11 @@ namespace KryneEngine
         , m_swapChains(_allocator)
     {}
 
-    Dx12Resources::~Dx12Resources() = default;
+    Dx12Resources::~Dx12Resources()
+    {
+        SafeRelease(m_cpuReadWritePool);
+        SafeRelease(m_memoryAllocator);
+    }
 
     void Dx12Resources::InitAllocator(ID3D12Device* _device, IDXGIAdapter* _adapter)
     {
@@ -48,6 +52,17 @@ namespace KryneEngine
         };
 
         Dx12Assert(D3D12MA::CreateAllocator(&allocatorDesc, &m_memoryAllocator));
+
+        constexpr D3D12MA::POOL_DESC cpuReadWritePoolDesc {
+            .HeapProperties {
+                .Type = D3D12_HEAP_TYPE_CUSTOM,
+                .CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK,
+                .MemoryPoolPreference = D3D12_MEMORY_POOL_L0,
+            },
+            // Tier 1 devices require the pool to be restricted to a single resource category
+            .HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS,
+        };
+        Dx12Assert(m_memoryAllocator->CreatePool(&cpuReadWritePoolDesc, &m_cpuReadWritePool));
     }
 
     void Dx12Resources::InitHeaps(ID3D12Device* _device)
@@ -144,6 +159,18 @@ namespace KryneEngine
         D3D12MA::ALLOCATION_DESC allocationDesc {
             .HeapType = Dx12Converters::GetHeapType(_desc.m_usage),
         };
+
+        if (allocationDesc.HeapType == D3D12_HEAP_TYPE_CUSTOM)
+        {
+            switch (_desc.m_usage & MemoryUsage::USAGE_TYPE_MASK)
+            {
+            case MemoryUsage::CpuReadWrite_UsageType:
+                allocationDesc.CustomPool = m_cpuReadWritePool;
+                break;
+            default:
+                KE_ERROR("Unreachable code");
+            }
+        }
 
         D3D12MA::Allocation* allocation;
         ID3D12Resource* buffer;
