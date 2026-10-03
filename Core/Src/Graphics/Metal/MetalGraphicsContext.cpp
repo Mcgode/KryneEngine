@@ -618,11 +618,6 @@ namespace KryneEngine
 
     void MetalGraphicsContext::UnmapBuffer(BufferMapping& _mapping)
     {
-        auto [hot, cold] = m_resources.m_buffers.GetAll(_mapping.m_buffer.m_handle);
-        if ((cold->m_options & MTL::ResourceStorageModeManaged) != 0)
-        {
-            hot->m_buffer->didModifyRange({_mapping.m_offset, _mapping.m_size});
-        }
         _mapping.m_ptr = nullptr;
     }
 
@@ -637,14 +632,8 @@ namespace KryneEngine
 
     void MetalGraphicsContext::FlushPersistent(const BufferHandle _buffer, const u64 _offset, const u64 _size)
     {
-        auto [hot, cold] = m_resources.m_buffers.GetAll(_buffer.m_handle);
-        VERIFY_OR_RETURN_VOID(hot != nullptr);
-
-        if ((cold->m_options & MTL::ResourceStorageModeManaged) != 0)
-        {
-            const u64 size = eastl::min(_size, hot->m_buffer->length() - _offset);
-            hot->m_buffer->didModifyRange({ _offset, size });
-        }
+        // Shared memory is coherent with the GPU, nothing to flush
+        KE_ASSERT_MSG(m_resources.m_buffers.Get(_buffer.m_handle) != nullptr, "Invalid buffer");
     }
 
     void MetalGraphicsContext::CopyBuffer(

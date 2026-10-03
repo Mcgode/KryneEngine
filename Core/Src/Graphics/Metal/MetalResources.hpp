@@ -62,12 +62,7 @@ namespace KryneEngine
             MTL::Buffer* m_buffer;
         };
 
-        struct BufferColdData
-        {
-            MTL::ResourceOptions m_options;
-        };
-
-        GenerationalPool<BufferHotData, BufferColdData> m_buffers;
+        GenerationalPool<BufferHotData> m_buffers;
 
     public:
         TextureHandle CreateTexture(MTL::Device& _device, const TextureCreateDesc& _desc);

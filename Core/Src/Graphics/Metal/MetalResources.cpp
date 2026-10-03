@@ -97,11 +97,9 @@ namespace KryneEngine
 
         const GenPool::Handle handle = m_buffers.Allocate();
 
-        auto [bufferHot, bufferCold] = m_buffers.GetAll(handle);
-        const MTL::ResourceOptions options = MetalConverters::GetResourceStorage(_desc.m_usage);
-        bufferHot->m_buffer = _device.newBuffer(_desc.m_desc.m_size, options)->retain();
+        BufferHotData* bufferHot = m_buffers.Get(handle);
+        bufferHot->m_buffer = _device.newBuffer(_desc.m_desc.m_size, MetalConverters::GetResourceStorage(_desc.m_usage))->retain();
         KE_ASSERT_FATAL(bufferHot->m_buffer != nullptr);
-        bufferCold->m_options = options;
 
         {
             const auto lock = m_residencySetLock.AutoLock();

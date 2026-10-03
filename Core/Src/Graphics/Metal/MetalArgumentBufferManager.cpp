@@ -127,12 +127,8 @@ namespace KryneEngine
             hot->m_encoder = _device.newArgumentEncoder(NS::Array::array(reinterpret_cast<const NS::Object* const*>(array.Data()), array.Size()));
         }
 
-#if defined(TARGET_OS_MAC)
-        const MTL::ResourceOptions options = MTL::ResourceStorageModeManaged;
-#else
-        const MTL::ResourceOptions options = MTL::ResourceStorageModeShared;
-#endif
-        hot->m_argumentBuffer = _device.newBuffer(hot->m_encoder->encodedLength() * m_inFlightFrameCount, options);
+        hot->m_argumentBuffer = _device.newBuffer(
+            hot->m_encoder->encodedLength() * m_inFlightFrameCount, MTL::ResourceStorageModeShared);
 
         {
             const auto lock = _resources.m_residencySetLock.AutoLock();
@@ -286,29 +282,15 @@ namespace KryneEngine
     {
         GenPool::Handle currentBuffer = GenPool::kInvalidHandle;
         MTL::ArgumentEncoder* encoder = nullptr;
-        MTL::Buffer* buffer = nullptr;
-
-        const auto flush = [&]
-        {
-#if defined(TARGET_OS_MAC)
-            // Could be optimized by not flushing entire buffer
-            if (buffer != nullptr)
-            {
-                buffer->didModifyRange({encoder->encodedLength() * _frameIndex, encoder->encodedLength()});
-            }
-#endif
-        };
 
         for (const ArgumentBufferWriteInfo& update: _updates)
         {
             if (update.m_argumentBuffer != currentBuffer)
             {
-                flush();
                 currentBuffer = update.m_argumentBuffer.m_handle;
                 const ArgumentBufferHotData* hot = m_argumentBufferSets.Get(currentBuffer);
                 encoder = hot->m_encoder.get();
-                buffer = hot->m_argumentBuffer.get();
-                encoder->setArgumentBuffer(buffer, encoder->encodedLength() * _frameIndex);
+                encoder->setArgumentBuffer(hot->m_argumentBuffer.get(), encoder->encodedLength() * _frameIndex);
             }
 
             PackedIndex index { .m_packedIndex = update.m_index };
@@ -334,8 +316,6 @@ namespace KryneEngine
             }
             }
         }
-
-        flush();
     }
 #pragma endregion
 } // namespace KryneEngine
