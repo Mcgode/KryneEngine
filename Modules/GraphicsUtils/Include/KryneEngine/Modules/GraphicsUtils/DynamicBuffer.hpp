@@ -38,6 +38,36 @@ namespace KryneEngine::Modules::GraphicsUtils
         void RequestResize(u64 _size);
         void* Map(GraphicsContext* _graphicsContext, u8 _frameIndex);
         void Unmap(GraphicsContext* _graphicsContext);
+
+        /**
+         * @brief Gets a CPU pointer to the start of the frame's mappable buffer, as an alternative to #Map and #Unmap.
+         *
+         * @details Applies any pending resize requested through #RequestResize, like #Map does. The pointer stays
+         * valid until the next call to #Map or #GetPersistentPointer for the same frame index, which can recreate the
+         * buffer, so it can be kept and reused as long as no resize is requested. Writes must be followed by
+         * #FlushPersistent before the frame's GPU work is submitted.
+         *
+         * @warning Don't use it between a #Map and its matching #Unmap.
+         */
+        [[nodiscard]] std::byte* GetPersistentRawPointer(GraphicsContext* _graphicsContext, u8 _frameIndex);
+
+        template <class T>
+        [[nodiscard]] T* GetPersistentPointer(GraphicsContext* _graphicsContext, const u8 _frameIndex)
+        {
+            return reinterpret_cast<T*>(GetPersistentRawPointer(_graphicsContext, _frameIndex));
+        }
+
+        /**
+         * @brief Makes CPU writes done through #GetPersistentPointer visible to the GPU.
+         *
+         * @param _size Size in bytes of the flushed range. `~0ull` flushes up to the end of the buffer.
+         */
+        void FlushPersistent(
+            GraphicsContext* _graphicsContext,
+            u8 _frameIndex,
+            u64 _offset = 0,
+            u64 _size = ~0ull) const;
+
         void PrepareBuffers(
             GraphicsContext* _graphicsContext,
             TransferCommandEncoderHandle _transferEncoder,
@@ -53,7 +83,7 @@ namespace KryneEngine::Modules::GraphicsUtils
          */
         [[nodiscard]] bool IsDirectMapping() const { return m_gpuBuffer == GenPool::kInvalidHandle; }
 
-        [[nodiscard]] u64 GetSize(u8 _frameIndex) const
+        [[nodiscard]] u64 GetSize(const u8 _frameIndex) const
         {
             return m_sizes[_frameIndex];
         }
@@ -65,6 +95,8 @@ namespace KryneEngine::Modules::GraphicsUtils
         [[nodiscard]] bool NeedsInit() const { return m_mappableBuffers.Empty(); }
 
     private:
+        void ApplyPendingResize(GraphicsContext* _graphicsContext, u8 _frameIndex);
+
         BufferCreateDesc m_mappableRecreateDesc {};
         BufferCreateDesc m_gpuRecreateDesc {};
         DynamicArray<BufferHandle> m_mappableBuffers;

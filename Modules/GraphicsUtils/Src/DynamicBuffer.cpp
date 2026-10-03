@@ -79,7 +79,7 @@ namespace KryneEngine::Modules::GraphicsUtils
         }
     }
 
-    void* DynamicBuffer::Map(GraphicsContext* _graphicsContext, u8 _frameIndex)
+    void DynamicBuffer::ApplyPendingResize(GraphicsContext* _graphicsContext, const u8 _frameIndex)
     {
         if (!m_gpuBuffersToFree.empty() && m_gpuBuffersToFree.front().m_atIndex == _frameIndex)
         {
@@ -104,6 +104,11 @@ namespace KryneEngine::Modules::GraphicsUtils
 
             m_sizes[_frameIndex] = m_mappableRecreateDesc.m_desc.m_size;
         }
+    }
+
+    void* DynamicBuffer::Map(GraphicsContext* _graphicsContext, u8 _frameIndex)
+    {
+        ApplyPendingResize(_graphicsContext, _frameIndex);
 
         m_currentMapping.m_buffer = m_mappableBuffers[_frameIndex];
         m_currentMapping.m_size = m_sizes[_frameIndex];
@@ -113,6 +118,24 @@ namespace KryneEngine::Modules::GraphicsUtils
 
     void DynamicBuffer::Unmap(GraphicsContext* _graphicsContext) {
         _graphicsContext->UnmapBuffer(m_currentMapping);
+    }
+
+    std::byte* DynamicBuffer::GetPersistentRawPointer(GraphicsContext* _graphicsContext, const u8 _frameIndex)
+    {
+        ApplyPendingResize(_graphicsContext, _frameIndex);
+
+        std::byte* ptr = _graphicsContext->MapPersistent(m_mappableBuffers[_frameIndex]);
+        KE_ASSERT_MSG(ptr != nullptr, "Mappable buffers should always be persistently mappable");
+        return ptr;
+    }
+
+    void DynamicBuffer::FlushPersistent(
+        GraphicsContext* _graphicsContext,
+        const u8 _frameIndex,
+        const u64 _offset,
+        const u64 _size) const
+    {
+        _graphicsContext->FlushPersistent(m_mappableBuffers[_frameIndex], _offset, _size);
     }
 
     void DynamicBuffer::PrepareBuffers(
