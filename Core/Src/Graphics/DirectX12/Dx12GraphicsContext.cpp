@@ -1207,7 +1207,8 @@ namespace KryneEngine
                     const TextureMemoryBarrier& barrier = _barriers.m_textureBarriers[i];
                     ID3D12Resource** texture = m_resources.m_textures.Get(barrier.m_texture.m_handle);
 
-                    const D3D12_RESOURCE_DESC desc = (*texture)->GetDesc();
+                    D3D12_RESOURCE_DESC desc;
+                    (*texture)->GetDesc(&desc);
                     const TexturePlane planes = RetrieveTexturePlanes(desc.Format);
                     const u32 mipCount = barrier.m_mipCount == 0xff
                         ? desc.MipLevels - barrier.m_mipStart
@@ -1272,7 +1273,8 @@ namespace KryneEngine
                 // Legacy transition barriers address subresources by an absolute index computed from
                 // the resource's *true* mip/array counts, unlike the barrier's own (possibly partial)
                 // range - so the true extent has to be queried from the resource itself.
-                const D3D12_RESOURCE_DESC desc = (*texture)->GetDesc();
+                D3D12_RESOURCE_DESC desc;
+                (*texture)->GetDesc(&desc);
                 const TexturePlane planes = RetrieveTexturePlanes(desc.Format);
                 const u32 mipEnd = barrier.m_mipCount == 0xff
                     ? desc.MipLevels
