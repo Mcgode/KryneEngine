@@ -108,7 +108,8 @@ namespace KryneEngine
 
     enum class MemoryUsage : u16
     {
-        // Memory usage type saved in first 3 bits
+        // Memory usage type saved in first 3 bits.
+        // Every usage type except GpuOnly is guaranteed to be CPU-mappable.
 
         /// Default value, not a valid usage type for creating a resource.
         Undefined_UsageType         = 0 << 0,
