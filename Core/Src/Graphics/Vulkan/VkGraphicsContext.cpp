@@ -1074,21 +1074,6 @@ namespace KryneEngine
         return m_resources.CreateBuffer(_desc, m_device);
     }
 
-    bool VkGraphicsContext::NeedsStagingBuffer(const BufferHandle _buffer)
-    {
-        KE_ZoneScopedFunction("VkGraphicsContext::NeedsStagingBuffer");
-
-        VkResources::BufferColdData* coldData = m_resources.m_buffers.GetCold(_buffer.m_handle);
-        VERIFY_OR_RETURN(coldData != nullptr, false);
-
-        VkMemoryPropertyFlagBits memoryPropertyFlags;
-        vmaGetAllocationMemoryProperties(
-            m_resources.m_allocator,
-            coldData->m_allocation,
-            reinterpret_cast<VkMemoryPropertyFlags*>(&memoryPropertyFlags));
-        return !BitUtils::EnumHasAny(memoryPropertyFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-    }
-
     bool VkGraphicsContext::IsGpuReadOptimal(const MemoryUsage _usage) const
     {
         return m_resources.IsGpuReadOptimal(_usage);

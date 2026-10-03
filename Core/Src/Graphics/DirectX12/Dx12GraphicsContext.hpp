@@ -84,7 +84,6 @@ namespace KryneEngine
 
     public:
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
-        [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;
         [[nodiscard]] bool IsGpuReadOptimal(MemoryUsage _usage) const override;
         bool DestroyBuffer(BufferHandle _buffer) override;
 

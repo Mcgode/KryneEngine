@@ -68,9 +68,9 @@ namespace KryneEngine
      *   destroyed until that frame has finished executing on the GPU (see #IsFrameExecuted).
      * - **Synchronisation** between GPU operations must be managed explicitly by inserting memory barriers
      *   (see #PlaceMemoryBarriers).
-     * - **Staging** for device-local resources must be handled by the caller: use #NeedsStagingBuffer to
-     *   determine whether a buffer requires an intermediate upload buffer, and #CreateStagingBuffer /
-     *   #SetTextureData for texture uploads.
+     * - **Staging** for device-local resources must be handled by the caller: use #IsGpuReadOptimal to
+     *   determine whether CPU-visible memory is worth copying into a device-local buffer, and
+     *   #CreateStagingBuffer / #SetTextureData for texture uploads.
      *
      * To achieve feature parity however, some abstractions had to be set up:
      * - **Descriptor sets** are partially abstracted away. The caller still needs to set up layouts and instantiate
@@ -300,15 +300,6 @@ namespace KryneEngine
          * @return A handle to the newly created buffer.
          */
         [[nodiscard]] virtual BufferHandle CreateBuffer(const BufferCreateDesc& _desc) = 0;
-
-        /**
-         * @brief Checks whether a buffer requires an intermediate staging buffer to be written to from the CPU.
-         *
-         * @param _buffer The handle of the buffer to check.
-         *
-         * @return `true` if a staging buffer is required, `false` if the buffer can be mapped and written to directly.
-         */
-        [[nodiscard]] virtual bool NeedsStagingBuffer(BufferHandle _buffer) = 0;
 
         /**
          * @brief Checks whether the GPU reads memory of the given usage type at device-local speed.

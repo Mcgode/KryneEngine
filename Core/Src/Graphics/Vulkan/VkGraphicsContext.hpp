@@ -123,7 +123,6 @@ namespace KryneEngine
         bool ResizeSwapChain(SwapChainHandle _handle, uint2 _newSize) override;
 
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
-        [[nodiscard]] bool NeedsStagingBuffer(BufferHandle _buffer) override;
         [[nodiscard]] bool IsGpuReadOptimal(MemoryUsage _usage) const override;
         bool DestroyBuffer(BufferHandle _bufferHandle) override;
 

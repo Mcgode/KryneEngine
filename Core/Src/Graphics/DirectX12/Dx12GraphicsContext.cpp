@@ -402,15 +402,6 @@ namespace KryneEngine
         return m_resources.CreateBuffer(_desc);
     }
 
-    bool Dx12GraphicsContext::NeedsStagingBuffer(BufferHandle _buffer)
-    {
-        D3D12MA::Allocation** pAllocation = m_resources.m_buffers.GetCold(_buffer.m_handle);
-        VERIFY_OR_RETURN(pAllocation != nullptr, false);
-        D3D12MA::Allocation* allocation = *pAllocation;
-
-        return Dx12GetHeapDesc(allocation->GetHeap()).Properties.Type == D3D12_HEAP_TYPE_DEFAULT;
-    }
-
     bool Dx12GraphicsContext::IsGpuReadOptimal(const MemoryUsage _usage) const
     {
         // Upload, readback and custom heaps all live in system memory, unless it is shared with the GPU.

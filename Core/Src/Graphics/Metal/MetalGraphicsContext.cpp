@@ -181,16 +181,6 @@ namespace KryneEngine
         return m_resources.CreateBuffer(*m_device, _desc);
     }
 
-    bool MetalGraphicsContext::NeedsStagingBuffer(const BufferHandle _buffer)
-    {
-        const MetalResources::BufferColdData* bufferCold = m_resources.m_buffers.GetCold(_buffer.m_handle);
-        if (KE_VERIFY(bufferCold != nullptr)) [[likely]]
-        {
-            return bufferCold->m_options == MTL::ResourceStorageModePrivate;
-        }
-        return false;
-    }
-
     bool MetalGraphicsContext::IsGpuReadOptimal(const MemoryUsage _usage) const
     {
         // Shared storage is the same memory as private storage on unified memory devices

@@ -247,12 +247,12 @@ Copies data between buffers using GPU commands.
 
 #### Staging Buffers
 ```cpp
-bool NeedsStagingBuffer(BufferHandle _buffer) = 0;
+[[nodiscard]] virtual bool IsGpuReadOptimal(MemoryUsage _usage) const = 0;
 [[nodiscard]] BufferHandle CreateStagingBuffer(
     const TextureDesc& _createDesc,
     const eastl::span<const TextureMemoryFootprint>& _footprints) = 0;
 ```
-Manages staging buffers for texture data uploads.
+Tells whether the GPU reads memory of a usage type at device-local speed, and creates staging buffers for texture data uploads.
 
 ### Textures
 
