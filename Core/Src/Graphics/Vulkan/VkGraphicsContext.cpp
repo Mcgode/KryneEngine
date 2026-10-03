@@ -1449,6 +1449,29 @@ namespace KryneEngine
         _mapping.m_ptr = nullptr;
     }
 
+    std::byte* VkGraphicsContext::MapPersistent(const BufferHandle _buffer)
+    {
+        KE_ZoneScopedFunction("VkGraphicsContext::MapPersistent");
+
+        const VkResources::BufferColdData* coldData = m_resources.m_buffers.GetCold(_buffer.m_handle);
+        VERIFY_OR_RETURN(coldData != nullptr, nullptr);
+
+        return static_cast<std::byte*>(coldData->m_info.pMappedData);
+    }
+
+    void VkGraphicsContext::FlushPersistent(const BufferHandle _buffer, const u64 _offset, const u64 _size)
+    {
+        KE_ZoneScopedFunction("VkGraphicsContext::FlushPersistent");
+
+        const VkResources::BufferColdData* coldData = m_resources.m_buffers.GetCold(_buffer.m_handle);
+        VERIFY_OR_RETURN_VOID(coldData != nullptr);
+
+        KE_ASSERT(coldData->m_info.size >= _offset);
+        KE_ASSERT(_size == ~0ull || coldData->m_info.size >= _offset + _size);
+
+        vmaFlushAllocation(m_resources.m_allocator, coldData->m_allocation, _offset, _size);
+    }
+
     void VkGraphicsContext::CopyBuffer(
         const TransferCommandEncoderHandle _transferEncoder,
         const BufferCopyParameters& _params)

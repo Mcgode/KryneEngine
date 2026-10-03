@@ -239,6 +239,13 @@ void UnmapBuffer(BufferMapping& _mapping) = 0;
 ```
 Provides CPU access to buffer memory via mapping.
 
+#### Persistent Mapping
+```cpp
+[[nodiscard]] virtual std::byte* MapPersistent(BufferHandle _buffer) = 0;
+virtual void FlushPersistent(BufferHandle _buffer, u64 _offset = 0, u64 _size = ~0ull) = 0;
+```
+`MapPersistent` returns a CPU pointer valid until the buffer is destroyed, and can be mixed with `MapBuffer`/`UnmapBuffer`. `FlushPersistent` makes CPU writes to a range visible to the GPU, and must be called before submitting work that reads them.
+
 #### Copying
 ```cpp
 void CopyBuffer(CommandListHandle _commandList, const BufferCopyParameters& _params) = 0;

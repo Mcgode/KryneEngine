@@ -1117,6 +1117,29 @@ namespace KryneEngine
         _mapping.m_ptr = nullptr;
     }
 
+    std::byte* Dx12GraphicsContext::MapPersistent(const BufferHandle _buffer)
+    {
+        KE_ZoneScopedFunction("Dx12GraphicsContext::MapPersistent");
+
+        ID3D12Resource** pBuffer = m_resources.m_buffers.Get(_buffer.m_handle);
+        VERIFY_OR_RETURN(pBuffer != nullptr, nullptr);
+
+        D3D12_HEAP_PROPERTIES heapProperties;
+        Dx12Assert((*pBuffer)->GetHeapProperties(&heapProperties, nullptr));
+        VERIFY_OR_RETURN(heapProperties.Type != D3D12_HEAP_TYPE_DEFAULT, nullptr);
+
+        // The reference taken by this call is never released: the resource stays mapped until it is destroyed
+        void* ptr;
+        Dx12Assert((*pBuffer)->Map(0, nullptr, &ptr));
+        return static_cast<std::byte*>(ptr);
+    }
+
+    void Dx12GraphicsContext::FlushPersistent(const BufferHandle _buffer, const u64 _offset, const u64 _size)
+    {
+        // Upload and write-back heaps are coherent with the GPU, nothing to flush
+        KE_ASSERT_MSG(m_resources.m_buffers.Get(_buffer.m_handle) != nullptr, "Invalid buffer");
+    }
+
     void Dx12GraphicsContext::CopyBuffer(
         const TransferCommandEncoderHandle _transferEncoder,
         const BufferCopyParameters& _params)

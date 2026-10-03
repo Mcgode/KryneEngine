@@ -154,6 +154,8 @@ namespace KryneEngine
 
         void MapBuffer(BufferMapping& _mapping) override;
         void UnmapBuffer(BufferMapping& _mapping) override;
+        [[nodiscard]] std::byte* MapPersistent(BufferHandle _buffer) override;
+        void FlushPersistent(BufferHandle _buffer, u64 _offset, u64 _size) override;
 
         void CopyBuffer(TransferCommandEncoderHandle _transferEncoder, const BufferCopyParameters& _params) override;;
 

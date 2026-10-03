@@ -626,6 +626,27 @@ namespace KryneEngine
         _mapping.m_ptr = nullptr;
     }
 
+    std::byte* MetalGraphicsContext::MapPersistent(const BufferHandle _buffer)
+    {
+        const auto* hot = m_resources.m_buffers.Get(_buffer.m_handle);
+        VERIFY_OR_RETURN(hot != nullptr, nullptr);
+
+        // Private buffers have no CPU-visible contents
+        return static_cast<std::byte*>(hot->m_buffer->contents());
+    }
+
+    void MetalGraphicsContext::FlushPersistent(const BufferHandle _buffer, const u64 _offset, const u64 _size)
+    {
+        auto [hot, cold] = m_resources.m_buffers.GetAll(_buffer.m_handle);
+        VERIFY_OR_RETURN_VOID(hot != nullptr);
+
+        if ((cold->m_options & MTL::ResourceStorageModeManaged) != 0)
+        {
+            const u64 size = eastl::min(_size, hot->m_buffer->length() - _offset);
+            hot->m_buffer->didModifyRange({ _offset, size });
+        }
+    }
+
     void MetalGraphicsContext::CopyBuffer(
         const TransferCommandEncoderHandle _transferEncoder,
         const BufferCopyParameters& _params)

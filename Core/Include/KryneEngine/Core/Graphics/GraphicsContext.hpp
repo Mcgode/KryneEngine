@@ -645,6 +645,31 @@ namespace KryneEngine
         virtual void UnmapBuffer(BufferMapping& _mapping) = 0;
 
         /**
+         * @brief Gets a CPU pointer to the start of a buffer's memory that stays valid until the buffer is destroyed.
+         *
+         * @details Can be called any number of times for the same buffer, it always returns the same pointer, and
+         * can be freely mixed with #MapBuffer / #UnmapBuffer. Writes through the pointer are only guaranteed to be
+         * visible to the GPU after a call to #FlushPersistent covering them.
+         *
+         * @return The pointer, or `nullptr` if the buffer is not persistently mappable. Every usage type except
+         * `GpuOnly_UsageType` is guaranteed to be.
+         *
+         * @warning The pointer must not be used after the buffer is destroyed.
+         */
+        [[nodiscard]] virtual std::byte* MapPersistent(BufferHandle _buffer) = 0;
+
+        /**
+         * @brief Makes CPU writes done through a pointer from #MapPersistent visible to the GPU.
+         *
+         * @param _offset Offset in bytes of the flushed range.
+         * @param _size Size in bytes of the flushed range. `~0ull` flushes up to the end of the buffer.
+         *
+         * @note Must be called before submitting the GPU work that reads the written range. It is a no-op on
+         * backends where the memory is coherent.
+         */
+        virtual void FlushPersistent(BufferHandle _buffer, u64 _offset = 0, u64 _size = ~0ull) = 0;
+
+        /**
          * @brief Copies data between buffers using a GPU command.
          *
          * @param _transferEncoder The command encoder in which to record the copy operation.
