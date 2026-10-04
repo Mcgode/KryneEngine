@@ -446,7 +446,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             {
                 constexpr DescriptorBindingDesc bindings[] = {{
                     .m_type = DescriptorBindingDesc::Type::ConstantBuffer,
-                    .m_visibility = ShaderVisibility::Fragment,
+                    .m_visibility = ShaderVisibility::Fragment | ShaderVisibility::Vertex,
                 }};
                 m_fullscreenPassesLayout = _graphicsContext.CreateDescriptorSetLayout(
                     {
