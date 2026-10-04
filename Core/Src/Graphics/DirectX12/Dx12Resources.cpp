@@ -711,11 +711,11 @@ namespace KryneEngine
 
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc {
             .Format = Dx12Converters::ToDx12SrvFormat(_viewDesc.m_format),
-            .Shader4ComponentMapping = (u32)D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+            .Shader4ComponentMapping = static_cast<u32>(D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
                 static_cast<u8>(_viewDesc.m_componentsMapping[0]),
                 static_cast<u8>(_viewDesc.m_componentsMapping[1]),
                 static_cast<u8>(_viewDesc.m_componentsMapping[2]),
-                static_cast<u8>(_viewDesc.m_componentsMapping[3]))
+                static_cast<u8>(_viewDesc.m_componentsMapping[3])))
         };
         D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc {
             .Format = Dx12Converters::ToDx12Format(_viewDesc.m_format),
@@ -724,38 +724,44 @@ namespace KryneEngine
         switch (_viewDesc.m_viewType)
         {
         case TextureTypes::Single1D:
+            KE_ASSERT(_viewDesc.m_arrayStart == 0 && _viewDesc.m_arrayRange == 1);
             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
             srvDesc.Texture1D = {
                 .MostDetailedMip = _viewDesc.m_minMip,
                 .MipLevels = static_cast<u32>(_viewDesc.m_maxMip - _viewDesc.m_minMip + 1),
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
             uavDesc.Texture1D = {
                 .MipSlice = _viewDesc.m_minMip,
             };
             break;
         case TextureTypes::Single2D:
+            KE_ASSERT(_viewDesc.m_arrayStart == 0 && _viewDesc.m_arrayRange == 1);
             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
             srvDesc.Texture2D = {
                 .MostDetailedMip = _viewDesc.m_minMip,
                 .MipLevels = static_cast<u32>(_viewDesc.m_maxMip - _viewDesc.m_minMip + 1),
-                .PlaneSlice = _viewDesc.m_arrayStart,
+                .PlaneSlice = 0,
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
             uavDesc.Texture2D = {
                 .MipSlice = _viewDesc.m_minMip,
-                .PlaneSlice = _viewDesc.m_arrayStart,
+                .PlaneSlice = 0,
             };
             break;
         case TextureTypes::Single3D:
+            KE_ASSERT(_viewDesc.m_arrayStart == 0 && _viewDesc.m_arrayRange == 1);
             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
             srvDesc.Texture3D = {
                 .MostDetailedMip = _viewDesc.m_minMip,
                 .MipLevels = static_cast<u32>(_viewDesc.m_maxMip - _viewDesc.m_minMip + 1),
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE3D;
             uavDesc.Texture3D = {
                 .MipSlice = _viewDesc.m_minMip,
@@ -772,6 +778,7 @@ namespace KryneEngine
                 .ArraySize = _viewDesc.m_arrayRange,
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
             uavDesc.Texture1DArray = {
                 .MipSlice = _viewDesc.m_minMip,
@@ -789,6 +796,7 @@ namespace KryneEngine
                 .PlaneSlice = 0,
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
             uavDesc.Texture2DArray = {
                 .MipSlice = _viewDesc.m_minMip,
