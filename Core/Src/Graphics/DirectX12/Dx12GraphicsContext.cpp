@@ -335,6 +335,13 @@ namespace KryneEngine
             }
         }
 
+        if (adapter == nullptr)
+        {
+            // No hardware adapter found (e.g. running on a GPU-less CI machine): fall back to
+            // WARP, D3D12's software rasterizer, rather than leaving the adapter null.
+            Dx12Verify(_factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter)));
+        }
+
         *_adapter = adapter.Detach();
     }
 
