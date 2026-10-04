@@ -12,6 +12,8 @@
 #include <KryneEngine/Core/Graphics/ShaderPipeline.hpp>
 #include <KryneEngine/Core/Memory/SimplePool.inl>
 
+#include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
+
 
 namespace KryneEngine::Samples
 {
@@ -135,17 +137,21 @@ namespace KryneEngine::Samples
 
     void PassDispatcher::Dispatch(GraphicsContext& _graphicsContext, const RenderCommandEncoderHandle _renderEncoder)
     {
-        const DynamicArray<u64> sortedModels(m_drawInstanceManager->m_allocator, m_dispatchData->m_models.size());
-        for (size_t i = 0; i < m_dispatchData->m_models.size(); ++i) sortedModels[i] = i;
-        eastl::sort(sortedModels.begin(), sortedModels.end(), [this](const u64 _a, const u64 _b)
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+        const DynamicArray<u64> sortedModels(scopedScratchAllocator.GetAllocator(), m_dispatchData->m_models.size());
+        const DynamicArray<GraphicsPipelineHandle> psoHandles(scopedScratchAllocator.GetAllocator(), m_dispatchData->m_models.size());
+
+        for (size_t i = 0; i < m_dispatchData->m_models.size(); ++i)
         {
-            const auto* a = m_materialManager->GetMaterialPipeline(
-                m_drawInstanceManager->m_models.Get(m_dispatchData->m_models[_a]).m_material,
+            sortedModels[i] = i;
+            psoHandles[i] = m_materialManager->GetGraphicsPipeline(
+                m_drawInstanceManager->m_models.Get(m_dispatchData->m_models[i]).m_material,
                 m_passType);
-            const auto* b = m_materialManager->GetMaterialPipeline(
-                m_drawInstanceManager->m_models.Get(m_dispatchData->m_models[_b]).m_material,
-                m_passType);
-            return *a < *b;
+        }
+        eastl::sort(sortedModels.begin(), sortedModels.end(), [&psoHandles](const u64 _a, const u64 _b)
+        {
+            return psoHandles[_a] < psoHandles[_b];
         });
 
         PipelineLayoutHandle currentLayout {};
