@@ -22,6 +22,7 @@
 #include <KryneEngine/Modules/RenderGraph/Descriptors/RenderTargetViewDesc.hpp>
 #include <KryneEngine/Modules/RenderGraph/Registry.hpp>
 #include <KryneEngine/Modules/RenderGraph/RenderGraph.hpp>
+#include <chrono>
 
 
 using namespace KryneEngine;
@@ -129,7 +130,9 @@ int main(int _argc, const char* _argv[])
         shadowCascadeArray,
         shadowCascadeArrayView,
         skyAmbientBuffer,
-        aoTextures,
+        aoTermA,
+        aoTermB,
+        aoEdges,
         aoTermAView,
         aoTermBView,
         aoEdgesView,
@@ -284,50 +287,37 @@ int main(int _argc, const char* _argv[])
         // (Populated after sceneManager.InitPso() below.)
 
         {
-            aoTextures = renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
-                .m_desc = {
-                    .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
-                    .m_format = kAmbientOcclusionFormat,
-                    .m_arraySize = 3,
-                    .m_type = TextureTypes::Array2D,
+            const auto createAoTexture = [&]([[maybe_unused]] const char* _name)
+            {
+                return renderGraph.GetRegistry().CreateRawTexture(graphicsContext, {
+                    .m_desc = {
+                        .m_dimensions = uint3 { graphicsContext->GetSwapChainSize(mainSwapChain), 1 },
+                        .m_format = kAmbientOcclusionFormat,
 #if !defined(KE_FINAL)
-                    .m_debugName = "AO textures",
+                        .m_debugName = _name,
 #endif
-                },
-                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::ReadWriteImage,
-            });
-            aoTermAView = renderGraph.GetRegistry().CreateTextureView(
-                graphicsContext,
-                aoTextures,
-                {
-                    .m_arrayStart = 0,
-                    .m_arrayRange = 1,
-                    .m_format = kAmbientOcclusionFormat,
-                    .m_accessType = TextureViewAccessType::ReadWrite,
-                },
-                "AO term A view");
+                    },
+                    .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::ReadWriteImage,
+                });
+            };
+            const auto createAoView = [&](const SimplePoolHandle _texture, const char* _name)
+            {
+                return renderGraph.GetRegistry().CreateTextureView(
+                    graphicsContext,
+                    _texture,
+                    {
+                        .m_format = kAmbientOcclusionFormat,
+                        .m_accessType = TextureViewAccessType::ReadWrite,
+                    },
+                    _name);
+            };
 
-            aoTermBView = renderGraph.GetRegistry().CreateTextureView(
-                graphicsContext,
-                aoTextures,
-                {
-                    .m_arrayStart = 1,
-                    .m_arrayRange = 1,
-                    .m_format = kAmbientOcclusionFormat,
-                    .m_accessType = TextureViewAccessType::ReadWrite,
-                },
-                "AO term B view");
-
-            aoEdgesView = renderGraph.GetRegistry().CreateTextureView(
-                graphicsContext,
-                aoTextures,
-                {
-                    .m_arrayStart = 2,
-                    .m_arrayRange = 1,
-                    .m_format = kAmbientOcclusionFormat,
-                    .m_accessType = TextureViewAccessType::ReadWrite,
-                },
-                "AO edges view");
+            aoTermA = createAoTexture("AO term A");
+            aoTermB = createAoTexture("AO term B");
+            aoEdges = createAoTexture("AO edges");
+            aoTermAView = createAoView(aoTermA, "AO term A view");
+            aoTermBView = createAoView(aoTermB, "AO term B view");
+            aoEdgesView = createAoView(aoEdges, "AO edges view");
         }
 
         {
@@ -372,7 +362,9 @@ int main(int _argc, const char* _argv[])
         renderGraph.GetRegistry().GetTextureView(aoTermAView),
         renderGraph.GetRegistry().GetTextureView(aoTermBView),
         renderGraph.GetRegistry().GetTextureView(aoEdgesView),
-        renderGraph.GetRegistry().GetResource(aoTextures).m_rawTextureData.m_texture);
+        renderGraph.GetRegistry().GetResource(aoTermA).m_rawTextureData.m_texture,
+        renderGraph.GetRegistry().GetResource(aoTermB).m_rawTextureData.m_texture,
+        renderGraph.GetRegistry().GetResource(aoEdges).m_rawTextureData.m_texture);
 
     // Register the sky ambient buffer + UAV view now that InitPso() has created them.
     SimplePoolHandle shadowCascadeRtvs[Samples::CascadedShadowMap::kMaxCascades] {};

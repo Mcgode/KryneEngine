@@ -267,7 +267,9 @@ namespace KryneEngine::Samples::PhysicsDemo
         const TextureViewHandle _aoTermAView,
         const TextureViewHandle _aoTermBView,
         const TextureViewHandle _aoEdgesView,
-        const TextureHandle _aoTextures)
+        const TextureHandle _aoTermATexture,
+        const TextureHandle _aoTermBTexture,
+        const TextureHandle _aoEdgesTexture)
     {
         // Default material PSOs
         {
@@ -507,7 +509,9 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _aoTermAView,
                 _aoTermBView,
                 _aoEdgesView,
-                _aoTextures);
+                _aoTermATexture,
+                _aoTermBTexture,
+                _aoEdgesTexture);
             m_ambientOcclusionPass.CreatePso(&_graphicsContext);
 
             m_deferredShadingPass.Initialize(
