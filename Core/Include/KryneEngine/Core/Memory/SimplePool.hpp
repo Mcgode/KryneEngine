@@ -9,6 +9,7 @@
 #include <atomic>
 
 #include "KryneEngine/Core/Common/Types.hpp"
+#include "KryneEngine/Core/Common/Utils/Macros.hpp"
 #include "KryneEngine/Core/Memory/Allocators/Allocator.hpp"
 
 namespace KryneEngine
@@ -63,10 +64,10 @@ namespace KryneEngine
         struct Empty {};
 
         using ColdDataStructArray = std::conditional_t<kHasColdData, ColdDataStruct*, Empty>;
-        [[no_unique_address]] ColdDataStructArray m_coldData {};
+        KE_NO_UNIQUE_ADDRESS ColdDataStructArray m_coldData {};
 
         using RefCountArray = std::conditional_t<RefCounting, std::atomic<s32>*, Empty>;
-        [[no_unique_address]] RefCountArray m_refCounts {};
+        KE_NO_UNIQUE_ADDRESS RefCountArray m_refCounts {};
 
         size_t m_size = 0;
         SimplePoolHandle m_nextFreeIndex = 0;
