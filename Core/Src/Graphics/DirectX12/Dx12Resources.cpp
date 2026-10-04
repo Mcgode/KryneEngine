@@ -437,6 +437,11 @@ namespace KryneEngine
             const D3D12_SHADER_RESOURCE_VIEW_DESC desc {
                 .Format = DXGI_FORMAT_UNKNOWN,
                 .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
+                .Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+                    D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0,
+                    D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1,
+                    D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2,
+                    D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3),
                 .Buffer = {
                     .FirstElement = _viewDesc.m_offset / _viewDesc.m_stride,
                     .NumElements = static_cast<u32>(_viewDesc.m_size / _viewDesc.m_stride),
