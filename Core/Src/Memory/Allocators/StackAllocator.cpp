@@ -50,7 +50,7 @@ namespace KryneEngine
         if (m_stackIndex >= m_baseHeapSize)
         {
             heapIndex = BitUtils::GetMostSignificantBit(m_stackIndex / m_baseHeapSize);
-            heapOffset = m_stackIndex - m_baseHeapSize * ((1 << (heapIndex - 1)) - 1);
+            heapOffset = m_stackIndex - m_baseHeapSize * ((1 << heapIndex) - 1);
         }
         size_t heapSize = m_baseHeapSize << heapIndex;
 
@@ -71,11 +71,12 @@ namespace KryneEngine
             }
 
             heapIndex++;
+            heapSize = m_baseHeapSize << heapIndex;
 
             if (m_heaps[heapIndex] == nullptr)
                 m_heaps[heapIndex] = static_cast<std::byte*>(m_parentAllocator.allocate(heapSize, alignof(size_t)));
 
-            m_stackIndex = m_baseHeapSize * ((1 << (heapIndex)) - 1);
+            m_stackIndex = m_baseHeapSize * ((1 << heapIndex) - 1);
             heapStart = reinterpret_cast<size_t>(m_heaps[heapIndex]);
             heapOffset = 0;
             position = heapStart + heapOffset;
