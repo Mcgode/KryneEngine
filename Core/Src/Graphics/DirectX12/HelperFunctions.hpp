@@ -104,9 +104,11 @@ namespace KryneEngine
     template <class DxObject, class... Args>
     void Dx12SetName(DxObject* _object, const char* _format, Args... _args)
     {
-        eastl::string name;
-        name.sprintf(_format, _args...);
-        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectName, name.size() * sizeof(char), name.c_str()));
+        if (_object == nullptr)
+            return;
+        char name[512];
+        const u32 size = snprintf(name, sizeof(name), _format, _args...);
+        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectName, size * sizeof(char), name));
     }
 
     namespace Dx12Converters
