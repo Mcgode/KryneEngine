@@ -69,6 +69,8 @@ namespace KryneEngine
 #if !defined(KE_FINAL)
             Dx12SetName(m_cbvSrvUavDescriptorStorageHeap.Get(), L"CBV/SRV/UAV Descriptor Storage Heap");
 #endif
+
+            m_cbvSrvUavDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         }
     }
 
