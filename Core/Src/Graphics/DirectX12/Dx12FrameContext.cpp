@@ -122,7 +122,7 @@ namespace KryneEngine
         {
             KE_ZoneScoped("Allocate new command list");
 
-            CommandListSet& newSet = *m_usedCommandLists.emplace_back(m_allocator.New<CommandListSet>());
+            CommandListSet& newSet = *m_usedCommandLists.emplace_back(m_allocator.Allocate<CommandListSet>());
 
             Dx12Assert(_device->CreateCommandAllocator(
                 _commandType,
