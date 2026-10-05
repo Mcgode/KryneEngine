@@ -333,7 +333,7 @@ namespace KryneEngine
             .AddressW = Dx12Converters::ToDx12AddressMode(_samplerDesc.m_addressModeW),
             .MipLODBias = _samplerDesc.m_lodBias,
             .MaxAnisotropy = _samplerDesc.m_anisotropy,
-            .ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS,
+            .ComparisonFunc = D3D12_COMPARISON_FUNC_NONE,
             .BorderColor = {
                 _samplerDesc.m_borderColor.x,
                 _samplerDesc.m_borderColor.y,
