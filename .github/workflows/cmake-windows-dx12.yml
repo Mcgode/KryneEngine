@@ -32,7 +32,13 @@ jobs:
         arch: x64
 
     - name: Setup shader build environment
-      run: pip install ninja
+      # ShaderListParser.py imports ninja_syntax, so install it into the very interpreter CMake will use.
+      run: |
+        python -m pip install ninja
+        $python = python -c "import sys; print(sys.executable)"
+        Write-Host "Python: $python"
+        python -c "from ninja import ninja_syntax; print(ninja_syntax.__file__)"
+        "PYTHON_EXE=$python" >> $env:GITHUB_ENV
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
@@ -68,6 +74,7 @@ jobs:
         -DCMAKE_PREFIX_PATH=${{ env.FREETYPE_PREFIX }}
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -DGraphicsApi=DX12
+        -DPython3_EXECUTABLE=${{ env.PYTHON_EXE }}
 
     - name: Build Core
       run: cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target KryneEngine_Core
