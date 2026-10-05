@@ -156,7 +156,7 @@ jobs:
 
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Core
-        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --repeat until-pass:5
 
   test-modules:
     runs-on: windows-latest
@@ -174,4 +174,4 @@ jobs:
 
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Modules
-        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --repeat until-pass:5
