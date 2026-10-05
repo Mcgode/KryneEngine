@@ -25,12 +25,7 @@ add_library(KryneEngine_Modules_TextRendering STATIC
         Include/KryneEngine/Modules/TextRendering/Utils/FreetypeFunctionHelpers.hpp
         Include/KryneEngine/Modules/TextRendering/Utils/MsdfGenFunctionHelpers.hpp)
 
-# Prefer the package config: it propagates freetype's own dependencies (png, zlib, bz2, brotli),
-# which a static build (e.g. vcpkg x64-windows-static-md) needs at link time.
-find_package(Freetype CONFIG QUIET)
-if (NOT Freetype_FOUND)
-    find_package(Freetype REQUIRED)
-endif ()
+find_package(Freetype REQUIRED)
 
 target_add_raw_resources_dir(KryneEngine_Modules_TextRendering BundledResources Modules/TextRendering)
 
