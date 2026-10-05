@@ -347,23 +347,13 @@ namespace KryneEngine::Samples::PhysicsDemo
         });
 
         // Split per-region, since the same buffer transitions into two different bind purposes.
-        const BufferMemoryBarrier afterBarriers[2] = {
+        const BufferMemoryBarrier afterBarriers[] = {
             {
                 .m_stagesSrc = BarrierSyncStageFlags::Transfer,
                 .m_stagesDst = BarrierSyncStageFlags::VertexInputAssembly,
                 .m_accessSrc = BarrierAccessFlags::TransferSrc,
-                .m_accessDst = BarrierAccessFlags::VertexBuffer,
+                .m_accessDst = BarrierAccessFlags::VertexBuffer | BarrierAccessFlags::IndexBuffer,
                 .m_offset = 0,
-                .m_size = m_vertexRegionSize,
-                .m_buffer = m_geometryBuffer,
-            },
-            {
-                .m_stagesSrc = BarrierSyncStageFlags::Transfer,
-                .m_stagesDst = BarrierSyncStageFlags::IndexInputAssembly,
-                .m_accessSrc = BarrierAccessFlags::TransferSrc,
-                .m_accessDst = BarrierAccessFlags::IndexBuffer,
-                .m_offset = m_vertexRegionSize,
-                .m_size = m_indexRegionSize,
                 .m_buffer = m_geometryBuffer,
             },
         };
