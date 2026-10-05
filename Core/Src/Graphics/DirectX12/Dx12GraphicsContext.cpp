@@ -944,7 +944,7 @@ namespace KryneEngine
             auto* rtvData = m_resources.m_depthStencilViews.Get(handle);
             VERIFY_OR_RETURN_VOID(rtvData != nullptr);
 
-            addBarrier(attachment, rtvData->m_resource, true);
+            addBarrier(attachment, rtvData->m_resource, true, attachment.m_readOnly);
         }
 
         if (!barriers.empty())
