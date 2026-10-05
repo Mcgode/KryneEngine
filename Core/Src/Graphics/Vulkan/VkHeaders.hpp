@@ -20,6 +20,8 @@
 // VkSurfacePlatform for the matching vkCreate*SurfaceKHR calls.
 #if defined(_WIN32)
 #   define VK_USE_PLATFORM_WIN32_KHR
+#   define WIN32_LEAN_AND_MEAN
+#   define NOMINMAX
 #elif defined(__APPLE__)
 #   define VK_USE_PLATFORM_METAL_EXT
 #elif defined(__linux__)
