@@ -1,6 +1,6 @@
 # This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
 # See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
-name: Vulkan on Windows
+name: Vulkan on Windows (clang-cl)
 
 on:
   push:
@@ -46,7 +46,7 @@ jobs:
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        key: windows-vk-${{ env.BUILD_TYPE }}
+        key: windows-vk-clang-cl-${{ env.BUILD_TYPE }}
         max-size: 500M
 
     - name: Restore vcpkg binary cache
@@ -70,6 +70,8 @@ jobs:
       run: >
         cmake -B ${{ env.BUILD_DIR }}
         -G Ninja
+        -DCMAKE_C_COMPILER=clang-cl
+        -DCMAKE_CXX_COMPILER=clang-cl
         -DCMAKE_C_COMPILER_LAUNCHER=ccache
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
         -DCMAKE_PREFIX_PATH=${{ env.FREETYPE_PREFIX }}
