@@ -242,7 +242,10 @@ namespace KryneEngine
 
         FrameMark;
 
-        m_profilerContext->EndFrame(m_frameId);
+        if (m_profilerContext != nullptr)
+        {
+            m_profilerContext->EndFrame(m_frameId);
+        }
 
         // Retrieve next frame index
         const u8 nextFrameIndex = (m_frameId + 1) % m_frameContextCount;
