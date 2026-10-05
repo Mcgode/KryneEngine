@@ -23,41 +23,41 @@ namespace KryneEngine
         friend class Dx12GraphicsContext;
 
     public:
-        Dx12FrameContext(ID3D12Device* _device, bool _directAllocator, bool _computeAllocator, bool _copyAllocator);
+        Dx12FrameContext(ID3D12Device* _device, AllocatorInstance _allocator);
 
         virtual ~Dx12FrameContext();
 
-        ID3D12GraphicsCommandList7* BeginDirectCommandList()
+        CommandListSet* BeginDirectCommandList()
         {
             return m_directCommandAllocationSet.BeginCommandList(m_device.Get(), D3D12_COMMAND_LIST_TYPE_DIRECT);
         }
 
-        void EndDirectCommandList(CommandList _commandList)
+        void EndDirectCommandList(const CommandListSet* _commandList)
         {
             m_directCommandAllocationSet.EndCommandList(_commandList);
         }
 
-        ID3D12GraphicsCommandList7* BeginComputeCommandList()
+        CommandListSet* BeginComputeCommandList()
         {
             return m_computeCommandAllocationSet.BeginCommandList(m_device.Get(), D3D12_COMMAND_LIST_TYPE_COMPUTE);
         }
 
-        void EndComputeCommandList(CommandList _commandList)
+        void EndComputeCommandList(const CommandListSet* _commandList)
         {
             m_computeCommandAllocationSet.EndCommandList(_commandList);
         }
 
-        ID3D12GraphicsCommandList7* BeginTransferCommandList(CommandList _commandList)
+        CommandListSet* BeginTransferCommandList()
         {
             return m_copyCommandAllocationSet.BeginCommandList(m_device.Get(), D3D12_COMMAND_LIST_TYPE_COPY);
         }
 
-        void EndTransferCommandList(CommandList _commandList)
+        void EndTransferCommandList(const CommandListSet* _commandListSet)
         {
-            m_copyCommandAllocationSet.EndCommandList(_commandList);
+            m_copyCommandAllocationSet.EndCommandList(_commandListSet);
         }
 
-        u32 PutTimestamp(CommandList _commandList, ID3D12QueryHeap* _heap);
+        u32 PutTimestamp(const CommandListSet* _commandListSet, ID3D12QueryHeap* _heap);
 
         void ResolveTimestamps(
             ID3D12QueryHeap* _heap,
@@ -69,21 +69,16 @@ namespace KryneEngine
 
         struct CommandAllocationSet
         {
-            D3D12_COMMAND_LIST_TYPE m_type;
+            explicit CommandAllocationSet(AllocatorInstance _allocator);
 
-            struct CommandListAndAllocator
-            {
-                ID3D12GraphicsCommandList7* m_commandList;
-                ID3D12CommandAllocator* m_commandAllocator;
-            };
-
-            eastl::vector<CommandListAndAllocator> m_availableCommandLists;
-            eastl::vector<CommandListAndAllocator> m_usedCommandLists;
+            AllocatorInstance m_allocator;
+            eastl::vector<CommandListSet*> m_availableCommandLists;
+            eastl::vector<CommandListSet*> m_usedCommandLists;
 
             LightweightMutex m_mutex {};
 
-            ID3D12GraphicsCommandList7 * BeginCommandList(ID3D12Device *_device, D3D12_COMMAND_LIST_TYPE _commandType);
-            void EndCommandList(CommandList _commandList);
+            CommandListSet* BeginCommandList(ID3D12Device *_device, D3D12_COMMAND_LIST_TYPE _commandType);
+            void EndCommandList(const CommandListSet* _commandList);
 
             void Reset();
 

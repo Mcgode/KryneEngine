@@ -6,18 +6,12 @@
 
 #pragma once
 
-#include <EASTL/unique_ptr.h>
-
 #include "Graphics/DirectX12/Dx12DescriptorSetManager.hpp"
 #include "Graphics/DirectX12/Dx12FrameContext.hpp"
 #include "Graphics/DirectX12/Dx12Headers.hpp"
 #include "Graphics/DirectX12/Dx12Resources.h"
-#include "Graphics/DirectX12/Dx12SwapChain.hpp"
-#include "Graphics/DirectX12/Dx12Types.hpp"
 #include "KryneEngine/Core/Graphics/GraphicsContext.hpp"
 #include "KryneEngine/Core/Graphics/MemoryBarriers.hpp"
-#include "KryneEngine/Core/Graphics/ResourceViews/BufferView.hpp"
-#include "KryneEngine/Core/Graphics/ResourceViews/TextureView.hpp"
 #include "KryneEngine/Core/Graphics/Texture.hpp"
 #include "KryneEngine/Core/Memory/DynamicArray.hpp"
 
@@ -239,6 +233,5 @@ namespace KryneEngine
     private:
         Dx12Resources m_resources;
         Dx12DescriptorSetManager m_descriptorSetManager;
-        RenderPassHandle m_currentRenderPass;
     };
 } // KryneEngine
