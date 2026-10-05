@@ -1714,7 +1714,7 @@ namespace KryneEngine
         VERIFY_OR_RETURN_VOID(offset != nullptr);
 
         const u32 index = *offset;
-        commandListSet->m_commandList->SetGraphicsRoot32BitConstants(
+        commandListSet->m_commandList->SetComputeRoot32BitConstants(
             index,
             _data.size(),
             _data.data(),
