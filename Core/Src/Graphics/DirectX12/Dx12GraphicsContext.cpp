@@ -838,7 +838,10 @@ namespace KryneEngine
             const bool _isDepthTarget = false,
             const bool _isReadOnlyDepth = false)
         {
-            const auto oldLayout = _isDepthTarget ? TextureLayout::DepthStencilAttachment : TextureLayout::ColorAttachment;
+            const auto oldLayout = _isDepthTarget
+                ? (_isReadOnlyDepth ? TextureLayout::DepthStencilReadOnly : TextureLayout::DepthStencilAttachment)
+                : TextureLayout::ColorAttachment;
+
             if (oldLayout != _desc.m_finalLayout)
             {
                 TextureMemoryBarrier barrier {
