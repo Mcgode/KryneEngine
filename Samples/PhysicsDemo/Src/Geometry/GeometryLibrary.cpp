@@ -350,7 +350,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         const BufferMemoryBarrier afterBarriers[] = {
             {
                 .m_stagesSrc = BarrierSyncStageFlags::Transfer,
-                .m_stagesDst = BarrierSyncStageFlags::VertexInputAssembly,
+                .m_stagesDst = BarrierSyncStageFlags::VertexInputAssembly | BarrierSyncStageFlags::IndexInputAssembly,
                 .m_accessSrc = BarrierAccessFlags::TransferSrc,
                 .m_accessDst = BarrierAccessFlags::VertexBuffer | BarrierAccessFlags::IndexBuffer,
                 .m_offset = 0,
