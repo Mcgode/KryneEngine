@@ -79,6 +79,7 @@ namespace KryneEngine
 
         if (count == 0)
         {
+            m_timestamps.clear();
             return;
         }
 
