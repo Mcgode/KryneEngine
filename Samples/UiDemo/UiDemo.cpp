@@ -26,12 +26,12 @@
 using KryneEngine::s32;
 
 
-const Clay_Color COLOR_LIGHT = (Clay_Color) {224, 215, 210, 255};
-const Clay_Color COLOR_RED = (Clay_Color) {168, 66, 28, 255};
-const Clay_Color COLOR_ORANGE = (Clay_Color) {225, 138, 50, 255};
+const Clay_Color COLOR_LIGHT = Clay_Color {224, 215, 210, 255};
+const Clay_Color COLOR_RED = Clay_Color {168, 66, 28, 255};
+const Clay_Color COLOR_ORANGE = Clay_Color {225, 138, 50, 255};
 
 // Layout config is just a struct that can be declared statically, or inline
-Clay_ElementDeclaration sidebarItemConfig = (Clay_ElementDeclaration) {
+Clay_ElementDeclaration sidebarItemConfig = Clay_ElementDeclaration {
     .layout = {
         .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIXED(50) }
     },

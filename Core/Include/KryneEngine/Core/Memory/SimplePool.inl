@@ -187,7 +187,7 @@ namespace KryneEngine
                 else
                 {
                     for (size_t i = 0; i < m_size; i++)
-                        new (&newHotData[i].m_hotData) HotDataItem(m_hotData[i].m_hotData);
+                        new (&newHotData[i].m_hotData) HotDataStruct(m_hotData[i].m_hotData);
                 }
                 m_allocator.deallocate(m_hotData, m_size * sizeof(HotDataItem));
             }

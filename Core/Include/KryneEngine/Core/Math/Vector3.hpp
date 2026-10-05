@@ -89,8 +89,6 @@ namespace KryneEngine::Math
         static T Dot(const Vector3Base& _a, const Vector3Base& _b);
         static Vector3Base CrossProduct(const Vector3Base& _a, const Vector3Base& _b);
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCInconsistentNamingInspection"
         union
         {
             struct
@@ -106,7 +104,6 @@ namespace KryneEngine::Math
                 T b;
             };
         };
-#pragma clang diagnostic pop
     };
 
     template<typename T>

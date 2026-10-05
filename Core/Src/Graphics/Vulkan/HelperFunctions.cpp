@@ -377,6 +377,9 @@ namespace KryneEngine::VkHelperFunctions
             return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         case SamplerDesc::AddressMode::Clamp:
             return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        default:
+            KE_ERROR("Unreachable code");
+            return VK_SAMPLER_ADDRESS_MODE_MAX_ENUM;
         }
     }
 
@@ -396,6 +399,9 @@ namespace KryneEngine::VkHelperFunctions
         case DescriptorBindingDesc::Type::StorageReadOnlyBuffer:
         case DescriptorBindingDesc::Type::StorageReadWriteBuffer:
             return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        default:
+            KE_ERROR("Unreachable code");
+            return VK_DESCRIPTOR_TYPE_MAX_ENUM;
         }
     }
 

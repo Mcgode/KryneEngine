@@ -56,7 +56,7 @@ namespace KryneEngine::Samples
 
         if (totalInstances * sizeof(u32) > m_instanceBuffer.GetSize(_graphicsContext.GetCurrentFrameContextIndex()))
         {
-            m_instanceBuffer.RequestResize(sizeof(u32) * Alignment::AlignUp(totalInstances, 128uz));
+            m_instanceBuffer.RequestResize(sizeof(u32) * Alignment::AlignUp(totalInstances, static_cast<size_t>(128u)));
         }
 
         // Update and transfer instances buffer
@@ -211,7 +211,7 @@ namespace KryneEngine::Samples
                     currentLayout,
                     {
                         &materialPipeline->m_descriptorSets[0],
-                        materialPipeline->m_descriptorSets[1] != GenPool::kInvalidHandle ? 2uz : 1uz
+                        materialPipeline->m_descriptorSets[1] != GenPool::kInvalidHandle ? static_cast<size_t>(2u) : static_cast<size_t>(1u)
                     },
                     1);
             }
@@ -250,7 +250,7 @@ namespace KryneEngine::Samples
             &_graphicsContext,
             {
                 .m_desc = {
-                    .m_size = sizeof(u32) * Alignment::AlignUp(m_drawInstanceManager->m_instanceData.size() + 1, 128uz),
+                    .m_size = sizeof(u32) * Alignment::AlignUp(m_drawInstanceManager->m_instanceData.size() + 1, static_cast<size_t>(128u)),
 #if !defined(KE_FINAL)
                     .m_debugName = name,
 #endif

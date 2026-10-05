@@ -95,13 +95,10 @@ namespace KryneEngine::Math
         [[nodiscard]] static QuaternionBase Unpack32(u32 _packed);
         [[nodiscard]] static QuaternionBase Unpack64(u64 _packed);
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCInconsistentNamingInspection"
         T w;
         T x;
         T y;
         T z;
-#pragma clang diagnostic pop
 
         static constexpr T kQuaternionEpsilon = T(1e-6f);
     };
