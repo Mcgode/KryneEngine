@@ -1,0 +1,133 @@
+# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
+name: DirectX12 on Windows
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  BUILD_DIR: ${{ github.workspace }}/build-windows-dx12
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+        fetch-depth: 0
+        lfs: true
+
+    - name: Setup MSVC dev environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Setup shader build environment
+      run: pip install ninja
+
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: >
+        cmake -B ${{ env.BUILD_DIR }}
+        -G Ninja
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        -DGraphicsApi=DX12
+
+    - name: Build Core
+      run: cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target KryneEngine_Core
+
+    - name: Build Core Unit tests
+      run: >
+        cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target
+        Core_Common_UnitTests
+        Core_Graphics_UnitTests
+        Core_Math_UnitTests
+        Core_Memory_UnitTests
+        Core_Platform_UnitTests
+        Core_Threads_UnitTests
+
+    - name: Upload Core Unit tests
+      uses: actions/upload-artifact@v7
+      with:
+        name: core-unit-tests
+        path: ${{ env.BUILD_DIR }}/Tests/Core
+
+    - name: Build Modules
+      run: >
+        cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target
+        KryneEngine_Modules_FileSystem
+        KryneEngine_Modules_GraphicsUtils
+        KryneEngine_Modules_GuiLib
+        KryneEngine_Modules_ImGui
+        KryneEngine_Modules_RenderGraph
+        KryneEngine_Modules_Resources
+        KryneEngine_Modules_SdfTexture
+        KryneEngine_Modules_ShaderReflection
+        KryneEngine_Modules_TextRendering
+        KryneEngine_Modules_Box3D
+
+    - name: Build Modules Unit tests
+      run: >
+        cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target
+        Modules_FileSystem_UnitTests
+        Modules_GraphicsUtils_UnitTests
+        Modules_RenderGraph_UnitTests
+
+    - name: Upload Modules Unit tests
+      uses: actions/upload-artifact@v7
+      with:
+        name: modules-unit-tests
+        path: ${{ env.BUILD_DIR }}/Tests/Modules
+
+    - name: Build Samples
+      run: >
+        cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target
+        HelloTriangle
+        ImGuiDemo
+        RenderGraphDemo
+        UiDemo
+        PhysicsDemo
+
+  test-core:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Install Windows Graphics Tools (D3D12 debug/validation layer)
+        run: Add-WindowsCapability -Online -Name "Tools.Graphics.DirectX~~~~0.0.1.0"
+        continue-on-error: true
+
+      - name: Download
+        uses: actions/download-artifact@v7
+        with:
+          name: core-unit-tests
+          path: ${{ env.BUILD_DIR }}/Tests/Core
+
+      - name: Test
+        working-directory: ${{ env.BUILD_DIR }}/Tests/Core
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+
+  test-modules:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Install Windows Graphics Tools (D3D12 debug/validation layer)
+        run: Add-WindowsCapability -Online -Name "Tools.Graphics.DirectX~~~~0.0.1.0"
+        continue-on-error: true
+
+      - name: Download
+        uses: actions/download-artifact@v7
+        with:
+          name: modules-unit-tests
+          path: ${{ env.BUILD_DIR }}/Tests/Modules
+
+      - name: Test
+        working-directory: ${{ env.BUILD_DIR }}/Tests/Modules
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
