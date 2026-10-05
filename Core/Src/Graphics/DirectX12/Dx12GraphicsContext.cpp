@@ -923,7 +923,7 @@ namespace KryneEngine
             GenPool::Handle handle = attachment.m_rtv.m_handle;
             VERIFY_OR_RETURN_VOID((handle.m_index & Dx12Resources::kDsvFlag) != 0);
             handle.m_index &= ~Dx12Resources::kDsvFlag;
-            auto* rtvData = m_resources.m_renderTargetViews.Get(handle);
+            auto* rtvData = m_resources.m_depthStencilViews.Get(handle);
             VERIFY_OR_RETURN_VOID(rtvData != nullptr);
 
             addBarrier(attachment, rtvData->m_resource, true);
