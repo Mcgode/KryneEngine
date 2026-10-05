@@ -307,6 +307,7 @@ namespace KryneEngine::Simd
             for (int j = 0; j < 4; ++j)
                 result[j][i] = data[i * 4 + j];
         }
+        return result;
 #endif
     }
 

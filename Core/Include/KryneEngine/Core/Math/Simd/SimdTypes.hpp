@@ -26,7 +26,12 @@ namespace KryneEngine::Simd
 #elif defined(__SSE2__)
         __m128
 #else
-        struct { alignas(16) eastl::array<float, 4> m_value; }
+        struct f32x4
+        {
+            alignas(16) eastl::array<float, 4> m_value;
+            float& operator[](const size_t _index) { return m_value[_index]; }
+            float operator[](const size_t _index) const { return m_value[_index]; }
+        }
 #endif
     ;
 
@@ -36,7 +41,12 @@ namespace KryneEngine::Simd
 #elif defined(__SSE2__)
         __m128i
 #else
-        struct { alignas(16) eastl::array<u32, 4> m_value; }
+        struct u32x4
+        {
+            alignas(16) eastl::array<u32, 4> m_value;
+            u32& operator[](const size_t _index) { return m_value[_index]; }
+            u32 operator[](const size_t _index) const { return m_value[_index]; }
+        }
 #endif
     ;
 
@@ -46,7 +56,12 @@ namespace KryneEngine::Simd
 #elif defined(__SSE2__)
         __m128i
 #else
-        struct { alignas(16) eastl::array<s32, 4> m_value; }
+        struct s32x4
+        {
+            alignas(16) eastl::array<s32, 4> m_value;
+            s32& operator[](const size_t _index) { return m_value[_index]; }
+            s32 operator[](const size_t _index) const { return m_value[_index]; }
+        }
 #endif
     ;
 
