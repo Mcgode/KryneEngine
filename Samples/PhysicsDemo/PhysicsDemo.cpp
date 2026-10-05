@@ -125,6 +125,7 @@ int main(int _argc, const char* _argv[])
         gBufferDepth,
         gBufferDepthView,
         gBufferDepthRtv,
+        gBufferDepthReadOnlyRtv,
         deferredShadows,
         deferredShadowsView,
         shadowCascadeArray,
@@ -260,6 +261,16 @@ int main(int _argc, const char* _argv[])
                     .m_plane = TexturePlane::Depth,
                 },
                 "GBuffer Depth RTV");
+
+            gBufferDepthReadOnlyRtv = renderGraph.GetRegistry().CreateRenderTargetView(
+                graphicsContext,
+                RenderGraph::RenderTargetViewDesc {
+                    .m_textureResource = gBufferDepth,
+                    .m_format = kGBufferDepthFormat,
+                    .m_plane = TexturePlane::Depth,
+                    .m_isReadOnly = true,
+                },
+                "GBuffer Depth ReadOnly RTV");
         }
 
         {
@@ -619,7 +630,7 @@ int main(int _argc, const char* _argv[])
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .Done()
-                .SetDepthAttachment(gBufferDepthRtv)
+                .SetDepthAttachment(gBufferDepthReadOnlyRtv)
                     .SetLoadOperation(RenderPassDesc::Attachment::LoadOperation::Load)
                     .SetStoreOperation(RenderPassDesc::Attachment::StoreOperation::Store)
                     .SetReadOnlyDepthStencil()
