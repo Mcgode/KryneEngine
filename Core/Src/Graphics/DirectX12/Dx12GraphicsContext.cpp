@@ -415,7 +415,8 @@ namespace KryneEngine
 
     TextureHandle Dx12GraphicsContext::CreateTexture(const TextureCreateDesc& _createDesc)
     {
-        return m_resources.CreateTexture(_createDesc, m_device.Get());
+        const TextureHandle result = GraphicsContext::CreateTexture(_createDesc);
+        return result == GenPool::kUndefinedHandle ? m_resources.CreateTexture(_createDesc, m_device.Get()) : result;
     }
 
     eastl::vector<TextureMemoryFootprint> Dx12GraphicsContext::FetchTextureSubResourcesMemoryFootprints(const TextureDesc& _desc)
