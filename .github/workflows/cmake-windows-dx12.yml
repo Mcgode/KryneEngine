@@ -50,7 +50,12 @@ jobs:
 
     - name: Install FreeType
       # Static lib with dynamic CRT, so no extra DLL has to ship with the tests.
-      run: vcpkg install freetype:x64-windows-static-md
+      run: |
+        vcpkg install freetype:x64-windows-static-md
+        $prefix = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md"
+        Write-Host "FreeType prefix: $prefix"
+        Get-ChildItem "$prefix/lib", "$prefix/include" | Select-Object -First 20
+        "FREETYPE_PREFIX=$prefix" >> $env:GITHUB_ENV
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -60,7 +65,7 @@ jobs:
         -G Ninja
         -DCMAKE_C_COMPILER_LAUNCHER=ccache
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-        -DCMAKE_PREFIX_PATH=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md
+        -DCMAKE_PREFIX_PATH=${{ env.FREETYPE_PREFIX }}
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -DGraphicsApi=DX12
 
