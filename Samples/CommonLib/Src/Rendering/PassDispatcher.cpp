@@ -8,6 +8,7 @@
 
 #include "Rendering/DrawInstanceManager.hpp"
 #include <EASTL/sort.h>
+#include <bit>
 #include <KryneEngine/Core/Graphics/Drawing.hpp>
 #include <KryneEngine/Core/Graphics/ShaderPipeline.hpp>
 #include <KryneEngine/Core/Memory/SimplePool.inl>
