@@ -161,6 +161,7 @@ namespace KryneEngine
             m_usedCommandLists.push_back(m_availableCommandLists.back());
             m_availableCommandLists.pop_back();
             const CommandListSet* set = m_usedCommandLists.back();
+            Dx12Assert(set->m_commandAllocator->Reset());
             Dx12Assert(set->m_commandList->Reset(set->m_commandAllocator, nullptr));
         }
 
