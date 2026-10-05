@@ -114,7 +114,7 @@ namespace KryneEngine
         {
             KE_ZoneScoped("Allocate new command list");
 
-            CommandListSet& newSet = *m_usedCommandLists.emplace_back(m_allocator.Allocate<CommandListSet>());
+            CommandListSet& newSet = *m_usedCommandLists.emplace_back(m_allocator.New<CommandListSet>());
 
             Dx12Assert(_device->CreateCommandAllocator(
                 _commandType,
@@ -213,12 +213,13 @@ namespace KryneEngine
         const auto lock = m_mutex.AutoLock();
         KE_ASSERT_MSG(m_usedCommandLists.empty(), "Allocation set should have been reset");
 
-        const auto freeCommandVector = [](auto& _vector)
+        const auto freeCommandVector = [this](auto& _vector)
         {
             for (auto* commandListSet: _vector)
             {
                 SafeRelease(commandListSet->m_commandList);
                 SafeRelease(commandListSet->m_commandAllocator);
+                m_allocator.Delete(commandListSet);
             }
             _vector.clear();
         };
