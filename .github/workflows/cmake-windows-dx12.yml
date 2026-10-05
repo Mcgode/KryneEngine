@@ -42,7 +42,7 @@ jobs:
       run: >
         cmake -B ${{ env.BUILD_DIR }}
         -G Ninja
-        -DCMAKE_PREFIX_PATH=${{ env.VCPKG_INSTALLATION_ROOT }}/installed/x64-windows-static-md
+        -DCMAKE_PREFIX_PATH=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -DGraphicsApi=DX12
 
