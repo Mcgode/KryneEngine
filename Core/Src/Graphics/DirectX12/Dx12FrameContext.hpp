@@ -59,10 +59,11 @@ namespace KryneEngine
 
         u32 PutTimestamp(const CommandListSet* _commandListSet, ID3D12QueryHeap* _heap);
 
-        void ResolveTimestamps(
-            ID3D12QueryHeap* _heap,
-            double _timestampPeriod,
-            u64 _timestampSyncOffset);
+        /// Records the query resolve in a direct command list. Must be called before the direct queue submission.
+        void RecordTimestampsResolve(ID3D12QueryHeap* _heap);
+
+        /// Reads back resolved timestamps. The frame that recorded them must have finished executing.
+        void ReadbackTimestamps(double _timestampPeriod, u64 _timestampSyncOffset);
 
     private:
         ComPtr<ID3D12Device> m_device;
@@ -91,6 +92,7 @@ namespace KryneEngine
         u64 m_frameId = 0;
         u32 m_timestampOffset = 0;
         std::atomic<u32> m_timestampIndex = 0;
+        u32 m_pendingTimestampCount = 0;
         D3D12MA::Allocation* m_timestampBufferAllocation = nullptr;
         ID3D12Resource* m_resolvedTimestampBuffer;
         eastl::vector<u64> m_timestamps {};

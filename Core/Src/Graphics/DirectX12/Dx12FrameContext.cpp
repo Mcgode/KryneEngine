@@ -37,25 +37,23 @@ namespace KryneEngine
 
     u32 Dx12FrameContext::PutTimestamp(const CommandListSet* _commandListSet, ID3D12QueryHeap* _heap)
     {
-        const u32 index = m_timestampIndex.fetch_add(1, std::memory_order_acquire) + m_timestampOffset;
-        _commandListSet->m_commandList->EndQuery(_heap, D3D12_QUERY_TYPE_TIMESTAMP, index);
-        return index;
+        const u32 localIndex = m_timestampIndex.fetch_add(1, std::memory_order_acquire);
+        KE_ASSERT_MSG(localIndex < m_timestamps.capacity(), "GPU timestamp buffer capacity exceeded");
+        _commandListSet->m_commandList->EndQuery(_heap, D3D12_QUERY_TYPE_TIMESTAMP, localIndex + m_timestampOffset);
+        // Returned index is relative to this frame context, to index into m_timestamps.
+        return localIndex;
     }
 
-    void Dx12FrameContext::ResolveTimestamps(
-        ID3D12QueryHeap* _heap,
-        const double _timestampPeriod,
-        const u64 _timestampSyncOffset)
+    void Dx12FrameContext::RecordTimestampsResolve(ID3D12QueryHeap* _heap)
     {
-        KE_ZoneScopedFunction("Dx12FrameContext::ResolveTimestamps");
+        KE_ZoneScopedFunction("Dx12FrameContext::RecordTimestampsResolve");
 
         VERIFY_OR_RETURN_VOID(m_timestampBufferAllocation != nullptr);
 
-        const u32 count = m_timestampIndex.load(std::memory_order_acquire);
+        m_pendingTimestampCount = m_timestampIndex.exchange(0u, std::memory_order_acq_rel);
 
-        if (count == 0)
+        if (m_pendingTimestampCount == 0)
         {
-            m_timestamps.clear();
             return;
         }
 
@@ -64,10 +62,25 @@ namespace KryneEngine
             _heap,
             D3D12_QUERY_TYPE_TIMESTAMP,
             m_timestampOffset,
-            count,
+            m_pendingTimestampCount,
             m_resolvedTimestampBuffer,
             0);
         m_directCommandAllocationSet.EndCommandList(commandListSet);
+    }
+
+    void Dx12FrameContext::ReadbackTimestamps(const double _timestampPeriod, const u64 _timestampSyncOffset)
+    {
+        KE_ZoneScopedFunction("Dx12FrameContext::ReadbackTimestamps");
+
+        VERIFY_OR_RETURN_VOID(m_timestampBufferAllocation != nullptr);
+
+        const u32 count = m_pendingTimestampCount;
+        m_pendingTimestampCount = 0;
+
+        if (count == 0)
+        {
+            return;
+        }
 
         const D3D12_RANGE readRange { 0, sizeof(u64) * count };
         u64* buffer;
@@ -79,9 +92,8 @@ namespace KryneEngine
             m_timestamps[i] = static_cast<u64>(static_cast<double>(buffer[i]) * _timestampPeriod) + _timestampSyncOffset;
         }
 
-        m_resolvedTimestampBuffer->Unmap(0, nullptr);
-
-        m_timestampIndex.store(0u, std::memory_order::release);
+        constexpr D3D12_RANGE writtenRange { 0, 0 };
+        m_resolvedTimestampBuffer->Unmap(0, &writtenRange);
     }
 
     Dx12FrameContext::CommandAllocationSet::CommandAllocationSet(const AllocatorInstance _allocator)

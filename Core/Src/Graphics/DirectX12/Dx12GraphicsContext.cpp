@@ -21,6 +21,7 @@
 #include "KryneEngine/Core/Math/Color.hpp"
 #include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
 #include "KryneEngine/Core/Memory/GenerationalPool.inl"
+#include "KryneEngine/Core/Profiling/TracyGpuProfilerContext.hpp"
 #include "KryneEngine/Core/Window/Window.hpp"
 
 namespace KryneEngine
@@ -118,6 +119,8 @@ namespace KryneEngine
                     &m_frameContexts[i].m_timestampBufferAllocation,
                     IID_PPV_ARGS(&m_frameContexts[i].m_resolvedTimestampBuffer)));
             }
+
+            CalibrateCpuGpuClocks();
         }
     }
 
@@ -176,6 +179,12 @@ namespace KryneEngine
 
         auto& frameContext = m_frameContexts[frameIndex];
 
+        // Record the timestamp resolve in the direct queue, so that it is executed after all timestamp writes.
+        if (m_timestampQueryHeap != nullptr)
+        {
+            frameContext.RecordTimestampsResolve(m_timestampQueryHeap.Get());
+        }
+
         // Execute the command lists
         ID3D12CommandQueue* queue = nullptr;
         {
@@ -206,14 +215,6 @@ namespace KryneEngine
             executeCommands(m_directQueue.Get(), frameContext.m_directCommandAllocationSet);
         }
 
-        if (m_timestampQueryHeap != nullptr)
-        {
-            frameContext.ResolveTimestamps(
-                m_timestampQueryHeap.Get(),
-                m_directQueueTimestampPeriod,
-                m_directQueueTimestampOffset);
-        }
-
         // Present the frame (if applicable)
         for (const SwapChainHandle handle : _swapChainsToPresent)
         {
@@ -241,11 +242,20 @@ namespace KryneEngine
 
         FrameMark;
 
+        m_profilerContext->EndFrame(m_frameId);
+
         // Retrieve next frame index
         const u8 nextFrameIndex = (m_frameId + 1) % m_frameContextCount;
 
         // Wait for the previous frame with this index.
         WaitForFrame(m_frameContexts[nextFrameIndex].m_frameId);
+
+        if (m_timestampQueryHeap != nullptr)
+        {
+            m_frameContexts[nextFrameIndex].ReadbackTimestamps(
+                m_directQueueTimestampPeriod,
+                m_directQueueTimestampOffset);
+        }
 
         m_resources.FlushPools();
 
@@ -1757,12 +1767,20 @@ namespace KryneEngine
     {
         u64 frequency;
         Dx12Assert(m_directQueue->GetTimestampFrequency(&frequency));
-        m_directQueueTimestampPeriod = 1.0 / static_cast<double>(frequency);
+        // Period in nanoseconds per GPU tick
+        m_directQueueTimestampPeriod = 1e9 / static_cast<double>(frequency);
 
         u64 cpuTimestamp, gpuTimestamp;
         Dx12Assert(m_directQueue->GetClockCalibration(&gpuTimestamp, &cpuTimestamp));
-        const u64 gpuTimestampSolved = static_cast<u64>(static_cast<double>(gpuTimestamp) * m_directQueueTimestampPeriod);
-        m_directQueueTimestampOffset = cpuTimestamp - gpuTimestampSolved;
+
+        // CPU timestamp is a QueryPerformanceCounter value
+        LARGE_INTEGER qpcFrequency {};
+        QueryPerformanceFrequency(&qpcFrequency);
+        const u64 cpuTimestampNs = static_cast<u64>(
+            static_cast<double>(cpuTimestamp) * 1e9 / static_cast<double>(qpcFrequency.QuadPart));
+
+        const u64 gpuTimestampNs = static_cast<u64>(static_cast<double>(gpuTimestamp) * m_directQueueTimestampPeriod);
+        m_directQueueTimestampOffset = cpuTimestampNs - gpuTimestampNs;
     }
 
     TimestampHandle Dx12GraphicsContext::PutTimestamp(CommandListHandle _commandList, const TimestampPlacement /* _placement */)
