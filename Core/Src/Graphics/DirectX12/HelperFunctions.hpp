@@ -107,8 +107,12 @@ namespace KryneEngine
         if (_object == nullptr)
             return;
         char name[512];
-        const u32 size = snprintf(name, sizeof(name), _format, _args...);
-        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectName, size * sizeof(char), name));
+        const int written = snprintf(name, sizeof(name), _format, _args...);
+        if (written < 0)
+            return;
+        // snprintf returns the untruncated length, but only sizeof(name) - 1 characters were stored.
+        const size_t size = static_cast<size_t>(written) < sizeof(name) ? static_cast<size_t>(written) : sizeof(name) - 1;
+        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(size * sizeof(char)), name));
     }
 
     namespace Dx12Converters
