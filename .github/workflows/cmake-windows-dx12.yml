@@ -49,7 +49,8 @@ jobs:
     - name: Restore vcpkg binary cache
       run: New-Item -ItemType Directory -Force $env:VCPKG_DEFAULT_BINARY_CACHE
 
-    - uses: actions/cache@v4
+    - uses: actions/cache/restore@v4
+      id: vcpkg-cache
       with:
         path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
         key: vcpkg-freetype-x64-windows-static-md-v1
@@ -62,6 +63,14 @@ jobs:
         Write-Host "FreeType prefix: $prefix"
         Get-ChildItem "$prefix/lib", "$prefix/include" | Select-Object -First 20
         "FREETYPE_PREFIX=$prefix" >> $env:GITHUB_ENV
+
+    - name: Save vcpkg binary cache
+      # Saved right after the install rather than at job end, so a later build failure doesn't discard it.
+      if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+        key: vcpkg-freetype-x64-windows-static-md-v1
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
