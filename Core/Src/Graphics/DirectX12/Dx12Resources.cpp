@@ -1274,16 +1274,17 @@ namespace KryneEngine
             inputElements.reserve(_desc.m_vertexInput.m_elements.size());
             for (const auto& vertexInput: _desc.m_vertexInput.m_elements)
             {
+                const D3D12_INPUT_CLASSIFICATION classification = slotClassifications.size() > vertexInput.m_bindingIndex
+                        ? slotClassifications[vertexInput.m_bindingIndex]
+                        : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
                 inputElements.push_back(D3D12_INPUT_ELEMENT_DESC {
                     .SemanticName = Dx12Converters::ToDx12SemanticName(vertexInput.m_semanticName),
                     .SemanticIndex = vertexInput.m_semanticIndex,
                     .Format = Dx12Converters::ToDx12Format(vertexInput.m_format),
                     .InputSlot = vertexInput.m_bindingIndex,
                     .AlignedByteOffset = vertexInput.m_offset,
-                    .InputSlotClass = slotClassifications.size() > vertexInput.m_bindingIndex
-                        ? slotClassifications[vertexInput.m_bindingIndex]
-                        : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                    .InstanceDataStepRate = 0,
+                    .InputSlotClass = classification,
+                    .InstanceDataStepRate = classification == D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA ? 1u : 0u,
                 });
             }
             desc.InputLayout.NumElements = inputElements.size();
