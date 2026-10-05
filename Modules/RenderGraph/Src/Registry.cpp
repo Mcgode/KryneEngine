@@ -179,6 +179,7 @@ namespace KryneEngine::Modules::RenderGraph
             .m_arrayRangeStart = _desc.m_arrayRangeStart,
             .m_arrayRangeSize = _desc.m_arrayRangeSize,
             .m_mipLevel = _desc.m_mipLevel,
+            .m_isReadOnly = _desc.m_isReadOnly,
 #if !defined(KE_FINAL)
             .m_debugName = _name.data(),
 #endif
