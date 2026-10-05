@@ -182,6 +182,23 @@ namespace KryneEngine
             return format;
         }
 
+        constexpr inline DXGI_FORMAT ToDx12TypelessDepthFormat(DXGI_FORMAT _format)
+        {
+            switch (_format)
+            {
+            case DXGI_FORMAT_D16_UNORM:
+                return DXGI_FORMAT_R16_TYPELESS;
+            case DXGI_FORMAT_D32_FLOAT:
+                return DXGI_FORMAT_R32_TYPELESS;
+            case DXGI_FORMAT_D24_UNORM_S8_UINT:
+                return DXGI_FORMAT_R24G8_TYPELESS;
+            case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+                return DXGI_FORMAT_R32G8X24_TYPELESS;
+            default:
+                return _format;
+            }
+        }
+
         constexpr inline DXGI_FORMAT ToDx12SrvFormat(TextureFormat _format)
         {
             DXGI_FORMAT format;

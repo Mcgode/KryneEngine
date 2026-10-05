@@ -243,6 +243,14 @@ namespace KryneEngine
             .Flags = Dx12Converters::GetTextureResourceFlags(_createDesc.m_memoryUsage),
         };
 
+        /// Depth textures that can also be read by shaders must be created with a typeless format,
+        /// the typed formats are then used by the DSV and SRV.
+        if ((resourceDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)
+            && !(resourceDesc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE))
+        {
+            resourceDesc.Format = Dx12Converters::ToDx12TypelessDepthFormat(resourceDesc.Format);
+        }
+
         const D3D12MA::ALLOCATION_DESC allocationDesc {
             .HeapType = Dx12Converters::GetHeapType(_createDesc.m_memoryUsage),
         };
