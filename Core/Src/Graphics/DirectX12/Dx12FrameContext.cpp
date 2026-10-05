@@ -19,21 +19,9 @@ namespace KryneEngine
 
         m_device = _device;
 
-        const auto initAllocator = [this] (bool _alloc,CommandAllocationSet& _set, D3D12_COMMAND_LIST_TYPE _type, const wchar_t* _name)
-        {
-            if (_alloc)
-            {
-                Dx12Assert(m_device->CreateCommandAllocator(_type, IID_PPV_ARGS(&_set.m_commandAllocator)));
-
-#if !defined(KE_FINAL)
-                Dx12SetName(_set.m_commandAllocator.Get(), L"%s Command Allocator", _name);
-#endif
-            }
-        };
-
-        initAllocator(_directAllocator, m_directCommandAllocationSet, D3D12_COMMAND_LIST_TYPE_DIRECT, L"Direct");
-        initAllocator(_computeAllocator, m_computeCommandAllocationSet, D3D12_COMMAND_LIST_TYPE_COMPUTE, L"Compute");
-        initAllocator(_copyAllocator, m_copyCommandAllocationSet, D3D12_COMMAND_LIST_TYPE_COPY, L"Copy");
+        m_directCommandAllocationSet.m_type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+        m_computeCommandAllocationSet.m_type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+        m_copyCommandAllocationSet.m_type = D3D12_COMMAND_LIST_TYPE_COPY;
     }
 
     Dx12FrameContext::~Dx12FrameContext()
@@ -103,43 +91,80 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12FrameContext::CommandAllocationSet::BeginCommandList");
 
-        VERIFY_OR_RETURN(m_commandAllocator != nullptr, nullptr);
-
         const auto lock = m_mutex.AutoLock();
 
         if (m_availableCommandLists.empty())
         {
             KE_ZoneScoped("Allocate new command list");
 
-            Dx12Assert(_device->CreateCommandList(0,
-                                                  _commandType,
-                                                  m_commandAllocator.Get(),
-                                                  nullptr,
-                                                  IID_PPV_ARGS(&m_usedCommandLists.push_back())));
+            CommandListAndAllocator& newSet = m_usedCommandLists.emplace_back();
+
+            Dx12Assert(_device->CreateCommandAllocator(
+                m_type,
+                IID_PPV_ARGS(&newSet.m_commandAllocator)));
+
+            Dx12Assert(_device->CreateCommandList(
+                0,
+                _commandType,
+                newSet.m_commandAllocator,
+                nullptr,
+                IID_PPV_ARGS(&newSet.m_commandList)));
+
+#if !defined(KE_FINAL)
+            const wchar_t* queueName;
+            switch (m_type)
+            {
+                case D3D12_COMMAND_LIST_TYPE_DIRECT:
+                    queueName = L"Direct";
+                    break;
+                case D3D12_COMMAND_LIST_TYPE_COMPUTE:
+                    queueName = L"Compute";
+                    break;
+                case D3D12_COMMAND_LIST_TYPE_COPY:
+                    queueName = L"Copy";
+                    break;
+                default:
+                    queueName = L"";
+                    break;
+            }
+            Dx12SetName(
+                newSet.m_commandAllocator,
+                L"%s Command Allocator %lld",
+                queueName,
+                m_usedCommandLists.size());
+            Dx12SetName(
+                newSet.m_commandList,
+                L"%s Command List %lld",
+                queueName,
+                m_usedCommandLists.size());
+#endif
         }
         else
         {
             m_usedCommandLists.push_back(m_availableCommandLists.back());
             m_availableCommandLists.pop_back();
-            Dx12Assert(m_usedCommandLists.back()->Reset(m_commandAllocator.Get(), nullptr));
+            const CommandListAndAllocator& set = m_usedCommandLists.back();
+            Dx12Assert(set.m_commandList->Reset(set.m_commandAllocator, nullptr));
         }
 
-        return m_usedCommandLists.back();
+        return m_usedCommandLists.back().m_commandList;
     }
 
     void Dx12FrameContext::CommandAllocationSet::EndCommandList(CommandList _commandList)
     {
         KE_ZoneScopedFunction("Dx12FrameContext::CommandAllocationSet::EndCommandList");
 
-        VERIFY_OR_RETURN_VOID(m_commandAllocator != nullptr);
-
         const auto lock = m_mutex.AutoLock();
 
-        const auto it = eastl::find(m_usedCommandLists.begin(), m_usedCommandLists.end(), _commandList);
-        if (KE_VERIFY(it != m_usedCommandLists.end()))
+        for (const auto& set: m_usedCommandLists)
         {
-            Dx12Assert(_commandList->Close());
+            if (set.m_commandList == _commandList)
+            {
+                Dx12Assert(_commandList->Close());
+                return;
+            }
         }
+        KE_ERROR("Command list not found in used command lists");
     }
 
     void Dx12FrameContext::CommandAllocationSet::Destroy()
@@ -154,18 +179,17 @@ namespace KryneEngine
         const auto lock = m_mutex.AutoLock();
         KE_ASSERT_MSG(m_usedCommandLists.empty(), "Allocation set should have been reset");
 
-        const auto freeCommandListVector = [](auto& _vector)
+        const auto freeCommandVector = [](auto& _vector)
         {
-            for (auto commandList: _vector)
+            for (auto& commandListAndAllocator: _vector)
             {
-                SafeRelease(commandList);
+                SafeRelease(commandListAndAllocator.m_commandList);
+                SafeRelease(commandListAndAllocator.m_commandAllocator);
             }
             _vector.clear();
         };
-        freeCommandListVector(m_usedCommandLists);
-        freeCommandListVector(m_availableCommandLists);
-
-        SafeRelease(m_commandAllocator);
+        freeCommandVector(m_usedCommandLists);
+        freeCommandVector(m_availableCommandLists);
     }
 
     void Dx12FrameContext::CommandAllocationSet::Reset()
@@ -174,6 +198,9 @@ namespace KryneEngine
 
         const auto lock = m_mutex.AutoLock();
 
+        // Use swap to keep order of command lists and allocators
+
+        eastl::swap(m_availableCommandLists, m_usedCommandLists);
         m_availableCommandLists.insert(
             m_availableCommandLists.end(),
             m_usedCommandLists.begin(),

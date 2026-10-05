@@ -69,10 +69,16 @@ namespace KryneEngine
 
         struct CommandAllocationSet
         {
-            ComPtr<ID3D12CommandAllocator> m_commandAllocator = nullptr;
+            D3D12_COMMAND_LIST_TYPE m_type;
 
-            eastl::vector<ID3D12GraphicsCommandList7*> m_availableCommandLists;
-            eastl::vector<ID3D12GraphicsCommandList7*> m_usedCommandLists;
+            struct CommandListAndAllocator
+            {
+                ID3D12GraphicsCommandList7* m_commandList;
+                ID3D12CommandAllocator* m_commandAllocator;
+            };
+
+            eastl::vector<CommandListAndAllocator> m_availableCommandLists;
+            eastl::vector<CommandListAndAllocator> m_usedCommandLists;
 
             LightweightMutex m_mutex {};
 
