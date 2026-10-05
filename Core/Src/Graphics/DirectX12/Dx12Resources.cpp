@@ -1022,7 +1022,7 @@ namespace KryneEngine
                 .ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
                 .Constants = D3D12_ROOT_CONSTANTS {
                     .ShaderRegister = 0,
-                    .RegisterSpace = static_cast<u32>(rootParameters.size()),
+                    .RegisterSpace = pushConstant.m_index == 0xff ? static_cast<u32>(rootParameters.size()) : pushConstant.m_index,
                     .Num32BitValues = pushConstant.m_sizeInBytes / 4u,
                 },
                 .ShaderVisibility = Dx12Converters::ToDx12ShaderVisibility(pushConstant.m_visibility),
@@ -1046,7 +1046,8 @@ namespace KryneEngine
             &errorBlob);
         if (!SUCCEEDED(hr))
         {
-            KE_ERROR((const char*)errorBlob->GetBufferPointer());
+            const auto* errorMsg = static_cast<const char*>(errorBlob->GetBufferPointer());
+            KE_ERROR(errorMsg);
         }
         Dx12Assert(_device->CreateRootSignature(
             0,
