@@ -810,11 +810,23 @@ namespace KryneEngine
             PlaceMemoryBarriers({ _commandList }, { .m_textureBarriers = barriers });
         }
 
+        D3D12_RENDER_PASS_FLAGS flags = D3D12_RENDER_PASS_FLAG_NONE;
+        if (desc->m_depthStencilAttachment.has_value())
+        {
+            if (desc->m_depthStencilAttachment->m_readOnly)
+            {
+                if (desc->m_depthStencilAttachment->m_loadOperation != RenderPassDesc::Attachment::LoadOperation::None)
+                    flags |= D3D12_RENDER_PASS_FLAG_BIND_READ_ONLY_DEPTH;
+                if (desc->m_depthStencilAttachment->m_stencilLoadOperation != RenderPassDesc::Attachment::LoadOperation::None)
+                    flags |= D3D12_RENDER_PASS_FLAG_BIND_READ_ONLY_STENCIL;
+            }
+        }
+
         commandList->BeginRenderPass(
                 colorAttachments.size(),
                 colorAttachments.data(),
                 desc->m_depthStencilAttachment.has_value() ? &depthStencilDesc : nullptr,
-                D3D12_RENDER_PASS_FLAG_NONE);
+                flags);
 
         m_currentRenderPass = _renderPass;
 

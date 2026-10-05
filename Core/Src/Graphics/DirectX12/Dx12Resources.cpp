@@ -5,6 +5,11 @@
  */
 
 #include <bit>
+
+// Must come before D3D12MemAlloc.h, which would otherwise pull in the (older) Windows SDK d3d12.h
+// and shadow the DirectX-Headers one through the shared include guard.
+#include "Graphics/DirectX12/Dx12Headers.hpp"
+
 #include <D3D12MemAlloc.h>
 
 #include "Graphics/DirectX12/Dx12DescriptorSetManager.hpp"
