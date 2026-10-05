@@ -62,12 +62,12 @@ jobs:
       id: vcpkg-cache
       with:
         path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-        key: vcpkg-freetype-x64-windows-static-md-v1
+        key: vcpkg-freetype-x64-windows-static-md-v2
 
     - name: Install FreeType
       # Static lib with dynamic CRT, so no extra DLL has to ship with the tests.
       run: |
-        vcpkg install freetype:x64-windows-static-md
+        vcpkg install "freetype[core]:x64-windows-static-md"
         $prefix = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md"
         Write-Host "FreeType prefix: $prefix"
         Get-ChildItem "$prefix/lib", "$prefix/include" | Select-Object -First 20
@@ -79,7 +79,7 @@ jobs:
       uses: actions/cache/save@v4
       with:
         path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-        key: vcpkg-freetype-x64-windows-static-md-v1
+        key: vcpkg-freetype-x64-windows-static-md-v2
 
     - name: Configure CMake
       run: >
