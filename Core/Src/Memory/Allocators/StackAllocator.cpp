@@ -43,7 +43,7 @@ namespace KryneEngine
 
     void* StackAllocator::Allocate(const size_t _size, const size_t _alignment)
     {
-        const size_t alignment = eastl::max<size_t>(1ul, _alignment);
+        const size_t alignment = _alignment == 0ull ? sizeof(size_t) : _alignment;
         const size_t initialIndex = m_stackIndex;
         size_t heapIndex = 0;
         size_t heapOffset = m_stackIndex;
