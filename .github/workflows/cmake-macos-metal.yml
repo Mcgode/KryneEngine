@@ -49,12 +49,20 @@ jobs:
         sudo pip3 install ninja --break-system-packages
         xcodebuild -downloadComponent MetalToolchain
 
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: macos-mtl-${{ env.BUILD_TYPE }}
+        max-size: 500M
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: >
-        cmake -B ${{ env.BUILD_DIR }} 
-        -G Ninja 
+        cmake -B ${{ env.BUILD_DIR }}
+        -G Ninja
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} 
         -DGraphicsApi=MTL
 
