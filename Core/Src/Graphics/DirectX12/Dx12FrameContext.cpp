@@ -38,8 +38,14 @@ namespace KryneEngine
     u32 Dx12FrameContext::PutTimestamp(const CommandListSet* _commandListSet, ID3D12QueryHeap* _heap)
     {
         const u32 localIndex = m_timestampIndex.fetch_add(1, std::memory_order_acquire);
-        KE_ASSERT_MSG(localIndex < m_timestamps.capacity(), "GPU timestamp buffer capacity exceeded");
-        _commandListSet->m_commandList->EndQuery(_heap, D3D12_QUERY_TYPE_TIMESTAMP, localIndex + m_timestampOffset);
+        const bool withinCapacity = localIndex < m_timestampCapacity;
+        KE_ASSERT_MSG(withinCapacity, "GPU timestamp buffer capacity exceeded");
+        // Never write past this frame context's slice of the query heap. The returned out-of-range index
+        // resolves to 0 in Dx12GraphicsContext::GetResolvedTimestamp.
+        if (withinCapacity)
+        {
+            _commandListSet->m_commandList->EndQuery(_heap, D3D12_QUERY_TYPE_TIMESTAMP, localIndex + m_timestampOffset);
+        }
         // Returned index is relative to this frame context, to index into m_timestamps.
         return localIndex;
     }
@@ -50,7 +56,8 @@ namespace KryneEngine
 
         VERIFY_OR_RETURN_VOID(m_timestampBufferAllocation != nullptr);
 
-        m_pendingTimestampCount = m_timestampIndex.exchange(0u, std::memory_order_acq_rel);
+        // The index can exceed the capacity if too many timestamps were put; only the in-range ones were recorded.
+        m_pendingTimestampCount = eastl::min(m_timestampIndex.exchange(0u, std::memory_order_acq_rel), m_timestampCapacity);
 
         if (m_pendingTimestampCount == 0)
         {

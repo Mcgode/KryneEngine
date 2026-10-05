@@ -93,6 +93,7 @@ namespace KryneEngine
             for (auto i = 0; i < m_frameContextCount; ++i)
             {
                 m_frameContexts[i].m_timestampOffset = i * bufferSize;
+                m_frameContexts[i].m_timestampCapacity = bufferSize;
 
                 m_frameContexts[i].m_timestamps.set_allocator(m_allocator);
                 m_frameContexts[i].m_timestamps.reserve(bufferSize);
@@ -1801,6 +1802,8 @@ namespace KryneEngine
             return 0;
 
         const auto& frameContext = m_frameContexts[_timestamp.m_frameId % m_frameContextCount];
+        if (_timestamp.m_index >= frameContext.m_timestamps.size())
+            return 0;
         return frameContext.m_timestamps[_timestamp.m_index];
     }
 

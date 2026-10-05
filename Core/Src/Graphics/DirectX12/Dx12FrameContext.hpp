@@ -91,6 +91,7 @@ namespace KryneEngine
         CommandAllocationSet m_copyCommandAllocationSet;
         u64 m_frameId = 0;
         u32 m_timestampOffset = 0;
+        u32 m_timestampCapacity = 0;
         std::atomic<u32> m_timestampIndex = 0;
         u32 m_pendingTimestampCount = 0;
         D3D12MA::Allocation* m_timestampBufferAllocation = nullptr;
