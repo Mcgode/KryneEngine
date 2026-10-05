@@ -22,6 +22,7 @@ namespace KryneEngine::Samples
         const PushConstantDesc pushConstants[] {
             {
                 .m_sizeInBytes = sizeof(float),
+                .m_index = 3,
                 .m_visibility = ShaderVisibility::Vertex,
             }
         };
