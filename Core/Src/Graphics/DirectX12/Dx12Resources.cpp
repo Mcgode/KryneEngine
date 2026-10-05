@@ -623,6 +623,14 @@ namespace KryneEngine
                 .Format = Dx12Converters::ToDx12Format(_desc.m_format)
             };
 
+            if (_desc.m_isReadOnly)
+            {
+                if (BitUtils::EnumHasAny(_desc.m_plane, TexturePlane::Depth))
+                    dsvDesc.Flags |= D3D12_DSV_FLAG_READ_ONLY_DEPTH;
+                if (BitUtils::EnumHasAny(_desc.m_plane, TexturePlane::Stencil))
+                    dsvDesc.Flags |= D3D12_DSV_FLAG_READ_ONLY_STENCIL;
+            }
+
             switch (_desc.m_type)
             {
                 case TextureTypes::Single1D:
