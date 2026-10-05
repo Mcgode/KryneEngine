@@ -667,7 +667,9 @@ namespace KryneEngine
             const bool _isDepthTarget = false,
             const bool _isReadOnlyDepth = false)
         {
-            const TextureLayout newLayout = _isDepthTarget ? TextureLayout::DepthStencilAttachment : TextureLayout::ColorAttachment;
+            const TextureLayout newLayout = _isDepthTarget
+                ? (_isReadOnlyDepth ? TextureLayout::DepthStencilReadOnly : TextureLayout::DepthStencilAttachment)
+                : TextureLayout::ColorAttachment;
 
             if (newLayout != _desc.m_initialLayout)
             {
