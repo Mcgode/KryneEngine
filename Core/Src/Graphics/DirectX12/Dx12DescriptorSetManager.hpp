@@ -41,20 +41,20 @@ namespace KryneEngine
             u8 _frameIndex);
 
         void SetGraphicsDescriptorSets(
-            CommandList _commandList,
+            const CommandListSet* _commandListSet,
             const eastl::span<const DescriptorSetHandle>& _sets,
             const u16* _tableSetOffsets,
             u32 _offset,
-            u8 _currentFrame);
+            u8 _currentFrame) const;
 
         void SetComputeDescriptorSets(
-            CommandList _commandList,
+            const CommandListSet* _commandListSet,
             const eastl::span<const DescriptorSetHandle>& _sets,
             const u16* _tableSetOffsets,
             u32 _offset,
-            u8 _currentFrame);
+            u8 _currentFrame) const;
 
-        void OnBeginGraphicsCommandList(CommandList _commandList, u8 _frameIndex);
+        void OnBeginGraphicsCommandList(const CommandListSet* _commandListSet, u8 _frameIndex) const;
 
         void NextFrame(ID3D12Device* _device, const Dx12Resources& _resources, u8 _frameIndex);
 
@@ -88,7 +88,7 @@ namespace KryneEngine
             eastl::array<u32, kRangeTypesCount> m_totals;
         };
 
-        const LayoutData* GetDescriptorSetLayoutData(DescriptorSetLayoutHandle _layout);
+        const LayoutData* GetDescriptorSetLayoutData(DescriptorSetLayoutHandle _layout) const;
 
     private:
         static constexpr u32 kCbvSrvUavHeapSize = 1024;
@@ -122,6 +122,6 @@ namespace KryneEngine
             ID3D12Device* _device,
             const Dx12Resources& _resources,
             const Dx12DescriptorSetManager::TrackedData& _data,
-            u8 _currentFrame);
+            u8 _currentFrame) const;
     };
 } // namespace KryneEngine

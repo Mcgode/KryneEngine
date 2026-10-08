@@ -69,6 +69,7 @@ namespace KryneEngine
         }
 
         void set_name(const char*) {}
+        [[nodiscard]] const char* get_name() const { return m_allocator == nullptr ? nullptr : m_allocator->GetName(); }
 
         void SetAllocator(IAllocator* _allocator) { m_allocator = _allocator; }
         [[nodiscard]] IAllocator* GetAllocator() const { return m_allocator; }

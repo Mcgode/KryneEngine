@@ -1,6 +1,6 @@
 # This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
 # See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
-name: Metal on macOS
+name: Vulkan on Windows (clang-cl)
 
 on:
   push:
@@ -11,14 +11,13 @@ on:
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
-  BUILD_DIR: ${{ github.workspace }}/build-macos-mtl
+  BUILD_DIR: ${{ github.workspace }}/build-windows-vk
+  # vcpkg stores built packages as archives here, which lets us cache them between runs.
+  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache
 
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: macos-latest
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v6
@@ -27,44 +26,73 @@ jobs:
         fetch-depth: 0
         lfs: true
 
-    - name: Inspect machine
-      run: |
-        echo "=== Architecture ==="
-        uname -m
+    - name: Setup MSVC dev environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
 
-        echo "=== OS ==="
-        sw_vers
-
-        echo "=== Hardware ==="
-        system_profiler SPHardwareDataType
-
-        echo "=== GPU ==="
-        system_profiler SPDisplaysDataType
-
-        echo "=== Xcode ==="
-        xcodebuild -version
+    - name: Install Vulkan SDK
+      # Exports VULKAN_SDK, which CMake's find_package(Vulkan) relies on.
+      uses: jakoch/install-vulkan-sdk-action@v1
+      with:
+        vulkan_version: latest
+        install_runtime: true
+        cache: true
+        stripdown: true
 
     - name: Setup shader build environment
+      # ShaderListParser.py imports ninja_syntax, so install it into the very interpreter CMake will use.
       run: |
-        sudo pip3 install ninja --break-system-packages
-        xcodebuild -downloadComponent MetalToolchain
+        python -m pip install ninja
+        $python = python -c "import sys; print(sys.executable)"
+        Write-Host "Python: $python"
+        python -c "from ninja import ninja_syntax; print(ninja_syntax.__file__)"
+        "PYTHON_EXE=$python" >> $env:GITHUB_ENV
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        key: macos-mtl-${{ env.BUILD_TYPE }}
+        key: windows-vk-clang-cl-${{ env.BUILD_TYPE }}
         max-size: 500M
 
+    - name: Restore vcpkg binary cache
+      run: New-Item -ItemType Directory -Force $env:VCPKG_DEFAULT_BINARY_CACHE
+
+    - uses: actions/cache/restore@v4
+      id: vcpkg-cache
+      with:
+        path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+        key: vcpkg-freetype-x64-windows-static-md-v2
+
+    - name: Install FreeType
+      # Static lib with dynamic CRT, so no extra DLL has to ship with the tests.
+      run: |
+        vcpkg install "freetype[core]:x64-windows-static-md"
+        $prefix = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md"
+        Write-Host "FreeType prefix: $prefix"
+        Get-ChildItem "$prefix/lib", "$prefix/include" | Select-Object -First 20
+        "FREETYPE_PREFIX=$prefix" >> $env:GITHUB_ENV
+
+    - name: Save vcpkg binary cache
+      # Saved right after the install rather than at job end, so a later build failure doesn't discard it.
+      if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+        key: vcpkg-freetype-x64-windows-static-md-v2
+
     - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: >
         cmake -B ${{ env.BUILD_DIR }}
         -G Ninja
+        -DCMAKE_C_COMPILER=clang-cl
+        -DCMAKE_CXX_COMPILER=clang-cl
         -DCMAKE_C_COMPILER_LAUNCHER=ccache
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} 
-        -DGraphicsApi=MTL
+        -DCMAKE_PREFIX_PATH=${{ env.FREETYPE_PREFIX }}
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        -DGraphicsApi=VK
+        -DPython3_EXECUTABLE=${{ env.PYTHON_EXE }}
 
     - name: Build Core
       run: cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target KryneEngine_Core
@@ -73,12 +101,12 @@ jobs:
       run: >
         cmake --build ${{ env.BUILD_DIR }} --config ${{env.BUILD_TYPE}} --target
         Core_Common_UnitTests
+        Core_Graphics_UnitTests
         Core_Math_UnitTests
         Core_Memory_UnitTests
         Core_Platform_UnitTests
         Core_Threads_UnitTests
-        Core_Graphics_UnitTests
-    
+
     - name: Upload Core Unit tests
       uses: actions/upload-artifact@v7
       with:
@@ -122,7 +150,7 @@ jobs:
         PhysicsDemo
 
   test-core:
-    runs-on: macos-latest
+    runs-on: windows-latest
     needs: build
     steps:
       - name: Download
@@ -131,16 +159,13 @@ jobs:
           name: core-unit-tests
           path: ${{ env.BUILD_DIR }}/Tests/Core
 
-      - name: Restore execute permission
-        run: find ${{ env.BUILD_DIR }}/Tests/Core -type f -name '*UnitTests' -exec chmod +x {} \;
-
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Core
         run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure -E "Core_Graphics_UnitTests"
-        # Disabled Core graphics test, as Github-hosted runner does not provide a Metal 4 interface.
+        # Disabled Core graphics test, as Github-hosted Windows runners have no Vulkan-capable GPU or software driver.
 
   test-modules:
-    runs-on: macos-latest
+    runs-on: windows-latest
     needs: build
     steps:
       - name: Download
@@ -148,9 +173,6 @@ jobs:
         with:
           name: modules-unit-tests
           path: ${{ env.BUILD_DIR }}/Tests/Modules
-
-      - name: Restore execute permission
-        run: find ${{ env.BUILD_DIR }}/Tests/Modules -type f -name '*UnitTests' -exec chmod +x {} \;
 
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Modules

@@ -8,6 +8,9 @@
 
 #include <KryneEngine/Core/Math/Vector.hpp>
 
+#ifdef WIN32
+#   include <corecrt_math_defines.h>
+#endif
 
 namespace KryneEngine::Math
 {

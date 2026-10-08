@@ -617,7 +617,9 @@ namespace KryneEngine
                        eastl::back_inserter(suitableDevices),
                        [this, &scopedScratchAllocator](const VkPhysicalDevice& _physicalDevice)
         {
-            DynamicArray<VkExtensionProperties> extensions(scopedScratchAllocator.GetAllocator());
+            const auto copyScopedAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+            DynamicArray<VkExtensionProperties> extensions(copyScopedAllocator.GetAllocator());
             VkHelperFunctions::VkArrayFetch(extensions, vkEnumerateDeviceExtensionProperties, _physicalDevice, nullptr);
             auto requiredExtensions = _GetRequiredDeviceExtensions();
 
@@ -689,19 +691,22 @@ namespace KryneEngine
 
         if (features.m_graphics)
         {
-            for (s8 i = 0; i < familyProperties.Size(); i++)
+            for (size_t i = 0; i < familyProperties.Size(); i++)
             {
                 const auto flags = familyProperties[i].queueFlags;
 
-                const bool graphicsOk = bool(flags & VK_QUEUE_GRAPHICS_BIT);
-                const bool transferOk = !features.m_transfer || features.m_transferQueue || bool(flags & VK_QUEUE_TRANSFER_BIT);
-                const bool computeOk = !features.m_compute || features.m_asyncCompute || bool(flags & VK_QUEUE_COMPUTE_BIT);
+                const bool graphicsOk = static_cast<bool>(flags & VK_QUEUE_GRAPHICS_BIT);
+                const bool transferOk = !features.m_transfer || features.m_transferQueue || static_cast<bool>(flags & VK_QUEUE_TRANSFER_BIT);
+                const bool computeOk = !features.m_compute || features.m_asyncCompute || static_cast<bool>(flags & VK_QUEUE_COMPUTE_BIT);
 
-                auto& index = GetIndexOfFamily(i);
+                u32& index = GetIndexOfFamily(i);
 
                 if (graphicsOk && transferOk && computeOk && index < familyProperties[i].queueCount)
                 {
-                    _indices.m_graphicsQueueIndex = { i, static_cast<s32>(index++) };
+                    _indices.m_graphicsQueueIndex = {
+                        .m_familyIndex = static_cast<u8>(i),
+                        .m_indexInFamily = static_cast<s32>(index++)
+                    };
                     break;
                 }
             }

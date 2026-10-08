@@ -200,6 +200,10 @@ namespace KryneEngine::Tests
                     targetFunction);
 
                 contexts.starting.SwapContext(&contexts.target);
+
+                // The target fiber swapped back to us, which locked our mutex. In a real scenario, the next swap
+                // away from this context would unlock it; here, release it on the owning thread before destruction.
+                contexts.starting.m_mutex.ManualUnlock();
             });
         startThread.join();
 

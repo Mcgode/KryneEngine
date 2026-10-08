@@ -5,6 +5,11 @@
  */
 
 #include <bit>
+
+// Must come before D3D12MemAlloc.h, which would otherwise pull in the (older) Windows SDK d3d12.h
+// and shadow the DirectX-Headers one through the shared include guard.
+#include "Graphics/DirectX12/Dx12Headers.hpp"
+
 #include <D3D12MemAlloc.h>
 
 #include "Graphics/DirectX12/Dx12DescriptorSetManager.hpp"
@@ -64,6 +69,8 @@ namespace KryneEngine
 #if !defined(KE_FINAL)
             Dx12SetName(m_cbvSrvUavDescriptorStorageHeap.Get(), L"CBV/SRV/UAV Descriptor Storage Heap");
 #endif
+
+            m_cbvSrvUavDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         }
     }
 
@@ -243,6 +250,14 @@ namespace KryneEngine
             .Flags = Dx12Converters::GetTextureResourceFlags(_createDesc.m_memoryUsage),
         };
 
+        /// Depth textures that can also be read by shaders must be created with a typeless format,
+        /// the typed formats are then used by the DSV and SRV.
+        if ((resourceDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)
+            && !(resourceDesc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE))
+        {
+            resourceDesc.Format = Dx12Converters::ToDx12TypelessDepthFormat(resourceDesc.Format);
+        }
+
         const D3D12MA::ALLOCATION_DESC allocationDesc {
             .HeapType = Dx12Converters::GetHeapType(_createDesc.m_memoryUsage),
         };
@@ -333,7 +348,7 @@ namespace KryneEngine
             .AddressW = Dx12Converters::ToDx12AddressMode(_samplerDesc.m_addressModeW),
             .MipLODBias = _samplerDesc.m_lodBias,
             .MaxAnisotropy = _samplerDesc.m_anisotropy,
-            .ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS,
+            .ComparisonFunc = D3D12_COMPARISON_FUNC_NONE,
             .BorderColor = {
                 _samplerDesc.m_borderColor.x,
                 _samplerDesc.m_borderColor.y,
@@ -437,6 +452,11 @@ namespace KryneEngine
             const D3D12_SHADER_RESOURCE_VIEW_DESC desc {
                 .Format = DXGI_FORMAT_UNKNOWN,
                 .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
+                .Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+                    D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0,
+                    D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1,
+                    D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2,
+                    D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3),
                 .Buffer = {
                     .FirstElement = _viewDesc.m_offset / _viewDesc.m_stride,
                     .NumElements = static_cast<u32>(_viewDesc.m_size / _viewDesc.m_stride),
@@ -618,6 +638,14 @@ namespace KryneEngine
                 .Format = Dx12Converters::ToDx12Format(_desc.m_format)
             };
 
+            if (_desc.m_isReadOnly)
+            {
+                if (BitUtils::EnumHasAny(_desc.m_plane, TexturePlane::Depth))
+                    dsvDesc.Flags |= D3D12_DSV_FLAG_READ_ONLY_DEPTH;
+                if (BitUtils::EnumHasAny(_desc.m_plane, TexturePlane::Stencil))
+                    dsvDesc.Flags |= D3D12_DSV_FLAG_READ_ONLY_STENCIL;
+            }
+
             switch (_desc.m_type)
             {
                 case TextureTypes::Single1D:
@@ -706,11 +734,11 @@ namespace KryneEngine
 
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc {
             .Format = Dx12Converters::ToDx12SrvFormat(_viewDesc.m_format),
-            .Shader4ComponentMapping = (u32)D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+            .Shader4ComponentMapping = static_cast<u32>(D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
                 static_cast<u8>(_viewDesc.m_componentsMapping[0]),
                 static_cast<u8>(_viewDesc.m_componentsMapping[1]),
                 static_cast<u8>(_viewDesc.m_componentsMapping[2]),
-                static_cast<u8>(_viewDesc.m_componentsMapping[3]))
+                static_cast<u8>(_viewDesc.m_componentsMapping[3])))
         };
         D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc {
             .Format = Dx12Converters::ToDx12Format(_viewDesc.m_format),
@@ -719,38 +747,44 @@ namespace KryneEngine
         switch (_viewDesc.m_viewType)
         {
         case TextureTypes::Single1D:
+            KE_ASSERT(_viewDesc.m_arrayStart == 0 && _viewDesc.m_arrayRange == 1);
             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
             srvDesc.Texture1D = {
                 .MostDetailedMip = _viewDesc.m_minMip,
                 .MipLevels = static_cast<u32>(_viewDesc.m_maxMip - _viewDesc.m_minMip + 1),
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
             uavDesc.Texture1D = {
                 .MipSlice = _viewDesc.m_minMip,
             };
             break;
         case TextureTypes::Single2D:
+            KE_ASSERT(_viewDesc.m_arrayStart == 0 && _viewDesc.m_arrayRange == 1);
             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
             srvDesc.Texture2D = {
                 .MostDetailedMip = _viewDesc.m_minMip,
                 .MipLevels = static_cast<u32>(_viewDesc.m_maxMip - _viewDesc.m_minMip + 1),
-                .PlaneSlice = _viewDesc.m_arrayStart,
+                .PlaneSlice = 0,
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
             uavDesc.Texture2D = {
                 .MipSlice = _viewDesc.m_minMip,
-                .PlaneSlice = _viewDesc.m_arrayStart,
+                .PlaneSlice = 0,
             };
             break;
         case TextureTypes::Single3D:
+            KE_ASSERT(_viewDesc.m_arrayStart == 0 && _viewDesc.m_arrayRange == 1);
             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
             srvDesc.Texture3D = {
                 .MostDetailedMip = _viewDesc.m_minMip,
                 .MipLevels = static_cast<u32>(_viewDesc.m_maxMip - _viewDesc.m_minMip + 1),
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE3D;
             uavDesc.Texture3D = {
                 .MipSlice = _viewDesc.m_minMip,
@@ -767,6 +801,7 @@ namespace KryneEngine
                 .ArraySize = _viewDesc.m_arrayRange,
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
             uavDesc.Texture1DArray = {
                 .MipSlice = _viewDesc.m_minMip,
@@ -784,6 +819,7 @@ namespace KryneEngine
                 .PlaneSlice = 0,
                 .ResourceMinLODClamp = 0.f
             };
+            KE_ASSERT(!BitUtils::EnumHasAny(_viewDesc.m_accessType, TextureViewAccessType::Write) || _viewDesc.m_maxMip == _viewDesc.m_minMip);
             uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
             uavDesc.Texture2DArray = {
                 .MipSlice = _viewDesc.m_minMip,
@@ -1240,16 +1276,17 @@ namespace KryneEngine
             inputElements.reserve(_desc.m_vertexInput.m_elements.size());
             for (const auto& vertexInput: _desc.m_vertexInput.m_elements)
             {
+                const D3D12_INPUT_CLASSIFICATION classification = slotClassifications.size() > vertexInput.m_bindingIndex
+                        ? slotClassifications[vertexInput.m_bindingIndex]
+                        : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
                 inputElements.push_back(D3D12_INPUT_ELEMENT_DESC {
                     .SemanticName = Dx12Converters::ToDx12SemanticName(vertexInput.m_semanticName),
                     .SemanticIndex = vertexInput.m_semanticIndex,
                     .Format = Dx12Converters::ToDx12Format(vertexInput.m_format),
                     .InputSlot = vertexInput.m_bindingIndex,
                     .AlignedByteOffset = vertexInput.m_offset,
-                    .InputSlotClass = slotClassifications.size() > vertexInput.m_bindingIndex
-                        ? slotClassifications[vertexInput.m_bindingIndex]
-                        : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                    .InstanceDataStepRate = 0,
+                    .InputSlotClass = classification,
+                    .InstanceDataStepRate = classification == D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA ? 1u : 0u,
                 });
             }
             desc.InputLayout.NumElements = inputElements.size();

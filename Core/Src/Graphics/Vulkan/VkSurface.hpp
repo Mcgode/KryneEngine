@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "Graphics/Vulkan/CommonStructures.hpp"
 #include "Graphics/Vulkan/VkHeaders.hpp"
 #include "KryneEngine/Core/Window/NativeWindowHandle.hpp"
 

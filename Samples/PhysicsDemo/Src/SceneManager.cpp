@@ -267,7 +267,9 @@ namespace KryneEngine::Samples::PhysicsDemo
         const TextureViewHandle _aoTermAView,
         const TextureViewHandle _aoTermBView,
         const TextureViewHandle _aoEdgesView,
-        const TextureHandle _aoTextures)
+        const TextureHandle _aoTermATexture,
+        const TextureHandle _aoTermBTexture,
+        const TextureHandle _aoEdgesTexture)
     {
         // Default material PSOs
         {
@@ -444,7 +446,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             {
                 constexpr DescriptorBindingDesc bindings[] = {{
                     .m_type = DescriptorBindingDesc::Type::ConstantBuffer,
-                    .m_visibility = ShaderVisibility::Fragment,
+                    .m_visibility = ShaderVisibility::Fragment | ShaderVisibility::Vertex,
                 }};
                 m_fullscreenPassesLayout = _graphicsContext.CreateDescriptorSetLayout(
                     {
@@ -507,7 +509,9 @@ namespace KryneEngine::Samples::PhysicsDemo
                 _aoTermAView,
                 _aoTermBView,
                 _aoEdgesView,
-                _aoTextures);
+                _aoTermATexture,
+                _aoTermBTexture,
+                _aoEdgesTexture);
             m_ambientOcclusionPass.CreatePso(&_graphicsContext);
 
             m_deferredShadingPass.Initialize(

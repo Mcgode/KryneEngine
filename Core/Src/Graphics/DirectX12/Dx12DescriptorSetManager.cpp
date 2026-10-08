@@ -20,14 +20,14 @@ namespace KryneEngine
         u32 m_packed;
     };
 
-    Dx12DescriptorSetManager::Dx12DescriptorSetManager(AllocatorInstance _allocator)
+    Dx12DescriptorSetManager::Dx12DescriptorSetManager(const AllocatorInstance _allocator)
         : m_cbvSrvUavGpuDescriptorHeaps(_allocator)
         , m_samplerGpuDescriptorHeaps(_allocator)
         , m_descriptorSetLayout(_allocator)
         , m_descriptorSets(_allocator)
     {}
 
-    void Dx12DescriptorSetManager::Init(ID3D12Device* _device, u8 _frameContextCount, u8 _currentFrame)
+    void Dx12DescriptorSetManager::Init(ID3D12Device* _device, const u8 _frameContextCount, const u8 _currentFrame)
     {
         KE_ZoneScopedFunction("Dx12DescriptorSetManager::Init");
 
@@ -85,10 +85,10 @@ namespace KryneEngine
 
         for (auto i = 0; i < _desc.m_bindings.size(); i++)
         {
-            DescriptorBindingDesc binding = _desc.m_bindings[i];
+            const DescriptorBindingDesc binding = _desc.m_bindings[i];
 
-            RangeType rangeType;
-            DescriptorType descriptorType;
+            RangeType rangeType {};
+            DescriptorType descriptorType {};
             switch (binding.m_type)
             {
             case DescriptorBindingDesc::Type::ConstantBuffer:
@@ -144,12 +144,12 @@ namespace KryneEngine
         return { handle };
     }
 
-    bool Dx12DescriptorSetManager::DestroyDescriptorSetLayout(DescriptorSetLayoutHandle _layout)
+    bool Dx12DescriptorSetManager::DestroyDescriptorSetLayout(const DescriptorSetLayoutHandle _layout)
     {
         return m_descriptorSetLayout.Free(_layout.m_handle);
     }
 
-    DescriptorSetHandle Dx12DescriptorSetManager::CreateDescriptorSet(DescriptorSetLayoutHandle _layout)
+    DescriptorSetHandle Dx12DescriptorSetManager::CreateDescriptorSet(const DescriptorSetLayoutHandle _layout)
     {
         KE_ZoneScopedFunction("Dx12DescriptorSetManager::CreateDescriptorSet");
 
@@ -192,18 +192,18 @@ namespace KryneEngine
         return { handle };
     }
 
-    bool Dx12DescriptorSetManager::DestroyDescriptorSet(DescriptorSetHandle _set)
+    bool Dx12DescriptorSetManager::DestroyDescriptorSet(const DescriptorSetHandle _set)
     {
         return m_descriptorSets.Free(_set.m_handle);
     }
 
     void Dx12DescriptorSetManager::UpdateDescriptorSet(
-        DescriptorSetHandle _descriptorSet,
+        const DescriptorSetHandle _descriptorSet,
         const Dx12Resources& _resources,
         const eastl::span<const DescriptorSetWriteInfo>& _writes,
-        bool _singleFrame,
+        const bool _singleFrame,
         ID3D12Device* _device,
-        u8 _frameIndex)
+        const u8 _frameIndex)
     {
         KE_ZoneScopedFunction("Dx12DescriptorSetManager::UpdateDescriptorSet");
 
@@ -230,11 +230,11 @@ namespace KryneEngine
     }
 
     void Dx12DescriptorSetManager::SetGraphicsDescriptorSets(
-        CommandList _commandList,
+        const CommandListSet* _commandListSet,
         const eastl::span<const DescriptorSetHandle>& _sets,
         const u16* _tableSetOffsets,
         const u32 _offset,
-        const u8 _currentFrame)
+        const u8 _currentFrame) const
     {
         KE_ZoneScopedFunction("Dx12DescriptorSetManager::SetGraphicsDescriptorSets");
 
@@ -243,7 +243,7 @@ namespace KryneEngine
         u32 tableIndex = _tableSetOffsets[_offset];
         for (auto setIndex = 0u; setIndex < _sets.size(); setIndex++)
         {
-            DescriptorSetHandle set = _sets[setIndex];
+            const DescriptorSetHandle set = _sets[setIndex];
             DescriptorSetRanges* pRanges = m_descriptorSets.Get(set.m_handle);
             VERIFY_OR_RETURN_VOID(pRanges != nullptr);
 
@@ -252,32 +252,32 @@ namespace KryneEngine
 
             if (cbvSrvUavTotal > 0)
             {
-                CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
+                const CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
                     Dx12GpuDescriptorHandleForHeapStart(m_cbvSrvUavGpuDescriptorHeaps[_currentFrame]),
                     pRanges->m_offsets[0],
                     m_cbvSrvUavDescriptorSize);
-                _commandList->SetGraphicsRootDescriptorTable(tableIndex, handle);
+                _commandListSet->m_commandList->SetGraphicsRootDescriptorTable(tableIndex, handle);
                 tableIndex++;
             }
 
             if (pRanges->m_sizes[samplerIndex] > 0)
             {
-                CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
+                const CD3DX12_GPU_DESCRIPTOR_HANDLE handle(
                     Dx12GpuDescriptorHandleForHeapStart(m_samplerGpuDescriptorHeaps[_currentFrame]),
                     pRanges->m_offsets[samplerIndex],
                     m_samplerDescriptorSize);
-                _commandList->SetGraphicsRootDescriptorTable(tableIndex, handle);
+                _commandListSet->m_commandList->SetGraphicsRootDescriptorTable(tableIndex, handle);
                 tableIndex++;
             }
         }
     }
 
     void Dx12DescriptorSetManager::SetComputeDescriptorSets(
-        CommandList _commandList,
+        const CommandListSet* _commandListSet,
         const eastl::span<const DescriptorSetHandle>& _sets,
         const u16* _tableSetOffsets,
         const u32 _offset,
-        const u8 _currentFrame)
+        const u8 _currentFrame) const
     {
         KE_ZoneScopedFunction("Dx12DescriptorSetManager::SetComputeDescriptorSets");
 
@@ -299,7 +299,7 @@ namespace KryneEngine
                     Dx12GpuDescriptorHandleForHeapStart(m_cbvSrvUavGpuDescriptorHeaps[_currentFrame]),
                     pRanges->m_offsets[0],
                     m_cbvSrvUavDescriptorSize);
-                _commandList->SetComputeRootDescriptorTable(tableIndex, handle);
+                _commandListSet->m_commandList->SetComputeRootDescriptorTable(tableIndex, handle);
                 tableIndex++;
             }
 
@@ -309,22 +309,24 @@ namespace KryneEngine
                     Dx12GpuDescriptorHandleForHeapStart(m_samplerGpuDescriptorHeaps[_currentFrame]),
                     pRanges->m_offsets[samplerIndex],
                     m_samplerDescriptorSize);
-                _commandList->SetComputeRootDescriptorTable(tableIndex, handle);
+                _commandListSet->m_commandList->SetComputeRootDescriptorTable(tableIndex, handle);
                 tableIndex++;
             }
         }
     }
 
-    void Dx12DescriptorSetManager::OnBeginGraphicsCommandList(CommandList _commandList, u8 _frameIndex)
+    void Dx12DescriptorSetManager::OnBeginGraphicsCommandList(
+        const CommandListSet* _commandListSet,
+        const u8 _frameIndex) const
     {
         ID3D12DescriptorHeap* heaps[2] = {
             m_cbvSrvUavGpuDescriptorHeaps[_frameIndex].Get(),
             m_samplerGpuDescriptorHeaps[_frameIndex].Get(),
         };
-        _commandList->SetDescriptorHeaps(2, heaps);
+        _commandListSet->m_commandList->SetDescriptorHeaps(2, heaps);
     }
 
-    void Dx12DescriptorSetManager::NextFrame(ID3D12Device* _device, const Dx12Resources& _resources, u8 _frameIndex)
+    void Dx12DescriptorSetManager::NextFrame(ID3D12Device* _device, const Dx12Resources& _resources, const u8 _frameIndex)
     {
         KE_ZoneScopedFunction("Dx12DescriptorSetManager::NextFrame");
 
@@ -342,7 +344,7 @@ namespace KryneEngine
     }
 
     const Dx12DescriptorSetManager::LayoutData* Dx12DescriptorSetManager::GetDescriptorSetLayoutData(
-        DescriptorSetLayoutHandle _layout)
+        const DescriptorSetLayoutHandle _layout) const
     {
         return m_descriptorSetLayout.Get(_layout.m_handle);
     }
@@ -350,8 +352,8 @@ namespace KryneEngine
     void Dx12DescriptorSetManager::_ProcessUpdate(
         ID3D12Device* _device,
         const Dx12Resources& _resources,
-        const Dx12DescriptorSetManager::TrackedData& _data,
-        u8 _currentFrame)
+        const TrackedData& _data,
+        const u8 _currentFrame) const
     {
         KE_ZoneScopedFunction("Dx12DescriptorSetManager::_ProcessUpdate");
 
@@ -362,7 +364,7 @@ namespace KryneEngine
         auto* dstHeap = (isSampler ? m_samplerGpuDescriptorHeaps : m_cbvSrvUavGpuDescriptorHeaps)[_currentFrame].Get();
 
         CD3DX12_CPU_DESCRIPTOR_HANDLE srcCpuHandle {};
-        RangeType rangeType;
+        RangeType rangeType {};
         switch (descriptorType)
         {
         case DescriptorType::BufferCbv:
@@ -407,7 +409,7 @@ namespace KryneEngine
 
         const u32 index = relativeIndex + pRanges->m_offsets[static_cast<u32>(rangeType)];
 
-        CD3DX12_CPU_DESCRIPTOR_HANDLE dstCpuHandle(
+        const CD3DX12_CPU_DESCRIPTOR_HANDLE dstCpuHandle(
             Dx12CpuDescriptorHandleForHeapStart(dstHeap),
             index,
             isSampler ? m_samplerDescriptorSize : m_cbvSrvUavDescriptorSize);

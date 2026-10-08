@@ -95,16 +95,14 @@ namespace KryneEngine::Math
         void Normalize() requires std::is_floating_point_v<T>;
         Vector4Base Normalized() const requires std::is_floating_point_v<T>;
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCInconsistentNamingInspection"
         union alignas(kAlignment)
         {
             struct
             {
-                T x = 0;
-                T y = 0;
-                T z = 0;
-                T w = 0;
+                T x;
+                T y;
+                T z;
+                T w;
             };
             struct
             {
@@ -114,7 +112,6 @@ namespace KryneEngine::Math
                 T a;
             };
         };
-#pragma clang diagnostic pop
     };
 
     template<typename T, bool SimdAligned>

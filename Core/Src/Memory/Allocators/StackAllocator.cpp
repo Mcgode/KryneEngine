@@ -43,14 +43,14 @@ namespace KryneEngine
 
     void* StackAllocator::Allocate(const size_t _size, const size_t _alignment)
     {
-        const size_t alignment = eastl::max<size_t>(1ul, _alignment);
+        const size_t alignment = _alignment == 0ull ? sizeof(size_t) : _alignment;
         const size_t initialIndex = m_stackIndex;
         size_t heapIndex = 0;
         size_t heapOffset = m_stackIndex;
         if (m_stackIndex >= m_baseHeapSize)
         {
             heapIndex = BitUtils::GetMostSignificantBit(m_stackIndex / m_baseHeapSize);
-            heapOffset = m_stackIndex - m_baseHeapSize * ((1 << (heapIndex - 1)) - 1);
+            heapOffset = m_stackIndex - m_baseHeapSize * ((1 << heapIndex) - 1);
         }
         size_t heapSize = m_baseHeapSize << heapIndex;
 
@@ -71,11 +71,12 @@ namespace KryneEngine
             }
 
             heapIndex++;
+            heapSize = m_baseHeapSize << heapIndex;
 
             if (m_heaps[heapIndex] == nullptr)
                 m_heaps[heapIndex] = static_cast<std::byte*>(m_parentAllocator.allocate(heapSize, alignof(size_t)));
 
-            m_stackIndex = m_baseHeapSize * ((1 << (heapIndex)) - 1);
+            m_stackIndex = m_baseHeapSize * ((1 << heapIndex) - 1);
             heapStart = reinterpret_cast<size_t>(m_heaps[heapIndex]);
             heapOffset = 0;
             position = heapStart + heapOffset;
