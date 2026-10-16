@@ -1500,7 +1500,7 @@ namespace KryneEngine
             _writes,
             _singleFrame,
             m_device.Get(),
-            m_frameId % m_frameContextCount);
+            m_frameId);
     }
 
     void Dx12GraphicsContext::SetViewport(const RenderCommandEncoderHandle _renderEncoder, const Viewport& _viewport)
@@ -1632,11 +1632,12 @@ namespace KryneEngine
         const u32 _offset)
     {
         m_descriptorSetManager.SetGraphicsDescriptorSets(
+            m_device.Get(),
             static_cast<CommandListSet*>(_renderEncoder.m_handle),
             _sets,
             m_resources.m_pipelineLayouts.Get(_pipelineLayout.m_handle)->m_tableSetOffsets,
             _offset,
-            m_frameId % m_frameContextCount);
+            m_frameId);
     }
 
     void Dx12GraphicsContext::DrawInstanced(const RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc)
@@ -1695,11 +1696,12 @@ namespace KryneEngine
 
         const auto* commandListSet = static_cast<CommandListSet*>(_computeEncoder.m_handle);
         m_descriptorSetManager.SetComputeDescriptorSets(
+            m_device.Get(),
             commandListSet,
             _sets,
             m_resources.m_pipelineLayouts.Get(_layout.m_handle)->m_tableSetOffsets,
             _offset,
-            m_frameId % m_frameContextCount);
+            m_frameId);
     }
 
     void Dx12GraphicsContext::SetComputePushConstant(

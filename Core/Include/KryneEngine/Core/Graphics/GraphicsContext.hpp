@@ -797,13 +797,21 @@ namespace KryneEngine
          *
          * @details
          * The writes are applied to the descriptor set for the current frame context. When `_singleFrame` is `false`,
-         * the update is also replicated to the other frame contexts over the next few `GetFrameContextCount() - 1`
-         * frames. This replication process is triggered during `EndFrame()`.
+         * the update is also replicated to the other frame contexts, no later than `GetFrameContextCount() - 1` frames
+         * after the call. Backends may replicate earlier (some apply the update to all frame contexts immediately),
+         * so do not rely on the other frame contexts still holding the previous contents.
          *
          * Updates are persistent and must be explicitly overwritten to change.
          *
          * This mechanism allows for per-frame-context descriptor set variants that are persistent. This is especially
          * useful when you need to work with frame-context dependent resources.
+         *
+         * All writes to a descriptor set must be done before the set is first bound in a command buffer during the
+         * current frame (see SetGraphicsDescriptorSets() and SetComputeDescriptorSets()). Updating a descriptor set
+         * after it was bound in the current frame is invalid, and its effect on the commands already recorded is
+         * undefined. Updating a set that was last bound in a previous frame is valid, even if that frame is still being
+         * executed by the GPU. This matches the restrictions of the underlying APIs. Where supported, debug builds
+         * assert on violations.
          *
          * As a rule of thumb, descriptor set updates are not free, and should be avoided when possible. Though they
          * are preferable to re-creating descriptor sets.
@@ -811,7 +819,8 @@ namespace KryneEngine
          * @param _descriptorSet The descriptor set to update.
          * @param _writes The list of write operations to apply to the descriptor set's bindings.
          * @param _singleFrame If `true`, the update is applied only to the current frame context. If `false`,
-         * the update is replicated to all other frame contexts progressively via `EndFrame()`.
+         * the update is also applied to the other frame contexts, at the latest over the next
+         * `GetFrameContextCount() - 1` frames.
          */
         virtual void UpdateDescriptorSet(
             DescriptorSetHandle _descriptorSet,
