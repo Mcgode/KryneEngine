@@ -921,8 +921,9 @@ namespace KryneEngine
         {
             auto layout = _desc.m_descriptorSets[setIndex];
 
-            hotData.m_tableSetOffsets[setIndex] = ranges.size();
-            KE_ASSERT(ranges.size() <= UINT16_MAX);
+            // Index of the set's first root parameter, which is what the Set*RootDescriptorTable() calls expect.
+            hotData.m_tableSetOffsets[setIndex] = rootParameters.size();
+            KE_ASSERT(rootParameters.size() <= UINT16_MAX);
 
             const Dx12DescriptorSetManager::LayoutData* layoutData = _setManager.GetDescriptorSetLayoutData(layout);
 
