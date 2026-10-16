@@ -81,6 +81,8 @@ set(MemorySrc
         Include/KryneEngine/Core/Memory/SimplePool.hpp
         Src/Memory/Allocators/TlsfAllocator.cpp
         Include/KryneEngine/Core/Memory/Allocators/TlsfAllocator.hpp
+        Src/Memory/Allocators/ExternalRangeAllocator.cpp
+        Include/KryneEngine/Core/Memory/Allocators/ExternalRangeAllocator.hpp
         Include/KryneEngine/Core/Memory/Heaps/TlsfHeap.hpp
         Src/Memory/Allocators/Allocator.cpp
         Include/KryneEngine/Core/Memory/Allocators/Allocator.hpp
