@@ -96,9 +96,15 @@ namespace KryneEngine
     template <class DxObject, class... Args>
     void Dx12SetName(DxObject* _object, const wchar_t* _format, Args... _args)
     {
-        eastl::wstring name;
-        name.sprintf(_format, _args...);
-        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectNameW, name.size() * sizeof(wchar_t), name.c_str()));
+        if (_object == nullptr)
+            return;
+        wchar_t name[512];
+        const int written = _snwprintf_s(name, _countof(name), _format, _args...);
+        if (written < 0)
+            return;
+        // snprintf returns the untruncated length, but only _countof(name) - 1 characters were stored.
+        const size_t size = static_cast<size_t>(written) < _countof(name) ? static_cast<size_t>(written) : sizeof(name) - 1;
+        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(size * sizeof(wchar_t)), name));
     }
 
     template <class DxObject, class... Args>
