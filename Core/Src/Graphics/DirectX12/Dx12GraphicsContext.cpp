@@ -857,6 +857,8 @@ namespace KryneEngine
 
         auto* commandListSet = static_cast<CommandListSet*>(_renderCommandEncoder.m_handle);
 
+        commandListSet->m_currentRootSignature = nullptr;
+
         const auto* desc = m_resources.m_renderPasses.Get(commandListSet->m_currentRenderPass.m_handle);
         VERIFY_OR_RETURN_VOID(desc != nullptr);
 
@@ -986,6 +988,13 @@ namespace KryneEngine
             PlaceMemoryBarriers({ _commandList }, _barriers);
         }
         return { _commandList };
+    }
+
+    void Dx12GraphicsContext::EndComputePass(const ComputeCommandEncoderHandle _computeEncoder)
+    {
+        auto* commandListSet = static_cast<CommandListSet*>(_computeEncoder.m_handle);
+
+        commandListSet->m_currentRootSignature = nullptr;
     }
 
     TransferCommandEncoderHandle Dx12GraphicsContext::BeginTransferPass(
@@ -1590,7 +1599,7 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetGraphicsPipeline");
 
-        const auto* commandListSet = static_cast<CommandListSet*>(_renderEncoder.m_handle);
+        auto* commandListSet = static_cast<CommandListSet*>(_renderEncoder.m_handle);
 
         VERIFY_OR_RETURN_VOID(_graphicsPipeline != GenPool::kInvalidHandle);
         ID3D12PipelineState** pPso = m_resources.m_pipelineStateObjects.Get(_graphicsPipeline.m_handle);
@@ -1598,7 +1607,11 @@ namespace KryneEngine
         Dx12Resources::PsoColdData* coldData = m_resources.m_pipelineStateObjects.GetCold(_graphicsPipeline.m_handle);
         VERIFY_OR_RETURN_VOID(coldData != nullptr);
 
-        commandListSet->m_commandList->SetGraphicsRootSignature(coldData->m_signature);
+        if (commandListSet->m_currentRootSignature != coldData->m_signature)
+        {
+            commandListSet->m_commandList->SetGraphicsRootSignature(coldData->m_signature);
+            commandListSet->m_currentRootSignature = coldData->m_signature;
+        }
         commandListSet->m_commandList->IASetPrimitiveTopology(Dx12Converters::ToDx12Topology(coldData->m_topology));
         commandListSet->m_commandList->SetPipelineState(*pPso);
     }
@@ -1631,11 +1644,22 @@ namespace KryneEngine
         const eastl::span<const DescriptorSetHandle>& _sets,
         const u32 _offset)
     {
+        const auto* pipelineLayout = m_resources.m_pipelineLayouts.Get(_pipelineLayout.m_handle);
+        VERIFY_OR_RETURN_VOID(pipelineLayout != nullptr);
+
+        auto* commandListSet = static_cast<CommandListSet*>(_renderEncoder.m_handle);
+
+        if (commandListSet->m_currentRootSignature != pipelineLayout->m_signature)
+        {
+            commandListSet->m_currentRootSignature = pipelineLayout->m_signature;
+            commandListSet->m_commandList->SetGraphicsRootSignature(pipelineLayout->m_signature);
+        }
+
         m_descriptorSetManager.SetGraphicsDescriptorSets(
             m_device.Get(),
-            static_cast<CommandListSet*>(_renderEncoder.m_handle),
+            commandListSet,
             _sets,
-            m_resources.m_pipelineLayouts.Get(_pipelineLayout.m_handle)->m_tableSetOffsets,
+            pipelineLayout->m_tableSetOffsets,
             _offset,
             m_frameId);
     }
@@ -1675,14 +1699,18 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetComputePipeline");
 
-        const auto* commandListSet = static_cast<CommandListSet*>(_computeEncoder.m_handle);
+        auto* commandListSet = static_cast<CommandListSet*>(_computeEncoder.m_handle);
 
         KE_ASSERT(_pipeline != GenPool::kInvalidHandle);
         ID3D12PipelineState** pPso = m_resources.m_pipelineStateObjects.Get(_pipeline.m_handle);
         VERIFY_OR_RETURN_VOID(pPso != nullptr);
         const Dx12Resources::PsoColdData* coldData = m_resources.m_pipelineStateObjects.GetCold(_pipeline.m_handle);
 
-        commandListSet->m_commandList->SetComputeRootSignature(coldData->m_signature);
+        if (commandListSet->m_currentRootSignature != coldData->m_signature)
+        {
+            commandListSet->m_commandList->SetComputeRootSignature(coldData->m_signature);
+            commandListSet->m_currentRootSignature = coldData->m_signature;
+        }
         commandListSet->m_commandList->SetPipelineState(*pPso);
     }
 
@@ -1694,12 +1722,22 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::SetComputeDescriptorSetsWithOffset");
 
-        const auto* commandListSet = static_cast<CommandListSet*>(_computeEncoder.m_handle);
+        const auto* pipelineLayout = m_resources.m_pipelineLayouts.Get(_layout.m_handle);
+        VERIFY_OR_RETURN_VOID(pipelineLayout != nullptr);
+
+        auto* commandListSet = static_cast<CommandListSet*>(_computeEncoder.m_handle);
+
+        if (commandListSet->m_currentRootSignature != pipelineLayout->m_signature)
+        {
+            commandListSet->m_currentRootSignature = pipelineLayout->m_signature;
+            commandListSet->m_commandList->SetComputeRootSignature(pipelineLayout->m_signature);
+        }
+
         m_descriptorSetManager.SetComputeDescriptorSets(
             m_device.Get(),
             commandListSet,
             _sets,
-            m_resources.m_pipelineLayouts.Get(_layout.m_handle)->m_tableSetOffsets,
+            pipelineLayout->m_tableSetOffsets,
             _offset,
             m_frameId);
     }

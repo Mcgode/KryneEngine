@@ -128,7 +128,7 @@ namespace KryneEngine
             CommandListHandle _commandList,
             const MemoryBarriers& _barriers,
             eastl::string_view _debugName) override;
-        void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) override {}
+        void EndComputePass(ComputeCommandEncoderHandle _computeEncoder) override;
 
         TransferCommandEncoderHandle BeginTransferPass(
             CommandListHandle _commandList,
