@@ -364,15 +364,15 @@ namespace KryneEngine
 
             if (_samplerDesc.m_minFilter == SamplerDesc::Filter::Linear)
             {
-                filter &= D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT; // Min linear flag
+                filter |= D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT; // Min linear flag
             }
             if (_samplerDesc.m_magFilter == SamplerDesc::Filter::Linear)
             {
-                filter &= D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT; // Mag linear flag
+                filter |= D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT; // Mag linear flag
             }
             if (_samplerDesc.m_mipFilter == SamplerDesc::Filter::Linear)
             {
-                filter &= D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR; // Mip linear flag
+                filter |= D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR; // Mip linear flag
             }
 
             if (_samplerDesc.m_opType != SamplerDesc::OpType::Blend)
