@@ -68,6 +68,10 @@ namespace KryneEngine::Modules::GuiLib
     {
         KE_ASSERT_MSG(Clay_GetCurrentContext() == nullptr, "Clay context is already set, either it was not reset properly, or there is a race condition.");
         Clay_SetCurrentContext(m_clayContext);
+
+        // Regions registered during the previous layout were consumed by the renderer in EndLayout
+        m_registeredRegions.Clear();
+
         Clay_SetLayoutDimensions({
             .width = static_cast<float>(_viewportSize.x),
             .height = static_cast<float>(_viewportSize.y),
