@@ -30,7 +30,7 @@ namespace KryneEngine
             if (m_freeIndices.empty())
             {
                 T value = m_totalAllocated++;
-                return value < m_max ? value : Invalid;;
+                return value < m_max ? value : Invalid;
             }
             T value = m_freeIndices.back();
             m_freeIndices.pop_back();
@@ -46,7 +46,7 @@ namespace KryneEngine
     private:
         eastl::vector<T> m_freeIndices;
         T m_totalAllocated = 0;
-        T m_max;
+        T m_max = 0;
     };
 
     using IndexAllocator = IndexAllocatorT<>;
