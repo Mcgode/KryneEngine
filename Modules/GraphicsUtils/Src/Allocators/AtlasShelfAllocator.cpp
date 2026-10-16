@@ -33,7 +33,7 @@ namespace KryneEngine::Modules::GraphicsUtils
         KE_ASSERT(m_minHeight >> m_slWidth >= kBlockAlignment);
     }
 
-    u32 AtlasShelfAllocator::Allocate(uint2 _slotSize)
+    u32 AtlasShelfAllocator::Allocate(const uint2 _slotSize)
     {
         constexpr u32 invalidIndex = VectorDeLinkedList<ShelfEntry>::kListLimitId;
 
@@ -101,7 +101,7 @@ namespace KryneEngine::Modules::GraphicsUtils
         return invalidIndex;
     }
 
-    void AtlasShelfAllocator::Free(u32 _slot)
+    void AtlasShelfAllocator::Free(const u32 _slot)
     {
         const SlotEntry slot = m_slots[_slot];
 
@@ -195,7 +195,7 @@ namespace KryneEngine::Modules::GraphicsUtils
         }
     }
 
-    Rect AtlasShelfAllocator::GetSlotRect(u32 _slot) const
+    Rect AtlasShelfAllocator::GetSlotRect(const u32 _slot) const
     {
         const SlotEntry slot = m_slots[_slot];
         const ShelfEntry& shelf = m_shelves[slot.m_shelf];
@@ -263,7 +263,7 @@ namespace KryneEngine::Modules::GraphicsUtils
         }
     }
 
-    u32 AtlasShelfAllocator::FindSlot(u32 _width, u32 _shelfIndex, bool _allocateShelfIfNeeded)
+    u32 AtlasShelfAllocator::FindSlot(const u32 _width, const u32 _shelfIndex, const bool _allocateShelfIfNeeded)
     {
         u32 shelfIndex = _shelfIndex;
         for (
@@ -273,10 +273,12 @@ namespace KryneEngine::Modules::GraphicsUtils
         {
             u32 freeSlotIndex = shelf->m_firstFree;
             for (
-                FreeSlotEntry* freeSlot = &m_freeSlots[freeSlotIndex];
+                FreeSlotEntry* freeSlot = nullptr;
                 freeSlotIndex != VectorDeLinkedList<FreeSlotEntry>::kListLimitId;
-                freeSlotIndex = freeSlot->m_next, freeSlot = &m_freeSlots[freeSlotIndex])
+                freeSlotIndex = freeSlot->m_next)
             {
+                freeSlot = &m_freeSlots[freeSlotIndex];
+
                 if (freeSlot->m_width >= _width)
                 {
                     const u32 slot = AllocateSlot();
@@ -319,7 +321,7 @@ namespace KryneEngine::Modules::GraphicsUtils
         return kInvalidSlot;
     }
 
-    u32 AtlasShelfAllocator::TryAllocateShelf(u32 _height)
+    u32 AtlasShelfAllocator::TryAllocateShelf(const u32 _height)
     {
         for (FreeShelfEntry* it = m_freeShelves.begin(); it != m_freeShelves.end(); ++it)
         {
