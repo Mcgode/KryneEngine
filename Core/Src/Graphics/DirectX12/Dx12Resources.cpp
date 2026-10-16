@@ -39,7 +39,9 @@ namespace KryneEngine
         , m_shaderBytecodes(_allocator)
         , m_pipelineStateObjects(_allocator)
         , m_swapChains(_allocator)
-    {}
+    {
+        m_cbvSrvUavAllocator.Initialize(_allocator, kCbvSrvUavHeapSize);
+    }
 
     Dx12Resources::~Dx12Resources() = default;
 
