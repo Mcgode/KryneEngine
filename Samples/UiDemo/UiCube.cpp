@@ -249,6 +249,37 @@ void UiCube::Render(
     {
         if (m_transferFrameId == ~0u)
         {
+            {
+                const BufferMemoryBarrier barriers[] =
+                {
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::All,
+                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                        .m_accessSrc = BarrierAccessFlags::None,
+                        .m_accessDst = BarrierAccessFlags::TransferSrc,
+                        .m_buffer = m_transferBuffer,
+                    },
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::All,
+                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                        .m_accessSrc = BarrierAccessFlags::None,
+                        .m_accessDst = BarrierAccessFlags::TransferDst,
+                        .m_buffer = m_vertexBuffer,
+                    },
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::All,
+                        .m_stagesDst = BarrierSyncStageFlags::Transfer,
+                        .m_accessSrc = BarrierAccessFlags::None,
+                        .m_accessDst = BarrierAccessFlags::TransferDst,
+                        .m_buffer = m_indexBuffer,
+                    },
+                };
+                _graphicsContext.PlaceMemoryBarriers(_transferEncoder, {
+                    .m_placementType = BarrierPlacementType::Consumer,
+                    .m_bufferBarriers = barriers,
+                });
+            }
+
             _graphicsContext.CopyBuffer(
                 _transferEncoder,
                 {
@@ -268,6 +299,30 @@ void UiCube::Render(
                     .m_offsetSrc = sizeof(positions),
                     .m_offsetDst = 0,
                 });
+
+            {
+                const BufferMemoryBarrier barriers[] =
+                {
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                        .m_stagesDst = BarrierSyncStageFlags::VertexInputAssembly,
+                        .m_accessSrc = BarrierAccessFlags::TransferDst,
+                        .m_accessDst = BarrierAccessFlags::VertexBuffer,
+                        .m_buffer = m_vertexBuffer,
+                    },
+                    {
+                        .m_stagesSrc = BarrierSyncStageFlags::Transfer,
+                        .m_stagesDst = BarrierSyncStageFlags::IndexInputAssembly,
+                        .m_accessSrc = BarrierAccessFlags::TransferDst,
+                        .m_accessDst = BarrierAccessFlags::IndexBuffer,
+                        .m_buffer = m_indexBuffer,
+                    },
+                };
+                _graphicsContext.PlaceMemoryBarriers(_transferEncoder, {
+                    .m_placementType = BarrierPlacementType::Producer,
+                    .m_bufferBarriers = barriers,
+                });
+            }
 
             m_transferFrameId = _graphicsContext.GetFrameId();
         }
