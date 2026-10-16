@@ -872,7 +872,7 @@ namespace KryneEngine
 
             const CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(
                 Dx12CpuDescriptorHandleForHeapStart(m_cbvSrvUavDescriptorStorageHeap),
-                cold->m_srvIndex,
+                cold->m_uavIndex,
                 m_cbvSrvUavDescriptorSize);
             _device->CreateUnorderedAccessView(texture, nullptr, &uavDesc, cpuDescriptorHandle);
 
