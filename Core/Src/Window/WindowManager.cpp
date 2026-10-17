@@ -108,6 +108,15 @@ namespace KryneEngine
         glfwSetWindowContentScaleCallback(glfwWindow, ContentScaleCallback);
         glfwSetFramebufferSizeCallback(glfwWindow, FramebufferSizeCallback);
 
+        // GLFW focuses a visible window from within glfwCreateWindow, before the focus callback
+        // above is registered, so that initial focus event is never delivered. Seed it manually,
+        // otherwise InputManager never learns which window is focused and the default-window
+        // input queries (cursor, scroll, mouse buttons) stay empty.
+        if (window->IsFocused())
+        {
+            m_inputManager->OnWindowFocusEvent(window, true);
+        }
+
         m_windows.push_back(window);
         return window;
     }

@@ -36,11 +36,15 @@ namespace KryneEngine::Samples
         const TextureViewHandle _aoTermA,
         const TextureViewHandle _aoTermB,
         const TextureViewHandle _aoEdges,
-        const TextureHandle _aoTextures)
+        const TextureHandle _aoTermATexture,
+        const TextureHandle _aoTermBTexture,
+        const TextureHandle _aoEdgesTexture)
     {
         m_aoTermA = _aoTermA;
         m_aoTermB = _aoTermB;
-        m_aoTextures = _aoTextures;
+        m_aoTermATexture = _aoTermATexture;
+        m_aoTermBTexture = _aoTermBTexture;
+        m_aoEdgesTexture = _aoEdgesTexture;
 
         const u8 frameContextCount = _graphicsContext->GetFrameContextCount();
         m_constantsBuffer.Init(
@@ -389,9 +393,7 @@ namespace KryneEngine::Samples
                     .m_stagesDst = BarrierSyncStageFlags::ComputeShading,
                     .m_accessSrc = BarrierAccessFlags::UnorderedAccess,
                     .m_accessDst = BarrierAccessFlags::ShaderResource,
-                    .m_texture = m_aoTextures,
-                    .m_arrayStart = kAoTermASlice,
-                    .m_arrayCount = 1,
+                    .m_texture = m_aoTermATexture,
                     .m_layoutSrc = TextureLayout::UnorderedAccess,
                     .m_layoutDst = TextureLayout::ShaderResource,
                 },
@@ -400,9 +402,7 @@ namespace KryneEngine::Samples
                     .m_stagesDst = BarrierSyncStageFlags::ComputeShading,
                     .m_accessSrc = BarrierAccessFlags::UnorderedAccess,
                     .m_accessDst = BarrierAccessFlags::ShaderResource,
-                    .m_texture = m_aoTextures,
-                    .m_arrayStart = kAoEdgesSlice,
-                    .m_arrayCount = 1,
+                    .m_texture = m_aoEdgesTexture,
                     .m_layoutSrc = TextureLayout::UnorderedAccess,
                     .m_layoutDst = TextureLayout::ShaderResource,
                 },
@@ -424,9 +424,7 @@ namespace KryneEngine::Samples
                     .m_stagesDst = BarrierSyncStageFlags::ComputeShading,
                     .m_accessSrc = BarrierAccessFlags::UnorderedAccess,
                     .m_accessDst = BarrierAccessFlags::ShaderResource,
-                    .m_texture = m_aoTextures,
-                    .m_arrayStart = kAoTermBSlice,
-                    .m_arrayCount = 1,
+                    .m_texture = m_aoTermBTexture,
                     .m_layoutSrc = TextureLayout::UnorderedAccess,
                     .m_layoutDst = TextureLayout::ShaderResource,
                 },
@@ -435,9 +433,7 @@ namespace KryneEngine::Samples
                     .m_stagesDst = BarrierSyncStageFlags::ComputeShading,
                     .m_accessSrc = BarrierAccessFlags::ShaderResource,
                     .m_accessDst = BarrierAccessFlags::UnorderedAccess,
-                    .m_texture = m_aoTextures,
-                    .m_arrayStart = kAoTermASlice,
-                    .m_arrayCount = 1,
+                    .m_texture = m_aoTermATexture,
                     .m_layoutSrc = TextureLayout::ShaderResource,
                     .m_layoutDst = TextureLayout::UnorderedAccess,
                 },

@@ -293,7 +293,7 @@ namespace KryneEngine
     {
         u8 m_sizeInBytes = 0;
         u8 m_offset = 0;
-        u8 m_index = 0;
+        u8 m_index = 0xff;
         ShaderVisibility m_visibility = ShaderVisibility::All;
     };
 

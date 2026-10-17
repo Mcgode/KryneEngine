@@ -74,7 +74,9 @@ namespace KryneEngine::Samples::PhysicsDemo
             TextureViewHandle _aoTermAView,
             TextureViewHandle _aoTermBView,
             TextureViewHandle _aoEdgesView,
-            TextureHandle _aoTextures);
+            TextureHandle _aoTermATexture,
+            TextureHandle _aoTermBTexture,
+            TextureHandle _aoEdgesTexture);
 
         void UpdateFullscreenConstantsBuffer(
             GraphicsContext* _graphicsContext,

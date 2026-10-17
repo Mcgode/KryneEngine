@@ -96,17 +96,29 @@ namespace KryneEngine
     template <class DxObject, class... Args>
     void Dx12SetName(DxObject* _object, const wchar_t* _format, Args... _args)
     {
-        eastl::wstring name;
-        name.sprintf(_format, _args...);
-        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectNameW, name.size() * sizeof(wchar_t), name.c_str()));
+        if (_object == nullptr)
+            return;
+        wchar_t name[512];
+        const int written = _snwprintf_s(name, _countof(name), _format, _args...);
+        if (written < 0)
+            return;
+        // snprintf returns the untruncated length, but only _countof(name) - 1 characters were stored.
+        const size_t size = static_cast<size_t>(written) < _countof(name) ? static_cast<size_t>(written) : sizeof(name) - 1;
+        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(size * sizeof(wchar_t)), name));
     }
 
     template <class DxObject, class... Args>
     void Dx12SetName(DxObject* _object, const char* _format, Args... _args)
     {
-        eastl::string name;
-        name.sprintf(_format, _args...);
-        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectName, name.size() * sizeof(char), name.c_str()));
+        if (_object == nullptr)
+            return;
+        char name[512];
+        const int written = snprintf(name, sizeof(name), _format, _args...);
+        if (written < 0)
+            return;
+        // snprintf returns the untruncated length, but only sizeof(name) - 1 characters were stored.
+        const size_t size = static_cast<size_t>(written) < sizeof(name) ? static_cast<size_t>(written) : sizeof(name) - 1;
+        Dx12Assert(_object->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(size * sizeof(char)), name));
     }
 
     namespace Dx12Converters
@@ -180,6 +192,23 @@ namespace KryneEngine
 #undef MAP
 
             return format;
+        }
+
+        constexpr inline DXGI_FORMAT ToDx12TypelessDepthFormat(DXGI_FORMAT _format)
+        {
+            switch (_format)
+            {
+            case DXGI_FORMAT_D16_UNORM:
+                return DXGI_FORMAT_R16_TYPELESS;
+            case DXGI_FORMAT_D32_FLOAT:
+                return DXGI_FORMAT_R32_TYPELESS;
+            case DXGI_FORMAT_D24_UNORM_S8_UINT:
+                return DXGI_FORMAT_R24G8_TYPELESS;
+            case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+                return DXGI_FORMAT_R32G8X24_TYPELESS;
+            default:
+                return _format;
+            }
         }
 
         constexpr inline DXGI_FORMAT ToDx12SrvFormat(TextureFormat _format)

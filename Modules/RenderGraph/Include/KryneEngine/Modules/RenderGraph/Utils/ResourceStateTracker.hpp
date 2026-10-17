@@ -39,7 +39,7 @@ namespace KryneEngine::Modules::RenderGraph
         struct ResourceState
         {
             BarrierSyncStageFlags m_syncStage = BarrierSyncStageFlags::All;
-            BarrierAccessFlags m_accessFlags = BarrierAccessFlags::All;
+            BarrierAccessFlags m_accessFlags = BarrierAccessFlags::None;
             TextureLayout m_layout = TextureLayout::Unknown;
         };
 

@@ -548,6 +548,7 @@ namespace KryneEngine::Simd
                 }
             }
         }
+        return result;
 #endif
     }
 

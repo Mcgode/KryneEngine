@@ -37,7 +37,7 @@ namespace KryneEngine::Modules::GuiLib
         /// - Texture3D is not supported
         TextureTypes m_textureType = TextureTypes::Single2D;
 
-        u8 m_mipLevel = ~0;
+        u8 m_mipLevel = 0xff;
         u16 m_arrayLayer = 0;
 
         /// The texture region offset in normalized UV coordinates

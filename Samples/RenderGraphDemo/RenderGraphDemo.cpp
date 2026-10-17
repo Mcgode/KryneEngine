@@ -95,7 +95,9 @@ int main()
         deferredGi,
         deferredGiView,
         skyAmbientBuffer,
-        aoTextures,
+        aoTermA,
+        aoTermB,
+        aoEdges,
         aoTermAView,
         aoTermBView,
         aoEdgesView,
@@ -248,51 +250,41 @@ int main()
             },
             "Deferred GI SRV");
 
-        aoTextures = renderGraph.GetRegistry().CreateRawTexture(
-            graphicsContext,
+        {
+            const auto createAoTexture = [&]([[maybe_unused]] const char* _name)
             {
-                .m_desc = {
-                    .m_dimensions = dimensions,
-                    .m_format = TextureFormat::R8_UNorm,
-                    .m_arraySize = 3,
-                    .m_type = TextureTypes::Array2D,
+                return renderGraph.GetRegistry().CreateRawTexture(
+                    graphicsContext,
+                    {
+                        .m_desc = {
+                            .m_dimensions = dimensions,
+                            .m_format = TextureFormat::R8_UNorm,
 #if !defined(KE_FINAL)
-                    .m_debugName = "AO textures",
+                            .m_debugName = _name,
 #endif
-                },
-                .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::ReadWriteImage,
-            });
-        aoTermAView = renderGraph.GetRegistry().CreateTextureView(
-            graphicsContext,
-            aoTextures,
+                        },
+                        .m_memoryUsage = MemoryUsage::GpuOnly_UsageType | MemoryUsage::SampledImage | MemoryUsage::ReadWriteImage,
+                    });
+            };
+            const auto createAoView = [&](const SimplePoolHandle _texture, const char* _name)
             {
-                .m_arrayStart = 0,
-                .m_arrayRange = 1,
-                .m_format = TextureFormat::R8_UNorm,
-                .m_accessType = TextureViewAccessType::ReadWrite,
-            },
-            "AO term A view");
+                return renderGraph.GetRegistry().CreateTextureView(
+                    graphicsContext,
+                    _texture,
+                    {
+                        .m_format = TextureFormat::R8_UNorm,
+                        .m_accessType = TextureViewAccessType::ReadWrite,
+                    },
+                    _name);
+            };
 
-        aoTermBView = renderGraph.GetRegistry().CreateTextureView(
-            graphicsContext,
-            aoTextures,
-            {
-                .m_arrayStart = 1,
-                .m_arrayRange = 1,
-                .m_format = TextureFormat::R8_UNorm,
-                .m_accessType = TextureViewAccessType::ReadWrite,
-            },
-            "AO term B view");
-        aoEdgesView = renderGraph.GetRegistry().CreateTextureView(
-            graphicsContext,
-            aoTextures,
-            {
-                .m_arrayStart = 2,
-                .m_arrayRange = 1,
-                .m_format = TextureFormat::R8_UNorm,
-                .m_accessType = TextureViewAccessType::ReadWrite,
-            },
-            "AO edges view");
+            aoTermA = createAoTexture("AO term A");
+            aoTermB = createAoTexture("AO term B");
+            aoEdges = createAoTexture("AO edges");
+            aoTermAView = createAoView(aoTermA, "AO term A view");
+            aoTermBView = createAoView(aoTermB, "AO term B view");
+            aoEdgesView = createAoView(aoEdges, "AO edges view");
+        }
 
         hdr = renderGraph.GetRegistry().CreateRawTexture(
             graphicsContext,
@@ -346,7 +338,9 @@ int main()
         renderGraph.GetRegistry().GetResource(aoTermAView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(aoTermBView).m_textureViewData.m_textureView,
         renderGraph.GetRegistry().GetResource(aoEdgesView).m_textureViewData.m_textureView,
-        renderGraph.GetRegistry().GetResource(aoTextures).m_rawTextureData.m_texture);
+        renderGraph.GetRegistry().GetResource(aoTermA).m_rawTextureData.m_texture,
+        renderGraph.GetRegistry().GetResource(aoTermB).m_rawTextureData.m_texture,
+        renderGraph.GetRegistry().GetResource(aoEdges).m_rawTextureData.m_texture);
 
     deferredShadingPass.Initialize(
         graphicsContext,

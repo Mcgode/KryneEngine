@@ -4,6 +4,8 @@ set(MSDFGEN_DISABLE_SVG ON)
 set(MSDFGEN_BUILD_STANDALONE OFF)
 set(MSDFGEN_USE_VCPKG OFF)
 set(MSDFGEN_USE_SKIA OFF)
+# Match the dynamic CRT (/MD) used by the rest of the engine, otherwise MSVC fails with LNK2038
+set(MSDFGEN_DYNAMIC_RUNTIME ON CACHE BOOL "" FORCE)
 add_subdirectory(Extern/msdfgen_1.13)
 
 add_library(KryneEngine_Modules_TextRendering STATIC

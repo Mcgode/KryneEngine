@@ -13,18 +13,19 @@
 #include <KryneEngine/Core/Math/Color.hpp>
 #include <KryneEngine/Core/Math/Float16.hpp>
 #include <KryneEngine/Core/Math/Matrix.hpp>
+#include <KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp>
+#include <KryneEngine/Core/Memory/Containers/FlatHashMap.inl>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
+#include <KryneEngine/Modules/TextRendering/Font.hpp>
+#include <KryneEngine/Modules/TextRendering/FontManager.hpp>
 #include <KryneEngine/Modules/TextRendering/MsdfAtlasManager.hpp>
 
-#include <EASTL/hash_map.h>
-#include <EASTL/vector_set.h>
 #include <clay.h>
 #include <cmath>
 #include <fstream>
+#include <EASTL/vector_set.h>
 
 #include "KryneEngine/Modules/GuiLib/TextureRegion.hpp"
-#include "KryneEngine/Modules/TextRendering/Font.hpp"
-#include "KryneEngine/Modules/TextRendering/FontManager.hpp"
 
 namespace KryneEngine
 {
@@ -41,7 +42,7 @@ namespace KryneEngine
         u16 m_descriptorSetIndex;
     };
 
-    using TextureDataMap = eastl::hash_map<u32, SlotData>;
+    using TextureDataMap = FlatHashMap<u32, SlotData>;
     using SamplerArray = eastl::fixed_vector<SamplerHandle, Modules::GuiLib::BasicGuiRenderer::kMaxSamplerSlots, false>;
     using SamplerDataMap = eastl::vector<SamplerArray>;
 
@@ -57,7 +58,7 @@ namespace KryneEngine
     {
         KE_ZoneScopedFunction("Handle texture sets");
 
-        TextureDataMap textureData(_allocator);
+        TextureDataMap textureData(_allocator, 64);
         SamplerDataMap samplerData(_allocator);
 
         eastl::vector<eastl::array<DescriptorSetWriteInfo::DescriptorData, Modules::GuiLib::BasicGuiRenderer::kMaxTextureSlots>> textureSetWrites(_allocator);
@@ -80,7 +81,7 @@ namespace KryneEngine
                 : _defaultSampler;
 
             const TextureViewHandle textureView = textureRegion->m_textureView;
-            const auto it = textureData.find(static_cast<u32>(textureView.m_handle));
+            const auto it = textureData.Find(static_cast<u32>(textureView.m_handle));
 
             // Texture is already in a set, add sampler to it if not already done
             if (it != textureData.end())
@@ -113,10 +114,10 @@ namespace KryneEngine
                 descriptorSetIndex %= Modules::GuiLib::BasicGuiRenderer::kMaxTextureSlots;
             }
 
-            textureData.emplace(static_cast<u32>(textureView.m_handle), SlotData {
+            textureData.Emplace({ static_cast<u32>(textureView.m_handle), SlotData {
                 .m_index = descriptorSetIndex,
                 .m_descriptorSetIndex = static_cast<u16>(samplerData.size() - 1u),
-            });
+            }});
             textureSetWrites.back()[descriptorSetIndex] = {
                 .m_textureLayout = TextureLayout::ShaderResource,
                 .m_handle = textureView.m_handle,
@@ -503,6 +504,8 @@ namespace KryneEngine::Modules::GuiLib
 
         const u8 frameIndex = _graphicsContext.GetCurrentFrameContextIndex();
 
+        const auto scopedAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
         {
             KE_ASSERT(m_commonConstantBuffer.GetSize(frameIndex) == sizeof(ViewportConstants));
 
@@ -551,21 +554,15 @@ namespace KryneEngine::Modules::GuiLib
             _graphicsContext.UpdateDescriptorSet(m_textDescriptorSet, writes, false);
         }
 
-        TextureDataMap textureDataMap;
-        SamplerDataMap samplerDataMap;
-        {
-            const auto pair = HandleTextureSets(
-                m_texturesDescriptorSets.get_allocator(),
-                _graphicsContext,
-                renderCommandArray,
-                m_texturesDescriptorSets,
-                m_texturesDescriptorSetLayout,
-                m_defaultSampler,
-                m_texturesDescriptorSetIndices.data(),
-                m_supportsPartiallyBoundDescriptors);
-            textureDataMap = eastl::move(pair.first);
-            samplerDataMap = eastl::move(pair.second);
-        }
+        const auto [textureDataMap, samplerDataMap] = HandleTextureSets(
+            scopedAllocator.GetAllocator(),
+            _graphicsContext,
+            renderCommandArray,
+            m_texturesDescriptorSets,
+            m_texturesDescriptorSetLayout,
+            m_defaultSampler,
+            m_texturesDescriptorSetIndices.data(),
+            m_supportsPartiallyBoundDescriptors);
 
         size_t sizeEstimation = 0;
         for (u32 i = 0; i < renderCommandArray.length; i++)
@@ -829,7 +826,7 @@ namespace KryneEngine::Modules::GuiLib
 
                     // Pack texture and sampler indices
                     {
-                        const auto it = textureDataMap.find(static_cast<u32>(textureRegion->m_textureView.m_handle));
+                        const auto it = textureDataMap.Find(static_cast<u32>(textureRegion->m_textureView.m_handle));
                         if (!KE_VERIFY(it != textureDataMap.end())) break;
                         if (texturesDescriptorSetIndex != it->second.m_descriptorSetIndex)
                         {

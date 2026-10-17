@@ -155,7 +155,9 @@ namespace KryneEngine
         }
         else
         {
-            static_assert(!std::is_same_v<Simd::u8x16, eastl::array<u8, 16>>, "Unsupported arch");
+            static_assert(
+                !(FlatHashMapInternals::kUseSimdScan && std::is_same_v<Simd::u8x16, eastl::array<u8, 16>>),
+                "Unsupported arch");
 
             size_t i = 0;
 
@@ -320,9 +322,9 @@ namespace KryneEngine
 
         if constexpr (FlatHashMapInternals::kUseSimdScan)
         {
-#if !defined(__ARM_NEON) && !defined(__SSE2__)
-#   error Unsupported arch
-#endif
+            static_assert(
+                !(FlatHashMapInternals::kUseSimdScan && std::is_same_v<Simd::u8x16, eastl::array<u8, 16>>),
+                "Unsupported arch");
 
             size_t i = 0;
             const Simd::u8x16 testBatch = Simd::From(kAvailableSlotFlag);

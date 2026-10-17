@@ -139,7 +139,14 @@ namespace KryneEngine::Math
         }
         else
         {
-            static_assert( false, "Invalid EulerOrder");
+            static_assert(
+                Order != EulerOrder::XYZ &&
+                Order != EulerOrder::XZY &&
+                Order != EulerOrder::YXZ &&
+                Order != EulerOrder::YZX &&
+                Order != EulerOrder::ZXY &&
+                Order != EulerOrder::ZYX,
+                "Invalid EulerOrder");
         }
 
         return result;
@@ -252,7 +259,14 @@ namespace KryneEngine::Math
         }
         else
         {
-            static_assert( false, "Invalid EulerOrder");
+            static_assert(
+                Order != EulerOrder::XYZ &&
+                Order != EulerOrder::XZY &&
+                Order != EulerOrder::YXZ &&
+                Order != EulerOrder::YZX &&
+                Order != EulerOrder::ZXY &&
+                Order != EulerOrder::ZYX,
+                "Invalid EulerOrder");
         }
         return result;
     }
@@ -404,7 +418,14 @@ namespace KryneEngine::Math
         }
         else
         {
-            static_assert( false, "Invalid EulerOrder");
+            static_assert(
+                Order != EulerOrder::XYZ &&
+                Order != EulerOrder::XZY &&
+                Order != EulerOrder::YXZ &&
+                Order != EulerOrder::YZX &&
+                Order != EulerOrder::ZXY &&
+                Order != EulerOrder::ZYX,
+                "Invalid EulerOrder");
         }
         return result;
     }

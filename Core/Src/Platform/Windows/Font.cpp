@@ -6,7 +6,7 @@
 
 #include "KryneEngine/Core/Platform/Platform.hpp"
 
-#include <dwrite.h>
+#include <dwrite_2.h>
 #include <wrl.h>
 #include <string>
 #include <d2d1.h>
@@ -27,38 +27,136 @@ namespace KryneEngine::Platform
         using Microsoft::WRL::ComPtr;
 
         // Lazily create DWrite factory (simple approach; production code should cache and handle failures better).
-        static ComPtr<IDWriteFactory> s_factory;
+        // IDWriteFactory2 (Windows 8.1+) is required for system font fallback.
+        static ComPtr<IDWriteFactory2> s_factory;
+        static ComPtr<IDWriteFontFallback> s_fontFallback;
         if (!s_factory)
         {
-            if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(s_factory.GetAddressOf()))))
+            if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory2), reinterpret_cast<IUnknown**>(s_factory.GetAddressOf()))))
+                return false;
+        }
+        if (!s_fontFallback)
+        {
+            if (FAILED(s_factory->GetSystemFontFallback(&s_fontFallback)))
                 return false;
         }
 
-        ComPtr<IDWriteFontCollection> fontCollection;
-        if (FAILED(s_factory->GetSystemFontCollection(&fontCollection)))
+        if (_unicodeCodePoint > 0x10FFFF)
             return false;
 
-        // Choose a reasonable system default family name. You can change this to user's preference.
-        const eastl::wstring familyName = L"Segoe UI";
-
-        UINT32 familyIndex = 0;
-        BOOL exists = FALSE;
-        if (FAILED(fontCollection->FindFamilyName(familyName.c_str(), &familyIndex, &exists)) || !exists)
+        // Single code point, encoded as UTF-16.
+        WCHAR text[2];
+        UINT32 textLength;
+        if (_unicodeCodePoint < 0x10000)
         {
-            // Fallback to family 0 if "Segoe UI" not present.
-            familyIndex = 0;
+            text[0] = static_cast<WCHAR>(_unicodeCodePoint);
+            textLength = 1;
+        }
+        else
+        {
+            const u32 v = _unicodeCodePoint - 0x10000;
+            text[0] = static_cast<WCHAR>(0xD800 + (v >> 10));
+            text[1] = static_cast<WCHAR>(0xDC00 + (v & 0x3FF));
+            textLength = 2;
         }
 
-        ComPtr<IDWriteFontFamily> fontFamily;
-        if (FAILED(fontCollection->GetFontFamily(familyIndex, &fontFamily)))
-            return false;
+        // Minimal text source: the analysis source is only used during the MapCharacters call, so it lives on the
+        // stack and ignores reference counting.
+        struct SingleRunTextSource final : IDWriteTextAnalysisSource
+        {
+            const WCHAR* m_text;
+            UINT32 m_length;
 
+            SingleRunTextSource(const WCHAR* _text, const UINT32 _length) : m_text(_text), m_length(_length) {}
+
+            STDMETHODIMP QueryInterface(REFIID riid, void** ppvObject) override
+            {
+                if (!ppvObject) return E_POINTER;
+                if (riid == __uuidof(IUnknown) || riid == __uuidof(IDWriteTextAnalysisSource))
+                {
+                    *ppvObject = static_cast<IDWriteTextAnalysisSource*>(this);
+                    return S_OK;
+                }
+                *ppvObject = nullptr;
+                return E_NOINTERFACE;
+            }
+            STDMETHODIMP_(ULONG) AddRef() override { return 1; }
+            STDMETHODIMP_(ULONG) Release() override { return 1; }
+
+            STDMETHODIMP GetTextAtPosition(UINT32 _position, const WCHAR** _textString, UINT32* _textLength) override
+            {
+                if (_position < m_length)
+                {
+                    *_textString = m_text + _position;
+                    *_textLength = m_length - _position;
+                }
+                else
+                {
+                    *_textString = nullptr;
+                    *_textLength = 0;
+                }
+                return S_OK;
+            }
+            STDMETHODIMP GetTextBeforePosition(UINT32 _position, const WCHAR** _textString, UINT32* _textLength) override
+            {
+                if (_position > 0 && _position <= m_length)
+                {
+                    *_textString = m_text;
+                    *_textLength = _position;
+                }
+                else
+                {
+                    *_textString = nullptr;
+                    *_textLength = 0;
+                }
+                return S_OK;
+            }
+            STDMETHODIMP_(DWRITE_READING_DIRECTION) GetParagraphReadingDirection() override
+            {
+                return DWRITE_READING_DIRECTION_LEFT_TO_RIGHT;
+            }
+            STDMETHODIMP GetLocaleName(UINT32 _position, UINT32* _textLength, const WCHAR** _localeName) override
+            {
+                *_localeName = L"";
+                *_textLength = _position < m_length ? m_length - _position : 0;
+                return S_OK;
+            }
+            STDMETHODIMP GetNumberSubstitution(
+                UINT32 _position,
+                UINT32* _textLength,
+                IDWriteNumberSubstitution** _numberSubstitution) override
+            {
+                *_numberSubstitution = nullptr;
+                *_textLength = _position < m_length ? m_length - _position : 0;
+                return S_OK;
+            }
+        };
+
+        SingleRunTextSource textSource(text, textLength);
+
+        // Let the system pick the best font covering the code point. "Segoe UI" is tried first, then DirectWrite
+        // walks the system fallback chain (Segoe UI Symbol/Emoji, Yu Gothic, Malgun Gothic, ...).
+        UINT32 mappedLength = 0;
         ComPtr<IDWriteFont> font;
-        if (FAILED(fontFamily->GetFirstMatchingFont(
+        FLOAT mappedScale = 1.f;
+        if (FAILED(s_fontFallback->MapCharacters(
+            &textSource,
+            0,
+            textLength,
+            nullptr,
+            L"Segoe UI",
             DWRITE_FONT_WEIGHT_REGULAR,
-            DWRITE_FONT_STRETCH_NORMAL,
             DWRITE_FONT_STYLE_NORMAL,
-            &font)))
+            DWRITE_FONT_STRETCH_NORMAL,
+            &mappedLength,
+            &font,
+            &mappedScale)))
+        {
+            return false;
+        }
+
+        // No installed font supports this code point.
+        if (!font || mappedLength != textLength)
             return false;
 
         ComPtr<IDWriteFontFace> fontFace;
@@ -87,13 +185,13 @@ namespace KryneEngine::Platform
             DWRITE_GLYPH_METRICS dGlyphMetrics{};
             if (SUCCEEDED(fontFace->GetDesignGlyphMetrics(&glyphIndex, 1, &dGlyphMetrics, _verticalLayout)))
             {
+                const s32 width = static_cast<s32>(dGlyphMetrics.advanceWidth) - dGlyphMetrics.leftSideBearing - dGlyphMetrics.rightSideBearing;
+                const s32 height = static_cast<s32>(dGlyphMetrics.advanceHeight) - dGlyphMetrics.topSideBearing - dGlyphMetrics.bottomSideBearing;
+                const s32 yMax = dGlyphMetrics.verticalOriginY - dGlyphMetrics.topSideBearing;
+                const s32 yMin = yMax - height;
+
                 const GlyphMetrics glyphMetrics = {
-                    .m_bounds = {
-                        dGlyphMetrics.leftSideBearing,
-                        dGlyphMetrics.topSideBearing,
-                        dGlyphMetrics.rightSideBearing - dGlyphMetrics.leftSideBearing,
-                        dGlyphMetrics.topSideBearing - dGlyphMetrics.bottomSideBearing
-                    },
+                    .m_bounds = { dGlyphMetrics.leftSideBearing, yMin, width, height },
                     .m_advance = static_cast<double>(_verticalLayout ? dGlyphMetrics.advanceHeight : dGlyphMetrics.advanceWidth),
                 };
 
@@ -168,7 +266,7 @@ namespace KryneEngine::Platform
             {
                 KE_ASSERT(_figureBegin == D2D1_FIGURE_BEGIN_FILLED);
                 m_newContour(
-                    { _startPoint.x, _startPoint.y },
+                    { _startPoint.x, -_startPoint.y },
                     m_user);
             }
 
@@ -177,7 +275,7 @@ namespace KryneEngine::Platform
                 for (UINT i = 0; i < pointsCount; ++i)
                 {
                     m_newEdge(
-                        { points[i].x, points[i].y },
+                        { points[i].x, -points[i].y },
                         m_user);
                 }
             }
@@ -188,9 +286,9 @@ namespace KryneEngine::Platform
                 {
                     const D2D1_BEZIER_SEGMENT& b = beziers[i];
                     m_newCubic(
-                        { b.point1.x, b.point1.y },
-                        { b.point2.x, b.point2.y },
-                        { b.point3.x, b.point3.y },
+                        { b.point1.x, -b.point1.y },
+                        { b.point2.x, -b.point2.y },
+                        { b.point3.x, -b.point3.y },
                         m_user);
                 }
             }
@@ -223,9 +321,6 @@ namespace KryneEngine::Platform
             _newCubic,
             _endContour);
 
-        ComPtr<IDWriteGeometrySink> sink;
-        sink.Attach(&sinkRaw);
-
         // Call GetGlyphRunOutline: emSize is design scaled already above.
         HRESULT hr = fontFace->GetGlyphRunOutline(
             designUnitsPerEm,
@@ -235,7 +330,7 @@ namespace KryneEngine::Platform
             1,
             _verticalLayout,
             FALSE,
-            sink.Get());
+            &sinkRaw);
 
         if (FAILED(hr))
         {

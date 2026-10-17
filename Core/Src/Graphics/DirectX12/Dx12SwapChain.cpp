@@ -110,8 +110,9 @@ namespace KryneEngine
 
         for (const auto handle: m_renderTargetTextures)
         {
-            // Free the texture from the gen pool, but don't release the ID3D12Resource — it's owned by the swap chain.
-            KE_ASSERT_MSG(_resources.ReleaseTexture(handle, false), "Handle was invalid. It shouldn't. Something went wrong with the lifecycle.");
+            KE_ASSERT_MSG(
+                _resources.ReleaseTexture(handle, true),
+                "Handle was invalid. It shouldn't. Something went wrong with the lifecycle.");
         }
         m_renderTargetTextures.Clear();
     }

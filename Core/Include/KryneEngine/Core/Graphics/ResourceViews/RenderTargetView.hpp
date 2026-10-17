@@ -29,6 +29,7 @@ namespace KryneEngine
         };
 
         u8 m_mipLevel = 0;
+        bool m_isReadOnly = false;
 
 #if !defined(KE_FINAL)
         eastl::string m_debugName;

@@ -11,6 +11,8 @@
 #include "KryneEngine/Core/Common/Utils/MultiFrameTracking.hpp"
 #include "KryneEngine/Core/Graphics/Handles.hpp"
 #include "KryneEngine/Core/Graphics/ShaderPipeline.hpp"
+#include "KryneEngine/Core/Memory/Allocators/ExternalRangeAllocator.hpp"
+#include "KryneEngine/Core/Threads/LightweightMutex.hpp"
 
 namespace KryneEngine
 {
@@ -22,7 +24,9 @@ namespace KryneEngine
     class Dx12DescriptorSetManager
     {
     public:
-        Dx12DescriptorSetManager(AllocatorInstance _allocator);
+        explicit Dx12DescriptorSetManager(AllocatorInstance _allocator);
+
+        ~Dx12DescriptorSetManager();
 
         void Init(ID3D12Device* _device, u8 _frameContextCount, u8 _currentFrame);
 
@@ -38,23 +42,25 @@ namespace KryneEngine
             const eastl::span<const DescriptorSetWriteInfo>& _writes,
             bool _singleFrame,
             ID3D12Device* _device,
-            u8 _frameIndex);
+            u64 _frameId);
 
         void SetGraphicsDescriptorSets(
-            CommandList _commandList,
+            ID3D12Device* _device,
+            const CommandListSet* _commandListSet,
             const eastl::span<const DescriptorSetHandle>& _sets,
             const u16* _tableSetOffsets,
             u32 _offset,
-            u8 _currentFrame);
+            u64 _frameId);
 
         void SetComputeDescriptorSets(
-            CommandList _commandList,
+            ID3D12Device* _device,
+            const CommandListSet* _commandListSet,
             const eastl::span<const DescriptorSetHandle>& _sets,
             const u16* _tableSetOffsets,
             u32 _offset,
-            u8 _currentFrame);
+            u64 _frameId);
 
-        void OnBeginGraphicsCommandList(CommandList _commandList, u8 _frameIndex);
+        void OnBeginGraphicsCommandList(const CommandListSet* _commandListSet, u8 _frameIndex) const;
 
         void NextFrame(ID3D12Device* _device, const Dx12Resources& _resources, u8 _frameIndex);
 
@@ -88,40 +94,48 @@ namespace KryneEngine
             eastl::array<u32, kRangeTypesCount> m_totals;
         };
 
-        const LayoutData* GetDescriptorSetLayoutData(DescriptorSetLayoutHandle _layout);
+        const LayoutData* GetDescriptorSetLayoutData(DescriptorSetLayoutHandle _layout) const;
 
     private:
-        static constexpr u32 kCbvSrvUavHeapSize = 1024;
+        AllocatorInstance m_allocator;
+        u8 m_frameCount = 0;
+
+        static constexpr u32 kCbvSrvUavCacheHeapSize = 8192;
+        DynamicArray<eastl::vector<ComPtr<ID3D12DescriptorHeap>>*> m_cbvSrvUavCacheDescriptorHeaps;
         DynamicArray<ComPtr<ID3D12DescriptorHeap>> m_cbvSrvUavGpuDescriptorHeaps;
         u32 m_cbvSrvUavDescriptorSize = 0;
+        u32 m_cbvSrvUavGpuDescriptorHeapSize = 0;
+        ExternalRangeAllocator m_cbvSrvUavCacheAllocator;
         std::atomic<u32> m_cbvSrvUavLinearAllocIndex { 0 };
 
-        static constexpr u32 kSamplerHeapSize = 64;
+        static constexpr u32 kSamplerCacheHeapSize = 1024;
+        DynamicArray<eastl::vector<ComPtr<ID3D12DescriptorHeap>>*> m_samplerCacheDescriptorHeaps;
         DynamicArray<ComPtr<ID3D12DescriptorHeap>> m_samplerGpuDescriptorHeaps;
         u32 m_samplerDescriptorSize = 0;
+        u32 m_samplerGpuDescriptorHeapSize = 0;
+        ExternalRangeAllocator m_samplerCacheAllocator;
         std::atomic<u32> m_samplerLinearAllocIndex { 0 };
 
         GenerationalPool<LayoutData> m_descriptorSetLayout;
 
-        struct DescriptorSetRanges
+        struct DescriptorSet
         {
             eastl::array<u16, static_cast<u32>(RangeType::COUNT)> m_sizes;
             eastl::array<u32, static_cast<u32>(RangeType::COUNT)> m_offsets;
+            u64 m_gpuHeapIndex;
         };
-        GenerationalPool<DescriptorSetRanges> m_descriptorSets;
+        GenerationalPool<DescriptorSet> m_descriptorSets;
 
-        struct TrackedData
+        LightweightMutex m_cacheLock;
+        eastl::vector<eastl::vector<ComPtr<ID3D12DescriptorHeap>>*> m_releaseList;
+
+        ID3D12DescriptorHeap* GetCacheDescriptorHeap(ID3D12Device* _device, u32 _index, u8 _frameIndex, bool _sampler);
+
+        struct SetIndices
         {
-            DescriptorSetHandle m_descriptorSet;
-            GenPool::Handle m_object;
-            u32 m_packedIndex;
+            u32 m_cbvSrvUavIndex;
+            u32 m_samplerIndex;
         };
-        MultiFrameDataTracker<TrackedData> m_multiFrameUpdateTracker;
-
-        void _ProcessUpdate(
-            ID3D12Device* _device,
-            const Dx12Resources& _resources,
-            const Dx12DescriptorSetManager::TrackedData& _data,
-            u8 _currentFrame);
+        SetIndices GetShadowedDescriptorSetIndex(ID3D12Device* _device, DescriptorSet* _descriptorSet, u64 _frameId);
     };
 } // namespace KryneEngine

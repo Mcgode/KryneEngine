@@ -39,3 +39,11 @@
 #    define KE_FORCEINLINE inline
 #  endif
 #endif
+
+#if !defined(KE_NO_UNIQUE_ADDRESS)
+#   if defined(_MSC_VER)
+#       define KE_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#   else
+#       define KE_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#   endif
+#endif

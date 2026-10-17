@@ -254,7 +254,7 @@ namespace KryneEngine::Platform
             FILE_SHARE_READ,
             nullptr,
             OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+            FILE_ATTRIBUTE_NORMAL,
             nullptr);
         if (handle == INVALID_HANDLE_VALUE)
         {
@@ -301,14 +301,17 @@ namespace KryneEngine::Platform
         overlapped.Offset = static_cast<DWORD>(_position & 0xffffffffull);
         overlapped.OffsetHigh = static_cast<DWORD>(_position >> 32ull);
 
+        // The handle is opened without FILE_FLAG_OVERLAPPED, so the OVERLAPPED structure is only used to provide the
+        // read offset, and the read is synchronous.
         DWORD bytesRead = 0;
         if (!::ReadFile(
             handle,
             _dstBuffer.data(),
-            _dstBuffer.size(),
+            static_cast<DWORD>(_dstBuffer.size()),
             &bytesRead,
             &overlapped))
         {
+            // Reading at or past the end of the file is not an error for the caller
             return 0;
         }
 

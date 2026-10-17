@@ -22,7 +22,7 @@ struct Parameters
 };
 
 vkPushConstant
-ConstantBuffer<Parameters> parameters;
+ConstantBuffer<Parameters> parameters: register(b0, space3);
 
 VsOutput FullScreenMain(VsInput input)
 {

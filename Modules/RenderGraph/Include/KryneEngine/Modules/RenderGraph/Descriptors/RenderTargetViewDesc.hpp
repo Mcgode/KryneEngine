@@ -28,5 +28,6 @@ namespace KryneEngine::Modules::RenderGraph
         };
 
         u8 m_mipLevel = 0;
+        bool m_isReadOnly = false;
     };
 }

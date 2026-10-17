@@ -7,8 +7,18 @@
 #pragma once
 
 #include "Graphics/DirectX12/Dx12Headers.hpp"
+#include "KryneEngine/Core/Graphics/Handles.hpp"
 
 namespace KryneEngine
 {
-    using CommandList = ID3D12GraphicsCommandList7*;
+    struct CommandListSet
+    {
+        ID3D12GraphicsCommandList7* m_commandList {};
+        ID3D12CommandAllocator* m_commandAllocator {};
+        ID3D12RootSignature* m_currentRootSignature {};
+        union
+        {
+            RenderPassHandle m_currentRenderPass;
+        };
+    };
 }

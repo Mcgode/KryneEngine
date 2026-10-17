@@ -13,9 +13,6 @@
 
 namespace KryneEngine
 {
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCInconsistentNamingInspection"
-
     using float2 = Math::Vector2Base<float>;
     using int2 = Math::Vector2Base<s32>;
     using uint2 = Math::Vector2Base<u32>;
@@ -35,6 +32,4 @@ namespace KryneEngine
     using int4_simd = Math::Vector4Base<s32, true>;
     using uint4_simd = Math::Vector4Base<u32, true>;
     using double4_simd = Math::Vector4Base<double, true>;
-
-#pragma clang diagnostic pop
 }

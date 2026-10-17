@@ -60,7 +60,9 @@ namespace KryneEngine::Samples
             TextureViewHandle _aoTermA,
             TextureViewHandle _aoTermB,
             TextureViewHandle _aoEdges,
-            TextureHandle _aoTextures);
+            TextureHandle _aoTermATexture,
+            TextureHandle _aoTermBTexture,
+            TextureHandle _aoEdgesTexture);
 
         void CreatePso(GraphicsContext* _graphicsContext);
 
@@ -128,12 +130,11 @@ namespace KryneEngine::Samples
         TextureViewHandle m_aoTermA {};
         TextureViewHandle m_aoTermB {};
 
-        // Underlying raw texture backing all three AO views (a 3-slice 2D array), used to place
-        // the manual inter-dispatch barriers in #Dispatch.
-        TextureHandle m_aoTextures {};
-        static constexpr u16 kAoTermASlice = 0;
-        static constexpr u16 kAoTermBSlice = 1;
-        static constexpr u16 kAoEdgesSlice = 2;
+        // Underlying raw textures backing the three AO views, used to place the manual
+        // inter-dispatch barriers in #Dispatch.
+        TextureHandle m_aoTermATexture {};
+        TextureHandle m_aoTermBTexture {};
+        TextureHandle m_aoEdgesTexture {};
 
         Modules::GraphicsUtils::DynamicBuffer m_constantsBuffer;
         BufferViewHandle* m_constantsBufferViews = nullptr;

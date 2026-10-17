@@ -66,7 +66,7 @@ namespace KryneEngine::Modules::FileSystem
         {
             StringHashBase m_hash;
             void* m_userPtr = nullptr;
-            u32 m_firstChild = -1;
+            u32 m_firstChild = ~0u;
             u32 m_childCount = 0;
 
             bool operator==(const StringViewHash& _hash) const
