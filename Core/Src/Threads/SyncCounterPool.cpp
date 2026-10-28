@@ -59,7 +59,7 @@ namespace KryneEngine
         // of touching that unrelated batch's state.
         VERIFY_OR_RETURN(entry.m_generation.load(std::memory_order_relaxed) == _id.GetGeneration(), true);
 
-        if (entry.m_counter == 0)
+        if (entry.m_counter.load(std::memory_order::acquire) == 0)
         {
             // By the time we locked, the counter was decremented to 0.
             // We can thus continue the job, no need to suspend and queue it
@@ -131,6 +131,19 @@ namespace KryneEngine
         }
 
         return 0;
+    }
+
+    bool SyncCounterPool::IncrementCounterValue(const SyncCounterId _id, const u32 _count)
+    {
+        VERIFY_OR_RETURN(_id != kInvalidSyncCounterId, false);
+
+        auto& entry = m_entries[_id.GetIndex()];
+
+        VERIFY_OR_RETURN(entry.m_generation.load(std::memory_order_acquire) == _id.GetGeneration(), false);
+
+        const s32 previousValue = entry.m_counter.fetch_add(static_cast<s32>(_count), std::memory_order::acq_rel);
+        KE_ASSERT_MSG(previousValue > 0, "Counter should still be under execution");
+        return true;
     }
 
     void SyncCounterPool::FreeCounter(SyncCounterId &_id)

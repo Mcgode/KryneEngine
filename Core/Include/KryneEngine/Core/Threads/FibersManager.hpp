@@ -68,7 +68,20 @@ namespace KryneEngine
 
         [[nodiscard]] FiberJob* GetCurrentJob();
 
-        [[nodiscard]] SyncCounterId InitAndBatchJobs(FiberJob::Desc _desc);
+        /**
+         * @brief Creates and queues a batch of jobs, associated with a sync counter.
+         *
+         * @param _desc Batch description.
+         * @param _counterId Optional existing counter to associate the jobs with, instead of acquiring a new one.
+         * Its waiters will then also wait for these jobs. The counter must be guaranteed to stay above zero for the
+         * duration of the call, which in practice means calling this from one of the counter's own running jobs
+         * (see `FiberJob::GetAssociatedCounterId()`), e.g. to spawn child jobs. From anywhere else, the counter can
+         * reach zero concurrently, waking its waiters and possibly being freed before the jobs are added to it.
+         *
+         * @return The counter the jobs are associated with: `_counterId` when provided (also when `m_jobCount` is
+         * zero), a newly acquired one otherwise. `kInvalidSyncCounterId` on failure, in which case no job is queued.
+         */
+        [[nodiscard]] SyncCounterId InitAndBatchJobs(FiberJob::Desc _desc, SyncCounterId _counterId = kInvalidSyncCounterId);
         void InitAndBatchJobsNoCounter(FiberJob::Desc _desc);
 
         [[nodiscard]] SyncCounterPool::AutoSyncCounter AcquireAutoSyncCounter(u32 _count = 1);

@@ -72,6 +72,12 @@ namespace KryneEngine
 
         u32 DecrementCounterValue(SyncCounterId _id);
 
+        /// @brief Adds `_count` to a counter still in use, so its waiters also wait for that many more decrements.
+        /// @details The counter must be guaranteed to stay above zero for the duration of the call, typically by
+        /// calling it from one of the counter's own running jobs. See `FibersManager::InitAndBatchJobs()`.
+        /// @return false if `_id` is invalid or stale, in which case the counter is left untouched.
+        [[nodiscard]] bool IncrementCounterValue(SyncCounterId _id, u32 _count);
+
         void FreeCounter(SyncCounterId &_id);
 
         class AutoSyncCounter
