@@ -1,3 +1,4 @@
 add_subdirectory(FileSystem)
 add_subdirectory(GraphicsUtils)
 add_subdirectory(RenderGraph)
+add_subdirectory(EnTT)

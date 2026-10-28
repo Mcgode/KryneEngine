@@ -7,4 +7,8 @@
 #include "KryneEngine/Modules/EnTT/Context.hpp"
 
 namespace KryneEngine::Modules::EnTT
-{}
+{
+    Context::Context(const AllocatorInstance _allocator)
+        : m_registry(StdAllocator<entt::entity>(_allocator))
+    {}
+}
