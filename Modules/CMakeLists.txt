@@ -10,6 +10,7 @@ add_subdirectory(ShaderReflection)
 add_subdirectory(SdfTexture)
 add_subdirectory(TextRendering)
 add_subdirectory(Box3D)
+add_subdirectory(EnTT)
 
 add_library(KryneEngine_Modules INTERFACE)
 target_link_libraries(KryneEngine_Modules INTERFACE
@@ -21,6 +22,8 @@ target_link_libraries(KryneEngine_Modules INTERFACE
         KryneEngine_Modules_ShaderReflection
         KryneEngine_Modules_SdfTexture
         KryneEngine_Modules_TextRendering
+        KryneEngine_Modules_Box3D
+        KryneEngine_Modules_EnTT
 )
 
 add_library(KryneEngine INTERFACE
