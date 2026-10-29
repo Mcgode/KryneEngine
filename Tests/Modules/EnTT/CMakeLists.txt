@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.31)
 
 add_executable(Modules_EnTT_UnitTests
         Context_UnitTests.cpp
+        ContextPhases_UnitTests.cpp
 )
 
 target_link_libraries(Modules_EnTT_UnitTests KryneEngine_Core_Link KryneEngine_Modules_EnTT TestUtils gtest gtest_main)

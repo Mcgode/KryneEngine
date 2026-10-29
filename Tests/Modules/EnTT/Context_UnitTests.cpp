@@ -58,7 +58,7 @@ namespace KryneEngine::Tests::Modules::EnTT
         // -----------------------------------------------------------------------
 
         {
-            KryneEngine::Modules::EnTT::Context context(&allocator);
+            KryneEngine::Modules::EnTT::Context context(&allocator, 0);
             auto& registry = context.GetRegistry();
 
             for (u32 i = 0; i < 100; i++)

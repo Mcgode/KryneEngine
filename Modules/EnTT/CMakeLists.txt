@@ -13,3 +13,6 @@ set_target_properties(KryneEngine_Modules_EnTT PROPERTIES FOLDER "EngineModules"
 target_include_directories(KryneEngine_Modules_EnTT PUBLIC Include)
 
 target_link_libraries(KryneEngine_Modules_EnTT PUBLIC KryneEngine_Core EnTT::EnTT)
+
+# Systems run on fibers across threads, type index generation must be atomic
+target_compile_definitions(KryneEngine_Modules_EnTT PUBLIC ENTT_USE_ATOMIC)
