@@ -101,6 +101,8 @@ namespace KryneEngine
 
         void YieldJob(FiberJob* _nextJob = nullptr);
 
+        [[nodiscard]] SyncCounterPool& GetSyncCounterPool() { return m_syncCounterPool; }
+
         [[nodiscard]] IoQueryManager* GetIoQueryManager() const { return m_ioManager; }
 
         [[nodiscard]] u32 GetPriorityRoundRobinIterations(FiberJob::Priority _priority) const
