@@ -309,7 +309,8 @@ namespace KryneEngine
 
     RenderTargetViewHandle MetalResources::RegisterRtv(const RenderTargetViewDesc& _desc)
     {
-        MTL::Texture* texture = m_textures.Get(_desc.m_texture.m_handle)->m_texture;
+        // Retained to balance the release in UnregisterRtv
+        MTL::Texture* texture = m_textures.Get(_desc.m_texture.m_handle)->m_texture->retain();
         return InternalRegisterRtv(_desc, texture);
     }
 
