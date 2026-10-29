@@ -9,7 +9,6 @@
 #include "../Ecs/WorldObjectSystem.hpp"
 #include "../Geometry/GeometryLibrary.hpp"
 
-#include <EASTL/algorithm.h>
 #include <EASTL/array.h>
 #include <EASTL/vector.h>
 #include <KryneEngine/Core/Memory/SimplePool.hpp>
@@ -33,9 +32,9 @@ namespace KryneEngine::Samples::PhysicsDemo
      * the fixed-step game-loop thread (SceneManager::GameLoop), or before the render loop starts.
      *
      * WorldObjectSystem is deliberately kept private here: every entity a template creates must
-     * go through CreateEntity() below so the caller can always find (and destroy) it again when
-     * reloading or switching templates. A template only ever needs to create/query entities and
-     * look up shared models, never the WorldObjectSystem itself.
+     * go through CreateEntity() below, so it is fully set up (body, render instance) and gets
+     * destroyed with the rest of the scene when reloading or switching templates. Templates may
+     * still attach their own components (e.g. tags) through GetRegistry().
      */
     class SceneBuildContext
     {
@@ -44,13 +43,11 @@ namespace KryneEngine::Samples::PhysicsDemo
             GeometryLibrary& _geometryLibrary,
             WorldObjectSystem& _worldObjectSystem,
             const GeometryModelArray& _geometryModels,
-            eastl::vector<EntityHandle>& _createdEntities,
             b3WorldId _world,
             OrbitCamera& _orbitCamera)
                 : m_geometryLibrary(_geometryLibrary)
                 , m_worldObjectSystem(_worldObjectSystem)
                 , m_geometryModels(_geometryModels)
-                , m_createdEntities(_createdEntities)
                 , m_world(_world)
                 , m_orbitCamera(_orbitCamera)
         {}
@@ -78,7 +75,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         }
 
         // Escape hatch for physics objects that have no render representation and so don't belong
-        // in the entity bookkeeping CreateEntity()/DestroyEntity() provide (e.g. joints, or a
+        // in the entities CreateEntity()/DestroyEntity() manage (e.g. joints, or a
         // kinematic body used purely as a joint anchor): a template using this is responsible for
         // destroying whatever it creates through it (typically from its own destructor).
         [[nodiscard]] b3WorldId GetWorld() const { return m_world; }
@@ -88,37 +85,38 @@ namespace KryneEngine::Samples::PhysicsDemo
             return m_geometryModels[static_cast<size_t>(_type)];
         }
 
-        [[nodiscard]] b3BodyId GetBody(const EntityHandle _entity) const
+        [[nodiscard]] b3BodyId GetBody(const entt::entity _entity) const
         {
             return m_worldObjectSystem.GetBody(_entity);
         }
 
-        EntityHandle CreateEntity(const Transform& _transform, b3BodyDef& _bodyDef, const SimplePoolHandle _renderModel) const
+        // Entity owning a body, or entt::null if the body wasn't created through CreateEntity().
+        [[nodiscard]] entt::entity GetEntity(const b3BodyId _body) const
         {
-            const EntityHandle entity = m_worldObjectSystem.CreateEntity(_transform, _bodyDef, _renderModel);
-            m_createdEntities.push_back(entity);
-            return entity;
+            return WorldObjectSystem::GetEntity(_body);
         }
 
-        // Destroys an entity a previous CreateEntity() call on this same context returned, ahead
-        // of the caller (SceneManager) tearing down whatever is left when the template itself is
-        // unloaded. Lets a template recycle entities (e.g. a ring buffer of spawned objects)
-        // without waiting for a full scene swap.
-        void DestroyEntity(const EntityHandle _entity) const
+        // Game registry, for templates to attach/query their own components. Entities must still be
+        // created and destroyed through CreateEntity()/DestroyEntity().
+        [[nodiscard]] Ecs::Registry& GetRegistry() const { return m_worldObjectSystem.GetRegistry(); }
+
+        entt::entity CreateEntity(const Transform& _transform, b3BodyDef& _bodyDef, const SimplePoolHandle _renderModel) const
+        {
+            return m_worldObjectSystem.CreateEntity(_transform, _bodyDef, _renderModel);
+        }
+
+        // Destroys an entity ahead of the caller (SceneManager) tearing down whatever is left when
+        // the template itself is unloaded. Lets a template recycle entities (e.g. a ring buffer of
+        // spawned objects) without waiting for a full scene swap.
+        void DestroyEntity(const entt::entity _entity) const
         {
             m_worldObjectSystem.DestroyEntity(_entity);
-            const auto it = eastl::find(m_createdEntities.begin(), m_createdEntities.end(), _entity);
-            if (it != m_createdEntities.end())
-            {
-                m_createdEntities.erase_unsorted(it);
-            }
         }
 
     private:
         GeometryLibrary& m_geometryLibrary;
         WorldObjectSystem& m_worldObjectSystem;
         const GeometryModelArray& m_geometryModels;
-        eastl::vector<EntityHandle>& m_createdEntities;
         b3WorldId m_world;
         OrbitCamera& m_orbitCamera;
     };

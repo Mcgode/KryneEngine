@@ -40,7 +40,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         b3BodyId m_cursorAnchorBody {};
 
         b3JointId m_dragJoint {};
-        EntityHandle m_draggedEntity {};
+        entt::entity m_draggedEntity = entt::null;
         float3 m_dragPlanePoint {};  // world-space point the drag plane passes through
         float3 m_dragPlaneNormal {}; // world-space, constant for the duration of a drag
 
@@ -49,5 +49,8 @@ namespace KryneEngine::Samples::PhysicsDemo
         void EndDrag();
 
         [[nodiscard]] static float2 GetCursorNdc();
+
+        // Tags the entities the user can grab.
+        struct Draggable {};
     };
 }

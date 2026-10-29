@@ -8,9 +8,8 @@
 
 #include "Rendering/DrawInstanceManager.hpp"
 
-#include <EASTL/algorithm.h>
 #include <KryneEngine/Core/Common/Assert.hpp>
-#include <KryneEngine/Core/Memory/GenerationalPool.inl>
+#include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 
 namespace KryneEngine::Samples::PhysicsDemo
 {
@@ -43,22 +42,44 @@ namespace KryneEngine::Samples::PhysicsDemo
                 .m_scale = _current.m_scale,
             };
         }
+
+        // Offset by one, so entity 0 doesn't map to the null user data every other body has.
+        void* EntityToUserData(const entt::entity _entity)
+        {
+            return reinterpret_cast<void*>(static_cast<uintptr_t>(entt::to_integral(_entity)) + 1);
+        }
+
+        entt::entity UserDataToEntity(void* _userData)
+        {
+            if (_userData == nullptr)
+            {
+                return entt::null;
+            }
+            return static_cast<entt::entity>(reinterpret_cast<uintptr_t>(_userData) - 1);
+        }
     }
 
     WorldObjectSystem::WorldObjectSystem(
         const AllocatorInstance _allocator,
-        const b3WorldId _world)
-            : m_allocator(_allocator)
+        const b3WorldId _world,
+        FibersManager* _fibersManager)
+            : m_gameContext(_allocator, GamePhaseCount, _fibersManager)
+            , m_renderContext(_allocator, RenderPhaseCount, _fibersManager)
             , m_world(_world)
-            , m_entities(_allocator)
-            , m_liveHandles(_allocator)
             , m_events(_allocator)
-            , m_renderStates(_allocator)
-    {}
+    {
+        m_gameContext.AddSystem<&WorldObjectSystem::ReadBodyTransforms>(PostPhysics, *this, "ReadBodyTransforms");
+        m_gameContext.AddSystem<&WorldObjectSystem::QueueMovedEvents>(PostPhysics, *this, "QueueMovedEvents");
+
+        m_renderContext.AddSystem<&WorldObjectSystem::InterpolateRenderTransforms>(
+            Interpolation, *this, "InterpolateRenderTransforms");
+        m_renderContext.AddSystem<&WorldObjectSystem::PushDrawInstanceTransforms>(
+            Interpolation, *this, "PushDrawInstanceTransforms");
+    }
 
     WorldObjectSystem::~WorldObjectSystem() = default;
 
-    EntityHandle WorldObjectSystem::CreateEntity(
+    entt::entity WorldObjectSystem::CreateEntity(
         const Transform& _transform,
         b3BodyDef& _bodyDef,
         const SimplePoolHandle _renderModel)
@@ -68,116 +89,166 @@ namespace KryneEngine::Samples::PhysicsDemo
         _bodyDef.position = *reinterpret_cast<const b3Pos*>(&_transform.m_position);
         _bodyDef.rotation = ToB3(_transform.m_rotation);
 
-        const EntityHandle handle { m_entities.Allocate() };
-        EntityInternal* entity = m_entities.Get(handle.m_handle);
-        KE_ASSERT(entity != nullptr);
+        Ecs::Registry& registry = m_gameContext.GetRegistry();
+        const entt::entity entity = registry.create();
 
-        entity->m_body = b3CreateBody(m_world, &_bodyDef);
-        entity->m_transform = _transform;
+        _bodyDef.userData = EntityToUserData(entity);
 
-        m_liveHandles.push_back(handle);
+        registry.emplace<Transform>(entity, _transform);
+        registry.emplace<PhysicsBody>(entity, b3CreateBody(m_world, &_bodyDef));
+        registry.emplace<RenderModel>(entity, _renderModel);
 
-        m_events.emplace_back(_transform, _renderModel, handle, EntityEvent::Kind::Created);
+        m_events.emplace_back(_transform, _renderModel, entity, EntityEvent::Kind::Created);
 
-        return handle;
+        return entity;
     }
 
-    b3BodyId WorldObjectSystem::GetBody(const EntityHandle _entity) const
+    b3BodyId WorldObjectSystem::GetBody(const entt::entity _entity) const
     {
-        const EntityInternal* entity = m_entities.Get(_entity.m_handle);
-        return entity != nullptr ? entity->m_body : b3_nullBodyId;
+        const PhysicsBody* body = m_gameContext.GetRegistry().try_get<PhysicsBody>(_entity);
+        return body != nullptr ? body->m_body : b3_nullBodyId;
     }
 
-    void WorldObjectSystem::DestroyEntity(const EntityHandle _entity)
+    entt::entity WorldObjectSystem::GetEntity(const b3BodyId _body)
     {
-        EntityInternal copy {};
-        if (!m_entities.Free(_entity.m_handle, &copy))
+        return UserDataToEntity(b3Body_GetUserData(_body));
+    }
+
+    void WorldObjectSystem::DestroyEntity(const entt::entity _entity)
+    {
+        Ecs::Registry& registry = m_gameContext.GetRegistry();
+        if (!registry.valid(_entity))
         {
             return;
         }
 
-        b3DestroyBody(copy.m_body);
-        m_events.emplace_back(Transform {}, SimplePoolHandle {}, _entity, EntityEvent::Kind::Destroyed);
-
-        const auto it = eastl::find(m_liveHandles.begin(), m_liveHandles.end(), _entity);
-        if (it != m_liveHandles.end())
+        if (const PhysicsBody* body = registry.try_get<PhysicsBody>(_entity))
         {
-            m_liveHandles.erase_unsorted(it);
+            b3DestroyBody(body->m_body);
+        }
+        registry.destroy(_entity);
+
+        m_events.emplace_back(Transform {}, SimplePoolHandle {}, _entity, EntityEvent::Kind::Destroyed);
+    }
+
+    void WorldObjectSystem::DestroyAllEntities()
+    {
+        const auto view = m_gameContext.GetRegistry().view<const PhysicsBody>();
+        eastl::vector<entt::entity> entities(m_events.get_allocator());
+        entities.reserve(view.size());
+        for (const entt::entity entity : view)
+        {
+            entities.push_back(entity);
+        }
+
+        for (const entt::entity entity : entities)
+        {
+            DestroyEntity(entity);
         }
     }
 
     void WorldObjectSystem::Update()
     {
-        for (const EntityHandle handle : m_liveHandles)
-        {
-            EntityInternal* entity = m_entities.Get(handle.m_handle);
-            KE_ASSERT(entity != nullptr);
+        KE_ZoneScopedFunction("WorldObjectSystem::Update");
 
-            const b3WorldTransform worldTransform = b3Body_GetTransform(entity->m_body);
-            entity->m_transform.m_position = *reinterpret_cast<const float3*>(&worldTransform.p);
-            entity->m_transform.m_rotation = FromB3(worldTransform.q);
-
-            m_events.emplace_back(entity->m_transform, SimplePoolHandle {}, handle, EntityEvent::Kind::Moved);
-        }
+        m_gameContext.RunPhase(PostPhysics);
     }
 
     void WorldObjectSystem::FlushEvents(DrawInstanceManager& _drawInstanceManager)
     {
+        KE_ZoneScopedFunction("WorldObjectSystem::FlushEvents");
+
+        Ecs::Registry& registry = m_renderContext.GetRegistry();
+
         for (const auto& event: m_events)
         {
-            const size_t index = event.m_entity.m_handle.m_index;
-            if (index >= m_renderStates.size())
-            {
-                m_renderStates.resize(index + 1);
-            }
-            RenderEntityState& state = m_renderStates[index];
-
             switch (event.m_kind)
             {
             case EntityEvent::Kind::Created:
-                state.m_previous = state.m_current = event.m_transform;
-                state.m_drawInstance = _drawInstanceManager.RegisterInstance(
+            {
+                // Mirror the game entity, so later events map directly to it. A game entity identifier can only be
+                // reused after its destruction, whose event was already replayed above.
+                const entt::entity entity = registry.create(event.m_entity);
+                KE_ASSERT(entity == event.m_entity);
+
+                registry.emplace<RenderTransforms>(entity, event.m_transform, event.m_transform);
+                registry.emplace<Transform>(entity, event.m_transform);
+                registry.emplace<DrawInstance>(entity, _drawInstanceManager.RegisterInstance(
                     event.m_renderModel,
                     event.m_transform.m_position,
                     event.m_transform.m_rotation,
-                    event.m_transform.m_scale);
-                state.m_registered = true;
+                    event.m_transform.m_scale));
                 break;
+            }
             case EntityEvent::Kind::Moved:
-                state.m_previous = state.m_current;
-                state.m_current = event.m_transform;
+                if (RenderTransforms* transforms = registry.try_get<RenderTransforms>(event.m_entity))
+                {
+                    transforms->m_previous = transforms->m_current;
+                    transforms->m_current = event.m_transform;
+                }
                 break;
             case EntityEvent::Kind::Destroyed:
-                if (state.m_registered)
+                if (registry.valid(event.m_entity))
                 {
-                    _drawInstanceManager.UnregisterInstance(state.m_drawInstance);
-                    state.m_registered = false;
+                    if (const DrawInstance* drawInstance = registry.try_get<DrawInstance>(event.m_entity))
+                    {
+                        _drawInstanceManager.UnregisterInstance(drawInstance->m_instance);
+                    }
+                    registry.destroy(event.m_entity);
                 }
                 break;
             }
         }
         m_events.clear();
-
-        // Only now that this frame's "destroyed" events have all been drained (and their render
-        // instances unregistered) is it safe to let CreateEntity reuse those slots.
-        m_entities.FlushDeferredFrees();
     }
 
     void WorldObjectSystem::SyncRenderInstances(DrawInstanceManager& _drawInstanceManager, const float _alpha)
     {
-        for (RenderEntityState& state : m_renderStates)
-        {
-            if (!state.m_registered)
-            {
-                continue;
-            }
+        KE_ZoneScopedFunction("WorldObjectSystem::SyncRenderInstances");
 
-            const Transform interpolated = Interpolate(state.m_previous, state.m_current, _alpha);
-            _drawInstanceManager.SetInstanceTransform(
-                state.m_drawInstance,
-                interpolated.m_position,
-                interpolated.m_rotation,
-                interpolated.m_scale);
+        m_drawInstanceManager = &_drawInstanceManager;
+        m_interpolationAlpha = _alpha;
+        m_renderContext.RunPhase(Interpolation);
+        m_drawInstanceManager = nullptr;
+    }
+
+    void WorldObjectSystem::ReadBodyTransforms(Ecs::View<const PhysicsBody, Transform> _view)
+    {
+        for (auto [entity, body, transform]: _view.each())
+        {
+            const b3WorldTransform worldTransform = b3Body_GetTransform(body.m_body);
+            transform.m_position = *reinterpret_cast<const float3*>(&worldTransform.p);
+            transform.m_rotation = FromB3(worldTransform.q);
+        }
+    }
+
+    void WorldObjectSystem::QueueMovedEvents(Ecs::View<const Transform, const RenderModel> _view)
+    {
+        for (auto [entity, transform, renderModel]: _view.each())
+        {
+            m_events.emplace_back(transform, SimplePoolHandle {}, entity, EntityEvent::Kind::Moved);
+        }
+    }
+
+    void WorldObjectSystem::InterpolateRenderTransforms(Ecs::View<const RenderTransforms, Transform> _view)
+    {
+        for (auto [entity, transforms, transform]: _view.each())
+        {
+            transform = Interpolate(transforms.m_previous, transforms.m_current, m_interpolationAlpha);
+        }
+    }
+
+    void WorldObjectSystem::PushDrawInstanceTransforms(Ecs::View<const Transform, const DrawInstance> _view)
+    {
+        KE_ASSERT(m_drawInstanceManager != nullptr);
+
+        for (auto [entity, transform, drawInstance]: _view.each())
+        {
+            m_drawInstanceManager->SetInstanceTransform(
+                drawInstance.m_instance,
+                transform.m_position,
+                transform.m_rotation,
+                transform.m_scale);
         }
     }
 } // namespace KryneEngine::Samples::PhysicsDemo

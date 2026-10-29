@@ -148,7 +148,6 @@ namespace KryneEngine::Samples::PhysicsDemo
         MaterialHandle m_defaultMaterial {};
 
         GeometryModelArray m_geometryModels {};
-        eastl::vector<EntityHandle> m_sceneEntities;
 
         SceneTemplate* m_currentSceneTemplate = nullptr;
         std::atomic<SceneTemplate*> m_templateToLoad { nullptr };
