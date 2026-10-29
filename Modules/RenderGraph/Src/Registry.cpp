@@ -171,6 +171,8 @@ namespace KryneEngine::Modules::RenderGraph
         const Resource& resource = m_resources.Get(_desc.m_textureResource);
         VERIFY_OR_RETURN(resource.m_type == ResourceType::RawTexture, ~0ull);
 
+        KE_VERIFY(m_resources.AddRef(_desc.m_textureResource) > 1);
+
         const KryneEngine::RenderTargetViewDesc desc {
             .m_texture = resource.m_rawTextureData.m_texture,
             .m_format = _desc.m_format,
@@ -211,6 +213,9 @@ namespace KryneEngine::Modules::RenderGraph
         const eastl::string_view _name)
     {
         const Resource& resource = m_resources.Get(_texture);
+        VERIFY_OR_RETURN(resource.m_type == ResourceType::RawTexture, ~0ull);
+
+        KE_VERIFY(m_resources.AddRef(_texture) > 1);
 
         TextureViewDesc desc = _desc;
         desc.m_texture = resource.m_rawTextureData.m_texture;
@@ -277,6 +282,65 @@ namespace KryneEngine::Modules::RenderGraph
         const Resource& resource = m_resources.Get(_resource);
         VERIFY_OR_RETURN(resource.m_type == ResourceType::TextureView, TextureViewHandle { GenPool::kInvalidHandle });
         return resource.m_textureViewData.m_textureView;
+    }
+
+    Registry::UnregisterResult Registry::UnregisterResource(GraphicsContext* _graphicsContext, const SimplePoolHandle _resource)
+    {
+        KE_ASSERT(m_resources.GetRefCount(_resource) > 0);
+
+        Resource data {};
+        if (!m_resources.Free(_resource, &data))
+        {
+            return UnregisterResult::Released;
+        }
+
+        bool destroyed = true;
+        if (data.m_owned)
+        {
+            switch (data.m_type)
+            {
+            case ResourceType::RawTexture:
+                destroyed = _graphicsContext->DestroyTexture(data.m_rawTextureData.m_texture);
+                break;
+            case ResourceType::Buffer:
+                destroyed = _graphicsContext->DestroyBuffer(data.m_bufferData.m_buffer);
+                break;
+            case ResourceType::Sampler:
+                destroyed = _graphicsContext->DestroySampler(data.m_samplerData.m_sampler);
+                break;
+            case ResourceType::TextureView:
+                destroyed = _graphicsContext->DestroyTextureView(data.m_textureViewData.m_textureView);
+                break;
+            case ResourceType::BufferView:
+                destroyed = _graphicsContext->DestroyBufferView(data.m_bufferViewData.m_bufferView);
+                break;
+            case ResourceType::RenderTargetView:
+                destroyed = _graphicsContext->DestroyRenderTargetView(data.m_renderTargetViewData.m_renderTargetView);
+                break;
+            case ResourceType::Dummy:
+                break;
+            }
+        }
+
+        switch (data.m_type)
+        {
+        case ResourceType::TextureView:
+            destroyed &= UnregisterResource(_graphicsContext, data.m_textureViewData.m_textureResource) != UnregisterResult::FreeFailed;
+            break;
+        case ResourceType::BufferView:
+            destroyed &= UnregisterResource(_graphicsContext, data.m_bufferViewData.m_bufferResource) != UnregisterResult::FreeFailed;
+            break;
+        case ResourceType::RenderTargetView:
+            destroyed &= UnregisterResource(_graphicsContext, data.m_renderTargetViewData.m_textureResource) != UnregisterResult::FreeFailed;
+            break;
+        case ResourceType::Dummy:
+        case ResourceType::RawTexture:
+        case ResourceType::Buffer:
+        case ResourceType::Sampler:
+            break;
+        }
+
+        return destroyed ? UnregisterResult::Freed : UnregisterResult::FreeFailed;
     }
 } // namespace KryneEngine::Modules::RenderGraph
 

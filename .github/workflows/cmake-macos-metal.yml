@@ -157,3 +157,6 @@ jobs:
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Modules
         run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+        env:
+          # Skip tests needing a graphics context, as Github-hosted runner does not provide a Metal 4 interface.
+          GTEST_FILTER: "-*Gpu.*"
