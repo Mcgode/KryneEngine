@@ -86,6 +86,7 @@ set(MemorySrc
         Include/KryneEngine/Core/Memory/Heaps/TlsfHeap.hpp
         Src/Memory/Allocators/Allocator.cpp
         Include/KryneEngine/Core/Memory/Allocators/Allocator.hpp
+        Include/KryneEngine/Core/Memory/Allocators/StdAllocator.hpp
         Include/KryneEngine/Core/Memory/UniquePtr.hpp
         Include/KryneEngine/Core/Memory/IndexAllocator.hpp
         Include/KryneEngine/Core/Memory/Containers/StableVector.hpp

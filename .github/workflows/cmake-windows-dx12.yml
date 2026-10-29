@@ -117,6 +117,7 @@ jobs:
         KryneEngine_Modules_ShaderReflection
         KryneEngine_Modules_TextRendering
         KryneEngine_Modules_Box3D
+        KryneEngine_Modules_EnTT
 
     - name: Build Modules Unit tests
       run: >
@@ -124,6 +125,7 @@ jobs:
         Modules_FileSystem_UnitTests
         Modules_GraphicsUtils_UnitTests
         Modules_RenderGraph_UnitTests
+        Modules_EnTT_UnitTests
 
     - name: Upload Modules Unit tests
       uses: actions/upload-artifact@v7

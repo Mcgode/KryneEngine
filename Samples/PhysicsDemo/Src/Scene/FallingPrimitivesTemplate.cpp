@@ -34,14 +34,14 @@ namespace KryneEngine::Samples::PhysicsDemo
         bodyDef.type = b3_staticBody;
 
         const Transform transform { .m_position = Math::UpVector() * -2.5f };
-        const EntityHandle groundEntity = _context.CreateEntity(transform, bodyDef, groundModel);
+        const entt::entity groundEntity = _context.CreateEntity(transform, bodyDef, groundModel);
 
         const b3BodyId groundBody = _context.GetBody(groundEntity);
         b3ShapeDef shapeDef = b3DefaultShapeDef();
         b3BoxHull hull = _context.GetGeometryLibrary().GetBoxHull(GeometryType::Ground);
         b3CreateHullShape(groundBody, &shapeDef, &hull.base);
 
-        m_ringBuffer.fill(EntityHandle {});
+        m_ringBuffer.fill(entt::null);
         m_ringCursor = 0;
         m_liveCount = 0;
         m_nextGeometryIndex = 0;
@@ -87,7 +87,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         bodyDef.type = b3_dynamicBody;
 
         const SimplePoolHandle model = _context.GetModel(geometryType);
-        const EntityHandle entity = _context.CreateEntity(transform, bodyDef, model);
+        const entt::entity entity = _context.CreateEntity(transform, bodyDef, model);
 
         const b3BodyId body = _context.GetBody(entity);
         b3ShapeDef shapeDef = b3DefaultShapeDef();

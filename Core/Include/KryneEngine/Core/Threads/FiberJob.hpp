@@ -73,6 +73,7 @@ namespace KryneEngine
         {
             eastl::function<void(u16)> m_function;
             u16 m_jobCount = 1;
+            u16 m_jobOffset = 0;
             Priority m_priority = Priority::Medium;
             bool m_useBigStack = false;
         };
@@ -104,6 +105,10 @@ namespace KryneEngine
         FiberJob();
 
         [[nodiscard]] Status GetStatus() const { return m_status.load(std::memory_order_acquire); }
+
+        /// @brief The counter this job decrements on completion. A running job can pass it to
+        /// `FibersManager::InitAndBatchJobs()` to spawn children the counter's waiters also wait for.
+        [[nodiscard]] SyncCounterId GetAssociatedCounterId() const { return m_associatedCounterId; }
 
         [[nodiscard]] PriorityType GetPriorityType() const
         {

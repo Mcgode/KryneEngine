@@ -119,16 +119,25 @@ namespace KryneEngine
 
     FiberJob* FibersManager::GetCurrentJob() { return m_statuses.Load().m_currentJob; }
 
-    SyncCounterId FibersManager::InitAndBatchJobs(FiberJob::Desc _desc)
+    SyncCounterId FibersManager::InitAndBatchJobs(FiberJob::Desc _desc, SyncCounterId _counterId)
     {
         if (_desc.m_jobCount == 0)
         {
-            return kInvalidSyncCounterId;
+            return _counterId;
         }
 
-        const auto syncCounter = m_syncCounterPool.AcquireCounter(_desc.m_jobCount);
-
-        VERIFY_OR_RETURN(syncCounter != kInvalidSyncCounterId, kInvalidSyncCounterId);
+        if (_counterId == kInvalidSyncCounterId)
+        {
+            _counterId = m_syncCounterPool.AcquireCounter(_desc.m_jobCount);
+            VERIFY_OR_RETURN(_counterId != kInvalidSyncCounterId, kInvalidSyncCounterId);
+        }
+        else
+        {
+            // Don't queue jobs on a stale counter: nothing would wait for them.
+            VERIFY_OR_RETURN(
+                m_syncCounterPool.IncrementCounterValue(_counterId, _desc.m_jobCount),
+                kInvalidSyncCounterId);
+        }
 
         // Constructed once per batch and shared (via cheap atomic refcount bumps, not copies of the
         // callable) across every job spawned below -- see FiberJob::SharedFunction's comment.
@@ -140,14 +149,14 @@ namespace KryneEngine
         {
             auto* job = m_fiberThreads.GetAllocator().New<FiberJob>();
             job->m_function = sharedFunction;
-            job->m_jobIndex = i;
+            job->m_jobIndex = i + _desc.m_jobOffset;
             job->m_priority = _desc.m_priority;
             job->m_bigStack = _desc.m_useBigStack;
-            job->m_associatedCounterId = syncCounter;
+            job->m_associatedCounterId = _counterId;
             QueueJob(job);
         }
 
-        return syncCounter;
+        return _counterId;
     }
 
     void FibersManager::InitAndBatchJobsNoCounter(FiberJob::Desc _desc)
@@ -165,7 +174,7 @@ namespace KryneEngine
         {
             auto* job = m_fiberThreads.GetAllocator().New<FiberJob>();
             job->m_function = sharedFunction;
-            job->m_jobIndex = i;
+            job->m_jobIndex = i + _desc.m_jobOffset;
             job->m_priority = _desc.m_priority;
             job->m_bigStack = _desc.m_useBigStack;
             job->m_associatedCounterId = kInvalidSyncCounterId;

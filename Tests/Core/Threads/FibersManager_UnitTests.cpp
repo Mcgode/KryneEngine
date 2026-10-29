@@ -563,4 +563,112 @@ namespace KryneEngine::Tests
 
         EXPECT_EQ(countingAllocator.m_liveCount.load(), 0);
     }
+
+    namespace
+    {
+        struct JobTreeCounts
+        {
+            std::atomic<u32> m_parents = 0;
+            std::atomic<u32> m_children = 0;
+            std::atomic<u32> m_grandChildren = 0;
+        };
+
+        constexpr u16 kTreeParentCount = 4;
+        constexpr u16 kTreeChildCount = 4;
+        constexpr u16 kTreeGrandChildCount = 2;
+
+        // Batches parent jobs that each spawn children on their own counter, the children doing the same with
+        // grandchildren. Deeper levels are delayed, so each level has long finished by the time the next one
+        // completes: the counter must only reach zero once the whole tree is done.
+        SyncCounterId BatchJobTree(FibersManager& _fibersManager, JobTreeCounts& _counts)
+        {
+            return _fibersManager.InitAndBatchJobs({
+                .m_function = [&_fibersManager, &_counts](u16)
+                {
+                    const SyncCounterId counter = _fibersManager.GetCurrentJob()->GetAssociatedCounterId();
+                    const SyncCounterId childCounter = _fibersManager.InitAndBatchJobs(
+                        {
+                            .m_function = [&_fibersManager, &_counts](u16)
+                            {
+                                const SyncCounterId counter = _fibersManager.GetCurrentJob()->GetAssociatedCounterId();
+                                const SyncCounterId grandChildCounter = _fibersManager.InitAndBatchJobs(
+                                    {
+                                        .m_function = [&_counts](u16)
+                                        {
+                                            std::this_thread::sleep_for(std::chrono::microseconds(200));
+                                            _counts.m_grandChildren.fetch_add(1, std::memory_order_relaxed);
+                                        },
+                                        .m_jobCount = kTreeGrandChildCount,
+                                    },
+                                    counter);
+                                EXPECT_TRUE(grandChildCounter == counter);
+
+                                std::this_thread::sleep_for(std::chrono::microseconds(100));
+                                _counts.m_children.fetch_add(1, std::memory_order_relaxed);
+                            },
+                            .m_jobCount = kTreeChildCount,
+                        },
+                        counter);
+                    EXPECT_TRUE(childCounter == counter);
+
+                    _counts.m_parents.fetch_add(1, std::memory_order_relaxed);
+                },
+                .m_jobCount = kTreeParentCount,
+            });
+        }
+    }
+
+    // Jobs batched on an existing counter (here, by a running job on its own counter) must be waited for by
+    // that counter's waiters, as if they were part of the original batch.
+    TEST(FibersManager, JobsBatchedOnExistingCounterAreWaitedFor)
+    {
+        AllocatorInstance allocator{};
+        FibersManager fibersManager(ClampFiberThreadCount(4), allocator);
+
+        constexpr u32 kIterations = 50;
+        for (u32 i = 0; i < kIterations; i++)
+        {
+            JobTreeCounts counts;
+
+            const SyncCounterId counter = BatchJobTree(fibersManager, counts);
+            fibersManager.WaitForCounterAndReset(counter);
+
+            EXPECT_EQ(counts.m_parents.load(), kTreeParentCount);
+            EXPECT_EQ(counts.m_children.load(), kTreeParentCount * kTreeChildCount);
+            EXPECT_EQ(counts.m_grandChildren.load(), kTreeParentCount * kTreeChildCount * kTreeGrandChildCount);
+        }
+    }
+
+    // Same as above, but waiting from a fiber, which takes WaitForCounters()' suspend-and-requeue path.
+    TEST(FibersManager, JobsBatchedOnExistingCounterAreWaitedForFromFiber)
+    {
+        AllocatorInstance allocator{};
+        FibersManager fibersManager(ClampFiberThreadCount(4), allocator);
+
+        constexpr u32 kIterations = 50;
+        for (u32 i = 0; i < kIterations; i++)
+        {
+            JobTreeCounts counts;
+            std::atomic<u32> parentsSeen = 0;
+            std::atomic<u32> childrenSeen = 0;
+            std::atomic<u32> grandChildrenSeen = 0;
+
+            const SyncCounterId outerCounter = fibersManager.InitAndBatchJobs({
+                .m_function = [&](u16)
+                {
+                    const SyncCounterId counter = BatchJobTree(fibersManager, counts);
+                    fibersManager.WaitForCounterAndReset(counter);
+
+                    parentsSeen = counts.m_parents.load();
+                    childrenSeen = counts.m_children.load();
+                    grandChildrenSeen = counts.m_grandChildren.load();
+                },
+            });
+            fibersManager.WaitForCounterAndReset(outerCounter);
+
+            EXPECT_EQ(parentsSeen.load(), kTreeParentCount);
+            EXPECT_EQ(childrenSeen.load(), kTreeParentCount * kTreeChildCount);
+            EXPECT_EQ(grandChildrenSeen.load(), kTreeParentCount * kTreeChildCount * kTreeGrandChildCount);
+        }
+    }
 } // KryneEngine::Tests

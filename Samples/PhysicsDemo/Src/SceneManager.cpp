@@ -38,9 +38,8 @@ namespace KryneEngine::Samples::PhysicsDemo
             , m_drawInstanceManager(_allocator, *_graphicsContext)
             , m_materialManager(_allocator, static_cast<u8>(PassTypes::Count))
             , m_geometryLibrary(_allocator, *_graphicsContext)
-            , m_worldObjectSystem(_allocator, _world)
+            , m_worldObjectSystem(_allocator, _world, _singleThreadedMode ? nullptr : _fibersManager)
             , m_cascadedShadowMap(_allocator)
-            , m_sceneEntities(_allocator)
             , m_fullscreenConstantsBuffer(_allocator)
             , m_deferredShadingPass(_allocator)
             , m_skyPass(_allocator)
@@ -236,7 +235,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             {
                 KE_ZoneScoped("Scene template: Process");
                 SceneBuildContext context(
-                    m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_sceneEntities, m_world, *m_orbitCamera);
+                    m_geometryLibrary, m_worldObjectSystem, m_geometryModels, m_world, *m_orbitCamera);
                 m_currentSceneTemplate->Process(context, m_physicsTimeStep * m_simulationScale);
             }
 
@@ -652,11 +651,7 @@ namespace KryneEngine::Samples::PhysicsDemo
 
     void SceneManager::SwapScene(SceneTemplate* _newTemplate)
     {
-        for (const EntityHandle entity : m_sceneEntities)
-        {
-            m_worldObjectSystem.DestroyEntity(entity);
-        }
-        m_sceneEntities.clear();
+        m_worldObjectSystem.DestroyAllEntities();
 
         if (m_currentSceneTemplate != nullptr)
         {
@@ -667,7 +662,6 @@ namespace KryneEngine::Samples::PhysicsDemo
             m_geometryLibrary,
             m_worldObjectSystem,
             m_geometryModels,
-            m_sceneEntities,
             m_world,
             *m_orbitCamera);
         _newTemplate->Build(context);

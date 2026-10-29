@@ -21,6 +21,7 @@ target_link_libraries(PhysicsDemo
         Samples_CommonLib
         KryneEngine_Modules_RenderGraph
         KryneEngine_Modules_Box3D
+        KryneEngine_Modules_EnTT
 )
 
 set_target_properties(PhysicsDemo PROPERTIES FOLDER "EngineSamples")

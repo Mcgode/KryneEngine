@@ -35,7 +35,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             bodyDef.type = b3_staticBody;
 
             const Transform transform { .m_position = Math::UpVector() * -2.5f };
-            const EntityHandle entity = _context.CreateEntity(transform, bodyDef, model);
+            const entt::entity entity = _context.CreateEntity(transform, bodyDef, model);
 
             const b3BodyId body = _context.GetBody(entity);
             b3ShapeDef shapeDef = b3DefaultShapeDef();
@@ -63,7 +63,7 @@ namespace KryneEngine::Samples::PhysicsDemo
                     .m_position = Math::UpVector() * z
                         + Math::RightVector() * (start + static_cast<float>(j) * (kPyramidBoxGap + boxSize))
                 };
-                const EntityHandle entity = _context.CreateEntity(transform, bodyDef, model);
+                const entt::entity entity = _context.CreateEntity(transform, bodyDef, model);
 
                 const b3BodyId body = _context.GetBody(entity);
                 b3ShapeDef shapeDef = b3DefaultShapeDef();
@@ -71,7 +71,7 @@ namespace KryneEngine::Samples::PhysicsDemo
                 b3CreateHullShape(body, &shapeDef, &hull.base);
                 b3Body_ApplyMassFromShapes(body);
 
-                b3Body_SetUserData(body, static_cast<void*>(entity.m_handle));
+                _context.GetRegistry().emplace<Draggable>(entity);
             }
         }
 
@@ -92,7 +92,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             BeginDrag(_context);
         }
 
-        const bool isDragging = !(m_draggedEntity == EntityHandle {});
+        const bool isDragging = m_draggedEntity != entt::null;
         if (isDragging && InputManager::Get().IsMouseButtonPressed(MouseInputButton::Left))
         {
             UpdateDrag(_context, _deltaTime);
@@ -114,13 +114,13 @@ namespace KryneEngine::Samples::PhysicsDemo
         }
 
         const b3BodyId body = b3Shape_GetBody(result.shapeId);
-        void* userData = b3Body_GetUserData(body);
-        if (userData == nullptr)
+        const entt::entity entity = _context.GetEntity(body);
+        if (entity == entt::null || !_context.GetRegistry().all_of<Draggable>(entity))
         {
             return; // hit something that isn't a draggable entity (e.g. the ground plane)
         }
 
-        m_draggedEntity = EntityHandle { GenPool::Handle::FromVoidPtr(userData) };
+        m_draggedEntity = entity;
 
         // The drag plane faces the camera and passes through the initial hit point; intersecting
         // it with each frame's picking ray is what turns the mouse cursor into a 3D "target"
@@ -190,7 +190,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             b3DestroyJoint(m_dragJoint, true);
             m_dragJoint = b3JointId {};
         }
-        m_draggedEntity = EntityHandle {};
+        m_draggedEntity = entt::null;
     }
 
     float2 DraggableBoxesTemplate::GetCursorNdc()

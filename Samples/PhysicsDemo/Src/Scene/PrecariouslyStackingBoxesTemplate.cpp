@@ -23,7 +23,7 @@ namespace KryneEngine::Samples::PhysicsDemo
             // Lowered a couple of cube-heights below the falling boxes' resting height, so they
             // have some room to drop before landing.
             const Transform transform { .m_position = Math::UpVector() * -2.5f };
-            const EntityHandle groundEntity = _context.CreateEntity(transform, bodyDef, groundModel);
+            const entt::entity groundEntity = _context.CreateEntity(transform, bodyDef, groundModel);
 
             const b3BodyId groundBody = _context.GetBody(groundEntity);
             b3ShapeDef shapeDef = b3DefaultShapeDef();
@@ -51,7 +51,7 @@ namespace KryneEngine::Samples::PhysicsDemo
                 b3BodyDef bodyDef = b3DefaultBodyDef();
                 bodyDef.type = b3_dynamicBody;
 
-                const EntityHandle entity = _context.CreateEntity(transform, bodyDef, boxModel);
+                const entt::entity entity = _context.CreateEntity(transform, bodyDef, boxModel);
 
                 const b3BodyId body = _context.GetBody(entity);
                 b3ShapeDef shapeDef = b3DefaultShapeDef();

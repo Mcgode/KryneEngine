@@ -35,7 +35,7 @@ namespace KryneEngine::Samples::PhysicsDemo
         static constexpr float kSpawnHeight = 6.f;
         static constexpr float kSpawnAreaHalfExtent = 5.f; // half-width of the XY spawn square
 
-        eastl::array<EntityHandle, kRingBufferCapacity> m_ringBuffer {};
+        eastl::array<entt::entity, kRingBufferCapacity> m_ringBuffer {};
         u32 m_ringCursor = 0;
         u32 m_liveCount = 0;
         u32 m_nextGeometryIndex = 0;
