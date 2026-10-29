@@ -284,7 +284,6 @@ namespace KryneEngine::Modules::ImGui
         vd->m_swapChain = m_graphicsContext->CreateSwapChain({
             .m_nativeWindow = window->GetNativeHandle(),
             .m_dimensions = window->GetFramebufferSize(),
-            .m_displayOptions = {},
         });
 
         KE_ASSERT_MSG(

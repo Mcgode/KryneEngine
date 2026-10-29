@@ -68,7 +68,6 @@ int main(int _argc, const char* _argv[])
     SwapChainHandle mainSwapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),
         .m_dimensions = mainWindow->GetSize(),
-        .m_displayOptions = displayOptions,
     });
 
     Box3D::Context box3dContext(singleThreadedMode ? nullptr : &fibersManager);

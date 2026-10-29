@@ -29,7 +29,7 @@ namespace KryneEngine
 
         CAMetalLayer* metalLayer = [CAMetalLayer layer];
         metalLayer.device = (__bridge id<MTLDevice>)&_device;
-        if (_desc.m_displayOptions.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled)
+        if (_desc.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled)
         {
             metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
         }

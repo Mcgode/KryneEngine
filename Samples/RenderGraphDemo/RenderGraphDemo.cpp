@@ -64,7 +64,6 @@ int main()
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),
         .m_dimensions = mainWindow->GetFramebufferSize(),
-        .m_displayOptions = displayOptions,
     });
 
     Modules::ImGui::Context* imGuiContext = nullptr;

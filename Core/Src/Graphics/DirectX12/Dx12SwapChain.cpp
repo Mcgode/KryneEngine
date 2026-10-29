@@ -70,7 +70,7 @@ namespace KryneEngine
 
         m_currentFrame = m_swapChain->GetCurrentBackBufferIndex();
         m_size = _desc.m_dimensions;
-        m_presentFormat = _desc.m_displayOptions.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled
+        m_presentFormat = _desc.m_sRgbPresent == GraphicsCommon::SoftEnable::Disabled
                 ? TextureFormat::BGRA8_UNorm
                 : TextureFormat::BGRA8_sRGB;
 

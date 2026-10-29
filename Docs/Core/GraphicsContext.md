@@ -90,7 +90,6 @@ struct DisplayOptions {
     u16 m_width = 1280;      // Default window width
     u16 m_height = 720;      // Default window height
 
-    SoftEnable m_sRgbPresent = SoftEnable::TryEnable;  // sRGB color space
     SoftEnable m_tripleBuffering = SoftEnable::TryEnable;  // Triple buffering
 
     bool m_fullscreen = false;                    // Fullscreen mode
@@ -165,7 +164,6 @@ GraphicsCommon::ApplicationInfo appInfo {
     .m_displayOptions = {
         .m_width = 1280,
         .m_height = 720,
-        .m_sRgbPresent = GraphicsCommon::SoftEnable::ForceEnabled,
         .m_fullscreen = false,
         .m_resizableWindow = true,
     },
