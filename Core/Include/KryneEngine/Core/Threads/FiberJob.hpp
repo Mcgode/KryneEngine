@@ -73,6 +73,7 @@ namespace KryneEngine
         {
             eastl::function<void(u16)> m_function;
             u16 m_jobCount = 1;
+            u16 m_jobOffset = 0;
             Priority m_priority = Priority::Medium;
             bool m_useBigStack = false;
         };

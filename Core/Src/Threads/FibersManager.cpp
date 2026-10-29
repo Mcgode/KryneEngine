@@ -149,7 +149,7 @@ namespace KryneEngine
         {
             auto* job = m_fiberThreads.GetAllocator().New<FiberJob>();
             job->m_function = sharedFunction;
-            job->m_jobIndex = i;
+            job->m_jobIndex = i + _desc.m_jobOffset;
             job->m_priority = _desc.m_priority;
             job->m_bigStack = _desc.m_useBigStack;
             job->m_associatedCounterId = _counterId;
@@ -174,7 +174,7 @@ namespace KryneEngine
         {
             auto* job = m_fiberThreads.GetAllocator().New<FiberJob>();
             job->m_function = sharedFunction;
-            job->m_jobIndex = i;
+            job->m_jobIndex = i + _desc.m_jobOffset;
             job->m_priority = _desc.m_priority;
             job->m_bigStack = _desc.m_useBigStack;
             job->m_associatedCounterId = kInvalidSyncCounterId;
