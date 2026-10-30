@@ -17,6 +17,18 @@
 
 namespace KryneEngine::Platform
 {
+#if defined(__x86_64__)
+    namespace
+    {
+        u64 ReadXcr0()
+        {
+            u32 low, high;
+            __asm__ volatile("xgetbv" : "=a"(low), "=d"(high) : "c"(0));
+            return (static_cast<u64>(high) << 32) | low;
+        }
+    }
+#endif
+
     void InitSimdFlags()
     {
 #if defined(__ARM_NEON)
@@ -43,6 +55,9 @@ namespace KryneEngine::Platform
                 Simd::g_simdSupport |= Simd::SimdSupport::SSE42;
             if (ecx & (1 << 28))
                 Simd::g_simdSupport |= Simd::SimdSupport::AVX;
+            // F16C instructions are VEX-encoded, so they also need the OS to save AVX state (OSXSAVE + XCR0 bits 1-2)
+            if ((ecx & (1 << 29)) && (ecx & (1 << 27)) && (ReadXcr0() & 0b110) == 0b110)
+                Simd::g_simdSupport |= Simd::SimdSupport::F16C;
         }
 
         {

@@ -18,6 +18,20 @@
 
 namespace KryneEngine::Platform
 {
+#if defined(__x86_64__)
+    namespace
+    {
+        // Clang and GCC only allow the `_xgetbv` intrinsic in code compiled for XSAVE
+#   if defined(__clang__) || defined(__GNUC__)
+        __attribute__((target("xsave")))
+#   endif
+        u64 ReadXcr0()
+        {
+            return _xgetbv(0);
+        }
+    }
+#endif
+
     void InitSimdFlags()
     {
 #if defined(__ARM_NEON)
@@ -44,6 +58,9 @@ namespace KryneEngine::Platform
                 Simd::g_simdSupport |= Simd::SimdSupport::SSE42;
             if (regs[2] & (1 << 28))
                 Simd::g_simdSupport |= Simd::SimdSupport::AVX;
+            // F16C instructions are VEX-encoded, so they also need the OS to save AVX state (OSXSAVE + XCR0 bits 1-2)
+            if ((regs[2] & (1 << 29)) && (regs[2] & (1 << 27)) && (ReadXcr0() & 0b110) == 0b110)
+                Simd::g_simdSupport |= Simd::SimdSupport::F16C;
         }
 
         {

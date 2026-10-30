@@ -35,6 +35,7 @@ namespace KryneEngine::Simd
         SSE42 = 1 << 4,
         AVX = 1 << 5,
         AVX2 = 1 << 6,
+        F16C = 1 << 7,
         FMA = 1 << 8,
 
         // ARM SIMD instruction set
