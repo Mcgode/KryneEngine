@@ -28,11 +28,14 @@ namespace KryneEngine::Platform
     }
 #endif
 
-    void InitSimdFlags()
+    Simd::SimdSupport DetectSimdSupport()
     {
 #if defined(__ARM_NEON)
-        Simd::g_simdSupport = Simd::SimdSupport::Neon;
-#elif defined(__x86_64__)
+        return Simd::SimdSupport::Neon;
+#else
+        Simd::SimdSupport support = Simd::SimdSupport::None;
+
+#   if defined(__x86_64__)
         // Based on https://en.wikipedia.org/wiki/CPUID
 
         u32 eax, ebx, ecx, edx;
@@ -46,29 +49,32 @@ namespace KryneEngine::Platform
             osSavesAvxState = (ecx & (1 << 27)) && (ReadXcr0() & 0b110) == 0b110;
 
             if (edx & (1 << 26))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSE2;
+                support |= Simd::SimdSupport::SSE2;
             if (ecx & (1 << 0))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSE3;
+                support |= Simd::SimdSupport::SSE3;
             if (ecx & (1 << 9))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSSE3;
+                support |= Simd::SimdSupport::SSSE3;
             if ((ecx & (1 << 12)) && osSavesAvxState)
-                Simd::g_simdSupport |= Simd::SimdSupport::FMA;
+                support |= Simd::SimdSupport::FMA;
             if (ecx & (1 << 19))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSE41;
+                support |= Simd::SimdSupport::SSE41;
             if (ecx & (1 << 20))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSE42;
+                support |= Simd::SimdSupport::SSE42;
             if ((ecx & (1 << 28)) && osSavesAvxState)
-                Simd::g_simdSupport |= Simd::SimdSupport::AVX;
+                support |= Simd::SimdSupport::AVX;
             if ((ecx & (1 << 29)) && osSavesAvxState)
-                Simd::g_simdSupport |= Simd::SimdSupport::F16C;
+                support |= Simd::SimdSupport::F16C;
         }
 
         // AVX2 is reported by leaf 7, sub-leaf 0. `__get_cpuid_count` returns 0 if the CPU doesn't have that leaf.
         if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) != 0)
         {
             if ((ebx & (1 << 5)) && osSavesAvxState)
-                Simd::g_simdSupport |= Simd::SimdSupport::AVX2;
+                support |= Simd::SimdSupport::AVX2;
         }
+#   endif
+
+        return support;
 #endif
     }
 

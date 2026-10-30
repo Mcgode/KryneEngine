@@ -6,11 +6,16 @@
 
 #pragma once
 
-#include "KryneEngine/Core/Common/Types.hpp"
+#include "KryneEngine/Core/Math/Simd/SimdSupport.hpp"
 
 namespace KryneEngine::Platform
 {
-    void InitSimdFlags();
+    /**
+     * @brief Detects the SIMD instruction sets the CPU supports and the OS allows using.
+     *
+     * Used to initialize `Simd::g_simdSupport` before `main()`, so applications don't need to call it.
+     */
+    Simd::SimdSupport DetectSimdSupport();
 
     /**
      * @brief Retrieves the number of CPU cores this process can actually be scheduled on.

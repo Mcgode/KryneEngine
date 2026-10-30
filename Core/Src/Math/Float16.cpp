@@ -25,8 +25,8 @@ namespace KryneEngine::Math
 #if defined(KE_X86_F16C)
     namespace
     {
-        // F16C is not part of the x86-64 baseline, so it is only used once `Platform::InitSimdFlags()` detected it.
-        // Until then, the software path is used, which produces identical results.
+        // F16C is not part of the x86-64 baseline, so it is only used once `Simd::g_simdSupport` is initialized.
+        // Before that (during static initialization), the software path is used, which produces identical results.
         bool HasF16C()
         {
             return BitUtils::EnumHasAny(Simd::g_simdSupport, Simd::SimdSupport::F16C);

@@ -32,11 +32,14 @@ namespace KryneEngine::Platform
     }
 #endif
 
-    void InitSimdFlags()
+    Simd::SimdSupport DetectSimdSupport()
     {
 #if defined(__ARM_NEON)
-        Simd::g_simdSupport = Simd::SimdSupport::Neon;
-#elif defined(__x86_64__)
+        return Simd::SimdSupport::Neon;
+#else
+        Simd::SimdSupport support = Simd::SimdSupport::None;
+
+#   if defined(__x86_64__)
         // Based on https://en.wikipedia.org/wiki/CPUID
 
         int regs[4];
@@ -56,21 +59,21 @@ namespace KryneEngine::Platform
             osSavesAvxState = (regs[2] & (1 << 27)) && (ReadXcr0() & 0b110) == 0b110;
 
             if (regs[3] & (1 << 26))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSE2;
+                support |= Simd::SimdSupport::SSE2;
             if (regs[2] & (1 << 0))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSE3;
+                support |= Simd::SimdSupport::SSE3;
             if (regs[2] & (1 << 9))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSSE3;
+                support |= Simd::SimdSupport::SSSE3;
             if ((regs[2] & (1 << 12)) && osSavesAvxState)
-                Simd::g_simdSupport |= Simd::SimdSupport::FMA;
+                support |= Simd::SimdSupport::FMA;
             if (regs[2] & (1 << 19))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSE41;
+                support |= Simd::SimdSupport::SSE41;
             if (regs[2] & (1 << 20))
-                Simd::g_simdSupport |= Simd::SimdSupport::SSE42;
+                support |= Simd::SimdSupport::SSE42;
             if ((regs[2] & (1 << 28)) && osSavesAvxState)
-                Simd::g_simdSupport |= Simd::SimdSupport::AVX;
+                support |= Simd::SimdSupport::AVX;
             if ((regs[2] & (1 << 29)) && osSavesAvxState)
-                Simd::g_simdSupport |= Simd::SimdSupport::F16C;
+                support |= Simd::SimdSupport::F16C;
         }
 
         if (maxLeaf >= 7)
@@ -78,8 +81,11 @@ namespace KryneEngine::Platform
             __cpuidex(regs, 7, 0);
 
             if ((regs[1] & (1 << 5)) && osSavesAvxState)
-                Simd::g_simdSupport |= Simd::SimdSupport::AVX2;
+                support |= Simd::SimdSupport::AVX2;
         }
+#   endif
+
+        return support;
 #endif
     }
 
