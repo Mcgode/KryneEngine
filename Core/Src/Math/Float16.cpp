@@ -41,7 +41,7 @@ namespace KryneEngine::Math
         const u32 exponent = (binaryFloat >> 23) & 0xff;
         const u32 mantissa = binaryFloat & 0x7fffff;
 
-        // Zero
+        // Zero, or float32 subnormal (far below half of the smallest float16 subnormal, so it rounds to zero)
         if (exponent == 0)
         {
             return sign << 15;
@@ -59,6 +59,17 @@ namespace KryneEngine::Math
 
         const s32 exponent16 = static_cast<s32>(exponent) - 127 + 15;
 
+        // Rounds to nearest, ties to even, matching the IEEE 754 default (and the hardware conversions).
+        // A round-up carry may propagate from the mantissa into the exponent, which yields the correct
+        // encoding: subnormal -> smallest normal, or largest finite -> infinity.
+        const auto roundToNearestEven = [](u32 _truncated, u32 _droppedBits, u32 _droppedBitCount) -> u32
+        {
+            const u32 halfway = 1u << (_droppedBitCount - 1);
+            const u32 remainder = _droppedBits & ((1u << _droppedBitCount) - 1);
+            const bool roundUp = remainder > halfway || (remainder == halfway && (_truncated & 1) != 0);
+            return _truncated + (roundUp ? 1 : 0);
+        };
+
         // Handle overflow and underflow
         if (exponent16 >= 31)
         {
@@ -71,16 +82,17 @@ namespace KryneEngine::Math
             if (exponent16 >= -10)
             {
                 // Convert to subnormal
-                const u32 mantissa16 = (mantissa | 0x800000) >> (1 - exponent16);
-                return (sign << 15) | (mantissa16 >> 13);
+                const u32 fullMantissa = mantissa | 0x800000;
+                const u32 shift = 14 - exponent16;
+                return (sign << 15) | roundToNearestEven(fullMantissa >> shift, fullMantissa, shift);
             }
             else
             {
                 // Underflow to zero
-                return sign >> 15;
+                return sign << 15;
             }
         }
-        return (sign << 15) | (exponent16 << 10) | (mantissa >> 13);
+        return (sign << 15) | roundToNearestEven((exponent16 << 10) | (mantissa >> 13), mantissa, 13);
 #endif
     }
 
