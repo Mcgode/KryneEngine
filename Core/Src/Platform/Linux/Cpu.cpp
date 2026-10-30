@@ -38,8 +38,13 @@ namespace KryneEngine::Platform
 
         u32 eax, ebx, ecx, edx;
 
+        // AVX, AVX2, FMA and F16C instructions are VEX-encoded, so they also need the OS to save AVX state
+        // (OSXSAVE + XCR0 bits 1-2), or they fault even on a CPU that supports them.
+        bool osSavesAvxState = false;
+
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) != 0)
         {
-            __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+            osSavesAvxState = (ecx & (1 << 27)) && (ReadXcr0() & 0b110) == 0b110;
 
             if (edx & (1 << 26))
                 Simd::g_simdSupport |= Simd::SimdSupport::SSE2;
@@ -47,23 +52,22 @@ namespace KryneEngine::Platform
                 Simd::g_simdSupport |= Simd::SimdSupport::SSE3;
             if (ecx & (1 << 9))
                 Simd::g_simdSupport |= Simd::SimdSupport::SSSE3;
-            if (ecx & (1 << 12))
+            if ((ecx & (1 << 12)) && osSavesAvxState)
                 Simd::g_simdSupport |= Simd::SimdSupport::FMA;
             if (ecx & (1 << 19))
                 Simd::g_simdSupport |= Simd::SimdSupport::SSE41;
             if (ecx & (1 << 20))
                 Simd::g_simdSupport |= Simd::SimdSupport::SSE42;
-            if (ecx & (1 << 28))
+            if ((ecx & (1 << 28)) && osSavesAvxState)
                 Simd::g_simdSupport |= Simd::SimdSupport::AVX;
-            // F16C instructions are VEX-encoded, so they also need the OS to save AVX state (OSXSAVE + XCR0 bits 1-2)
-            if ((ecx & (1 << 29)) && (ecx & (1 << 27)) && (ReadXcr0() & 0b110) == 0b110)
+            if ((ecx & (1 << 29)) && osSavesAvxState)
                 Simd::g_simdSupport |= Simd::SimdSupport::F16C;
         }
 
+        // AVX2 is reported by leaf 7, sub-leaf 0. `__get_cpuid_count` returns 0 if the CPU doesn't have that leaf.
+        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) != 0)
         {
-            __get_cpuid(1, &eax, &ebx, &ecx, &edx);
-
-            if (ebx & (1 << 5))
+            if ((ebx & (1 << 5)) && osSavesAvxState)
                 Simd::g_simdSupport |= Simd::SimdSupport::AVX2;
         }
 #endif
