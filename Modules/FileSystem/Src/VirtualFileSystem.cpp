@@ -25,8 +25,12 @@ namespace KryneEngine::Modules::FileSystem
     {
         {
             const auto lock = m_archiveMutex.AutoLock();
-            for (const auto* archive: m_archives)
+            for (Archive* archive: m_archives)
+            {
                 m_openFiles.Release(archive->GetFileDescriptor());
+                m_allocator.Delete(archive);
+            }
+            m_archives.clear();
         }
 
         // Close all the files still in the cache. Failed opens are cached as well, with an invalid descriptor.
@@ -41,15 +45,21 @@ namespace KryneEngine::Modules::FileSystem
     {
         KE_ZoneScopedF("Mounting archive '%s'", _archivePath.data());
 
+        // The archive keeps a reference on its file descriptor for as long as it is mounted
+        Platform::ReadOnlyFileDescriptor* fileDescriptor;
         Archive* archive;
         {
             ReadOnlyFile archiveFile = OpenReadOnlyFile(_archivePath, true);
             const StringHash hash(_archivePath);
-            archive = Archive::Load(m_allocator, GetFileDescriptor(hash));
+            fileDescriptor = GetFileDescriptor(hash);
+            archive = Archive::Load(m_allocator, fileDescriptor);
         }
 
         if (archive == nullptr)
+        {
+            m_openFiles.Release(fileDescriptor);
             return false;
+        }
 
         eastl::string rawMountPoint(m_allocator);
         rawMountPoint = _archivePath.substr(0, _archivePath.find_last_of('/'));
@@ -69,6 +79,7 @@ namespace KryneEngine::Modules::FileSystem
             }
         }
         m_allocator.Delete(archive);
+        m_openFiles.Release(fileDescriptor);
         return false;
     }
 
