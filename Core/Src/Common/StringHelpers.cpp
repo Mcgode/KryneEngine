@@ -6,10 +6,64 @@
 
 #include "KryneEngine/Core/Common/StringHelpers.hpp"
 
+#include <cstring>
+
 #include "KryneEngine/Core/Common/BitUtils.hpp"
+#include "KryneEngine/Core/Memory/Containers/FlatHashMap.inl"
+#include "KryneEngine/Core/Threads/LightweightMutex.hpp"
 
 namespace KryneEngine
 {
+#if KE_CHECK_STRING_HASH_COLLISIONS && !KE_FINAL
+    namespace
+    {
+        bool s_assertOnCollision = true;
+    }
+
+    void StringHelpers::CheckStringHashCollision(const eastl::string_view& _string, const u64 _hashValue)
+    {
+        static FlatHashMap<u64, eastl::string> s_registeredStrings { {}, 256 };
+        static LightweightMutex s_lock;
+
+        const size_t len = strnlen(_string.data(), _string.size());
+        const eastl::string_view trimmed { _string.data(), len };
+
+        const auto lock = s_lock.AutoLock();
+        const auto it = s_registeredStrings.Find(_hashValue);
+        if (it == s_registeredStrings.end())
+        {
+            s_registeredStrings.Emplace({ _hashValue, trimmed });
+        }
+        else
+        {
+            if (it->second != trimmed)
+            {
+                if (s_assertOnCollision)
+                {
+                    KE_ERROR(
+                        "String hash collision detected for strings: %s and %.*s",
+                        it->second.c_str(),
+                        static_cast<s32>(len),
+                        trimmed.data());
+                }
+                else
+                {
+                    printf(
+                        "Strings '%s' and '%.*s' have the same hash value\n",
+                        it->second.c_str(),
+                        static_cast<s32>(len),
+                        trimmed.data());
+                }
+            }
+        }
+    }
+
+    void StringHelpers::SetAssertOnStringHashCollision(const bool _value)
+    {
+        s_assertOnCollision = _value;
+    }
+#endif
+
     Utf8Iterator::Utf8Iterator(eastl::string_view _string)
         : m_currentPtr(_string.data())
     {

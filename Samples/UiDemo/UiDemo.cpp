@@ -73,7 +73,6 @@ s32 main(s32 argc, const char** argv)
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),
         .m_dimensions = mainWindow->GetFramebufferSize(),
-        .m_displayOptions = displayOptions,
     });
 
     TextureGenerator textureGenerator { allocatorInstance, 33 };

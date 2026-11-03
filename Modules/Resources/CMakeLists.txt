@@ -7,6 +7,8 @@ add_library(KryneEngine_Modules_Resources
         Include/KryneEngine/Modules/Resources/IResourceLoader.hpp
         Src/Loaders/SerialResourceLoader.cpp
         Include/KryneEngine/Modules/Resources/Loaders/SerialResourceLoader.hpp
+        Src/Loaders/AsyncResourceLoader.cpp
+        Include/KryneEngine/Modules/Resources/Loaders/AsyncResourceLoader.hpp
         Include/KryneEngine/Modules/Resources/ResourceBase.hpp
         Src/IResourceManager.cpp
 )

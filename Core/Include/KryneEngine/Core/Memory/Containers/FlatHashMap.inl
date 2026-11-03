@@ -35,6 +35,15 @@ namespace KryneEngine
 #endif
 
         static constexpr size_t kControlBufferPadding = kControlAlignment == 1 ? 0 : kControlAlignment;
+
+        // NEON compare masks use a 4-bit nibble per element. Keeping a single bit per element allows
+        // `mask & (mask - 1)` to clear a whole element at once.
+        static constexpr u64 kMatchMaskElementBits =
+#if defined(__ARM_NEON)
+            0x1111'1111'1111'1111ull;
+#else
+            0xffff'ffff'ffff'ffffull;
+#endif
     }
 
     template <class Key, class Value, bool Fixed>
@@ -53,10 +62,12 @@ namespace KryneEngine
     requires FlatHashMapValidKvp<Key, Value>
     FlatHashMap<Key, Value, Fixed>::~FlatHashMap()
     {
+        // Make sure all entries are properly destroyed
+        DeleteAll();
         if (m_kvpBuffer != nullptr)
             m_allocator.deallocate(m_kvpBuffer, sizeof(*m_kvpBuffer) * m_capacity);
         if (m_controlBuffer != nullptr)
-            m_allocator.deallocate(m_controlBuffer, sizeof(*m_controlBuffer) * m_capacity);
+            m_allocator.deallocate(m_controlBuffer, sizeof(*m_controlBuffer) * (m_capacity + FlatHashMapInternals::kControlBufferPadding));
     }
 
     template <class Key, class Value, bool Fixed>
@@ -64,9 +75,9 @@ namespace KryneEngine
     FlatHashMap<Key, Value, Fixed>::FlatHashMap(FlatHashMap&& _other) noexcept
         : m_allocator(_other.m_allocator)
         , m_capacity(_other.m_capacity)
+        , m_count(_other.m_count)
         , m_kvpBuffer(_other.m_kvpBuffer)
         , m_controlBuffer(_other.m_controlBuffer)
-        , m_count(_other.m_count)
     {
         _other.m_kvpBuffer = nullptr;
         _other.m_controlBuffer = nullptr;
@@ -78,6 +89,12 @@ namespace KryneEngine
         requires FlatHashMapValidKvp<Key, Value>
     FlatHashMap<Key, Value, Fixed>& FlatHashMap<Key, Value, Fixed>::operator=(FlatHashMap&& _other) noexcept
     {
+        // Avoid self-assignment
+        if (&_other == this)
+            return *this;
+
+        // Make sure all entries are properly destroyed
+        DeleteAll();
         if (m_kvpBuffer != nullptr)
             m_allocator.deallocate(m_kvpBuffer, sizeof(*m_kvpBuffer) * m_capacity);
         if (m_controlBuffer != nullptr)
@@ -134,6 +151,9 @@ namespace KryneEngine
     requires FlatHashMapValidKvp<Key, Value>
     FlatHashMap<Key, Value, Fixed>::const_iterator FlatHashMap<Key, Value, Fixed>::Find(const Key& _key) const
     {
+        if (m_capacity == 0)
+            return end();
+
         const size_t hash = Hashing::HashKey<Key>(_key);
         const u8 expectedControl = hash >> (sizeof(size_t) * 8 - 7);
 
@@ -142,15 +162,15 @@ namespace KryneEngine
         if constexpr (!FlatHashMapInternals::kUseSimdScan)
         {
             size_t i = 0;
-            u8& control = m_controlBuffer[probeIndex];
-            while (i < m_capacity && control != kUnused)
+            u8* control = m_controlBuffer + probeIndex;
+            while (i < m_capacity && *control != kUnused)
             {
-                if (control == expectedControl && m_kvpBuffer[probeIndex].first == _key)
+                if (*control == expectedControl && m_kvpBuffer[probeIndex].first == _key)
                     return m_kvpBuffer + probeIndex;
 
                 ++i;
                 probeIndex = (probeIndex + 1) % m_capacity;
-                control = m_controlBuffer[probeIndex];
+                control = m_controlBuffer + probeIndex;
             }
         }
         else
@@ -173,20 +193,19 @@ namespace KryneEngine
 
                 if (expectedMask != 0)
                 {
-                    const u64 bitmask = unusedMask == 0
-                        ? ~0ull
-                        : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
-                    u64 matchMask = expectedMask & bitmask;
+                    // All matches of the window are checked, including the ones after an unused slot, as `Erase`
+                    // relies on it to reset slots to unused instead of tombstones.
+                    u64 matchMask = expectedMask & FlatHashMapInternals::kMatchMaskElementBits;
 
-                    u64 offset = 0;
                     while (matchMask != 0)
                     {
                         const u64 bitIndex = BitUtils::GetLeastSignificantBit(matchMask) >> Simd::kCompareEqMaskElementWidthPot;
-                        offset += bitIndex;
-                        matchMask >>= (bitIndex + 1) << Simd::kCompareEqMaskElementWidthPot;
+                        const size_t index = WrapIndex(probeIndex + bitIndex);
 
-                        if (m_kvpBuffer[probeIndex + offset].first == _key)
-                            return m_kvpBuffer + probeIndex + offset;
+                        if (m_kvpBuffer[index].first == _key)
+                            return m_kvpBuffer + index;
+
+                        matchMask &= matchMask - 1;
                     }
                 }
 
@@ -203,34 +222,82 @@ namespace KryneEngine
     }
 
     template <class Key, class Value, bool Fixed> requires FlatHashMapValidKvp<Key, Value>
-    bool FlatHashMap<Key, Value, Fixed>::Erase(iterator _it)
+    bool FlatHashMap<Key, Value, Fixed>::Erase(const_iterator _it)
     {
-        if (_it != end() && IsValidEntry(_it))
+        if (_it == end() || !IsValidEntry(_it))
+            return false;
+
+        const size_t index = _it - m_kvpBuffer;
+        m_kvpBuffer[index].~kvp();
+
+        // A tombstone is only needed if a probe sequence may have gone past this slot to reach another entry.
+        // Otherwise, the slot can be reset to unused, which keeps lookup chains short, and prevents fixed-size maps
+        // from filling up with tombstones over time.
+
+        // If the next slot is unused, no probe went past this one:
+        // - With linear probing, probes stop at the first unused slot, so they would have stopped at the next slot.
+        // - With SIMD scans, probes only skip windows without any unused slot, and windows are contiguous. A probe
+        //   that skipped a window holding this slot either covered the next slot as well, or resumed right from
+        //   it, and that next slot can't have become unused since, as it was on the path to a live entry.
+        // The tombstones right before this slot are then in the same situation, so they can be reset as well.
+        if (m_controlBuffer[WrapIndex(index + 1)] == kUnused)
         {
-            const size_t index = eastl::distance(begin(), _it);
-            m_controlBuffer[index] = kTombstone;
-            m_kvpBuffer[index].~kvp();
+            size_t i = index;
+            do
+            {
+                SetControl(i, kUnused);
+                --m_count;
+                i = (i == 0 ? m_capacity : i) - 1;
+            }
+            while (m_controlBuffer[i] == kTombstone);
             return true;
         }
-        return false;
+        else if constexpr (FlatHashMapInternals::kUseSimdScan)
+        {
+            // Otherwise, same approach as Abseil's Swiss tables: if the run of non-unused slots going through this
+            // slot is shorter than a window, then no window holding this slot was ever free of unused slots, so no
+            // probe ever skipped it. As lookups check every match of the window they stop at, an unused slot before
+            // the entry within that window doesn't break its lookup.
+
+            constexpr size_t windowSize = FlatHashMapInternals::kControlAlignment;
+            constexpr size_t lsbShift = Simd::kCompareEqMaskElementWidthPot;
+            const Simd::u8x16 unusedBatch = Simd::From(kUnused);
+
+            const size_t beforeIndex = index >= windowSize ? index - windowSize : index + m_capacity - windowSize;
+            const u64 unusedBefore = Simd::CompareEqMask(
+                Simd::LoadUnaligned(m_controlBuffer + beforeIndex),
+                unusedBatch) & FlatHashMapInternals::kMatchMaskElementBits;
+            const u64 unusedAfter = Simd::CompareEqMask(
+                Simd::LoadUnaligned(m_controlBuffer + index),
+                unusedBatch) & FlatHashMapInternals::kMatchMaskElementBits;
+
+            if (unusedBefore != 0 && unusedAfter != 0)
+            {
+                const size_t usedAfter = BitUtils::GetLeastSignificantBit(unusedAfter) >> lsbShift;
+                const size_t usedBefore = windowSize - 1 - (BitUtils::GetMostSignificantBit(unusedBefore) >> lsbShift);
+                if (usedBefore + usedAfter < windowSize)
+                {
+                    SetControl(index, kUnused);
+                    --m_count;
+                    return true;
+                }
+            }
+        }
+
+        SetControl(index, kTombstone);
+        return true;
     }
 
     template <class Key, class Value, bool Fixed>
         requires FlatHashMapValidKvp<Key, Value>
     void FlatHashMap<Key, Value, Fixed>::Clear()
     {
-        auto it = begin();
-        while (it != end())
-        {
-            if (IsValidEntry(it))
-            {
-                const size_t index = eastl::distance(begin(), it);
-                m_controlBuffer[index] = kUnused;
-                m_kvpBuffer[index].~kvp();
-            }
+        if (m_capacity == 0)
+            return;
 
-            ++it;
-        }
+        DeleteAll();
+        // Also reset the mirrored padding
+        memset(m_controlBuffer, kUnused, m_capacity + FlatHashMapInternals::kControlBufferPadding);
         m_count = 0;
     }
 
@@ -249,9 +316,13 @@ namespace KryneEngine
 
             // Assume no duplicated keys, so we can use the unstable variants for improved performance
             if constexpr (std::is_move_constructible_v<kvp>)
+            {
                 temp.EmplaceUnstable(std::move(*it));
+            }
             else
+            {
                 temp.InsertUnstable(*it);
+            }
         }
         *this = std::move(temp);
     }
@@ -267,17 +338,17 @@ namespace KryneEngine
             m_kvpBuffer = m_allocator.Allocate<eastl::pair<Key, Value>>(newCapacity);
 
             m_controlBuffer = static_cast<u8*>(m_allocator.allocate(newCapacity + FlatHashMapInternals::kControlBufferPadding, FlatHashMapInternals::kControlAlignment));
-            memset(m_controlBuffer, kUnused, newCapacity);
-            memset(m_controlBuffer + newCapacity, kTombstone, FlatHashMapInternals::kControlBufferPadding);
+            // Padding mirrors the first control bytes, so it starts unused as well
+            memset(m_controlBuffer, kUnused, newCapacity + FlatHashMapInternals::kControlBufferPadding);
 
             m_count = 0;
             m_capacity = newCapacity;
         }
         else if constexpr (!Fixed)
         {
-            // There is negligible
+            // Rehash all live entries into a new map, which also drops all tombstones
             FlatHashMap temp(m_allocator, _newCapacity);
-            for (auto i = 0; i < m_capacity; ++i)
+            for (size_t i = 0; i < m_capacity; ++i)
             {
                 if ((m_controlBuffer[i] & kAvailableSlotFlag) == 0)
                 {
@@ -311,7 +382,20 @@ namespace KryneEngine
         {
             const auto loadFactor = static_cast<double>(m_count + 1) / static_cast<double>(m_capacity);
             if (loadFactor > kMaxLoadFactor)
-                Grow(m_capacity * 2);
+            {
+                // Tombstones count towards the load factor. If they make up most of it, dropping them is enough, so
+                // that a steady number of live entries doesn't keep growing the map. This matters most with linear
+                // probing, where `Erase` can rarely reset slots to unused.
+                size_t liveCount = 0;
+                for (size_t i = 0; i < m_capacity; ++i)
+                    liveCount += (m_controlBuffer[i] & kAvailableSlotFlag) == 0;
+
+                const auto liveLoadFactor = static_cast<double>(liveCount + 1) / static_cast<double>(m_capacity);
+                if (liveLoadFactor > kMaxLoadFactor / 2)
+                    Grow(m_capacity * 2);
+                else
+                    Defragment();
+            }
         }
 
         const u64 hash = Hashing::HashKey<Key>(_key);
@@ -340,15 +424,14 @@ namespace KryneEngine
 
                     if (availableMask != 0)
                     {
-                        const u64 firstIndex = BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift;
-                        if (firstIndex + probeIndex < m_capacity)
-                        {
-                            // Only increment count if not replacing a tombstone
-                            if (m_controlBuffer[probeIndex + firstIndex] == kUnused)
-                                ++m_count;
-                            m_controlBuffer[probeIndex + firstIndex] = control;
-                            return { m_kvpBuffer + probeIndex + firstIndex, true };
-                        }
+                        const size_t index = WrapIndex(
+                            probeIndex + (BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift));
+
+                        // Only increment count if not replacing a tombstone
+                        if (m_controlBuffer[index] == kUnused)
+                            ++m_count;
+                        SetControl(index, control);
+                        return { m_kvpBuffer + index, true };
                     }
 
                     i += FlatHashMapInternals::kControlAlignment;
@@ -375,7 +458,8 @@ namespace KryneEngine
 
                         if (availableMask != 0)
                         {
-                            firstAvailableIndex = probeIndex + (BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift);
+                            firstAvailableIndex = WrapIndex(
+                                probeIndex + (BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift));
                         }
                     }
 
@@ -384,20 +468,18 @@ namespace KryneEngine
 
                     if (controlMask != 0)
                     {
-                        const u64 bitmask = unusedMask == 0
-                            ? ~0ull
-                            : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
-                        u64 matchMask = controlMask & bitmask;
+                        // Same as in `Find`, check all matches of the window
+                        u64 matchMask = controlMask & FlatHashMapInternals::kMatchMaskElementBits;
 
-                        u64 offset = 0;
                         while (matchMask != 0)
                         {
-                            const u64 bitIndex = BitUtils::GetLeastSignificantBit(matchMask) >> lsbShift;
-                            offset += bitIndex;
-                            matchMask >>= (bitIndex + 1) << lsbShift;
+                            const size_t index = WrapIndex(
+                                probeIndex + (BitUtils::GetLeastSignificantBit(matchMask) >> lsbShift));
 
-                            if (m_kvpBuffer[probeIndex + offset].first == _key)
-                                return { m_kvpBuffer + probeIndex + offset, false };
+                            if (m_kvpBuffer[index].first == _key)
+                                return { m_kvpBuffer + index, false };
+
+                            matchMask &= matchMask - 1;
                         }
                     }
 
@@ -409,7 +491,7 @@ namespace KryneEngine
                         if (m_controlBuffer[firstAvailableIndex] == kUnused)
                             ++m_count;
 
-                        m_controlBuffer[firstAvailableIndex] = control;
+                        SetControl(firstAvailableIndex, control);
                         return {
                             m_kvpBuffer + firstAvailableIndex,
                             true
@@ -420,11 +502,20 @@ namespace KryneEngine
                     i += FlatHashMapInternals::kControlAlignment;
                     probeIndex %= m_capacity;
                 }
+
+                // The whole map was scanned without finding the key nor any unused slot, so the key isn't present
+                // and the first tombstone can be reused.
+                if (firstAvailableIndex < m_capacity)
+                {
+                    SetControl(firstAvailableIndex, control);
+                    return { m_kvpBuffer + firstAvailableIndex, true };
+                }
             }
         }
         else
         {
             size_t i = 0;
+            size_t firstTombstoneIndex = m_capacity;
             while (i < m_capacity)
             {
                 u8& controlSlot = m_controlBuffer[probeIndex];
@@ -434,21 +525,82 @@ namespace KryneEngine
                         return { m_kvpBuffer + probeIndex, false };
                 }
 
-                if (controlSlot & kAvailableSlotFlag)
+                if (controlSlot == kTombstone)
                 {
-                    // Only increment count if not replacing a tombstone
-                    if (controlSlot == kUnused)
-                        ++m_count;
-                    controlSlot = control;
+                    // The key is assumed to be absent, so the first tombstone can be reused right away
+                    if constexpr (Fast)
+                    {
+                        SetControl(probeIndex, control);
+                        return { m_kvpBuffer + probeIndex, true };
+                    }
+                    else if (firstTombstoneIndex == m_capacity)
+                    {
+                        firstTombstoneIndex = probeIndex;
+                    }
+                }
+                else if (controlSlot == kUnused)
+                {
+                    if (firstTombstoneIndex < m_capacity)
+                    {
+                        probeIndex = firstTombstoneIndex;
+                    }
+                    else
+                    {
+                        m_count++;
+                    }
+                    SetControl(probeIndex, control);
                     return { m_kvpBuffer + probeIndex, true};
                 }
 
                 ++i;
                 probeIndex = (probeIndex + 1) % m_capacity;
             }
+
+            // The whole map was scanned without finding the key nor any unused slot, so the key isn't present
+            // and the first tombstone can be reused.
+            if (firstTombstoneIndex < m_capacity)
+            {
+                SetControl(firstTombstoneIndex, control);
+                return { m_kvpBuffer + firstTombstoneIndex, true };
+            }
         }
         if constexpr (!Fixed)
             KE_ERROR("Unreachable code");
         return { end(), false };
+    }
+
+    template <class Key, class Value, bool Fixed>
+        requires FlatHashMapValidKvp<Key, Value>
+    void FlatHashMap<Key, Value, Fixed>::SetControl(const size_t _index, const u8 _control)
+    {
+        m_controlBuffer[_index] = _control;
+
+        // Capacity is a multiple of the padding size, so mirrored indices are always within the control buffer
+        if (_index < FlatHashMapInternals::kControlBufferPadding)
+            m_controlBuffer[m_capacity + _index] = _control;
+    }
+
+    template <class Key, class Value, bool Fixed>
+        requires FlatHashMapValidKvp<Key, Value>
+    size_t FlatHashMap<Key, Value, Fixed>::WrapIndex(const size_t _index) const
+    {
+        // Indices from probe windows are always below `2 * m_capacity`, so no need for a modulo
+        return _index >= m_capacity ? _index - m_capacity : _index;
+    }
+
+    template <class Key, class Value, bool Fixed>
+        requires FlatHashMapValidKvp<Key, Value>
+    void FlatHashMap<Key, Value, Fixed>::DeleteAll()
+    {
+        if constexpr (!std::is_trivially_destructible_v<kvp>)
+        {
+            for (auto it = begin(); it != end(); ++it)
+            {
+                if (IsValidEntry(it))
+                {
+                    it->~kvp();
+                }
+            }
+        }
     }
 } // namespace KryneEngine

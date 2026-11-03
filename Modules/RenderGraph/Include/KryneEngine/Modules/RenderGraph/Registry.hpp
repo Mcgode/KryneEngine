@@ -74,6 +74,15 @@ namespace KryneEngine::Modules::RenderGraph
         [[nodiscard]] RenderTargetViewHandle GetRenderTargetView(SimplePoolHandle _resource) const;
         [[nodiscard]] TextureViewHandle GetTextureView(SimplePoolHandle _resource) const;
 
+        enum class UnregisterResult
+        {
+            Freed, //< Resource was freed.
+            Released, //< Resource ref count was decreased, but the resource is still in use.
+            FreeFailed, //< The resource (or its parent) failed to be freed.
+        };
+
+        UnregisterResult UnregisterResource(GraphicsContext* _graphicsContext, SimplePoolHandle _resource);
+
     private:
         SimplePool<Resource, void, true> m_resources;
     };

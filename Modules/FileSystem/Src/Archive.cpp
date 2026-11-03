@@ -40,7 +40,10 @@ namespace KryneEngine::Modules::FileSystem
         KE_ASSERT(readSize == sizeof(Tail));
 
         if (tail.m_stringsOffset < sizeof(Header) || tail.m_stringsOffset + sizeof(Tail) + tail.m_tableSize > archiveSize)
+        {
+            _allocator.Delete(archive);
             return nullptr;
+        }
 
         const size_t stringBufferSize = archiveSize - tail.m_stringsOffset - sizeof(Tail) - tail.m_tableSize;
         char* stringBuffer =  _allocator.Allocate<char>(stringBufferSize);

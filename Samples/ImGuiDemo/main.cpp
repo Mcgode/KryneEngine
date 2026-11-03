@@ -68,7 +68,6 @@ void MainFunc(void* _pAllocator)
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),
         .m_dimensions = mainWindow->GetFramebufferSize(),
-        .m_displayOptions = displayOptions,
     });
 
     const auto makePresentRenderPass = [&](u8 _index, RenderTargetViewHandle _rtv)

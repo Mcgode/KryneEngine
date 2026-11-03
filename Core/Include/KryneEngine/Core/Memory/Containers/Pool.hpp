@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cstring>
+
 #include "KryneEngine/Core/Common/Assert.hpp"
 #include "KryneEngine/Core/Common/Types.hpp"
 #include "KryneEngine/Core/Memory/Allocators/Allocator.hpp"

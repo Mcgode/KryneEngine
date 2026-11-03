@@ -52,6 +52,42 @@ namespace KryneEngine::Tests::Math
         TestF32ToF16(0b1'10011001'01111101011110000100000, 0b1'11111'0000000000);
     }
 
+    TEST(Float16, F32ToF16RoundToNearestEven)
+    {
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        // Expected values match the IEEE 754 hardware conversion, so all code paths encode identically.
+
+        // 1 + 2^-11: halfway tie, rounds down to even -> 1.0
+        TestF32ToF16(0x3F801000, 0x3C00);
+
+        // 1 + 3 * 2^-11: halfway tie, rounds up to even -> 1 + 2^-9
+        TestF32ToF16(0x3F803000, 0x3C02);
+
+        // Just above the 1 + 2^-11 tie -> rounds up
+        TestF32ToF16(0x3F801001, 0x3C01);
+
+        // 65504 -> largest finite float16
+        TestF32ToF16(0x477FE000, 0x7BFF);
+
+        // 65520: halfway above the largest finite value -> carries into +Inf
+        TestF32ToF16(0x477FF000, 0x7C00);
+
+        // 2^-25: halfway to the smallest subnormal, rounds down to even -> 0
+        TestF32ToF16(0x33000000, 0x0000);
+
+        // Just above 2^-25 -> smallest subnormal
+        TestF32ToF16(0x33000001, 0x0001);
+
+        // -1e-8 -> -0 (keeps the sign)
+        TestF32ToF16(0xB22BCC77, 0x8000);
+
+        // 2^-14 - 2^-26: largest subnormal rounds up, carries into the smallest normal
+        TestF32ToF16(0x387FF000, 0x0400);
+    }
+
     void TestF16ToF32(u16 _float16, u32 _float32)
     {
         const float computed = Float16::ConvertFromFloat16(_float16);

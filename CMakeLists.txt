@@ -27,6 +27,8 @@ option(KRYNE_ENGINE_PROFILE_MEMORY_ALLOCATIONS "Toggles Tracy memory allocation 
 set(KRYNE_ENGINE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACK 6 CACHE STRING "Callstack depth to fetch on memory allocation events. Set to 0 to disable callstack fetch")
 option(KRYNE_ENGINE_TRACK_DEFAULT_HEAP_ALLOCATIONS "Toggles default heap allocation tracking" ON)
 
+option(KRYNE_ENGINE_CHECK_STRING_HASH_COLLISIONS "Toggles string hash collisions checks" ON)
+
 add_subdirectory(External)
 add_subdirectory(Core)
 
@@ -47,6 +49,11 @@ if (KRYNE_ENGINE_PROFILE_MEMORY_ALLOCATIONS)
         message(FATAL_ERROR "KRYNE_ENGINE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACK must be an integer")
     endif()
     target_compile_definitions(KryneEngine_Core PUBLIC KE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACKS=${KRYNE_ENGINE_PROFILE_MEMORY_ALLOCATIONS_CALLSTACK})
+endif ()
+
+if (KRYNE_ENGINE_CHECK_STRING_HASH_COLLISIONS)
+    message(STATUS "String hash collisions checks are enabled")
+    target_compile_definitions(KryneEngine_Core PUBLIC KE_CHECK_STRING_HASH_COLLISIONS=1)
 endif ()
 
 if (KRYNE_ENGINE_BUILD_MODULES)

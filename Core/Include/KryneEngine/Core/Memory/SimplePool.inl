@@ -119,6 +119,7 @@ namespace KryneEngine
 
         if (reset)
         {
+            m_hotData[_handle].m_hotData.~HotDataStruct();
             m_hotData[_handle].m_nextFreeIndex = m_nextFreeIndex;
             m_nextFreeIndex = _handle;
         }

@@ -17,7 +17,10 @@ namespace KryneEngine
     LruCache<Key, Value>::LruCache(const AllocatorInstance _allocator, const u32 _capacity)
         : m_entries(_allocator.Allocate<LinkedListEntry>(_capacity))
         , m_capacity(_capacity)
-        , m_hashMap(_allocator, _capacity * 2) // Twice the capacity for a 50% max load
+        // Once full, the cache keeps the map at its max load under constant insert/erase churn. 25% keeps enough
+        // unused slots for erased slots to be reset to unused, while at 50% the map ends up full of tombstones and
+        // every miss scans the whole map.
+        , m_hashMap(_allocator, _capacity * 4)
     {
         KE_ASSERT_MSG(_capacity > 0, "Capacity must be greater than 0");
 
@@ -36,6 +39,12 @@ namespace KryneEngine
     LruCache<Key, Value>::~LruCache()
     {
         KE_ASSERT_MSG(m_entries == nullptr, "You must call Destroy() before destruction");
+    }
+
+    template <class Key, class Value>
+    void LruCache<Key, Value>::Destroy()
+    {
+        Destroy([](Key&, Value& _value) { _value.~Value(); });
     }
 
     template <class Key, class Value>
@@ -100,14 +109,14 @@ namespace KryneEngine
                     m_hashMap.Erase(m_hashMap.begin() + entry.m_keyIdx);
                     std::atomic_ref(entry.m_keyIdx).store(kInvalidIndex, std::memory_order::release);
                     entry.m_counter = 1;
-                    const auto pair = m_hashMap.Insert({ _key, HashMapEntry{ index } });
-                    KE_ASSERT(pair.second);
+                    // The key was just looked up under the same lock, so it's known to be missing
+                    const auto inserted = m_hashMap.InsertUnstable({ _key, HashMapEntry{ index } });
                     MoveFront(index);
 
                     lock.Unlock();
 
                     _valueReclaimFunctor(true, ptr);
-                    std::atomic_ref(entry.m_keyIdx).store(pair.first - m_hashMap.begin(), std::memory_order::release);
+                    std::atomic_ref(entry.m_keyIdx).store(inserted - m_hashMap.begin(), std::memory_order::release);
                     return ptr;
                 }
                 index = entry.m_previous;
@@ -127,8 +136,8 @@ namespace KryneEngine
 
             ptr = reinterpret_cast<Value*>(&entry.m_value);
 
-            const auto pair = m_hashMap.Insert({ _key, HashMapEntry{ index } });
-            KE_ASSERT(pair.second);
+            // The key was just looked up under the same lock, so it's known to be missing
+            const auto inserted = m_hashMap.InsertUnstable({ _key, HashMapEntry{ index } });
             std::atomic_ref(entry.m_keyIdx).store(kInvalidIndex, std::memory_order::release);
 
             entry.m_counter = 1;
@@ -136,7 +145,7 @@ namespace KryneEngine
             lock.Unlock();
 
             _valueReclaimFunctor(false, ptr);
-            std::atomic_ref(entry.m_keyIdx).store(pair.first - m_hashMap.begin(), std::memory_order::release);
+            std::atomic_ref(entry.m_keyIdx).store(inserted - m_hashMap.begin(), std::memory_order::release);
         }
         return ptr;
     }

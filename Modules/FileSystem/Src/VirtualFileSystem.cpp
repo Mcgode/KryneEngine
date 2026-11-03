@@ -23,28 +23,52 @@ namespace KryneEngine::Modules::FileSystem
 
     VirtualFileSystem::~VirtualFileSystem()
     {
-        const auto lock = m_archiveMutex.AutoLock();
-        for (const auto* archive: m_archives)
-            m_openFiles.Release(archive->GetFileDescriptor());
+        {
+            const auto lock = m_archiveMutex.AutoLock();
+            for (Archive* archive: m_archives)
+            {
+                m_openFiles.Release(archive->GetFileDescriptor());
+                m_allocator.Delete(archive);
+            }
+            m_archives.clear();
+        }
+
+        // Close all the files still in the cache. Failed opens are cached as well, with an invalid descriptor.
+        m_openFiles.Destroy([this](StringHash&, const Platform::ReadOnlyFileDescriptor& _fileDescriptor)
+        {
+            if (_fileDescriptor.IsValid())
+                Platform::CloseReadOnlyFile(_fileDescriptor, m_allocator);
+        });
     }
 
     bool VirtualFileSystem::MountArchive(const eastl::string_view _archivePath)
     {
         KE_ZoneScopedF("Mounting archive '%s'", _archivePath.data());
 
+        // The archive keeps a reference on its file descriptor for as long as it is mounted
+        Platform::ReadOnlyFileDescriptor* fileDescriptor;
         Archive* archive;
         {
-            ReadOnlyFile archiveFile = OpenReadOnlyFile(_archivePath, true);
-            const StringHash hash(_archivePath);
-            archive = Archive::Load(m_allocator, GetFileDescriptor(hash));
+            // Take a reference on the descriptor of the opened file, rather than looking it up again: the cache is
+            // keyed by the normalized path, so a lookup by a raw path that isn't normalized (with `./`, `..`,
+            // backslashes...) would open the file a second time.
+            const ReadOnlyFile archiveFile = OpenReadOnlyFile(_archivePath, true);
+            fileDescriptor = m_openFiles.Acquire(archiveFile.m_fileDescriptor);
+            archive = Archive::Load(m_allocator, fileDescriptor);
         }
 
         if (archive == nullptr)
+        {
+            m_openFiles.Release(fileDescriptor);
             return false;
+        }
 
+        // The mount point is relative to the archive's directory. Both separators are handled, as native Windows
+        // paths use backslashes.
         eastl::string rawMountPoint(m_allocator);
-        rawMountPoint = _archivePath.substr(0, _archivePath.find_last_of('/'));
-        rawMountPoint += "/";
+        const size_t lastSeparator = _archivePath.find_last_of("/\\");
+        if (lastSeparator != eastl::string_view::npos)
+            rawMountPoint = _archivePath.substr(0, lastSeparator + 1);
         rawMountPoint += archive->GetMountPoint().data();
 
         eastl::string mountPoint(m_allocator);
@@ -60,6 +84,7 @@ namespace KryneEngine::Modules::FileSystem
             }
         }
         m_allocator.Delete(archive);
+        m_openFiles.Release(fileDescriptor);
         return false;
     }
 
@@ -127,10 +152,12 @@ namespace KryneEngine::Modules::FileSystem
         return m_openFiles.Acquire(_hash,
             [this, &_hash](const bool _mustReclaim, Platform::ReadOnlyFileDescriptor* _fileDescriptor)
             {
+                // Failed opens are cached as well, with an invalid descriptor that must not be closed
                 if (_mustReclaim)
                 {
                     KE_ASSERT(_fileDescriptor != nullptr);
-                    Platform::CloseReadOnlyFile(*_fileDescriptor, m_allocator);
+                    if (_fileDescriptor->IsValid())
+                        Platform::CloseReadOnlyFile(*_fileDescriptor, m_allocator);
                 }
 
                 *_fileDescriptor = Platform::OpenReadOnlyFile(_hash.m_string, m_allocator);

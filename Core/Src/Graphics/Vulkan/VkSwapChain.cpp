@@ -54,11 +54,9 @@ namespace KryneEngine
         const auto& capabilities = m_surface.GetCapabilities();
         KE_ASSERT(!capabilities.m_formats.Empty() && !capabilities.m_presentModes.Empty());
 
-        const auto& displayOptions = _desc.m_displayOptions;
-
         // Select appropriate format
         VkSurfaceFormatKHR selectedSurfaceFormat;
-        if (displayOptions.m_sRgbPresent != GraphicsCommon::SoftEnable::Disabled)
+        if (_desc.m_sRgbPresent != GraphicsCommon::SoftEnable::Disabled)
         {
             for (const auto& format: capabilities.m_formats)
             {
@@ -69,7 +67,7 @@ namespace KryneEngine
                 }
             }
 
-            KE_ASSERT(displayOptions.m_sRgbPresent == GraphicsCommon::SoftEnable::TryEnable
+            KE_ASSERT(_desc.m_sRgbPresent == GraphicsCommon::SoftEnable::TryEnable
                       || selectedSurfaceFormat.format != VK_FORMAT_UNDEFINED);
         }
         if (selectedSurfaceFormat.format == VK_FORMAT_UNDEFINED)

@@ -26,9 +26,9 @@ namespace KryneEngine
      *
      * The map supports both adding and removing entries, and allows reuse of deleted slots. It also automatically
      * grows and rehashes when the load factor exceeds a certain threshold, though the operation isn't cheap.
-     * It should be noted that removing elements replaces the slot with a tombstone, which, while they can be recycled,
-     * means that, over time, there can be a fragmentation buildup, which can negatively impact performance. When the
-     * map grows, it will automatically defragment itself.
+     * Removing an element resets its slot to unused when no lookup can depend on it, and replaces it with a tombstone
+     * otherwise. While tombstones can be recycled, they can still build up over time, which can negatively impact
+     * performance. When the map grows, it will automatically defragment itself.
      *
      * The hash map can be set to be fixed-size, which means that it will not grow and will not defragment.
      * This can be useful in scenarios where the size of the map is known in advance and will not change, as it can
@@ -67,6 +67,8 @@ namespace KryneEngine
 
         [[nodiscard]] bool IsValidEntry(const_iterator _it) const;
 
+        [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
+
         [[nodiscard]] const_iterator Find(const Key& _key) const;
 
         eastl::pair<iterator, bool> Emplace(kvp&& _kvp) requires std::is_move_constructible_v<kvp>
@@ -75,7 +77,7 @@ namespace KryneEngine
             KE_ASSERT(result.first != end());
             if (result.second)
             {
-                new (result.first) kvp(_kvp);
+                new (result.first) kvp(eastl::move(_kvp));
             }
             return result;
         }
@@ -103,7 +105,7 @@ namespace KryneEngine
         {
             auto result = FindAndAllocateSlot<true>(_kvp.first);
             KE_ASSERT(result.first != end() && result.second);
-            new (result.first) kvp(_kvp);
+            new (result.first) kvp(eastl::move(_kvp));
             return result.first;
         }
 
@@ -122,7 +124,7 @@ namespace KryneEngine
             return result.first;
         }
 
-        bool Erase(iterator _it);
+        bool Erase(const_iterator _it);
 
         bool Remove(const Key& _key)
         {
@@ -148,12 +150,19 @@ namespace KryneEngine
         size_t m_capacity = 0;
         size_t m_count = 0;
         kvp* m_kvpBuffer = nullptr;
+        // When using SIMD scans, the control buffer is followed by a padding which mirrors its first bytes (similarly
+        // to Abseil's Swiss tables), so a probe window starting near the end of the buffer wraps around to its start.
         u8* m_controlBuffer = nullptr;
+
+        void SetControl(size_t _index, u8 _control);
+        [[nodiscard]] size_t WrapIndex(size_t _index) const;
 
         void Grow(size_t _newCapacity);
 
         template <bool Fast>
         eastl::pair<iterator, bool> FindAndAllocateSlot(const Key& _key);
+
+        void DeleteAll();
     };
 
     template <class Key, class Value>

@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "KryneEngine/Core/Common/BitUtils.hpp"
+#include "KryneEngine/Core/Platform/Cpu.hpp"
 
 #if defined(__ARM_NEON)
 #   define KE_SIMD_AVAILABLE 1
@@ -23,31 +23,8 @@
 
 namespace KryneEngine::Simd
 {
-    enum class SimdSupport: u16
-    {
-        None = 0,
-
-        // x86_64 SIMD instruction sets
-        SSE2 = 1 << 0,
-        SSE3 = 1 << 1,
-        SSSE3 = 1 << 2,
-        SSE41 = 1 << 3,
-        SSE42 = 1 << 4,
-        AVX = 1 << 5,
-        AVX2 = 1 << 6,
-        FMA = 1 << 8,
-
-        // ARM SIMD instruction set
-        Neon = 1,
-    };
-    KE_ENUM_IMPLEMENT_BITWISE_OPERATORS(SimdSupport);
-
-    inline SimdSupport g_simdSupport =
-#if defined(__ARM_NEON)
-        SimdSupport::Neon;
-#elif defined(__SSE2__)
-        SimdSupport::SSE2;
-#else
-        SimdSupport::None;
-#endif
+    // Detected before `main()`, without any call from the application: the initializer is compiled into every object
+    // file that uses this variable, so it can't be dropped when linking the static library.
+    // Code running during static initialization may still read `None`, which only selects the scalar fallbacks.
+    inline SimdSupport g_simdSupport = Platform::DetectSimdSupport();
 }

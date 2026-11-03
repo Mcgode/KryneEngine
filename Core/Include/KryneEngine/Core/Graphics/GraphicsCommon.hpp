@@ -58,15 +58,12 @@ namespace KryneEngine::GraphicsCommon
      * @brief Window / presentation-surface preferences.
      *
      * @details
-     * Independent of @ref ApplicationInfo — the same struct is passed to window creation
-     * (size, decorations) and to @ref GraphicsContext::CreateSwapChain (colour space).
+     * Independent of @ref ApplicationInfo — passed to window creation (size, decorations).
      */
     struct DisplayOptions
     {
         u16 m_width = 1280;
         u16 m_height = 720;
-
-        SoftEnable m_sRgbPresent = SoftEnable::TryEnable;
 
         bool m_fullscreen = false;
         bool m_resizableWindow = false;

@@ -957,8 +957,9 @@ namespace KryneEngine
             .flags = 0,
             .queueCreateInfoCount = static_cast<u32>(queueCreateInfo.size()),
             .pQueueCreateInfos = queueCreateInfo.data(),
-            .enabledLayerCount = static_cast<u32>(kValidationLayerNames.size()),
-            .ppEnabledLayerNames = kValidationLayerNames.data(),
+            // Device layers are deprecated (validation layers are enabled on the instance), and must not be set
+            .enabledLayerCount = 0,
+            .ppEnabledLayerNames = nullptr,
             .enabledExtensionCount = static_cast<u32>(requiredExtensions.size()),
             .ppEnabledExtensionNames = requiredExtensions.data(),
             .pEnabledFeatures = &features

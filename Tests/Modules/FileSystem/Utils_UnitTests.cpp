@@ -97,6 +97,46 @@ namespace KryneEngine::Modules::FileSystem
         NormalizePath(pathWithDoubleDotInName, tmpString);
         EXPECT_STREQ(tmpString.c_str(), "foo/bar..ext");
 
+        constexpr const char* pathWithTwoLeadingDoubleDots = "../../bar";
+        NormalizePath(pathWithTwoLeadingDoubleDots, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "../../bar");
+
+        constexpr const char* pathWithDoubleDotStepAfterLeadingDoubleDot = "../foo/../../bar";
+        NormalizePath(pathWithDoubleDotStepAfterLeadingDoubleDot, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "../../bar");
+
+        constexpr const char* pathWithDoubleDotStepAfterTrailingDoubleDotInName = "foo../../bar";
+        NormalizePath(pathWithDoubleDotStepAfterTrailingDoubleDotInName, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "bar");
+
+        constexpr const char* absolutePath = "/foo/bar";
+        NormalizePath(absolutePath, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "/foo/bar");
+
+        constexpr const char* absolutePathWithBackslash = "\\foo\\bar\\";
+        NormalizePath(absolutePathWithBackslash, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "/foo/bar");
+
+        constexpr const char* absolutePathWithDoubleSlash = "//foo/bar";
+        NormalizePath(absolutePathWithDoubleSlash, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "/foo/bar");
+
+        constexpr const char* rootPath = "/";
+        NormalizePath(rootPath, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "/");
+
+        constexpr const char* absolutePathBackToRoot = "/foo/..";
+        NormalizePath(absolutePathBackToRoot, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "/");
+
+        constexpr const char* absolutePathAboveRoot = "/foo/../../bar";
+        NormalizePath(absolutePathAboveRoot, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "/bar");
+
+        constexpr const char* driveLetterPath = "C:\\foo\\..\\bar";
+        NormalizePath(driveLetterPath, tmpString);
+        EXPECT_STREQ(tmpString.c_str(), "C:/bar");
+
 
         // -----------------------------------------------------------------------
         // Teardown

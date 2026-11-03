@@ -24,8 +24,8 @@ namespace KryneEngine
         NativeWindowHandle m_nativeWindow;
         /// @brief Framebuffer size, in pixels (the window's actual backing size).
         uint2 m_dimensions;
-        /// @brief Presentation preferences (colour space, ...). See @ref GraphicsCommon::DisplayOptions.
-        GraphicsCommon::DisplayOptions m_displayOptions;
+        /// @brief Whether to present in an sRGB colour space.
+        GraphicsCommon::SoftEnable m_sRgbPresent = GraphicsCommon::SoftEnable::TryEnable;
     };
 
     struct BufferCopyParameters;

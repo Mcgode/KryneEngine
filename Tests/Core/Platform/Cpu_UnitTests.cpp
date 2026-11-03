@@ -20,17 +20,22 @@ namespace KryneEngine::Tests
         // -----------------------------------------------------------------------
 
         ScopedAssertCatcher catcher;
-        const Simd::SimdSupport capabilities = Simd::g_simdSupport;
 
         // -----------------------------------------------------------------------
         // Execute
         // -----------------------------------------------------------------------
 
-        Simd::g_simdSupport = Simd::SimdSupport::None;
+        const Simd::SimdSupport detected = Platform::DetectSimdSupport();
 
-        Platform::InitSimdFlags();
+        // -----------------------------------------------------------------------
+        // Check
+        // -----------------------------------------------------------------------
 
-        EXPECT_EQ(capabilities, Simd::g_simdSupport & capabilities);
+        // `g_simdSupport` is initialized before main(), without the test calling anything
+        EXPECT_EQ(detected, Simd::g_simdSupport);
+
+        // Neon on ARM, at least SSE2 on x86-64
+        EXPECT_NE(detected, Simd::SimdSupport::None);
 
         // -----------------------------------------------------------------------
         // Teardown

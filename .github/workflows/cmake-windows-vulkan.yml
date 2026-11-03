@@ -89,6 +89,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=clang-cl
         -DCMAKE_C_COMPILER_LAUNCHER=ccache
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        -DKRYNE_ENGINE_CLANG_TIME_TRACE=OFF
         -DCMAKE_PREFIX_PATH=${{ env.FREETYPE_PREFIX }}
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -DGraphicsApi=VK
@@ -135,6 +136,7 @@ jobs:
         Modules_GraphicsUtils_UnitTests
         Modules_RenderGraph_UnitTests
         Modules_EnTT_UnitTests
+        Modules_Resources_UnitTests
 
     - name: Upload Modules Unit tests
       uses: actions/upload-artifact@v7
@@ -155,6 +157,26 @@ jobs:
     runs-on: windows-latest
     needs: build
     steps:
+      - name: Install Vulkan SDK and Lavapipe
+        # Github-hosted Windows runners have no Vulkan-capable GPU, so Mesa's Lavapipe software driver is used instead.
+        # The action registers it with the Vulkan loader. The SDK provides the validation layers some tests rely on.
+        # Same SDK options as the build job, so they share its cache entry. Lavapipe is downloaded each run.
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          install_runtime: true
+          cache: true
+          stripdown: true
+          install_lavapipe: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Register validation layers
+        # The action doesn't register the SDK's layers on Windows, and they aren't when restored from the cache.
+        run: |
+          $manifest = Join-Path $env:VULKAN_SDK "Bin\VkLayer_khronos_validation.json"
+          if (-not (Test-Path $manifest)) { throw "Validation layer manifest not found: $manifest" }
+          reg add "HKLM\SOFTWARE\Khronos\Vulkan\ExplicitLayers" /v "$manifest" /t REG_DWORD /d 0 /f
+
       - name: Download
         uses: actions/download-artifact@v7
         with:
@@ -163,13 +185,32 @@ jobs:
 
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Core
-        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --repeat until-pass:5 -E "Core_Graphics_UnitTests"
-        # Disabled Core graphics test, as Github-hosted Windows runners have no Vulkan-capable GPU or software driver.
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --repeat until-pass:5
 
   test-modules:
     runs-on: windows-latest
     needs: build
     steps:
+      - name: Install Vulkan SDK and Lavapipe
+        # Github-hosted Windows runners have no Vulkan-capable GPU, so Mesa's Lavapipe software driver is used instead.
+        # The action registers it with the Vulkan loader. The SDK provides the validation layers some tests rely on.
+        # Same SDK options as the build job, so they share its cache entry. Lavapipe is downloaded each run.
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          install_runtime: true
+          cache: true
+          stripdown: true
+          install_lavapipe: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Register validation layers
+        # The action doesn't register the SDK's layers on Windows, and they aren't when restored from the cache.
+        run: |
+          $manifest = Join-Path $env:VULKAN_SDK "Bin\VkLayer_khronos_validation.json"
+          if (-not (Test-Path $manifest)) { throw "Validation layer manifest not found: $manifest" }
+          reg add "HKLM\SOFTWARE\Khronos\Vulkan\ExplicitLayers" /v "$manifest" /t REG_DWORD /d 0 /f
+
       - name: Download
         uses: actions/download-artifact@v7
         with:
