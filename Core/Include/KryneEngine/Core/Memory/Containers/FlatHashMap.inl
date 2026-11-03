@@ -193,10 +193,9 @@ namespace KryneEngine
 
                 if (expectedMask != 0)
                 {
-                    const u64 bitmask = unusedMask == 0
-                        ? ~0ull
-                        : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
-                    u64 matchMask = expectedMask & bitmask & FlatHashMapInternals::kMatchMaskElementBits;
+                    // All matches of the window are checked, including the ones after an unused slot, as `Erase`
+                    // relies on it to reset slots to unused instead of tombstones.
+                    u64 matchMask = expectedMask & FlatHashMapInternals::kMatchMaskElementBits;
 
                     while (matchMask != 0)
                     {
@@ -225,14 +224,68 @@ namespace KryneEngine
     template <class Key, class Value, bool Fixed> requires FlatHashMapValidKvp<Key, Value>
     bool FlatHashMap<Key, Value, Fixed>::Erase(const_iterator _it)
     {
-        if (_it != end() && IsValidEntry(_it))
+        if (_it == end() || !IsValidEntry(_it))
+            return false;
+
+        const size_t index = _it - m_kvpBuffer;
+        m_kvpBuffer[index].~kvp();
+
+        // A tombstone is only needed if a probe sequence may have gone past this slot to reach another entry.
+        // Otherwise, the slot can be reset to unused, which keeps lookup chains short, and prevents fixed-size maps
+        // from filling up with tombstones over time.
+
+        // If the next slot is unused, no probe went past this one:
+        // - With linear probing, probes stop at the first unused slot, so they would have stopped at the next slot.
+        // - With SIMD scans, probes only skip windows without any unused slot, and windows are contiguous. A probe
+        //   that skipped a window holding this slot either covered the next slot as well, or resumed right from
+        //   it, and that next slot can't have become unused since, as it was on the path to a live entry.
+        // The tombstones right before this slot are then in the same situation, so they can be reset as well.
+        if (m_controlBuffer[WrapIndex(index + 1)] == kUnused)
         {
-            const size_t index = _it - m_kvpBuffer;
-            SetControl(index, kTombstone);
-            m_kvpBuffer[index].~kvp();
+            size_t i = index;
+            do
+            {
+                SetControl(i, kUnused);
+                --m_count;
+                i = (i == 0 ? m_capacity : i) - 1;
+            }
+            while (m_controlBuffer[i] == kTombstone);
             return true;
         }
-        return false;
+        else if constexpr (FlatHashMapInternals::kUseSimdScan)
+        {
+            // Otherwise, same approach as Abseil's Swiss tables: if the run of non-unused slots going through this
+            // slot is shorter than a window, then no window holding this slot was ever free of unused slots, so no
+            // probe ever skipped it. As lookups check every match of the window they stop at, an unused slot before
+            // the entry within that window doesn't break its lookup.
+
+            constexpr size_t windowSize = FlatHashMapInternals::kControlAlignment;
+            constexpr size_t lsbShift = Simd::kCompareEqMaskElementWidthPot;
+            const Simd::u8x16 unusedBatch = Simd::From(kUnused);
+
+            const size_t beforeIndex = index >= windowSize ? index - windowSize : index + m_capacity - windowSize;
+            const u64 unusedBefore = Simd::CompareEqMask(
+                Simd::LoadUnaligned(m_controlBuffer + beforeIndex),
+                unusedBatch) & FlatHashMapInternals::kMatchMaskElementBits;
+            const u64 unusedAfter = Simd::CompareEqMask(
+                Simd::LoadUnaligned(m_controlBuffer + index),
+                unusedBatch) & FlatHashMapInternals::kMatchMaskElementBits;
+
+            if (unusedBefore != 0 && unusedAfter != 0)
+            {
+                const size_t usedAfter = BitUtils::GetLeastSignificantBit(unusedAfter) >> lsbShift;
+                const size_t usedBefore = windowSize - 1 - (BitUtils::GetMostSignificantBit(unusedBefore) >> lsbShift);
+                if (usedBefore + usedAfter < windowSize)
+                {
+                    SetControl(index, kUnused);
+                    --m_count;
+                    return true;
+                }
+            }
+        }
+
+        SetControl(index, kTombstone);
+        return true;
     }
 
     template <class Key, class Value, bool Fixed>
@@ -402,10 +455,8 @@ namespace KryneEngine
 
                     if (controlMask != 0)
                     {
-                        const u64 bitmask = unusedMask == 0
-                            ? ~0ull
-                            : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
-                        u64 matchMask = controlMask & bitmask & FlatHashMapInternals::kMatchMaskElementBits;
+                        // Same as in `Find`, check all matches of the window
+                        u64 matchMask = controlMask & FlatHashMapInternals::kMatchMaskElementBits;
 
                         while (matchMask != 0)
                         {

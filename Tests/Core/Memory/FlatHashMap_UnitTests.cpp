@@ -946,6 +946,135 @@ namespace KryneEngine::Tests
         catcher.ExpectNoMessage();
     }
 
+    TEST(FlatHashMap, EraseToUnusedKeepsProbeChains)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        FlatHashMap<u32, u32> map { AllocatorInstance(), 32 };
+        const size_t capacity = Capacity(map);
+
+        // Both keys share the same home slot, so the second one is displaced right after the first one, with unused
+        // slots all around. Erasing the first one can then reset its slot to unused rather than a tombstone.
+        const eastl::vector<u32> keys = FindKeysWithHome(capacity, 10, 2);
+        EXPECT_EQ(map.Insert({ keys[0], 0 }).first - map.begin(), 10);
+        EXPECT_EQ(map.Insert({ keys[1], 1 }).first - map.begin(), 11);
+
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        EXPECT_TRUE(map.Remove(keys[0]));
+
+        // The displaced key is still reachable, even though its home slot is now unused
+        const auto it = map.Find(keys[1]);
+        ASSERT_NE(it, map.end());
+        EXPECT_EQ(it - map.begin(), 11);
+        EXPECT_FALSE(map.Insert({ keys[1], 2 }).second) << "Displaced key was duplicated";
+        EXPECT_EQ(map.Find(keys[0]), map.end());
+
+        // Re-inserting the first key reuses its home slot
+        EXPECT_EQ(map.Insert({ keys[0], 0 }).first - map.begin(), 10);
+
+        catcher.ExpectNoMessage();
+    }
+
+    namespace
+    {
+        template <class Map>
+        void RunRandomChurn(Map& _map, const u32 _liveCount, const u32 _churnCount)
+        {
+            std::mt19937 rng(0xBADF00D);
+            eastl::vector<u32> liveKeys;
+            u32 nextKey = 0;
+
+            for (; nextKey < _liveCount; ++nextKey)
+            {
+                ASSERT_TRUE(_map.Insert({ nextKey, nextKey }).second);
+                liveKeys.push_back(nextKey);
+            }
+
+            for (u32 step = 0; step < _churnCount; ++step)
+            {
+                const u32 key = nextKey++;
+                ASSERT_TRUE(_map.Insert({ key, key }).second) << "Step " << step;
+                liveKeys.push_back(key);
+
+                // Remove a random live key
+                const size_t victimIndex = rng() % liveKeys.size();
+                const u32 victim = liveKeys[victimIndex];
+                liveKeys[victimIndex] = liveKeys.back();
+                liveKeys.pop_back();
+                ASSERT_TRUE(_map.Remove(victim)) << "Step " << step << ", key " << victim;
+                ASSERT_EQ(_map.Find(victim), _map.end()) << "Step " << step << ", key " << victim;
+
+                if (step % 100 == 0)
+                {
+                    for (const u32 liveKey : liveKeys)
+                    {
+                        const auto it = _map.Find(liveKey);
+                        ASSERT_NE(it, _map.end()) << "Step " << step << ", key " << liveKey << " lost";
+                        ASSERT_EQ(it->second, liveKey);
+                    }
+                }
+            }
+
+            EXPECT_EQ(CountEntries(_map), liveKeys.size());
+            for (const u32 liveKey : liveKeys)
+                EXPECT_NE(_map.Find(liveKey), _map.end()) << "Key " << liveKey;
+        }
+    }
+
+    TEST(FlatHashMap, RandomChurnKeepsLookups)
+    {
+        ScopedAssertCatcher catcher;
+
+        {
+            FixedFlatHashMap<u32, u32> map { AllocatorInstance(), 1024 };
+            RunRandomChurn(map, 256, 20'000);
+        }
+        {
+            FixedFlatHashMap<u32, u32> map { AllocatorInstance(), 1024 };
+            RunRandomChurn(map, 500, 20'000);
+        }
+        {
+            FixedFlatHashMap<u32, u32> map { AllocatorInstance(), 1024 };
+            RunRandomChurn(map, 700, 20'000);
+        }
+        {
+            FlatHashMap<u32, u32> map { AllocatorInstance() };
+            RunRandomChurn(map, 500, 20'000);
+        }
+
+        catcher.ExpectNoMessage();
+    }
+
+    TEST(FlatHashMap, ChurnDoesNotGrowMap)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        FlatHashMap<u32, u32> map { AllocatorInstance(), 32 };
+        const size_t capacity = Capacity(map);
+
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        // Tombstones count towards the load factor. With few live entries, erased slots should mostly go back to
+        // unused, so a steady number of live entries should not make the map grow.
+        RunRandomChurn(map, 8, 1000);
+        EXPECT_EQ(Capacity(map), capacity);
+
+        catcher.ExpectNoMessage();
+    }
+
     TEST(FlatHashMap, FixedMapRequiresCapacity)
     {
         ScopedAssertCatcher catcher;
