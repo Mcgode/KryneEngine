@@ -85,6 +85,49 @@ namespace KryneEngine::Tests::Modules::FileSystem
                 std::filesystem::remove_all(m_directory, error);
             }
         };
+
+        // Plain files written by the test itself, so the tests don't depend on the source tree being available
+        // (CI runs them on a machine that only has the build artifacts).
+        struct LooseFilesFixture
+        {
+            static constexpr const char* kContent = "Hello from a loose file";
+
+            // Absolute paths, in a temporary directory
+            std::filesystem::path m_directory;
+            std::filesystem::path m_firstFile;
+            std::filesystem::path m_secondFile;
+            std::filesystem::path m_thirdFile;
+
+            // Relative to the working directory, as relative paths can't be built to another drive on Windows
+            std::filesystem::path m_relativeDirectory;
+            std::filesystem::path m_relativeFile;
+
+            LooseFilesFixture()
+            {
+                m_directory = std::filesystem::temp_directory_path() / "KryneEngine_VirtualFileSystemTests_Loose";
+                std::filesystem::create_directories(m_directory);
+                m_firstFile = m_directory / "first.txt";
+                m_secondFile = m_directory / "second.txt";
+                m_thirdFile = m_directory / "third.txt";
+
+                m_relativeDirectory = "KryneEngine_VirtualFileSystemTests_Relative";
+                std::filesystem::create_directories(m_relativeDirectory);
+                m_relativeFile = m_relativeDirectory / "relative.txt";
+
+                for (const std::filesystem::path& path: { m_firstFile, m_secondFile, m_thirdFile, m_relativeFile })
+                {
+                    std::ofstream file(path, std::ios::binary | std::ios::trunc);
+                    file << kContent;
+                }
+            }
+
+            ~LooseFilesFixture()
+            {
+                std::error_code error;
+                std::filesystem::remove_all(m_directory, error);
+                std::filesystem::remove_all(m_relativeDirectory, error);
+            }
+        };
     }
 
     TEST(VirtualFileSystem, OpenEvictAndDestroy)
@@ -94,12 +137,12 @@ namespace KryneEngine::Tests::Modules::FileSystem
         // -----------------------------------------------------------------------
 
         ScopedAssertCatcher catcher;
+        LooseFilesFixture fixture;
 
-        const std::filesystem::path thisFile = __FILE__;
-        const std::string relativePath = std::filesystem::relative(thisFile).string();
-        const std::string absolutePath = std::filesystem::absolute(thisFile.parent_path() / "CMakeLists.txt").string();
-        ASSERT_TRUE(std::filesystem::exists(relativePath));
-        ASSERT_TRUE(std::filesystem::exists(absolutePath));
+        const std::string relativePath = fixture.m_relativeFile.string();
+        const std::string absolutePath = fixture.m_secondFile.string();
+        ASSERT_TRUE(fixture.m_relativeFile.is_relative());
+        ASSERT_TRUE(fixture.m_secondFile.is_absolute());
 
         // -----------------------------------------------------------------------
         // Execute
@@ -113,9 +156,9 @@ namespace KryneEngine::Tests::Modules::FileSystem
                 const ReadOnlyFile file = fileSystem.OpenReadOnlyFile(relativePath.c_str());
                 ASSERT_TRUE(file.IsValid());
 
-                char header[3] {};
-                EXPECT_EQ(file.ReadT(0, header, 3), 3);
-                EXPECT_EQ(eastl::string_view(header, 3), "/**");
+                char header[5] {};
+                EXPECT_EQ(file.ReadT(0, header, 5), 5);
+                EXPECT_EQ(eastl::string_view(header, 5), "Hello");
             }
 
             {
@@ -137,11 +180,11 @@ namespace KryneEngine::Tests::Modules::FileSystem
         // -----------------------------------------------------------------------
 
         ScopedAssertCatcher catcher;
+        LooseFilesFixture fixture;
 
-        const std::filesystem::path thisFile = std::filesystem::absolute(__FILE__);
-        const std::string firstPath = thisFile.string();
-        const std::string secondPath = (thisFile.parent_path() / "CMakeLists.txt").string();
-        const std::string thirdPath = (thisFile.parent_path() / "Utils_UnitTests.cpp").string();
+        const std::string firstPath = fixture.m_firstFile.string();
+        const std::string secondPath = fixture.m_secondFile.string();
+        const std::string thirdPath = fixture.m_thirdFile.string();
 
         // -----------------------------------------------------------------------
         // Execute
@@ -209,6 +252,7 @@ namespace KryneEngine::Tests::Modules::FileSystem
 
         ScopedAssertCatcher catcher;
         ArchiveFixture fixture;
+        LooseFilesFixture looseFiles;
         CountingAllocator allocator;
 
         // -----------------------------------------------------------------------
@@ -239,7 +283,7 @@ namespace KryneEngine::Tests::Modules::FileSystem
 
             // The failed mount didn't keep a reference on the raw file, so it can be evicted to open another file
             // next to the archive
-            const ReadOnlyFile other = fileSystem.OpenReadOnlyFile(std::filesystem::absolute(__FILE__).string().c_str());
+            const ReadOnlyFile other = fileSystem.OpenReadOnlyFile(looseFiles.m_firstFile.string().c_str());
             EXPECT_TRUE(other.IsValid());
         }
 

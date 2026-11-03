@@ -33,14 +33,17 @@ namespace KryneEngine::Math
         }
 
         // Explicit round to nearest even, rather than the current MXCSR mode, so results never depend on thread state.
+        // The scalar `_cvtss_sh` / `_cvtsh_ss` intrinsics aren't provided by MSVC, so the packed ones are used on
+        // lane 0.
         KE_F16C_TARGET u16 ConvertToFloat16F16C(const float _value)
         {
-            return static_cast<u16>(_cvtss_sh(_value, _MM_FROUND_TO_NEAREST_INT));
+            const __m128i packed = _mm_cvtps_ph(_mm_set_ss(_value), _MM_FROUND_TO_NEAREST_INT);
+            return static_cast<u16>(_mm_cvtsi128_si32(packed));
         }
 
         KE_F16C_TARGET float ConvertFromFloat16F16C(const u16 _value)
         {
-            return _cvtsh_ss(_value);
+            return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(_value)));
         }
 
         // Converts both values with a single instruction. Lane 0 lands in the low 16 bits, matching the software path.
