@@ -90,11 +90,8 @@ namespace KryneEngine
             // Ignored messages
             {
                 eastl::string message = _pCallbackData->pMessage;
-                // The Windows loader warns when no layer is registered at all, which is expected on machines without
-                // the Vulkan SDK (e.g. CI runners), as validation layers are optional.
                 if (std::regex_match(message.begin(), message.end(), std::regex("Layer name .+ does not conform to naming standard .*"))
-                    || std::regex_match(message.begin(), message.end(), std::regex("Override layer has override paths set to .*"))
-                    || std::regex_match(message.begin(), message.end(), std::regex("windows_read_data_files_in_registry: Registry lookup failed to get layer manifest files.*")))
+                    || std::regex_match(message.begin(), message.end(), std::regex("Override layer has override paths set to .*")))
                 {
                     return VK_FALSE;
                 }

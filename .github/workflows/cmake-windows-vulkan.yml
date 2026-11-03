@@ -157,16 +157,25 @@ jobs:
     runs-on: windows-latest
     needs: build
     steps:
-      - name: Install Vulkan runtime and Lavapipe
+      - name: Install Vulkan SDK and Lavapipe
         # Github-hosted Windows runners have no Vulkan-capable GPU, so Mesa's Lavapipe software driver is used instead.
-        # The action registers it with the Vulkan loader. Only the runtime is cached, Lavapipe is downloaded each run.
+        # The action registers it with the Vulkan loader. The SDK provides the validation layers some tests rely on.
+        # Same SDK options as the build job, so they share its cache entry. Lavapipe is downloaded each run.
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: latest
-          install_runtime_only: true
-          install_lavapipe: true
+          install_runtime: true
           cache: true
+          stripdown: true
+          install_lavapipe: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Register validation layers
+        # The action doesn't register the SDK's layers on Windows, and they aren't when restored from the cache.
+        run: |
+          $manifest = Join-Path $env:VULKAN_SDK "Bin\VkLayer_khronos_validation.json"
+          if (-not (Test-Path $manifest)) { throw "Validation layer manifest not found: $manifest" }
+          reg add "HKLM\SOFTWARE\Khronos\Vulkan\ExplicitLayers" /v "$manifest" /t REG_DWORD /d 0 /f
 
       - name: Download
         uses: actions/download-artifact@v7
@@ -182,16 +191,25 @@ jobs:
     runs-on: windows-latest
     needs: build
     steps:
-      - name: Install Vulkan runtime and Lavapipe
+      - name: Install Vulkan SDK and Lavapipe
         # Github-hosted Windows runners have no Vulkan-capable GPU, so Mesa's Lavapipe software driver is used instead.
-        # The action registers it with the Vulkan loader. Only the runtime is cached, Lavapipe is downloaded each run.
+        # The action registers it with the Vulkan loader. The SDK provides the validation layers some tests rely on.
+        # Same SDK options as the build job, so they share its cache entry. Lavapipe is downloaded each run.
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: latest
-          install_runtime_only: true
-          install_lavapipe: true
+          install_runtime: true
           cache: true
+          stripdown: true
+          install_lavapipe: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Register validation layers
+        # The action doesn't register the SDK's layers on Windows, and they aren't when restored from the cache.
+        run: |
+          $manifest = Join-Path $env:VULKAN_SDK "Bin\VkLayer_khronos_validation.json"
+          if (-not (Test-Path $manifest)) { throw "Validation layer manifest not found: $manifest" }
+          reg add "HKLM\SOFTWARE\Khronos\Vulkan\ExplicitLayers" /v "$manifest" /t REG_DWORD /d 0 /f
 
       - name: Download
         uses: actions/download-artifact@v7
