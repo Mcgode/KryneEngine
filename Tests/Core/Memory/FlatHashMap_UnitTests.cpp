@@ -903,6 +903,49 @@ namespace KryneEngine::Tests
         catcher.ExpectNoMessage();
     }
 
+    TEST(FlatHashMap, FixedMapTombstoneChurn)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        FixedFlatHashMap<u32, u32> map { AllocatorInstance(), 32 };
+        const size_t capacity = Capacity(map);
+
+        constexpr u32 liveCount = 8;
+        for (u32 i = 0; i < liveCount; ++i)
+            ASSERT_TRUE(map.Insert({ i, i }).second);
+
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        // Short-lived keys: each one may land on an unused slot, which then becomes a tombstone once removed. A fixed
+        // map never rehashes, so after enough churn no unused slot is left, only live entries and tombstones.
+        constexpr u32 churnCount = 1000;
+        for (u32 i = 0; i < churnCount; ++i)
+        {
+            const u32 key = 1000 + i;
+            const auto [it, inserted] = map.Insert({ key, i });
+            ASSERT_TRUE(inserted) << "Insertion " << i << " failed with only " << liveCount << " live entries";
+            ASSERT_TRUE(map.Remove(key));
+        }
+
+        EXPECT_EQ(CountEntries(map), liveCount);
+        for (u32 i = 0; i < liveCount; ++i)
+            EXPECT_NE(map.Find(i), map.end()) << "Key " << i;
+        EXPECT_EQ(map.Find(1000), map.end());
+
+        // The map can still be filled up to its capacity
+        for (u32 i = liveCount; i < capacity; ++i)
+            EXPECT_TRUE(map.Insert({ i, i }).second) << "Key " << i;
+        EXPECT_EQ(CountEntries(map), capacity);
+
+        catcher.ExpectNoMessage();
+    }
+
     TEST(FlatHashMap, FixedMapRequiresCapacity)
     {
         ScopedAssertCatcher catcher;

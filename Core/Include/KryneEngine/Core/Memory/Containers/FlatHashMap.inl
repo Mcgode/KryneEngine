@@ -438,6 +438,14 @@ namespace KryneEngine
                     i += FlatHashMapInternals::kControlAlignment;
                     probeIndex %= m_capacity;
                 }
+
+                // The whole map was scanned without finding the key nor any unused slot, so the key isn't present
+                // and the first tombstone can be reused.
+                if (firstAvailableIndex < m_capacity)
+                {
+                    SetControl(firstAvailableIndex, control);
+                    return { m_kvpBuffer + firstAvailableIndex, true };
+                }
             }
         }
         else
@@ -474,6 +482,14 @@ namespace KryneEngine
 
                 ++i;
                 probeIndex = (probeIndex + 1) % m_capacity;
+            }
+
+            // The whole map was scanned without finding the key nor any unused slot, so the key isn't present
+            // and the first tombstone can be reused.
+            if (firstTombstoneIndex < m_capacity)
+            {
+                SetControl(firstTombstoneIndex, control);
+                return { m_kvpBuffer + firstTombstoneIndex, true };
             }
         }
         if constexpr (!Fixed)
