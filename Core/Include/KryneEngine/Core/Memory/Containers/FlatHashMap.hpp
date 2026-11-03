@@ -148,7 +148,12 @@ namespace KryneEngine
         size_t m_capacity = 0;
         size_t m_count = 0;
         kvp* m_kvpBuffer = nullptr;
+        // When using SIMD scans, the control buffer is followed by a padding which mirrors its first bytes (similarly
+        // to Abseil's Swiss tables), so a probe window starting near the end of the buffer wraps around to its start.
         u8* m_controlBuffer = nullptr;
+
+        void SetControl(size_t _index, u8 _control);
+        [[nodiscard]] size_t WrapIndex(size_t _index) const;
 
         void Grow(size_t _newCapacity);
 

@@ -35,6 +35,15 @@ namespace KryneEngine
 #endif
 
         static constexpr size_t kControlBufferPadding = kControlAlignment == 1 ? 0 : kControlAlignment;
+
+        // NEON compare masks use a 4-bit nibble per element. Keeping a single bit per element allows
+        // `mask & (mask - 1)` to clear a whole element at once.
+        static constexpr u64 kMatchMaskElementBits =
+#if defined(__ARM_NEON)
+            0x1111'1111'1111'1111ull;
+#else
+            0xffff'ffff'ffff'ffffull;
+#endif
     }
 
     template <class Key, class Value, bool Fixed>
@@ -187,17 +196,17 @@ namespace KryneEngine
                     const u64 bitmask = unusedMask == 0
                         ? ~0ull
                         : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
-                    u64 matchMask = expectedMask & bitmask;
+                    u64 matchMask = expectedMask & bitmask & FlatHashMapInternals::kMatchMaskElementBits;
 
-                    u64 offset = 0;
                     while (matchMask != 0)
                     {
                         const u64 bitIndex = BitUtils::GetLeastSignificantBit(matchMask) >> Simd::kCompareEqMaskElementWidthPot;
-                        offset += bitIndex;
-                        matchMask >>= (bitIndex + 1) << Simd::kCompareEqMaskElementWidthPot;
+                        const size_t index = WrapIndex(probeIndex + bitIndex);
 
-                        if (m_kvpBuffer[probeIndex + offset].first == _key)
-                            return m_kvpBuffer + probeIndex + offset;
+                        if (m_kvpBuffer[index].first == _key)
+                            return m_kvpBuffer + index;
+
+                        matchMask &= matchMask - 1;
                     }
                 }
 
@@ -219,7 +228,7 @@ namespace KryneEngine
         if (_it != end() && IsValidEntry(_it))
         {
             const size_t index = _it - m_kvpBuffer;
-            m_controlBuffer[index] = kTombstone;
+            SetControl(index, kTombstone);
             m_kvpBuffer[index].~kvp();
             return true;
         }
@@ -230,18 +239,12 @@ namespace KryneEngine
         requires FlatHashMapValidKvp<Key, Value>
     void FlatHashMap<Key, Value, Fixed>::Clear()
     {
-        for (size_t i = 0; i < m_capacity; ++i)
-        {
-            u8& controlSlot = m_controlBuffer[i];
-            if constexpr (!std::is_trivially_destructible_v<kvp>)
-            {
-                if ((controlSlot & kAvailableSlotFlag) == 0)
-                {
-                    m_kvpBuffer[i].~kvp();
-                }
-            }
-            controlSlot = kUnused;
-        }
+        if (m_capacity == 0)
+            return;
+
+        DeleteAll();
+        // Also reset the mirrored padding
+        memset(m_controlBuffer, kUnused, m_capacity + FlatHashMapInternals::kControlBufferPadding);
         m_count = 0;
     }
 
@@ -282,8 +285,8 @@ namespace KryneEngine
             m_kvpBuffer = m_allocator.Allocate<eastl::pair<Key, Value>>(newCapacity);
 
             m_controlBuffer = static_cast<u8*>(m_allocator.allocate(newCapacity + FlatHashMapInternals::kControlBufferPadding, FlatHashMapInternals::kControlAlignment));
-            memset(m_controlBuffer, kUnused, newCapacity);
-            memset(m_controlBuffer + newCapacity, kTombstone, FlatHashMapInternals::kControlBufferPadding);
+            // Padding mirrors the first control bytes, so it starts unused as well
+            memset(m_controlBuffer, kUnused, newCapacity + FlatHashMapInternals::kControlBufferPadding);
 
             m_count = 0;
             m_capacity = newCapacity;
@@ -355,15 +358,14 @@ namespace KryneEngine
 
                     if (availableMask != 0)
                     {
-                        const u64 firstIndex = BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift;
-                        if (firstIndex + probeIndex < m_capacity)
-                        {
-                            // Only increment count if not replacing a tombstone
-                            if (m_controlBuffer[probeIndex + firstIndex] == kUnused)
-                                ++m_count;
-                            m_controlBuffer[probeIndex + firstIndex] = control;
-                            return { m_kvpBuffer + probeIndex + firstIndex, true };
-                        }
+                        const size_t index = WrapIndex(
+                            probeIndex + (BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift));
+
+                        // Only increment count if not replacing a tombstone
+                        if (m_controlBuffer[index] == kUnused)
+                            ++m_count;
+                        SetControl(index, control);
+                        return { m_kvpBuffer + index, true };
                     }
 
                     i += FlatHashMapInternals::kControlAlignment;
@@ -390,7 +392,8 @@ namespace KryneEngine
 
                         if (availableMask != 0)
                         {
-                            firstAvailableIndex = probeIndex + (BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift);
+                            firstAvailableIndex = WrapIndex(
+                                probeIndex + (BitUtils::GetLeastSignificantBit(availableMask) >> lsbShift));
                         }
                     }
 
@@ -402,17 +405,17 @@ namespace KryneEngine
                         const u64 bitmask = unusedMask == 0
                             ? ~0ull
                             : BitUtils::BitMask<u64>(BitUtils::GetLeastSignificantBit(unusedMask));
-                        u64 matchMask = controlMask & bitmask;
+                        u64 matchMask = controlMask & bitmask & FlatHashMapInternals::kMatchMaskElementBits;
 
-                        u64 offset = 0;
                         while (matchMask != 0)
                         {
-                            const u64 bitIndex = BitUtils::GetLeastSignificantBit(matchMask) >> lsbShift;
-                            offset += bitIndex;
-                            matchMask >>= (bitIndex + 1) << lsbShift;
+                            const size_t index = WrapIndex(
+                                probeIndex + (BitUtils::GetLeastSignificantBit(matchMask) >> lsbShift));
 
-                            if (m_kvpBuffer[probeIndex + offset].first == _key)
-                                return { m_kvpBuffer + probeIndex + offset, false };
+                            if (m_kvpBuffer[index].first == _key)
+                                return { m_kvpBuffer + index, false };
+
+                            matchMask &= matchMask - 1;
                         }
                     }
 
@@ -424,7 +427,7 @@ namespace KryneEngine
                         if (m_controlBuffer[firstAvailableIndex] == kUnused)
                             ++m_count;
 
-                        m_controlBuffer[firstAvailableIndex] = control;
+                        SetControl(firstAvailableIndex, control);
                         return {
                             m_kvpBuffer + firstAvailableIndex,
                             true
@@ -454,7 +457,7 @@ namespace KryneEngine
                     // Only increment count if not replacing a tombstone
                     if (controlSlot == kUnused)
                         ++m_count;
-                    controlSlot = control;
+                    SetControl(probeIndex, control);
                     return { m_kvpBuffer + probeIndex, true};
                 }
 
@@ -465,6 +468,25 @@ namespace KryneEngine
         if constexpr (!Fixed)
             KE_ERROR("Unreachable code");
         return { end(), false };
+    }
+
+    template <class Key, class Value, bool Fixed>
+        requires FlatHashMapValidKvp<Key, Value>
+    void FlatHashMap<Key, Value, Fixed>::SetControl(const size_t _index, const u8 _control)
+    {
+        m_controlBuffer[_index] = _control;
+
+        // Capacity is a multiple of the padding size, so mirrored indices are always within the control buffer
+        if (_index < FlatHashMapInternals::kControlBufferPadding)
+            m_controlBuffer[m_capacity + _index] = _control;
+    }
+
+    template <class Key, class Value, bool Fixed>
+        requires FlatHashMapValidKvp<Key, Value>
+    size_t FlatHashMap<Key, Value, Fixed>::WrapIndex(const size_t _index) const
+    {
+        // Indices from probe windows are always below `2 * m_capacity`, so no need for a modulo
+        return _index >= m_capacity ? _index - m_capacity : _index;
     }
 
     template <class Key, class Value, bool Fixed>
