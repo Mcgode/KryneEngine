@@ -49,9 +49,11 @@ namespace KryneEngine::Modules::FileSystem
         Platform::ReadOnlyFileDescriptor* fileDescriptor;
         Archive* archive;
         {
-            ReadOnlyFile archiveFile = OpenReadOnlyFile(_archivePath, true);
-            const StringHash hash(_archivePath);
-            fileDescriptor = GetFileDescriptor(hash);
+            // Take a reference on the descriptor of the opened file, rather than looking it up again: the cache is
+            // keyed by the normalized path, so a lookup by a raw path that isn't normalized (with `./`, `..`,
+            // backslashes...) would open the file a second time.
+            const ReadOnlyFile archiveFile = OpenReadOnlyFile(_archivePath, true);
+            fileDescriptor = m_openFiles.Acquire(archiveFile.m_fileDescriptor);
             archive = Archive::Load(m_allocator, fileDescriptor);
         }
 

@@ -247,4 +247,32 @@ namespace KryneEngine::Tests::Modules::FileSystem
 
         catcher.ExpectNoMessage();
     }
+
+    TEST(VirtualFileSystem, MountArchiveOpensItOnce)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+        ArchiveFixture fixture;
+
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        // A single open file at a time: the archive must only take one slot of the cache to be mounted, even when
+        // its path isn't normalized
+        VirtualFileSystem fileSystem { AllocatorInstance(), 1 };
+        const std::string archivePath = (fixture.m_directory / "." / fixture.m_archive.filename()).string();
+        ASSERT_TRUE(fileSystem.MountArchive(archivePath.c_str()));
+
+        // Files inside the archive share its descriptor
+        const std::string virtualPath = (fixture.m_directory / "data" / "hello.txt").string();
+        const ReadOnlyFile file = fileSystem.OpenReadOnlyFile(virtualPath.c_str());
+        ASSERT_TRUE(file.IsValid());
+        EXPECT_EQ(file.GetSize(), strlen(ArchiveFixture::kContent));
+
+        catcher.ExpectNoMessage();
+    }
 }
