@@ -1,8 +1,13 @@
 
 # Compiler flags
 
+# ccache can't cache compilations using -ftime-trace, so CI builds turn it off.
+option(KRYNE_ENGINE_CLANG_TIME_TRACE "Emit Clang -ftime-trace compilation profiles" ON)
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftime-trace")
+    if (KRYNE_ENGINE_CLANG_TIME_TRACE)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftime-trace")
+    endif ()
     if (WIN32)
         # Asynchronous (SEH-aware) exceptions. EAThread's Windows backend relies on
         # __try/__except, so C++ frames must be unwindable through structured

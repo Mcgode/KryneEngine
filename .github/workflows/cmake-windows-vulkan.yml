@@ -89,6 +89,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=clang-cl
         -DCMAKE_C_COMPILER_LAUNCHER=ccache
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        -DKRYNE_ENGINE_CLANG_TIME_TRACE=OFF
         -DCMAKE_PREFIX_PATH=${{ env.FREETYPE_PREFIX }}
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -DGraphicsApi=VK

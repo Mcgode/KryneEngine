@@ -72,6 +72,7 @@ jobs:
         -G Ninja
         -DCMAKE_C_COMPILER_LAUNCHER=ccache
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        -DKRYNE_ENGINE_CLANG_TIME_TRACE=OFF
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} 
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} 
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} 
