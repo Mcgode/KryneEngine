@@ -21,7 +21,8 @@ namespace KryneEngine::Modules::FileSystem
         {
             if (_src[srcIndex] == '\\' || _src[srcIndex] == '/')
             {
-                if (!_dst.empty() && _dst.back() != '/')
+                // A leading separator is kept, as it marks an absolute path
+                if (_dst.empty() ? srcIndex == 0 : _dst.back() != '/')
                     _dst.push_back('/');
                 firstChar = true;
                 ++srcIndex;
@@ -47,10 +48,20 @@ namespace KryneEngine::Modules::FileSystem
                         // If dst is empty, we are at relative root, simply add '..'
                         // If not empty, we might already have other prefixing '..', if that's the case, add another
                         // '..' level
-                        if (_dst.empty() || _dst.size() > 3 && (_dst[_dst.size() - 3] == '.' && _dst[_dst.size() - 2] == '.'))
+                        const size_t size = _dst.size();
+                        const bool onlyParentSteps = size >= 3
+                            && _dst[size - 3] == '.' && _dst[size - 2] == '.' && _dst[size - 1] == '/'
+                            && (size == 3 || _dst[size - 4] == '/');
+                        if (_dst.empty() || onlyParentSteps)
                         {
                             _dst.push_back('.');
                             _dst.push_back('.');
+                            srcIndex += 2;
+                            continue;
+                        }
+                        // The parent of the root is the root itself
+                        if (_dst.size() == 1 && _dst[0] == '/')
+                        {
                             srcIndex += 2;
                             continue;
                         }
@@ -72,7 +83,8 @@ namespace KryneEngine::Modules::FileSystem
 
         if (!_dst.empty())
         {
-            if (_dst.back() == '/')
+            // Keep the separator of the root path
+            if (_dst.back() == '/' && _dst.size() > 1)
                 _dst.pop_back();
             if (_dst.back() != '\0')
                 _dst.push_back('\0');
