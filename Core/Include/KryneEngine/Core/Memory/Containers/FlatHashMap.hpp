@@ -67,6 +67,8 @@ namespace KryneEngine
 
         [[nodiscard]] bool IsValidEntry(const_iterator _it) const;
 
+        [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
+
         [[nodiscard]] const_iterator Find(const Key& _key) const;
 
         eastl::pair<iterator, bool> Emplace(kvp&& _kvp) requires std::is_move_constructible_v<kvp>
