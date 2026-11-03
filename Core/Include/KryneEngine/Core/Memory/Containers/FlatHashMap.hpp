@@ -75,7 +75,7 @@ namespace KryneEngine
             KE_ASSERT(result.first != end());
             if (result.second)
             {
-                new (result.first) kvp(_kvp);
+                new (result.first) kvp(eastl::move(_kvp));
             }
             return result;
         }
@@ -103,7 +103,7 @@ namespace KryneEngine
         {
             auto result = FindAndAllocateSlot<true>(_kvp.first);
             KE_ASSERT(result.first != end() && result.second);
-            new (result.first) kvp(_kvp);
+            new (result.first) kvp(eastl::move(_kvp));
             return result.first;
         }
 
