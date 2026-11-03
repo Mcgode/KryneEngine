@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.31)
 add_executable(Modules_FileSystem_UnitTests
         Utils_UnitTests.cpp
         DirectoryTree_UnitTests.cpp
+        VirtualFileSystem_UnitTests.cpp
 )
 
 target_link_libraries(Modules_FileSystem_UnitTests KryneEngine_Core_Link KryneEngine_Modules_FileSystem TestUtils gtest gtest_main)

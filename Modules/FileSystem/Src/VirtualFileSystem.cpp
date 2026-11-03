@@ -23,9 +23,18 @@ namespace KryneEngine::Modules::FileSystem
 
     VirtualFileSystem::~VirtualFileSystem()
     {
-        const auto lock = m_archiveMutex.AutoLock();
-        for (const auto* archive: m_archives)
-            m_openFiles.Release(archive->GetFileDescriptor());
+        {
+            const auto lock = m_archiveMutex.AutoLock();
+            for (const auto* archive: m_archives)
+                m_openFiles.Release(archive->GetFileDescriptor());
+        }
+
+        // Close all the files still in the cache. Failed opens are cached as well, with an invalid descriptor.
+        m_openFiles.Destroy([this](StringHash&, const Platform::ReadOnlyFileDescriptor& _fileDescriptor)
+        {
+            if (_fileDescriptor.IsValid())
+                Platform::CloseReadOnlyFile(_fileDescriptor, m_allocator);
+        });
     }
 
     bool VirtualFileSystem::MountArchive(const eastl::string_view _archivePath)
@@ -127,10 +136,12 @@ namespace KryneEngine::Modules::FileSystem
         return m_openFiles.Acquire(_hash,
             [this, &_hash](const bool _mustReclaim, Platform::ReadOnlyFileDescriptor* _fileDescriptor)
             {
+                // Failed opens are cached as well, with an invalid descriptor that must not be closed
                 if (_mustReclaim)
                 {
                     KE_ASSERT(_fileDescriptor != nullptr);
-                    Platform::CloseReadOnlyFile(*_fileDescriptor, m_allocator);
+                    if (_fileDescriptor->IsValid())
+                        Platform::CloseReadOnlyFile(*_fileDescriptor, m_allocator);
                 }
 
                 *_fileDescriptor = Platform::OpenReadOnlyFile(_hash.m_string, m_allocator);
