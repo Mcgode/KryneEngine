@@ -15,11 +15,14 @@
 namespace KryneEngine
 {
 #if KE_CHECK_STRING_HASH_COLLISIONS && !KE_FINAL
+    namespace
+    {
+        bool s_assertOnCollision = true;
+    }
 
     void StringHelpers::CheckStringHashCollision(const eastl::string_view& _string, const u64 _hashValue)
     {
         static FlatHashMap<u64, eastl::string> s_registeredStrings { {}, 256 };
-        static bool s_assertOnCollision = true;
         static LightweightMutex s_lock;
 
         const size_t len = strnlen(_string.data(), _string.size());
