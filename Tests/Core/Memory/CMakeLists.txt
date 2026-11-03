@@ -5,6 +5,7 @@ add_executable(Core_Memory_UnitTests
         FlatHashMap_UnitTests.cpp
         GenerationalPool_UnitTests.cpp
         IntrusivePtr_UnitTests.cpp
+        LruCache_UnitTests.cpp
         StdAllocator_UnitTests.cpp
         TlsfAllocator_UnitTests.cpp)
 

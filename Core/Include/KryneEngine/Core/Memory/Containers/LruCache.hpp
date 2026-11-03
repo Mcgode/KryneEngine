@@ -27,8 +27,20 @@ namespace KryneEngine
 
         ~LruCache();
 
+        /**
+         * @brief Destroys all the cached values using their destructor, and releases the cache resources.
+         */
+        void Destroy();
+
+        /**
+         * @brief Calls the functor on all the cached values, then releases the cache resources.
+         *
+         * @details
+         * The functor is called with `(Key&, Value&)` for each cached entry, and is responsible for destroying the
+         * value.
+         */
         template <class Functor>
-        void Destroy(Functor _valueClearFunctor = [](Key&, Value& _v) { _v.~Value(); });
+        void Destroy(Functor _valueClearFunctor);
 
         /**
          * @details
