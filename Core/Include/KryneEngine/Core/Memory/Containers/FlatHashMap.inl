@@ -346,9 +346,9 @@ namespace KryneEngine
         }
         else if constexpr (!Fixed)
         {
-            // There is negligible
+            // Rehash all live entries into a new map, which also drops all tombstones
             FlatHashMap temp(m_allocator, _newCapacity);
-            for (auto i = 0; i < m_capacity; ++i)
+            for (size_t i = 0; i < m_capacity; ++i)
             {
                 if ((m_controlBuffer[i] & kAvailableSlotFlag) == 0)
                 {
@@ -514,8 +514,16 @@ namespace KryneEngine
 
                 if (controlSlot == kTombstone)
                 {
-                    if (firstTombstoneIndex == m_capacity)
+                    // The key is assumed to be absent, so the first tombstone can be reused right away
+                    if constexpr (Fast)
+                    {
+                        SetControl(probeIndex, control);
+                        return { m_kvpBuffer + probeIndex, true };
+                    }
+                    else if (firstTombstoneIndex == m_capacity)
+                    {
                         firstTombstoneIndex = probeIndex;
+                    }
                 }
                 else if (controlSlot == kUnused)
                 {

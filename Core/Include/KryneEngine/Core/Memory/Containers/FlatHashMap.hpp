@@ -26,9 +26,9 @@ namespace KryneEngine
      *
      * The map supports both adding and removing entries, and allows reuse of deleted slots. It also automatically
      * grows and rehashes when the load factor exceeds a certain threshold, though the operation isn't cheap.
-     * It should be noted that removing elements replaces the slot with a tombstone, which, while they can be recycled,
-     * means that, over time, there can be a fragmentation buildup, which can negatively impact performance. When the
-     * map grows, it will automatically defragment itself.
+     * Removing an element resets its slot to unused when no lookup can depend on it, and replaces it with a tombstone
+     * otherwise. While tombstones can be recycled, they can still build up over time, which can negatively impact
+     * performance. When the map grows, it will automatically defragment itself.
      *
      * The hash map can be set to be fixed-size, which means that it will not grow and will not defragment.
      * This can be useful in scenarios where the size of the map is known in advance and will not change, as it can
