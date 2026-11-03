@@ -134,6 +134,9 @@ namespace KryneEngine
     requires FlatHashMapValidKvp<Key, Value>
     FlatHashMap<Key, Value, Fixed>::const_iterator FlatHashMap<Key, Value, Fixed>::Find(const Key& _key) const
     {
+        if (m_capacity == 0)
+            return end();
+
         const size_t hash = Hashing::HashKey<Key>(_key);
         const u8 expectedControl = hash >> (sizeof(size_t) * 8 - 7);
 
@@ -142,15 +145,15 @@ namespace KryneEngine
         if constexpr (!FlatHashMapInternals::kUseSimdScan)
         {
             size_t i = 0;
-            u8& control = m_controlBuffer[probeIndex];
-            while (i < m_capacity && control != kUnused)
+            u8* control = m_controlBuffer + probeIndex;
+            while (i < m_capacity && *control != kUnused)
             {
-                if (control == expectedControl && m_kvpBuffer[probeIndex].first == _key)
+                if (*control == expectedControl && m_kvpBuffer[probeIndex].first == _key)
                     return m_kvpBuffer + probeIndex;
 
                 ++i;
                 probeIndex = (probeIndex + 1) % m_capacity;
-                control = m_controlBuffer[probeIndex];
+                control = m_controlBuffer + probeIndex;
             }
         }
         else
@@ -203,11 +206,11 @@ namespace KryneEngine
     }
 
     template <class Key, class Value, bool Fixed> requires FlatHashMapValidKvp<Key, Value>
-    bool FlatHashMap<Key, Value, Fixed>::Erase(iterator _it)
+    bool FlatHashMap<Key, Value, Fixed>::Erase(const_iterator _it)
     {
         if (_it != end() && IsValidEntry(_it))
         {
-            const size_t index = eastl::distance(begin(), _it);
+            const size_t index = _it - m_kvpBuffer;
             m_controlBuffer[index] = kTombstone;
             m_kvpBuffer[index].~kvp();
             return true;

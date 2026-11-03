@@ -122,7 +122,7 @@ namespace KryneEngine
             return result.first;
         }
 
-        bool Erase(iterator _it);
+        bool Erase(const_iterator _it);
 
         bool Remove(const Key& _key)
         {
