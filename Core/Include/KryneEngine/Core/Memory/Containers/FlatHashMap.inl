@@ -222,17 +222,14 @@ namespace KryneEngine
         requires FlatHashMapValidKvp<Key, Value>
     void FlatHashMap<Key, Value, Fixed>::Clear()
     {
-        auto it = begin();
-        while (it != end())
+        for (size_t i = 0; i < m_capacity; ++i)
         {
-            if (IsValidEntry(it))
+            u8& controlSlot = m_controlBuffer[i];
+            if ((controlSlot & kAvailableSlotFlag) == 0)
             {
-                const size_t index = eastl::distance(begin(), it);
-                m_controlBuffer[index] = kUnused;
-                m_kvpBuffer[index].~kvp();
+                m_kvpBuffer[i].~kvp();
             }
-
-            ++it;
+            controlSlot = kUnused;
         }
         m_count = 0;
     }
