@@ -156,6 +156,17 @@ jobs:
     runs-on: windows-latest
     needs: build
     steps:
+      - name: Install Vulkan runtime and Lavapipe
+        # Github-hosted Windows runners have no Vulkan-capable GPU, so Mesa's Lavapipe software driver is used instead.
+        # The action registers it with the Vulkan loader. Only the runtime is cached, Lavapipe is downloaded each run.
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          install_runtime_only: true
+          install_lavapipe: true
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download
         uses: actions/download-artifact@v7
         with:
@@ -164,13 +175,23 @@ jobs:
 
       - name: Test
         working-directory: ${{ env.BUILD_DIR }}/Tests/Core
-        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --repeat until-pass:5 -E "Core_Graphics_UnitTests"
-        # Disabled Core graphics test, as Github-hosted Windows runners have no Vulkan-capable GPU or software driver.
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --repeat until-pass:5
 
   test-modules:
     runs-on: windows-latest
     needs: build
     steps:
+      - name: Install Vulkan runtime and Lavapipe
+        # Github-hosted Windows runners have no Vulkan-capable GPU, so Mesa's Lavapipe software driver is used instead.
+        # The action registers it with the Vulkan loader. Only the runtime is cached, Lavapipe is downloaded each run.
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          install_runtime_only: true
+          install_lavapipe: true
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download
         uses: actions/download-artifact@v7
         with:
