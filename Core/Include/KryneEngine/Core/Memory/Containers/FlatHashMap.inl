@@ -67,7 +67,7 @@ namespace KryneEngine
         if (m_kvpBuffer != nullptr)
             m_allocator.deallocate(m_kvpBuffer, sizeof(*m_kvpBuffer) * m_capacity);
         if (m_controlBuffer != nullptr)
-            m_allocator.deallocate(m_controlBuffer, sizeof(*m_controlBuffer) * m_capacity);
+            m_allocator.deallocate(m_controlBuffer, sizeof(*m_controlBuffer) * (m_capacity + FlatHashMapInternals::kControlBufferPadding));
     }
 
     template <class Key, class Value, bool Fixed>
@@ -443,6 +443,7 @@ namespace KryneEngine
         else
         {
             size_t i = 0;
+            size_t firstTombstoneIndex = m_capacity;
             while (i < m_capacity)
             {
                 u8& controlSlot = m_controlBuffer[probeIndex];
@@ -452,11 +453,21 @@ namespace KryneEngine
                         return { m_kvpBuffer + probeIndex, false };
                 }
 
-                if (controlSlot & kAvailableSlotFlag)
+                if (controlSlot == kTombstone)
                 {
-                    // Only increment count if not replacing a tombstone
-                    if (controlSlot == kUnused)
-                        ++m_count;
+                    if (firstTombstoneIndex == m_capacity)
+                        firstTombstoneIndex = probeIndex;
+                }
+                else if (controlSlot == kUnused)
+                {
+                    if (firstTombstoneIndex < m_capacity)
+                    {
+                        probeIndex = firstTombstoneIndex;
+                    }
+                    else
+                    {
+                        m_count++;
+                    }
                     SetControl(probeIndex, control);
                     return { m_kvpBuffer + probeIndex, true};
                 }
