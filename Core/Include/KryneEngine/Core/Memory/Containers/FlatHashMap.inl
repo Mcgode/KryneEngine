@@ -382,7 +382,20 @@ namespace KryneEngine
         {
             const auto loadFactor = static_cast<double>(m_count + 1) / static_cast<double>(m_capacity);
             if (loadFactor > kMaxLoadFactor)
-                Grow(m_capacity * 2);
+            {
+                // Tombstones count towards the load factor. If they make up most of it, dropping them is enough, so
+                // that a steady number of live entries doesn't keep growing the map. This matters most with linear
+                // probing, where `Erase` can rarely reset slots to unused.
+                size_t liveCount = 0;
+                for (size_t i = 0; i < m_capacity; ++i)
+                    liveCount += (m_controlBuffer[i] & kAvailableSlotFlag) == 0;
+
+                const auto liveLoadFactor = static_cast<double>(liveCount + 1) / static_cast<double>(m_capacity);
+                if (liveLoadFactor > kMaxLoadFactor / 2)
+                    Grow(m_capacity * 2);
+                else
+                    Defragment();
+            }
         }
 
         const u64 hash = Hashing::HashKey<Key>(_key);

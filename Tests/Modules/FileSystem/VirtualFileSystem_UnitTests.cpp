@@ -306,9 +306,10 @@ namespace KryneEngine::Tests::Modules::FileSystem
         // -----------------------------------------------------------------------
 
         // A single open file at a time: the archive must only take one slot of the cache to be mounted, even when
-        // its path isn't normalized
+        // its path isn't normalized. Backslashes are used, as in native Windows paths, so the mount point must be
+        // found from either separator.
         VirtualFileSystem fileSystem { AllocatorInstance(), 1 };
-        const std::string archivePath = (fixture.m_directory / "." / fixture.m_archive.filename()).string();
+        const std::string archivePath = fixture.m_directory.string() + "\\.\\" + fixture.m_archive.filename().string();
         ASSERT_TRUE(fileSystem.MountArchive(archivePath.c_str()));
 
         // Files inside the archive share its descriptor

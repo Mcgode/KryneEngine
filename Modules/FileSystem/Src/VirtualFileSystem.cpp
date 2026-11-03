@@ -63,9 +63,12 @@ namespace KryneEngine::Modules::FileSystem
             return false;
         }
 
+        // The mount point is relative to the archive's directory. Both separators are handled, as native Windows
+        // paths use backslashes.
         eastl::string rawMountPoint(m_allocator);
-        rawMountPoint = _archivePath.substr(0, _archivePath.find_last_of('/'));
-        rawMountPoint += "/";
+        const size_t lastSeparator = _archivePath.find_last_of("/\\");
+        if (lastSeparator != eastl::string_view::npos)
+            rawMountPoint = _archivePath.substr(0, lastSeparator + 1);
         rawMountPoint += archive->GetMountPoint().data();
 
         eastl::string mountPoint(m_allocator);
