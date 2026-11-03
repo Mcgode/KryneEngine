@@ -16,9 +16,17 @@
 
 namespace KryneEngine
 {
+    namespace StringHelpers
+    {
+#if KE_CHECK_STRING_HASH_COLLISIONS && !KE_FINAL
+        void CheckStringHashCollision(const eastl::string_view& _string, u64 _hashValue);
+        void SetAssertOnStringHashCollision(bool _value);
+#endif
+    }
+
     struct StringHashBase
     {
-        explicit StringHashBase(u64 _value)
+        explicit StringHashBase(const u64 _value)
             : m_hash(_value)
         {}
 
@@ -58,7 +66,11 @@ namespace KryneEngine
 
         explicit StringHash(const eastl::string_view& _string, const AllocatorInstance _allocator = {})
             : StringHash(Hash64(_string), _string, _allocator)
-        {}
+        {
+#if KE_CHECK_STRING_HASH_COLLISIONS && !KE_FINAL
+            StringHelpers::CheckStringHashCollision(m_string, m_hash);
+#endif
+        }
 
         KE_DEFINE_COPY_MOVE_SEMANTICS(StringHash, default, default);
 
@@ -72,7 +84,13 @@ namespace KryneEngine
             , m_stringView(_stringView)
         {}
 
-        explicit StringViewHash(const eastl::string_view& _string): StringViewHash(Hash64(_string), _string) {}
+        explicit StringViewHash(const eastl::string_view& _string)
+            : StringViewHash(Hash64(_string), _string)
+        {
+#if KE_CHECK_STRING_HASH_COLLISIONS && !KE_FINAL
+            StringHelpers::CheckStringHashCollision(m_stringView, m_hash);
+#endif
+        }
         explicit StringViewHash(const StringHash& _stringHash): StringViewHash(_stringHash.m_hash, _stringHash.m_string) {}
 
         KE_DEFINE_COPY_MOVE_SEMANTICS(StringViewHash, default, default);
