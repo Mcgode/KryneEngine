@@ -53,6 +53,8 @@ namespace KryneEngine
     requires FlatHashMapValidKvp<Key, Value>
     FlatHashMap<Key, Value, Fixed>::~FlatHashMap()
     {
+        // Make sure all entries are properly destroyed
+        DeleteAll();
         if (m_kvpBuffer != nullptr)
             m_allocator.deallocate(m_kvpBuffer, sizeof(*m_kvpBuffer) * m_capacity);
         if (m_controlBuffer != nullptr)
@@ -64,9 +66,9 @@ namespace KryneEngine
     FlatHashMap<Key, Value, Fixed>::FlatHashMap(FlatHashMap&& _other) noexcept
         : m_allocator(_other.m_allocator)
         , m_capacity(_other.m_capacity)
+        , m_count(_other.m_count)
         , m_kvpBuffer(_other.m_kvpBuffer)
         , m_controlBuffer(_other.m_controlBuffer)
-        , m_count(_other.m_count)
     {
         _other.m_kvpBuffer = nullptr;
         _other.m_controlBuffer = nullptr;
@@ -78,6 +80,12 @@ namespace KryneEngine
         requires FlatHashMapValidKvp<Key, Value>
     FlatHashMap<Key, Value, Fixed>& FlatHashMap<Key, Value, Fixed>::operator=(FlatHashMap&& _other) noexcept
     {
+        // Avoid self-assignment
+        if (&_other == this)
+            return *this;
+
+        // Make sure all entries are properly destroyed
+        DeleteAll();
         if (m_kvpBuffer != nullptr)
             m_allocator.deallocate(m_kvpBuffer, sizeof(*m_kvpBuffer) * m_capacity);
         if (m_controlBuffer != nullptr)
@@ -225,9 +233,12 @@ namespace KryneEngine
         for (size_t i = 0; i < m_capacity; ++i)
         {
             u8& controlSlot = m_controlBuffer[i];
-            if ((controlSlot & kAvailableSlotFlag) == 0)
+            if constexpr (!std::is_trivially_destructible_v<kvp>)
             {
-                m_kvpBuffer[i].~kvp();
+                if ((controlSlot & kAvailableSlotFlag) == 0)
+                {
+                    m_kvpBuffer[i].~kvp();
+                }
             }
             controlSlot = kUnused;
         }
@@ -249,9 +260,13 @@ namespace KryneEngine
 
             // Assume no duplicated keys, so we can use the unstable variants for improved performance
             if constexpr (std::is_move_constructible_v<kvp>)
+            {
                 temp.EmplaceUnstable(std::move(*it));
+            }
             else
+            {
                 temp.InsertUnstable(*it);
+            }
         }
         *this = std::move(temp);
     }
@@ -450,5 +465,21 @@ namespace KryneEngine
         if constexpr (!Fixed)
             KE_ERROR("Unreachable code");
         return { end(), false };
+    }
+
+    template <class Key, class Value, bool Fixed>
+        requires FlatHashMapValidKvp<Key, Value>
+    void FlatHashMap<Key, Value, Fixed>::DeleteAll()
+    {
+        if constexpr (!std::is_trivially_destructible_v<kvp>)
+        {
+            for (auto it = begin(); it != end(); ++it)
+            {
+                if (IsValidEntry(it))
+                {
+                    it->~kvp();
+                }
+            }
+        }
     }
 } // namespace KryneEngine

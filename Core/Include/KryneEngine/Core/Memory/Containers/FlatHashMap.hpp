@@ -154,6 +154,8 @@ namespace KryneEngine
 
         template <bool Fast>
         eastl::pair<iterator, bool> FindAndAllocateSlot(const Key& _key);
+
+        void DeleteAll();
     };
 
     template <class Key, class Value>
