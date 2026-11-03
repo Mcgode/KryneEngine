@@ -33,6 +33,12 @@ namespace KryneEngine::Modules::FileSystem
 
         ~ReadOnlyFile();
 
+        // Each file holds a reference on its descriptor in the file system cache, released on destruction
+        ReadOnlyFile(const ReadOnlyFile&) = delete;
+        ReadOnlyFile& operator=(const ReadOnlyFile&) = delete;
+        ReadOnlyFile(ReadOnlyFile&& _other) noexcept;
+        ReadOnlyFile& operator=(ReadOnlyFile&& _other) noexcept;
+
         [[nodiscard]] bool IsValid() const { return m_fileDescriptor != nullptr; }
 
         [[nodiscard]] size_t GetSize() const { return m_size; }

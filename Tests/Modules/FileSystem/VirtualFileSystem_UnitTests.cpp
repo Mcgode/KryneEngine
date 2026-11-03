@@ -56,4 +56,75 @@ namespace KryneEngine::Tests::Modules::FileSystem
 
         catcher.ExpectNoMessage();
     }
+
+    TEST(VirtualFileSystem, InvalidAndMovedFiles)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        const std::filesystem::path thisFile = std::filesystem::absolute(__FILE__);
+        const std::string firstPath = thisFile.string();
+        const std::string secondPath = (thisFile.parent_path() / "CMakeLists.txt").string();
+        const std::string thirdPath = (thisFile.parent_path() / "Utils_UnitTests.cpp").string();
+
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        {
+            // A single open file at a time: a leaked reference would prevent any other file from being opened
+            VirtualFileSystem fileSystem { AllocatorInstance(), 1 };
+
+            {
+                const ReadOnlyFile defaultFile;
+                EXPECT_FALSE(defaultFile.IsValid());
+
+                const ReadOnlyFile missingFile = fileSystem.OpenReadOnlyFile("does/not/exist.txt");
+                EXPECT_FALSE(missingFile.IsValid());
+            }
+
+            {
+                ReadOnlyFile source = fileSystem.OpenReadOnlyFile(firstPath.c_str());
+                ASSERT_TRUE(source.IsValid());
+                const size_t size = source.GetSize();
+
+                ReadOnlyFile moved(std::move(source));
+                EXPECT_FALSE(source.IsValid());
+                ASSERT_TRUE(moved.IsValid());
+                EXPECT_EQ(moved.GetSize(), size);
+
+                // Move-assigning over an open file releases it
+                ReadOnlyFile target;
+                target = std::move(moved);
+                EXPECT_FALSE(moved.IsValid());
+                ASSERT_TRUE(target.IsValid());
+
+                target = ReadOnlyFile();
+                EXPECT_FALSE(target.IsValid());
+            }
+
+            // All references were released exactly once, so the cached file can be evicted
+            const ReadOnlyFile other = fileSystem.OpenReadOnlyFile(secondPath.c_str());
+            EXPECT_TRUE(other.IsValid());
+        }
+
+        {
+            VirtualFileSystem fileSystem { AllocatorInstance(), 1 };
+            ReadOnlyFile first = fileSystem.OpenReadOnlyFile(firstPath.c_str());
+            ASSERT_TRUE(first.IsValid());
+
+            // Move-assigning a file over another one releases the overwritten one
+            first = fileSystem.OpenReadOnlyFile(firstPath.c_str());
+            ASSERT_TRUE(first.IsValid());
+            first = ReadOnlyFile();
+
+            const ReadOnlyFile third = fileSystem.OpenReadOnlyFile(thirdPath.c_str());
+            EXPECT_TRUE(third.IsValid());
+        }
+
+        catcher.ExpectNoMessage();
+    }
 }

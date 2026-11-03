@@ -14,7 +14,39 @@ namespace KryneEngine::Modules::FileSystem
 {
     ReadOnlyFile::~ReadOnlyFile()
     {
-        m_fileSystem->m_openFiles.Release(m_fileDescriptor);
+        // Invalid files (default constructed, or not found) have no file system
+        if (m_fileSystem != nullptr)
+            m_fileSystem->m_openFiles.Release(m_fileDescriptor);
+    }
+
+    ReadOnlyFile::ReadOnlyFile(ReadOnlyFile&& _other) noexcept
+        : m_fileSystem(_other.m_fileSystem)
+        , m_fileDescriptor(_other.m_fileDescriptor)
+        , m_baseOffset(_other.m_baseOffset)
+        , m_size(_other.m_size)
+        , m_flags(_other.m_flags)
+    {
+        _other.m_fileSystem = nullptr;
+        _other.m_fileDescriptor = nullptr;
+    }
+
+    ReadOnlyFile& ReadOnlyFile::operator=(ReadOnlyFile&& _other) noexcept
+    {
+        if (this != &_other)
+        {
+            if (m_fileSystem != nullptr)
+                m_fileSystem->m_openFiles.Release(m_fileDescriptor);
+
+            m_fileSystem = _other.m_fileSystem;
+            m_fileDescriptor = _other.m_fileDescriptor;
+            m_baseOffset = _other.m_baseOffset;
+            m_size = _other.m_size;
+            m_flags = _other.m_flags;
+
+            _other.m_fileSystem = nullptr;
+            _other.m_fileDescriptor = nullptr;
+        }
+        return *this;
     }
 
     size_t ReadOnlyFile::Read(const size_t _offset, const eastl::span<std::byte> _buffer) const
