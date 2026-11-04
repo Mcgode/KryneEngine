@@ -26,6 +26,31 @@
 
 namespace KryneEngine
 {
+    namespace
+    {
+        static_assert(sizeof(DrawInstancedDesc) == sizeof(D3D12_DRAW_ARGUMENTS));
+        static_assert(offsetof(DrawInstancedDesc, m_vertexCount) == offsetof(D3D12_DRAW_ARGUMENTS, VertexCountPerInstance));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_vertexCount), decltype(D3D12_DRAW_ARGUMENTS::VertexCountPerInstance)>);
+        static_assert(offsetof(DrawInstancedDesc, m_instanceCount) == offsetof(D3D12_DRAW_ARGUMENTS, InstanceCount));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_instanceCount), decltype(D3D12_DRAW_ARGUMENTS::InstanceCount)>);
+        static_assert(offsetof(DrawInstancedDesc, m_vertexOffset) == offsetof(D3D12_DRAW_ARGUMENTS, StartVertexLocation));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_vertexOffset), decltype(D3D12_DRAW_ARGUMENTS::StartVertexLocation)>);
+        static_assert(offsetof(DrawInstancedDesc, m_instanceOffset) == offsetof(D3D12_DRAW_ARGUMENTS, StartInstanceLocation));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_instanceOffset), decltype(D3D12_DRAW_ARGUMENTS::StartInstanceLocation)>);
+
+        static_assert(sizeof(DrawIndexedInstancedDesc) == sizeof(D3D12_DRAW_INDEXED_ARGUMENTS));
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_elementCount) == offsetof(D3D12_DRAW_INDEXED_ARGUMENTS, IndexCountPerInstance));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_elementCount), decltype(D3D12_DRAW_INDEXED_ARGUMENTS::IndexCountPerInstance)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_instanceCount) == offsetof(D3D12_DRAW_INDEXED_ARGUMENTS, InstanceCount));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_instanceCount), decltype(D3D12_DRAW_INDEXED_ARGUMENTS::InstanceCount)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_indexOffset) == offsetof(D3D12_DRAW_INDEXED_ARGUMENTS, StartIndexLocation));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_indexOffset), decltype(D3D12_DRAW_INDEXED_ARGUMENTS::StartIndexLocation)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_vertexOffset) == offsetof(D3D12_DRAW_INDEXED_ARGUMENTS, BaseVertexLocation));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_vertexOffset), decltype(D3D12_DRAW_INDEXED_ARGUMENTS::BaseVertexLocation)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_instanceOffset) == offsetof(D3D12_DRAW_INDEXED_ARGUMENTS, StartInstanceLocation));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_instanceOffset), decltype(D3D12_DRAW_INDEXED_ARGUMENTS::StartInstanceLocation)>);
+    }
+
     Dx12GraphicsContext::Dx12GraphicsContext(
         AllocatorInstance _allocator,
         const GraphicsCommon::ApplicationInfo& _appInfo)

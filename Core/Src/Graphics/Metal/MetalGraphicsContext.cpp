@@ -20,6 +20,31 @@
 
 namespace KryneEngine
 {
+    namespace
+    {
+        static_assert(sizeof(DrawInstancedDesc) == sizeof(MTL::DrawPrimitivesIndirectArguments));
+        static_assert(offsetof(DrawInstancedDesc, m_vertexCount) == offsetof(MTL::DrawPrimitivesIndirectArguments, vertexCount));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_vertexCount), decltype(MTL::DrawPrimitivesIndirectArguments::vertexCount)>);
+        static_assert(offsetof(DrawInstancedDesc, m_instanceCount) == offsetof(MTL::DrawPrimitivesIndirectArguments, instanceCount));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_instanceCount), decltype(MTL::DrawPrimitivesIndirectArguments::instanceCount)>);
+        static_assert(offsetof(DrawInstancedDesc, m_vertexOffset) == offsetof(MTL::DrawPrimitivesIndirectArguments, vertexStart));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_vertexOffset), decltype(MTL::DrawPrimitivesIndirectArguments::vertexStart)>);
+        static_assert(offsetof(DrawInstancedDesc, m_instanceOffset) == offsetof(MTL::DrawPrimitivesIndirectArguments, baseInstance));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_instanceOffset), decltype(MTL::DrawPrimitivesIndirectArguments::baseInstance)>);
+
+        static_assert(sizeof(DrawIndexedInstancedDesc) == sizeof(MTL::DrawIndexedPrimitivesIndirectArguments));
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_elementCount) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, indexCount));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_elementCount), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::indexCount)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_instanceCount) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, instanceCount));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_instanceCount), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::instanceCount)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_indexOffset) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, indexStart));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_indexOffset), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::indexStart)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_vertexOffset) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, baseVertex));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_vertexOffset), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::baseVertex)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_instanceOffset) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, baseInstance));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_instanceOffset), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::baseInstance)>);
+    }
+
     bool MetalGraphicsContext::IsFrameExecuted(const u64 _frameId) const
     {
         const u8 frameIndex = _frameId % m_frameContextCount;

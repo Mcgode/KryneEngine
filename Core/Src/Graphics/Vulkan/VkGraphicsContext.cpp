@@ -54,6 +54,32 @@ typedef struct VkPhysicalDevicePortabilitySubsetFeaturesKHR
 
 namespace KryneEngine
 {
+    namespace
+    {
+
+        static_assert(sizeof(DrawInstancedDesc) == sizeof(VkDrawIndirectCommand));
+        static_assert(offsetof(DrawInstancedDesc, m_vertexCount) == offsetof(VkDrawIndirectCommand, vertexCount));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_vertexCount), decltype(VkDrawIndirectCommand::vertexCount)>);
+        static_assert(offsetof(DrawInstancedDesc, m_instanceCount) == offsetof(VkDrawIndirectCommand, instanceCount));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_instanceCount), decltype(VkDrawIndirectCommand::instanceCount)>);
+        static_assert(offsetof(DrawInstancedDesc, m_vertexOffset) == offsetof(VkDrawIndirectCommand, firstVertex));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_vertexOffset), decltype(VkDrawIndirectCommand::firstVertex)>);
+        static_assert(offsetof(DrawInstancedDesc, m_instanceOffset) == offsetof(VkDrawIndirectCommand, firstInstance));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_instanceOffset), decltype(VkDrawIndirectCommand::firstInstance)>);
+
+        static_assert(sizeof(DrawIndexedInstancedDesc) == sizeof(VkDrawIndexedIndirectCommand));
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_elementCount) == offsetof(VkDrawIndexedIndirectCommand, indexCount));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_elementCount), decltype(VkDrawIndexedIndirectCommand::indexCount)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_instanceCount) == offsetof(VkDrawIndexedIndirectCommand, instanceCount));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_instanceCount), decltype(VkDrawIndexedIndirectCommand::instanceCount)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_indexOffset) == offsetof(VkDrawIndexedIndirectCommand, firstIndex));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_indexOffset), decltype(VkDrawIndexedIndirectCommand::firstIndex)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_vertexOffset) == offsetof(VkDrawIndexedIndirectCommand, vertexOffset));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_vertexOffset), decltype(VkDrawIndexedIndirectCommand::vertexOffset)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_instanceOffset) == offsetof(VkDrawIndexedIndirectCommand, firstInstance));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_instanceOffset), decltype(VkDrawIndexedIndirectCommand::firstInstance)>);
+    }
+
     using namespace VkHelperFunctions;
     using namespace VkCommonStructures;
 
