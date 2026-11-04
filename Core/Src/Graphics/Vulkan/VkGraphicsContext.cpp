@@ -2037,7 +2037,7 @@ namespace KryneEngine
             _desc.m_elementCount,
             _desc.m_instanceCount,
             _desc.m_indexOffset,
-            static_cast<s32>(_desc.m_vertexOffset),
+            _desc.m_vertexOffset,
             _desc.m_instanceOffset);
     }
 

@@ -732,7 +732,7 @@ namespace KryneEngine::Modules::ImGui
                     const DrawIndexedInstancedDesc desc {
                         .m_elementCount = drawCmd.ElemCount,
                         .m_indexOffset = static_cast<u32>(indexOffset + drawCmd.IdxOffset),
-                        .m_vertexOffset = static_cast<u32>(vertexOffset + drawCmd.VtxOffset),
+                        .m_vertexOffset = static_cast<s32>(vertexOffset + drawCmd.VtxOffset),
                     };
                     _graphicsContext->DrawIndexedInstanced(_renderEncoder, desc);
                 }
