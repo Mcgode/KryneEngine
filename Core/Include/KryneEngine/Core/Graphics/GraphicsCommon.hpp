@@ -97,6 +97,12 @@ namespace KryneEngine::GraphicsCommon
             ///        a @ref SoftEnable: `ForceEnabled` fails context creation if unavailable, `TryEnable` silently skips.
             SoftEnable m_geometryShader = SoftEnable::Disabled;
 
+            /**
+             * @brief Enables indirect drawing. Vulkan require explicit feature opt-in, as it isn't universally
+             * supported there.
+             */
+            SoftEnable m_drawIndirect = SoftEnable::TryEnable;
+
             /// @brief Allows arrayed descriptor bindings to be only partially written — unwritten slots
             ///        that the shader never dynamically accesses stay legal (Vulkan
             ///        `VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT`). Not guaranteed on Vulkan 1.0 / older
@@ -163,6 +169,8 @@ namespace KryneEngine::GraphicsCommon
         GpuTimestampsNotSupported,
         /// @brief `m_geometryShader` is `ForceEnabled`, but the GPU does not support geometry shaders.
         GeometryShaderNotSupported,
+        /// @brief `m_drawIndirect` is `ForceEnabled`, but the GPU does not support it.
+        DrawIndirectNotSupported,
         /// @brief `m_partiallyBoundDescriptors` is `ForceEnabled`, but the GPU does not support them.
         PartiallyBoundDescriptorsNotSupported,
     };
@@ -190,6 +198,8 @@ namespace KryneEngine::GraphicsCommon
             return "The GPU does not support timestamp queries";
         case ContextCreationError::GeometryShaderNotSupported:
             return "The GPU does not support geometry shaders";
+        case ContextCreationError::DrawIndirectNotSupported:
+            return "The GPU does not support indirect drawing";
         case ContextCreationError::PartiallyBoundDescriptorsNotSupported:
             return "The GPU does not support partially bound descriptors";
         }

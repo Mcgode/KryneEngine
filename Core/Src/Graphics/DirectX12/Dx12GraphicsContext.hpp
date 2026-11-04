@@ -203,6 +203,16 @@ namespace KryneEngine
             u32 _offset) override;
         void DrawInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc) override;
         void DrawIndexedInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawIndexedInstancedDesc& _desc) override;
+        void DrawInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) override;
+        void DrawIndexedInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) override;
 
         void SetComputePipeline(ComputeCommandEncoderHandle _computeEncoder, ComputePipelineHandle _pipeline) override;
         void SetComputeDescriptorSetsWithOffset(
@@ -235,5 +245,8 @@ namespace KryneEngine
     private:
         Dx12Resources m_resources;
         Dx12DescriptorSetManager m_descriptorSetManager;
+
+        ComPtr<ID3D12CommandSignature> m_drawInstancedIndirectSignature;
+        ComPtr<ID3D12CommandSignature> m_drawIndexedInstancedIndirectSignature;
     };
 } // KryneEngine

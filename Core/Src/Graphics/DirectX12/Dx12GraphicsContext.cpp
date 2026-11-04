@@ -176,11 +176,58 @@ namespace KryneEngine
             CalibrateCpuGpuClocks();
         }
 
+        {
+            constexpr D3D12_INDIRECT_ARGUMENT_DESC indirectArgDesc[]
+            {
+                {
+                    .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
+                }
+            };
+            const D3D12_COMMAND_SIGNATURE_DESC desc {
+                .ByteStride = sizeof(DrawInstancedDesc),
+                .NumArgumentDescs = 1,
+                .pArgumentDescs = indirectArgDesc,
+            };
+            const HRESULT result = m_device->CreateCommandSignature(
+                &desc,
+                nullptr,
+                IID_PPV_ARGS(&m_drawInstancedIndirectSignature));
+            if (FAILED(result))
+            {
+                return ContextCreationError::DeviceCreationFailed;
+            }
+        }
+
+        {
+            constexpr D3D12_INDIRECT_ARGUMENT_DESC indirectArgDesc[]
+            {
+                {
+                    .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED,
+                }
+            };
+            const D3D12_COMMAND_SIGNATURE_DESC desc {
+                .ByteStride = sizeof(DrawIndexedInstancedDesc),
+                .NumArgumentDescs = 1,
+                .pArgumentDescs = indirectArgDesc,
+            };
+            const HRESULT result = m_device->CreateCommandSignature(
+                &desc,
+                nullptr,
+                IID_PPV_ARGS(&m_drawIndexedInstancedIndirectSignature));
+            if (FAILED(result))
+            {
+                return ContextCreationError::DeviceCreationFailed;
+            }
+        }
+
         return ContextCreationError::None;
     }
 
     Dx12GraphicsContext::~Dx12GraphicsContext()
     {
+        SafeRelease(m_drawIndexedInstancedIndirectSignature);
+        SafeRelease(m_drawInstancedIndirectSignature);
+
 #if !defined(KE_FINAL)
         if (m_validationLayerMessageCallbackHandle != 0)
         {
@@ -1772,6 +1819,46 @@ namespace KryneEngine
             _desc.m_indexOffset,
             _desc.m_vertexOffset,
             _desc.m_instanceOffset);
+    }
+
+    void Dx12GraphicsContext::DrawInstancedIndirect(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferHandle _indirectBuffer,
+        const u64 _indirectBufferOffset,
+        const u32 _drawCount)
+    {
+        const auto* commandListSet = static_cast<CommandListSet*>(_renderEncoder.m_handle);
+
+        ID3D12Resource** indirectBuffer = m_resources.m_buffers.Get(_indirectBuffer.m_handle);
+        KE_ASSERT(indirectBuffer != nullptr);
+
+        commandListSet->m_commandList->ExecuteIndirect(
+            m_drawInstancedIndirectSignature.Get(),
+            _drawCount,
+            *indirectBuffer,
+            _indirectBufferOffset,
+            nullptr,
+            0);
+    }
+
+    void Dx12GraphicsContext::DrawIndexedInstancedIndirect(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferHandle _indirectBuffer,
+        const u64 _indirectBufferOffset,
+        const u32 _drawCount)
+    {
+        const auto* commandListSet = static_cast<CommandListSet*>(_renderEncoder.m_handle);
+
+        ID3D12Resource** indirectBuffer = m_resources.m_buffers.Get(_indirectBuffer.m_handle);
+        KE_ASSERT(indirectBuffer != nullptr);
+
+        commandListSet->m_commandList->ExecuteIndirect(
+            m_drawIndexedInstancedIndirectSignature.Get(),
+            _drawCount,
+            *indirectBuffer,
+            _indirectBufferOffset,
+            nullptr,
+            0);
     }
 
     void Dx12GraphicsContext::SetComputePipeline(

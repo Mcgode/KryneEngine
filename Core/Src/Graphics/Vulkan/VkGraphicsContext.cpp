@@ -743,14 +743,17 @@ namespace KryneEngine
 
         const auto& features = m_appInfo.m_features;
 
-        if (features.m_geometryShader == SoftEnable::ForceEnabled)
+        VkPhysicalDeviceFeatures supportedFeatures;
+        vkGetPhysicalDeviceFeatures(_physicalDevice, &supportedFeatures);
+
+        if (features.m_drawIndirect == SoftEnable::ForceEnabled && !supportedFeatures.drawIndirectFirstInstance)
         {
-            VkPhysicalDeviceFeatures supportedFeatures;
-            vkGetPhysicalDeviceFeatures(_physicalDevice, &supportedFeatures);
-            if (!supportedFeatures.geometryShader)
-            {
-                return ContextCreationError::GeometryShaderNotSupported;
-            }
+            return ContextCreationError::DrawIndirectNotSupported;
+        }
+
+        if (features.m_geometryShader == SoftEnable::ForceEnabled && !supportedFeatures.geometryShader)
+        {
+            return ContextCreationError::GeometryShaderNotSupported;
         }
 
         if (features.m_gpuTimestamps == SoftEnable::ForceEnabled)
@@ -982,10 +985,19 @@ namespace KryneEngine
 
         VkPhysicalDeviceFeatures features = {};
 
+        VkPhysicalDeviceFeatures supportedFeatures;
+        vkGetPhysicalDeviceFeatures(m_physicalDevice, &supportedFeatures);
+        if (m_appInfo.m_features.m_drawIndirect != GraphicsCommon::SoftEnable::Disabled)
+        {
+            features.drawIndirectFirstInstance = supportedFeatures.drawIndirectFirstInstance;
+            features.multiDrawIndirect = supportedFeatures.multiDrawIndirect;
+
+            m_features.m_drawIndirect = supportedFeatures.drawIndirectFirstInstance;
+            m_features.m_multiDrawIndirect = supportedFeatures.multiDrawIndirect;
+        }
+
         if (m_appInfo.m_features.m_geometryShader != GraphicsCommon::SoftEnable::Disabled)
         {
-            VkPhysicalDeviceFeatures supportedFeatures;
-            vkGetPhysicalDeviceFeatures(m_physicalDevice, &supportedFeatures);
             features.geometryShader = supportedFeatures.geometryShader;
 
             m_features.m_geometryShaders = features.geometryShader;
@@ -2065,6 +2077,76 @@ namespace KryneEngine
             _desc.m_indexOffset,
             _desc.m_vertexOffset,
             _desc.m_instanceOffset);
+    }
+
+    void VkGraphicsContext::DrawInstancedIndirect(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferHandle _indirectBuffer,
+        const u64 _indirectBufferOffset,
+        const u32 _drawCount)
+    {
+        KE_ASSERT(m_features.m_drawIndirect);
+
+        const VkBuffer* pIndirectBuffer = m_resources.m_buffers.Get(_indirectBuffer.m_handle);
+
+        VERIFY_OR_RETURN_VOID(pIndirectBuffer != nullptr);
+
+        if (m_features.m_multiDrawIndirect)
+        {
+            vkCmdDrawIndirect(
+               static_cast<CommandList>(_renderEncoder.m_handle),
+               *pIndirectBuffer,
+               _indirectBufferOffset,
+               _drawCount,
+               sizeof(DrawInstancedDesc));
+        }
+        else
+        {
+            for (u32 i = 0; i < _drawCount; ++i)
+            {
+                vkCmdDrawIndirect(
+                    static_cast<CommandList>(_renderEncoder.m_handle),
+                    *pIndirectBuffer,
+                    _indirectBufferOffset + i * sizeof(DrawInstancedDesc),
+                    1,
+                    sizeof(DrawInstancedDesc));
+            }
+        }
+    }
+
+    void VkGraphicsContext::DrawIndexedInstancedIndirect(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferHandle _indirectBuffer,
+        const u64 _indirectBufferOffset,
+        const u32 _drawCount)
+    {
+        KE_ASSERT(m_features.m_drawIndirect);
+
+        const VkBuffer* pIndirectBuffer = m_resources.m_buffers.Get(_indirectBuffer.m_handle);
+
+        VERIFY_OR_RETURN_VOID(pIndirectBuffer != nullptr);
+
+        if (m_features.m_multiDrawIndirect)
+        {
+            vkCmdDrawIndexedIndirect(
+            static_cast<CommandList>(_renderEncoder.m_handle),
+            *pIndirectBuffer,
+            _indirectBufferOffset,
+            _drawCount,
+            sizeof(DrawIndexedInstancedDesc));
+        }
+        else
+        {
+            for (u32 i = 0; i < _drawCount; ++i)
+            {
+                vkCmdDrawIndexedIndirect(
+                    static_cast<CommandList>(_renderEncoder.m_handle),
+                    *pIndirectBuffer,
+                    _indirectBufferOffset + i * sizeof(DrawIndexedInstancedDesc),
+                    1,
+                    sizeof(DrawIndexedInstancedDesc));
+            }
+        }
     }
 
     void VkGraphicsContext::SetComputePipeline(

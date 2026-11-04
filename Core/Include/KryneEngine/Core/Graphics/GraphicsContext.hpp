@@ -947,6 +947,69 @@ namespace KryneEngine
             const DrawIndexedInstancedDesc& _desc) = 0;
 
         /**
+         * @brief Records one or more non-indexed, (potentially) instanced draw calls whose parameters are
+         * read from a GPU buffer.
+         *
+         * @details
+         * The indirect buffer holds `_drawCount` tightly packed #DrawInstancedDesc entries (16 bytes each),
+         * which match `VkDrawIndirectCommand`, `D3D12_DRAW_ARGUMENTS` and `MTLDrawPrimitivesIndirectArguments`
+         * byte for byte. They can be written on the CPU or by a compute shader.
+         *
+         * Requirements:
+         * - The buffer must be created with `MemoryUsage::IndirectBuffer`.
+         * - `_indirectBufferOffset` must be a multiple of 4.
+         * - If the buffer is written on the GPU, it must be transitioned to `BarrierSyncStageFlags::ExecuteIndirect`
+         *   / `BarrierAccessFlags::IndirectBuffer` with a consumer barrier passed to #BeginRenderPass.
+         * - On Vulkan, `ApplicationInfo::Features::m_drawIndirect` must have been enabled, as it enables the
+         *   `drawIndirectFirstInstance` device feature needed for a non-zero `m_instanceOffset` in an entry.
+         *   Without the `multiDrawIndirect` device feature, the draws are recorded one by one.
+         *
+         * @param _renderEncoder The command list in which to record the draw calls.
+         * @param _indirectBuffer The buffer holding the draw arguments.
+         * @param _indirectBufferOffset The byte offset of the first entry in `_indirectBuffer`.
+         * @param _drawCount The number of consecutive entries to draw.
+         *
+         * @note The draw count is fixed when recording; there is no GPU-sourced count variant.
+         * @note On Metal, this is recorded as `_drawCount` single indirect draws.
+         * @note On DirectX 12, `SV_InstanceID` does not include the entry's `m_instanceOffset` (it does on
+         *       Vulkan and Metal). Use an instance-rate vertex stream or `SV_StartInstanceLocation` (SM 6.8)
+         *       to read it portably.
+         */
+        virtual void DrawInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) = 0;
+
+        /**
+         * @brief Records one or more indexed, (potentially) instanced draw calls whose parameters are read
+         * from a GPU buffer.
+         *
+         * @details
+         * The indirect buffer holds `_drawCount` tightly packed #DrawIndexedInstancedDesc entries (20 bytes
+         * each), which match `VkDrawIndexedIndirectCommand`, `D3D12_DRAW_INDEXED_ARGUMENTS` and
+         * `MTLDrawIndexedPrimitivesIndirectArguments` byte for byte. `m_vertexOffset` is read as a signed
+         * 32-bit value by every API.
+         *
+         * Indices are read from the index buffer bound with #SetIndexBuffer, and each entry's `m_indexOffset`
+         * is relative to the start of that view.
+         *
+         * Requirements are the same as for #DrawInstancedIndirect.
+         *
+         * @param _renderEncoder The command list in which to record the draw calls.
+         * @param _indirectBuffer The buffer holding the draw arguments.
+         * @param _indirectBufferOffset The byte offset of the first entry in `_indirectBuffer`.
+         * @param _drawCount The number of consecutive entries to draw.
+         *
+         * @see DrawInstancedIndirect
+         */
+        virtual void DrawIndexedInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) = 0;
+
+        /**
          * @brief Binds a compute pipeline for use by subsequent dispatch calls.
          *
          * @param _computeEncoder The command list in which to record the pipeline binding.
