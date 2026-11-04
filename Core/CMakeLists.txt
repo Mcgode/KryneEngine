@@ -115,6 +115,7 @@ endif ()
 add_subdirectory("Src/Platform/${CMAKE_SYSTEM_NAME}")
 
 set(PlatformSrc
+        Include/KryneEngine/Core/Platform/Alert.hpp
         Include/KryneEngine/Core/Platform/Windows.h
         Src/Platform/StdAlloc.cpp
         Include/KryneEngine/Core/Platform/StdAlloc.hpp
