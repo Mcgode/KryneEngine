@@ -33,9 +33,22 @@ namespace KryneEngine
 
     GraphicsContext* GraphicsContext::Create(
         const GraphicsCommon::ApplicationInfo& _appInfo,
-        AllocatorInstance _allocator)
+        AllocatorInstance _allocator,
+        GraphicsCommon::ContextCreationError* error_)
     {
         auto* context = _allocator.New<Implementation>(_allocator, _appInfo);
+
+        const GraphicsCommon::ContextCreationError error = context->Initialize();
+        if (error_ != nullptr)
+        {
+            *error_ = error;
+        }
+        if (error != GraphicsCommon::ContextCreationError::None)
+        {
+            _allocator.Delete(context);
+            return nullptr;
+        }
+
 #if defined(TRACY_ENABLE)
         context->m_profilerContext = context->m_allocator.New<TracyGpuProfilerContext>(
             _allocator, context->GetFrameContextCount());
@@ -44,6 +57,11 @@ namespace KryneEngine
     }
     void GraphicsContext::Destroy(GraphicsContext* _context)
     {
+        if (_context == nullptr)
+        {
+            return;
+        }
+
         _context->WaitForLastFrame();
         if (_context->m_profilerContext != nullptr)
         {

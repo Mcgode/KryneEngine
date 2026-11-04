@@ -36,6 +36,8 @@ namespace KryneEngine
 
         virtual ~Dx12GraphicsContext();
 
+        [[nodiscard]] GraphicsCommon::ContextCreationError Initialize();
+
         [[nodiscard]] u8 GetFrameContextCount() const override { return m_frameContextCount; }
 
         [[nodiscard]] bool IsFrameExecuted(u64 _frameId) const override;
@@ -57,10 +59,10 @@ namespace KryneEngine
         ComPtr<ID3D12CommandQueue> m_computeQueue;
         ComPtr<ID3D12CommandQueue> m_copyQueue;
 
-        u8 m_frameContextCount;
+        u8 m_frameContextCount = 0;
         DynamicArray<Dx12FrameContext> m_frameContexts;
         ComPtr<ID3D12Fence> m_frameFence;
-        HANDLE m_frameFenceEvent;
+        HANDLE m_frameFenceEvent = nullptr;
 
         DWORD m_validationLayerMessageCallbackHandle = 0;
 
@@ -70,10 +72,10 @@ namespace KryneEngine
         double m_directQueueTimestampPeriod = 0;
         u64 m_directQueueTimestampOffset = 0;
 
-        void _CreateDevice(IDXGIFactory4* _factory4);
+        [[nodiscard]] GraphicsCommon::ContextCreationError _CreateDevice(IDXGIFactory4* _factory4);
         void _FindAdapter(IDXGIFactory4* _factory, IDXGIAdapter1** _adapter);
 
-        void _CreateCommandQueues();
+        [[nodiscard]] bool _CreateCommandQueues();
 
     public:
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;

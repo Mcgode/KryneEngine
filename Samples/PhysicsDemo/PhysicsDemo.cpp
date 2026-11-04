@@ -63,7 +63,12 @@ int main(int _argc, const char* _argv[])
     constexpr GraphicsCommon::DisplayOptions displayOptions {};
     WindowManager windowManager { allocator };
     Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
-    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    GraphicsCommon::ContextCreationError graphicsContextError;
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator, &graphicsContextError);
+    KE_ASSERT_FATAL_MSG(
+        graphicsContext != nullptr,
+        "Graphics context creation failed: %s",
+        GraphicsCommon::ToString(graphicsContextError));
 
     SwapChainHandle mainSwapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),

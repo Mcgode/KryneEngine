@@ -42,7 +42,9 @@ namespace KryneEngine
             AllocatorInstance _allocator,
             const GraphicsCommon::ApplicationInfo& _appInfo);
 
-        ~MetalGraphicsContext();
+        virtual ~MetalGraphicsContext();
+
+        [[nodiscard]] GraphicsCommon::ContextCreationError Initialize();
 
         [[nodiscard]] u8 GetFrameContextCount() const override { return m_frameContextCount; }
 
@@ -60,7 +62,7 @@ namespace KryneEngine
         NsPtr<MTL4::CommandQueue> m_computeQueue;
         NsPtr<MTL4::CommandQueue> m_ioQueue;
 
-        u8 m_frameContextCount;
+        u8 m_frameContextCount = 0;
         DynamicArray<MetalFrameContext> m_frameContexts;
 
         bool m_calibrateCpuGpuClocks = false;

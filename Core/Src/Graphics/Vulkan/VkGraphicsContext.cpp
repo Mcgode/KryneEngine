@@ -106,6 +106,37 @@ namespace KryneEngine
 
             return VK_FALSE;
         }
+
+        bool SupportsTimestampQueries(const VkPhysicalDeviceLimits& _limits)
+        {
+            return _limits.timestampPeriod > 0.f && _limits.timestampComputeAndGraphics;
+        }
+
+        bool DeviceSupportsPartiallyBoundDescriptors(
+            const GraphicsCommon::ApplicationInfo& _appInfo,
+            const VkPhysicalDevice _physicalDevice,
+            const bool _hasDescriptorIndexingExtension)
+        {
+            // `descriptorIndexing` is core in Vulkan 1.2, an extension (VK_EXT_descriptor_indexing) before.
+            // The feature query needs vkGetPhysicalDeviceFeatures2, which is core from Vulkan 1.1.
+            const bool queryable = GetApiVersion(_appInfo.m_api) >= VK_API_VERSION_1_1;
+            const bool coreOrExtension =
+                GetApiVersion(_appInfo.m_api) >= VK_API_VERSION_1_2 || _hasDescriptorIndexingExtension;
+            if (!queryable || !coreOrExtension)
+            {
+                return false;
+            }
+
+            VkPhysicalDeviceDescriptorIndexingFeatures supported {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+            };
+            VkPhysicalDeviceFeatures2 supported2 {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                .pNext = &supported,
+            };
+            vkGetPhysicalDeviceFeatures2(_physicalDevice, &supported2);
+            return supported.descriptorBindingPartiallyBound;
+        }
     }
 
     VkGraphicsContext::VkGraphicsContext(
@@ -114,8 +145,18 @@ namespace KryneEngine
         : GraphicsContext(_allocator, _appInfo)
         , m_resources(_allocator)
         , m_descriptorSetManager(_allocator)
+    {}
+
+    GraphicsCommon::ContextCreationError VkGraphicsContext::Initialize()
     {
-        KE_ZoneScopedFunction("VkGraphicsContext::VkGraphicsContext");
+        KE_ZoneScopedFunction("VkGraphicsContext::Initialize");
+
+        using GraphicsCommon::ContextCreationError;
+
+        if (!m_appInfo.IsVulkanApi())
+        {
+            return ContextCreationError::ApiNotSupported;
+        }
 
         bool validationLayersEnabled = false;
         {
@@ -145,15 +186,37 @@ namespace KryneEngine
 
             DynamicArray<VkExtensionProperties> availableExtensions(scopedScratchAllocator.GetAllocator());
             VkHelperFunctions::VkArrayFetch(availableExtensions, vkEnumerateInstanceExtensionProperties, nullptr);
+            const auto isExtensionAvailable = [&availableExtensions](const char* _name)
+            {
+                return eastl::any_of(
+                    availableExtensions.begin(),
+                    availableExtensions.end(),
+                    [_name](const VkExtensionProperties& _p) { return strcmp(_p.extensionName, _name) == 0; });
+            };
+
+            if (m_appInfo.m_features.m_present && !isExtensionAvailable(VK_KHR_SURFACE_EXTENSION_NAME))
+            {
+                return ContextCreationError::PresentNotSupported;
+            }
 
             VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo;
             if (m_appInfo.m_features.m_validationLayers != GraphicsCommon::SoftEnable::Disabled)
             {
                 validationLayersEnabled = PrepareValidationLayers(instanceCreateInfo);
-                KE_ASSERT(validationLayersEnabled || m_appInfo.m_features.m_validationLayers == GraphicsCommon::SoftEnable::TryEnable);
+                if (!validationLayersEnabled
+                    && m_appInfo.m_features.m_validationLayers == GraphicsCommon::SoftEnable::ForceEnabled)
+                {
+                    return ContextCreationError::ValidationLayersNotSupported;
+                }
 
                 debugMessengerCreateInfo = _PopulateDebugCreateInfo(this);
                 instanceCreateInfo.pNext = &debugMessengerCreateInfo;
+            }
+
+            if (m_appInfo.m_features.m_debugTags == GraphicsCommon::SoftEnable::ForceEnabled
+                && !isExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
+            {
+                return ContextCreationError::DebugTagsNotSupported;
             }
 
             auto extensions = RetrieveRequiredExtensionNames(m_appInfo, validationLayersEnabled);
@@ -161,7 +224,15 @@ namespace KryneEngine
             instanceCreateInfo.enabledExtensionCount = extensions.size();
             instanceCreateInfo.ppEnabledExtensionNames = extensions.data();
 
-            VkAssert(vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance));
+            const VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
+            if (result == VK_ERROR_INCOMPATIBLE_DRIVER)
+            {
+                return ContextCreationError::ApiNotSupported;
+            }
+            if (result != VK_SUCCESS)
+            {
+                return ContextCreationError::DeviceCreationFailed;
+            }
         }
 
         if (validationLayersEnabled)
@@ -169,20 +240,26 @@ namespace KryneEngine
             _SetupValidationLayersCallback();
         }
 
-        _SelectPhysicalDevice();
+        if (const ContextCreationError error = _SelectPhysicalDevice(); error != ContextCreationError::None)
+        {
+            return error;
+        }
 
         VkPhysicalDeviceProperties physicalDeviceProperties;
         vkGetPhysicalDeviceProperties(m_physicalDevice, &physicalDeviceProperties);
 
         m_optimalRowPitchAlignment = physicalDeviceProperties.limits.optimalBufferCopyRowPitchAlignment;
 
-        if (physicalDeviceProperties.limits.timestampPeriod > 0.f && physicalDeviceProperties.limits.timestampComputeAndGraphics)
+        if (SupportsTimestampQueries(physicalDeviceProperties.limits))
         {
             m_gpuTimestampPeriod = physicalDeviceProperties.limits.timestampPeriod;
             m_supportsTimestampQueries = true;
         }
 
-        _CreateDevice();
+        if (!_CreateDevice())
+        {
+            return ContextCreationError::DeviceCreationFailed;
+        }
 
         m_resources.InitAllocator(m_appInfo, m_device, m_physicalDevice, m_instance);
 
@@ -231,6 +308,8 @@ namespace KryneEngine
         CalibrateCpuGpuClocks();
 
         m_descriptorSetManager.Init(m_frameContextCount, m_frameId % m_frameContextCount, m_descriptorBindingPartiallyBound);
+
+        return ContextCreationError::None;
     }
 
     VkGraphicsContext::~VkGraphicsContext()
@@ -603,60 +682,112 @@ namespace KryneEngine
         }
     }
 
-    void VkGraphicsContext::_SelectPhysicalDevice()
+    GraphicsCommon::ContextCreationError VkGraphicsContext::_CheckPhysicalDevice(const VkPhysicalDevice _physicalDevice)
+    {
+        using GraphicsCommon::ContextCreationError;
+        using GraphicsCommon::SoftEnable;
+
+        const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
+
+        DynamicArray<VkExtensionProperties> extensions(scopedScratchAllocator.GetAllocator());
+        VkHelperFunctions::VkArrayFetch(extensions, vkEnumerateDeviceExtensionProperties, _physicalDevice, nullptr);
+        const auto hasExtension = [&extensions](const char* _name)
+        {
+            return eastl::any_of(
+                extensions.begin(),
+                extensions.end(),
+                [_name](const VkExtensionProperties& _p) { return strcmp(_p.extensionName, _name) == 0; });
+        };
+
+        auto placeholderQueueIndices = QueueIndices();
+        if (!_SelectQueues(m_appInfo, _physicalDevice, placeholderQueueIndices))
+        {
+            return ContextCreationError::NoCompatibleDevice;
+        }
+
+        for (const eastl::string& requiredExtension: _GetRequiredDeviceExtensions())
+        {
+            if (!hasExtension(requiredExtension.c_str()))
+            {
+                return requiredExtension == VK_KHR_SWAPCHAIN_EXTENSION_NAME
+                    ? ContextCreationError::PresentNotSupported
+                    : ContextCreationError::NoCompatibleDevice;
+            }
+        }
+
+        const auto& features = m_appInfo.m_features;
+
+        if (features.m_geometryShader == SoftEnable::ForceEnabled)
+        {
+            VkPhysicalDeviceFeatures supportedFeatures;
+            vkGetPhysicalDeviceFeatures(_physicalDevice, &supportedFeatures);
+            if (!supportedFeatures.geometryShader)
+            {
+                return ContextCreationError::GeometryShaderNotSupported;
+            }
+        }
+
+        if (features.m_gpuTimestamps == SoftEnable::ForceEnabled)
+        {
+            VkPhysicalDeviceProperties properties;
+            vkGetPhysicalDeviceProperties(_physicalDevice, &properties);
+            if (!SupportsTimestampQueries(properties.limits) || !hasExtension(VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME))
+            {
+                return ContextCreationError::GpuTimestampsNotSupported;
+            }
+        }
+
+        if (features.m_partiallyBoundDescriptors == SoftEnable::ForceEnabled
+            && !DeviceSupportsPartiallyBoundDescriptors(
+                m_appInfo,
+                _physicalDevice,
+                hasExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)))
+        {
+            return ContextCreationError::PartiallyBoundDescriptorsNotSupported;
+        }
+
+        return ContextCreationError::None;
+    }
+
+    GraphicsCommon::ContextCreationError VkGraphicsContext::_SelectPhysicalDevice()
     {
         KE_ZoneScopedFunction("VkPhysicalDevice::_SelectPhysicalDevice");
+
+        using GraphicsCommon::ContextCreationError;
 
         const auto scopedScratchAllocator = GlobalScratchAllocator::GetScratchAllocator();
 
         DynamicArray<VkPhysicalDevice> availablePhysicalDevices(scopedScratchAllocator.GetAllocator());
         VkHelperFunctions::VkArrayFetch(availablePhysicalDevices, vkEnumeratePhysicalDevices, m_instance);
 
-        eastl::vector<VkPhysicalDevice> suitableDevices(scopedScratchAllocator.GetAllocator());
-        eastl::copy_if(availablePhysicalDevices.begin(), availablePhysicalDevices.end(),
-                       eastl::back_inserter(suitableDevices),
-                       [this, &scopedScratchAllocator](const VkPhysicalDevice& _physicalDevice)
+        // When no device is compatible, report why the best rejected one was, as it's most likely the main GPU.
+        u32 maxScore = 0;
+        u32 maxRejectedScore = 0;
+        ContextCreationError rejectionError = ContextCreationError::NoCompatibleDevice;
+
+        for (const VkPhysicalDevice& physicalDevice: availablePhysicalDevices)
         {
-            const auto copyScopedAllocator = GlobalScratchAllocator::GetScratchAllocator();
+            VkPhysicalDeviceProperties properties;
+            vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+            const u32 score = properties.limits.maxImageDimension2D;
 
-            DynamicArray<VkExtensionProperties> extensions(copyScopedAllocator.GetAllocator());
-            VkHelperFunctions::VkArrayFetch(extensions, vkEnumerateDeviceExtensionProperties, _physicalDevice, nullptr);
-            auto requiredExtensions = _GetRequiredDeviceExtensions();
-
-            bool suitable = true;
-
-            auto placeholderQueueIndices = QueueIndices();
-            suitable &= _SelectQueues(m_appInfo, _physicalDevice, placeholderQueueIndices);
-
-            for (const auto& extension: extensions)
+            const ContextCreationError error = _CheckPhysicalDevice(physicalDevice);
+            if (error == ContextCreationError::None)
             {
-                requiredExtensions.erase(eastl::string{ extension.extensionName });
-            }
-            suitable &= requiredExtensions.empty();
-
-            return suitable;
-        });
-
-        if (KE_VERIFY_MSG(!suitableDevices.empty(), "No suitable device found!"))
-        {
-            u32 maxScore = 0;
-            VkPhysicalDevice selectedDevice;
-
-            for (const auto& suitableDevice: suitableDevices)
-            {
-                u32 score = 0;
-                VkPhysicalDeviceProperties properties;
-                vkGetPhysicalDeviceProperties(suitableDevice, &properties);
-                score += properties.limits.maxImageDimension2D;
-
-                if (score >= maxScore)
+                if (m_physicalDevice == VK_NULL_HANDLE || score > maxScore)
                 {
-                    selectedDevice = suitableDevice;
+                    m_physicalDevice = physicalDevice;
+                    maxScore = score;
                 }
             }
-
-            m_physicalDevice = selectedDevice;
+            else if (score >= maxRejectedScore)
+            {
+                rejectionError = error;
+                maxRejectedScore = score;
+            }
         }
+
+        return m_physicalDevice != VK_NULL_HANDLE ? ContextCreationError::None : rejectionError;
     }
 
     bool VkGraphicsContext::_SelectQueues(
@@ -770,7 +901,7 @@ namespace KryneEngine
         return foundAll;
     }
 
-    void VkGraphicsContext::_CreateDevice()
+    bool VkGraphicsContext::_CreateDevice()
     {
         KE_ZoneScopedFunction("VkGraphicsContext::_CreateDevice");
 
@@ -779,7 +910,9 @@ namespace KryneEngine
         eastl::vector<VkDeviceQueueCreateInfo> queueCreateInfo(scopedScratchAllocator.GetAllocator());
         eastl::vector<eastl::vector<float>> queuePriorities(scopedScratchAllocator.GetAllocator());
 
-        KE_ASSERT(_SelectQueues(m_appInfo, m_physicalDevice, m_queueIndices));
+        // Already checked when filtering the suitable physical devices.
+        const bool queuesFound = _SelectQueues(m_appInfo, m_physicalDevice, m_queueIndices);
+        KE_ASSERT(queuesFound);
         {
             const auto createQueueInfo = [&](const QueueIndices::Pair _index, const float _priority)
             {
@@ -827,10 +960,6 @@ namespace KryneEngine
         {
             VkPhysicalDeviceFeatures supportedFeatures;
             vkGetPhysicalDeviceFeatures(m_physicalDevice, &supportedFeatures);
-            KE_ASSERT_MSG(
-                supportedFeatures.geometryShader
-                    || m_appInfo.m_features.m_geometryShader == GraphicsCommon::SoftEnable::TryEnable,
-                "ApplicationInfo force-enabled the geometry shader feature, but the device does not support it");
             features.geometryShader = supportedFeatures.geometryShader;
 
             m_features.m_geometryShaders = features.geometryShader;
@@ -883,10 +1012,6 @@ namespace KryneEngine
                     requiredExtensions.push_back(VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
                     m_supportsTimestampCalibration = true;
                 }
-                else
-                {
-                    KE_ASSERT(m_appInfo.m_features.m_gpuTimestamps != GraphicsCommon::SoftEnable::ForceEnabled);
-                }
             }
 
             if (find("VK_KHR_portability_subset"))
@@ -909,30 +1034,10 @@ namespace KryneEngine
 
             if (m_appInfo.m_features.m_partiallyBoundDescriptors != GraphicsCommon::SoftEnable::Disabled)
             {
-                // `descriptorIndexing` is core in Vulkan 1.2, an extension (VK_EXT_descriptor_indexing) before.
-                // The feature query needs vkGetPhysicalDeviceFeatures2, which is core from Vulkan 1.1.
-                const bool queryable = VkHelperFunctions::GetApiVersion(m_appInfo.m_api) >= VK_API_VERSION_1_1;
-                const bool coreOrExtension =
-                    VkHelperFunctions::GetApiVersion(m_appInfo.m_api) >= VK_API_VERSION_1_2
-                    || find(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
-
-                if (queryable && coreOrExtension)
-                {
-                    VkPhysicalDeviceDescriptorIndexingFeatures supported {
-                        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
-                    };
-                    VkPhysicalDeviceFeatures2 supported2 {
-                        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                        .pNext = &supported,
-                    };
-                    vkGetPhysicalDeviceFeatures2(m_physicalDevice, &supported2);
-                    m_descriptorBindingPartiallyBound = supported.descriptorBindingPartiallyBound;
-                }
-
-                KE_ASSERT_MSG(
-                    m_descriptorBindingPartiallyBound
-                        || m_appInfo.m_features.m_partiallyBoundDescriptors == GraphicsCommon::SoftEnable::TryEnable,
-                    "ApplicationInfo force-enabled partially bound descriptors, but the device does not support it");
+                m_descriptorBindingPartiallyBound = DeviceSupportsPartiallyBoundDescriptors(
+                    m_appInfo,
+                    m_physicalDevice,
+                    find(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME));
 
                 if (m_descriptorBindingPartiallyBound)
                 {
@@ -965,7 +1070,10 @@ namespace KryneEngine
             .pEnabledFeatures = &features
         };
 
-        VkAssert(vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device));
+        if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS)
+        {
+            return false;
+        }
 
         _RetrieveQueues(m_queueIndices);
 
@@ -993,10 +1101,9 @@ namespace KryneEngine
             auto* getFunc = reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR>(
                 vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsKHR"));
 
-            u32 size = 0;
             VkTimeDomainKHR domainArray[4];
-            getFunc(m_physicalDevice, &size, nullptr);
-            KE_ASSERT(size <= eastl::size(domainArray));
+            u32 size = eastl::size(domainArray);
+            // VK_INCOMPLETE if the device exposes more time domains: the first ones are enough.
             getFunc(m_physicalDevice, &size, domainArray);
 
             for (int i = 0; i < size; i++)
@@ -1008,6 +1115,8 @@ namespace KryneEngine
                 }
             }
         }
+
+        return true;
     }
 
     void VkGraphicsContext::_RetrieveQueues(const QueueIndices &_queueIndices)

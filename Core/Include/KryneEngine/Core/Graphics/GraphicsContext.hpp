@@ -96,15 +96,21 @@ namespace KryneEngine
          * The context is created without any presentation surface. When `_appInfo.m_features.m_present`
          * is set, the caller must call #CreateSwapChain before rendering a presented frame.
          *
+         * Creation fails without asserting when the host machine cannot satisfy `_appInfo`: no compatible
+         * GPU, or a feature requested as `SoftEnable::ForceEnabled` that is unavailable. The application can
+         * then report the reason (see `GraphicsCommon::ToString`) instead of crashing.
+         *
          * @param _appInfo Application and engine metadata, along with requested features and display options.
          * @param _allocator The memory allocator instance to use for all resources created by this context.
+         * @param error_ Optional. Receives the reason of the failure, or `ContextCreationError::None` on success.
          *
-         * @return A pointer to the newly created `GraphicsContext`. Ownership is transferred to the caller,
-         * who is responsible for calling #Destroy once done with it.
+         * @return A pointer to the newly created `GraphicsContext`, or `nullptr` if creation failed.
+         * Ownership is transferred to the caller, who is responsible for calling #Destroy once done with it.
          */
-        static GraphicsContext* Create(
+        [[nodiscard]] static GraphicsContext* Create(
             const GraphicsCommon::ApplicationInfo& _appInfo,
-            AllocatorInstance _allocator);
+            AllocatorInstance _allocator,
+            GraphicsCommon::ContextCreationError* error_ = nullptr);
 
         /**
          * @brief Destroys a `GraphicsContext` previously created with #Create.

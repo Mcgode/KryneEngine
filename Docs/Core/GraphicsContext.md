@@ -187,12 +187,37 @@ GraphicsContext* context = GraphicsContext::Create(
 ```
 
 ### Error Handling
-- Creation may fail if:
-  - No suitable graphics API can be initialized
-  - Required queues (graphics, present, transfer, compute) are unavailable
-  - Window surface creation fails
-  - Device creation fails due to feature requests
-- Use the returned pointer for operations; destruction will clean up resources
+`GraphicsContext::Create` fails softly when the host machine cannot satisfy the `ApplicationInfo`: it returns
+`nullptr` without asserting, and reports the reason through its optional `GraphicsCommon::ContextCreationError*`
+out-parameter. This lets an application enforce a minimum set of features by requesting them as
+`SoftEnable::ForceEnabled`, and tell the user explicitly why it cannot run:
+
+```cpp
+appInfo.m_features.m_geometryShader = GraphicsCommon::SoftEnable::ForceEnabled;
+
+GraphicsCommon::ContextCreationError error;
+GraphicsContext* context = GraphicsContext::Create(appInfo, allocator, &error);
+if (context == nullptr)
+{
+    ShowErrorDialog(GraphicsCommon::ToString(error)); // e.g. "The GPU does not support geometry shaders"
+    return;
+}
+```
+
+| Error | Cause |
+|-------|-------|
+| `ApiNotSupported` | The requested API (or API version) is unavailable on this host |
+| `NoCompatibleDevice` | No GPU supports the requested API version, queues and presentation |
+| `DeviceCreationFailed` | A compatible GPU was found, but its device or core objects could not be created |
+| `PresentNotSupported` | `m_present` is set, but the host cannot present to a window |
+| `ValidationLayersNotSupported` | `m_validationLayers` is `ForceEnabled` but unavailable |
+| `DebugTagsNotSupported` | `m_debugTags` is `ForceEnabled` but unavailable |
+| `GpuTimestampsNotSupported` | `m_gpuTimestamps` is `ForceEnabled` but unavailable |
+| `GeometryShaderNotSupported` | `m_geometryShader` is `ForceEnabled` but unavailable |
+| `PartiallyBoundDescriptorsNotSupported` | `m_partiallyBoundDescriptors` is `ForceEnabled` but unavailable |
+
+Features requested as `SoftEnable::TryEnable` never fail creation. An invalid `ApplicationInfo` (such as an
+unsupported combination of queue features) is a programming error, and still asserts.
 
 ### Lifecycle
 - Create once per application lifetime

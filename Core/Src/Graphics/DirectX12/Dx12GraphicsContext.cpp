@@ -33,10 +33,18 @@ namespace KryneEngine
         , m_frameContexts(_allocator)
         , m_resources(_allocator)
         , m_descriptorSetManager(_allocator)
-    {
-        KE_ZoneScopedFunction("Dx12GraphicsContext::Dx12GraphicsContext");
+    {}
 
-        KE_ASSERT(m_appInfo.IsDirectX12Api());
+    GraphicsCommon::ContextCreationError Dx12GraphicsContext::Initialize()
+    {
+        KE_ZoneScopedFunction("Dx12GraphicsContext::Initialize");
+
+        using GraphicsCommon::ContextCreationError;
+
+        if (!m_appInfo.IsDirectX12Api())
+        {
+            return ContextCreationError::ApiNotSupported;
+        }
 
         ComPtr<IDXGIFactory4> factory4;
         UINT dxgiFactoryFlags = 0;
@@ -52,14 +60,27 @@ namespace KryneEngine
                 // Enable additional debug layers.
                 dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
             }
+            else if (m_appInfo.m_features.m_validationLayers == GraphicsCommon::SoftEnable::ForceEnabled)
+            {
+                return ContextCreationError::ValidationLayersNotSupported;
+            }
         }
 #endif
 
-        Dx12Assert(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory4)));
+        if (FAILED(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory4))))
+        {
+            return ContextCreationError::ApiNotSupported;
+        }
         m_factory = factory4;
 
-        _CreateDevice(factory4.Get());
-        _CreateCommandQueues();
+        if (const ContextCreationError error = _CreateDevice(factory4.Get()); error != ContextCreationError::None)
+        {
+            return error;
+        }
+        if (!_CreateCommandQueues())
+        {
+            return ContextCreationError::DeviceCreationFailed;
+        }
 
         // Frame context count is an explicit, strict choice — not negotiated against the swap chain.
         m_frameContextCount = static_cast<u8>(m_appInfo.m_bufferingMode);
@@ -72,12 +93,18 @@ namespace KryneEngine
         m_frameContexts.InitAll(m_device.Get(), m_allocator);
 
         // Create the frame fence
-        Dx12Assert(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_frameFence)));
+        if (FAILED(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_frameFence))))
+        {
+            return ContextCreationError::DeviceCreationFailed;
+        }
 #if !defined(KE_FINAL)
         Dx12SetName(m_frameFence.Get(), L"Frame fence");
 #endif
         m_frameFenceEvent = CreateEvent(nullptr, false, false, nullptr);
-        KE_ASSERT(m_frameFenceEvent != nullptr);
+        if (m_frameFenceEvent == nullptr)
+        {
+            return ContextCreationError::DeviceCreationFailed;
+        }
 
         if (m_appInfo.m_features.m_gpuTimestamps != GraphicsCommon::SoftEnable::Disabled)
         {
@@ -123,6 +150,8 @@ namespace KryneEngine
 
             CalibrateCpuGpuClocks();
         }
+
+        return ContextCreationError::None;
     }
 
     Dx12GraphicsContext::~Dx12GraphicsContext()
@@ -138,7 +167,10 @@ namespace KryneEngine
         }
 #endif
 
-        CloseHandle(m_frameFenceEvent);
+        if (m_frameFenceEvent != nullptr)
+        {
+            CloseHandle(m_frameFenceEvent);
+        }
         SafeRelease(m_frameFence);
 
         m_frameContexts.Clear();
@@ -278,16 +310,25 @@ namespace KryneEngine
         }
     }
 
-    void Dx12GraphicsContext::_CreateDevice(IDXGIFactory4* _factory4)
+    GraphicsCommon::ContextCreationError Dx12GraphicsContext::_CreateDevice(IDXGIFactory4* _factory4)
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::_CreateDevice");
 
         ComPtr<IDXGIAdapter1> hardwareAdapter;
         _FindAdapter(_factory4, &hardwareAdapter);
+        if (hardwareAdapter == nullptr)
+        {
+            return GraphicsCommon::ContextCreationError::NoCompatibleDevice;
+        }
 
-        Dx12Assert(D3D12CreateDevice(hardwareAdapter.Get(),
-                                     Dx12Converters::GetFeatureLevel(m_appInfo),
-                                     IID_PPV_ARGS(&m_device)));
+        // The hardware adapters were filtered on the feature level, but not the WARP fallback.
+        if (FAILED(D3D12CreateDevice(
+            hardwareAdapter.Get(),
+            Dx12Converters::GetFeatureLevel(m_appInfo),
+            IID_PPV_ARGS(&m_device))))
+        {
+            return GraphicsCommon::ContextCreationError::NoCompatibleDevice;
+        }
 #if !defined(KE_FINAL)
         Dx12SetName(m_device.Get(), L"Device");
 #endif
@@ -310,10 +351,14 @@ namespace KryneEngine
 #endif
 
         {
+            // Older runtimes don't know about OPTIONS12, and fail the query: no enhanced barriers then.
             D3D12_FEATURE_DATA_D3D12_OPTIONS12 options12 = {};
-            Dx12Assert(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &options12, sizeof(options12)));
-            m_enhancedBarriersEnabled = options12.EnhancedBarriersSupported;
+            m_enhancedBarriersEnabled =
+                SUCCEEDED(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &options12, sizeof(options12)))
+                && options12.EnhancedBarriersSupported;
         }
+
+        return GraphicsCommon::ContextCreationError::None;
     }
 
     void Dx12GraphicsContext::_FindAdapter(IDXGIFactory4 *_factory, IDXGIAdapter1 **_adapter)
@@ -325,7 +370,7 @@ namespace KryneEngine
         ComPtr<IDXGIAdapter1> adapter;
         ComPtr<IDXGIFactory6> factory6;
 
-        if (Dx12Verify(_factory->QueryInterface(IID_PPV_ARGS(&factory6))))
+        if (SUCCEEDED(_factory->QueryInterface(IID_PPV_ARGS(&factory6))))
         {
             for (u32 adapterIndex = 0;
                  SUCCEEDED(factory6->EnumAdapterByGpuPreference(adapterIndex,
@@ -357,14 +402,14 @@ namespace KryneEngine
         if (adapter == nullptr)
         {
             // No hardware adapter found (e.g. running on a GPU-less CI machine): fall back to
-            // WARP, D3D12's software rasterizer, rather than leaving the adapter null.
-            Dx12Verify(_factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter)));
+            // WARP, D3D12's software rasterizer. If it isn't available either, the adapter stays null.
+            _factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter));
         }
 
         *_adapter = adapter.Detach();
     }
 
-    void Dx12GraphicsContext::_CreateCommandQueues()
+    bool Dx12GraphicsContext::_CreateCommandQueues()
     {
         KE_ZoneScopedFunction("Dx12GraphicsContext::_CreateCommandQueue");
 
@@ -378,7 +423,10 @@ namespace KryneEngine
             directQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
             directQueueDesc.NodeMask = 0;
 
-            Dx12Assert(m_device->CreateCommandQueue(&directQueueDesc, IID_PPV_ARGS(&m_directQueue)));
+            if (FAILED(m_device->CreateCommandQueue(&directQueueDesc, IID_PPV_ARGS(&m_directQueue))))
+            {
+                return false;
+            }
 #if !defined(KE_FINAL)
             Dx12SetName(m_directQueue.Get(), L"Direct queue");
 #endif
@@ -393,7 +441,10 @@ namespace KryneEngine
             computeQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
             computeQueueDesc.NodeMask = 0;
 
-            Dx12Assert(m_device->CreateCommandQueue(&computeQueueDesc, IID_PPV_ARGS(&m_computeQueue)));
+            if (FAILED(m_device->CreateCommandQueue(&computeQueueDesc, IID_PPV_ARGS(&m_computeQueue))))
+            {
+                return false;
+            }
 #if !defined(KE_FINAL)
             Dx12SetName(m_computeQueue.Get(), L"Compute queue");
 #endif
@@ -407,11 +458,16 @@ namespace KryneEngine
             copyQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
             copyQueueDesc.NodeMask = 0;
 
-            Dx12Assert(m_device->CreateCommandQueue(&copyQueueDesc, IID_PPV_ARGS(&m_copyQueue)));
+            if (FAILED(m_device->CreateCommandQueue(&copyQueueDesc, IID_PPV_ARGS(&m_copyQueue))))
+            {
+                return false;
+            }
 #if !defined(KE_FINAL)
             Dx12SetName(m_copyQueue.Get(), L"Copy queue");
 #endif
         }
+
+        return true;
     }
 
     BufferHandle Dx12GraphicsContext::CreateBuffer(const BufferCreateDesc& _desc)
