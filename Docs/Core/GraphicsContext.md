@@ -199,7 +199,8 @@ GraphicsCommon::ContextCreationError error;
 GraphicsContext* context = GraphicsContext::Create(appInfo, allocator, &error);
 if (context == nullptr)
 {
-    ShowErrorDialog(GraphicsCommon::ToString(error)); // e.g. "The GPU does not support geometry shaders"
+    // e.g. "The GPU does not support geometry shaders"
+    Platform::ShowAlert("MyGame", GraphicsCommon::ToString(error));
     return;
 }
 ```
