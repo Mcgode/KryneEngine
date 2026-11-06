@@ -98,7 +98,12 @@ float3 AgX_Decode(float3 _encodedColor)
     return pow(saturate(color), 2.2);
 }
 
-float3 Tonemap_AgX(float3 _rawColor)
+float3 Tonemap_AgX(const in float3 _rawColor)
 {
     return AgX_Decode(AgX_Encode(_rawColor));
+}
+
+float3 Tonemap_AgX_Punchy(const in float3 _rawColor)
+{
+    return AgX_Decode(AgX_LookPunchy(AgX_Encode(_rawColor)));
 }
