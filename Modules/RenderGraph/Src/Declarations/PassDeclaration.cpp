@@ -6,6 +6,8 @@
 
 #include "KryneEngine/Modules/RenderGraph/Declarations/PassDeclaration.hpp"
 
+#include "KryneEngine/Modules/RenderGraph/Registry.hpp"
+
 namespace KryneEngine::Modules::RenderGraph
 {
     PassDeclaration::PassDeclaration(const PassType _type, const size_t _id, const AllocatorInstance _allocator)
@@ -19,14 +21,27 @@ namespace KryneEngine::Modules::RenderGraph
         m_name = StringHash(defaultName, _allocator);
     }
 
-    u64 PassDeclaration::GetRenderPassHash()
+    u64 PassDeclaration::GetRenderPassHash(const Registry& _registry)
     {
         if (!m_renderPassHash.has_value())
         {
-            u64 hash = Hashing::Hash64<const PassAttachmentDeclaration>(m_colorAttachments);
+            u64 hash = Hashing::Hash64(0);
+            const auto hashAttachment = [&_registry](const PassAttachmentDeclaration& _attachment, u64 _hash)
+            {
+                _hash = Hashing::Hash64Append(_registry.GetRenderTargetView(_attachment.m_rtv), _hash);
+
+                auto* bytes = reinterpret_cast<const std::byte*>(&_attachment);
+                constexpr size_t offset = offsetof(PassAttachmentDeclaration, m_rtv);
+                return Hashing::Hash64Append(bytes + offset, sizeof(PassAttachmentDeclaration) - offset, _hash);
+            };
+
+            for (const auto& attachment : m_colorAttachments)
+            {
+                hash = hashAttachment(attachment, hash);
+            }
             if (m_depthAttachment.has_value())
             {
-                hash = Hashing::Hash64Append(&m_depthAttachment.value(), hash);
+                hash = hashAttachment(m_depthAttachment.value(), hash);
             }
             m_renderPassHash.emplace(hash);
         }

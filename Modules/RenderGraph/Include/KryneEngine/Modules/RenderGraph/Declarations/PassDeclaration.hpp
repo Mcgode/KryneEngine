@@ -15,6 +15,7 @@
 namespace KryneEngine::Modules::RenderGraph
 {
     class RenderGraph;
+    class Registry;
 
     enum class PassType
     {
@@ -41,7 +42,7 @@ namespace KryneEngine::Modules::RenderGraph
         using ExecuteFunction = eastl::function<void(RenderGraph&, PassExecutionData&)>;
         using TransferFunction = eastl::function<void(GraphicsContext*, TransferCommandEncoderHandle)>;
 
-        [[nodiscard]] u64 GetRenderPassHash();
+        [[nodiscard]] u64 GetRenderPassHash(const Registry& _registry);
 
     public:
         PassType m_type;

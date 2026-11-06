@@ -290,7 +290,7 @@ namespace KryneEngine::Modules::RenderGraph
         GraphicsContext& _graphicsContext,
         PassDeclaration& _passDeclaration)
     {
-        const u64 hash = _passDeclaration.GetRenderPassHash();
+        const u64 hash = _passDeclaration.GetRenderPassHash(*m_registry);
 
         const auto it = m_renderPassCache.find(hash);
         if (it != m_renderPassCache.end())
