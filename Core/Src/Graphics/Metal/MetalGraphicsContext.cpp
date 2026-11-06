@@ -197,7 +197,7 @@ namespace KryneEngine
     {
         MetalSwapChain* swapChain = m_resources.GetSwapChain(_handle);
         VERIFY_OR_RETURN(swapChain != nullptr, false);
-        swapChain->Resize(_newSize);
+        swapChain->Resize(_newSize, GetCurrentFrameContextIndex(), m_resources);
         return true;
     }
 

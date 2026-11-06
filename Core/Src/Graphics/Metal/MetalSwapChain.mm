@@ -78,9 +78,18 @@ namespace KryneEngine
         m_index = _initialFrameIndex;
     }
 
-    void MetalSwapChain::Resize(uint2 _newSize)
+    void MetalSwapChain::Resize(uint2 _newSize, u8 _frameIndex, MetalResources& _resources)
     {
+        if (GetDrawableSize() == _newSize)
+            return;
+
         m_metalLayer->setDrawableSize(CGSizeMake(_newSize.x, _newSize.y));
+
+        // The drawable for the current frame was acquired at the end of the previous frame, at the old size.
+        // Release it first (an unpresented drawable goes back to the layer's pool, so nextDrawable() can't stall
+        // on it), then acquire a new one at the new size for the current frame slot.
+        m_drawable.reset();
+        UpdateNextDrawable(_frameIndex, _resources);
     }
 
     void MetalSwapChain::Destroy(MetalResources& _resources)
