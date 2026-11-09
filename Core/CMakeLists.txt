@@ -15,6 +15,7 @@ set(CommonSrc
         Include/KryneEngine/Core/Common/Misc/Unroll.hpp
         Include/KryneEngine/Core/Common/Utils/Macros.hpp
         Src/Common/StringHelpers.cpp
+        Include/KryneEngine/Core/Common/Utils/ScopeGuard.hpp
 )
 
 set(GraphicsCommonFiles
