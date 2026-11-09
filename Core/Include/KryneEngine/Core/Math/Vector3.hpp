@@ -107,6 +107,9 @@ namespace KryneEngine::Math
     };
 
     template<typename T>
+    extern T Dot(const Vector3Base<T>& _a, const Vector3Base<T>& _b);
+
+    template<typename T>
     concept Vector3Type = requires {
         typename T::ScalarType;
         std::is_same_v<T, Vector3Base<typename T::ScalarType>>;

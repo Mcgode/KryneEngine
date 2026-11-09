@@ -146,8 +146,18 @@ namespace KryneEngine::Math
         };
     }
 
-    template struct Vector3Base<float>;
-    template struct Vector3Base<s32>;
-    template struct Vector3Base<u32>;
-    template struct Vector3Base<double>;
+    template <typename T>
+    T Dot(const Vector3Base<T>& _a, const Vector3Base<T>& _b)
+    {
+        return _a.x * _b.x + _a.y * _b.y + _a.z * _b.z;
+    }
+
+#define IMPLEMENT(type) \
+    template struct Vector3Base<type>; \
+    template type Dot<type>(const Vector3Base<type>& _a, const Vector3Base<type>& _b)
+
+    IMPLEMENT(float);
+    IMPLEMENT(s32);
+    IMPLEMENT(u32);
+    IMPLEMENT(double);
 } // namespace KryneEngine::Math
