@@ -107,7 +107,10 @@ namespace KryneEngine::Math
     };
 
     template<typename T>
-    extern T Dot(const Vector3Base<T>& _a, const Vector3Base<T>& _b);
+    T Dot(const Vector3Base<T>& _a, const Vector3Base<T>& _b)
+    {
+        return Vector3Base<T>::Dot(_a, _b);
+    }
 
     template<typename T>
     concept Vector3Type = requires {
