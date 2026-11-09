@@ -99,6 +99,7 @@ namespace KryneEngine::Math
         }
 
         [[nodiscard]] T* GetPtr() { return m_vectors[0].GetPtr(); }
+        [[nodiscard]] const T* GetPtr() const { return m_vectors[0].GetPtr(); }
 
         /**
          * Performs an in-place transposition of the 3x3 matrix.
