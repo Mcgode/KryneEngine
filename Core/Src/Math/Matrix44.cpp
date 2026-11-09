@@ -251,7 +251,7 @@ namespace KryneEngine::Math
                     Simd::StoreUnalignedMat44(result.GetPtr(), inv);
             }
         }
-
+        else
         {
             // Taken from assimp implementation
 
