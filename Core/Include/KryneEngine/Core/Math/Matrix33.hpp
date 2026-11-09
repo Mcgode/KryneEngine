@@ -107,6 +107,10 @@ namespace KryneEngine::Math
         Matrix33Base& Transpose();
         [[nodiscard]] Matrix33Base Transposed() const;
 
+        [[nodiscard]] T Determinant() const;
+
+        [[nodiscard]] Matrix33Base Inverse() const requires std::is_floating_point_v<T>;
+
         /**
          * @brief Converts a given 3x3 matrix from a row-major type to a colum-major type, or vice versa.
          *

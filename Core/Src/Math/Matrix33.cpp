@@ -116,6 +116,63 @@ namespace KryneEngine::Math
         return transposed;
     }
 
+    template <class T, bool RowMajor>
+    T Matrix33Base<T, RowMajor>::Determinant() const
+    {
+        // det(M^T) = det(M), so formula is layout-independent.
+
+        const T a = m_vectors[0].x,
+                b = m_vectors[0].y,
+                c = m_vectors[0].z,
+                d = m_vectors[1].x,
+                e = m_vectors[1].y,
+                f = m_vectors[1].z,
+                g = m_vectors[2].x,
+                h = m_vectors[2].y,
+                i = m_vectors[2].z;
+
+        return a * (e * i - f * h)
+             + b * (f * g - d * i)
+             + c * (d * h - e * g);
+    }
+
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor> Matrix33Base<T, RowMajor>::Inverse() const
+    requires std::is_floating_point_v<T>
+    {
+        const T a = m_vectors[0].x,
+                b = m_vectors[0].y,
+                c = m_vectors[0].z,
+                d = m_vectors[1].x,
+                e = m_vectors[1].y,
+                f = m_vectors[1].z,
+                g = m_vectors[2].x,
+                h = m_vectors[2].y,
+                i = m_vectors[2].z;
+
+        const T det = a * (e * i - f * h)
+                    + b * (f * g - d * i)
+                    + c * (d * h - e * g);
+
+        KE_ASSERT(det != 0);
+
+        Matrix33Base result;
+        T* mat = result.m_vectors[0].GetPtr();
+
+        const T invDet = 1 / det;
+        mat[0] = (e * i - f * h) * invDet;
+        mat[1] = (c * h - b * i) * invDet;
+        mat[2] = (b * f - c * e) * invDet;
+        mat[3] = (f * g - d * i) * invDet;
+        mat[4] = (a * i - c * g) * invDet;
+        mat[5] = (c * d - a * f) * invDet;
+        mat[6] = (d * h - e * g) * invDet;
+        mat[7] = (b * g - a * h) * invDet;
+        mat[8] = (a * e - b * d) * invDet;
+
+        return result;
+    }
+
 #define IMPLEMENTATION_INDIVIDUAL(type, rowMajor) \
     template struct Matrix33Base<type, rowMajor>
 
