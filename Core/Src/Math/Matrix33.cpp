@@ -102,20 +102,25 @@ namespace KryneEngine::Math
     template <class T, bool RowMajor>
     Matrix33Base<T, RowMajor>::VectorType Matrix33Base<T, RowMajor>::operator*(const VectorType& _vector) const
     {
+        // Members are accessed directly: `operator[]` and `Dot` are defined in Vector3.cpp and can't be inlined here.
+        const VectorType& v0 = m_vectors[0];
+        const VectorType& v1 = m_vectors[1];
+        const VectorType& v2 = m_vectors[2];
+
         if constexpr (RowMajor)
         {
             return {
-                Dot(m_vectors[0], _vector),
-                Dot(m_vectors[1], _vector),
-                Dot(m_vectors[2], _vector)
+                v0.x * _vector.x + v0.y * _vector.y + v0.z * _vector.z,
+                v1.x * _vector.x + v1.y * _vector.y + v1.z * _vector.z,
+                v2.x * _vector.x + v2.y * _vector.y + v2.z * _vector.z
             };
         }
         else
         {
             return {
-                m_vectors[0][0] * _vector[0] + m_vectors[1][0] * _vector[1] + m_vectors[2][0] * _vector[2],
-                m_vectors[0][1] * _vector[0] + m_vectors[1][1] * _vector[1] + m_vectors[2][1] * _vector[2],
-                m_vectors[0][2] * _vector[0] + m_vectors[1][2] * _vector[1] + m_vectors[2][2] * _vector[2]
+                v0.x * _vector.x + v1.x * _vector.y + v2.x * _vector.z,
+                v0.y * _vector.x + v1.y * _vector.y + v2.y * _vector.z,
+                v0.z * _vector.x + v1.z * _vector.y + v2.z * _vector.z
             };
         }
     }
