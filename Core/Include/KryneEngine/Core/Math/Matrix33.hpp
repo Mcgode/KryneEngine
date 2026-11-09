@@ -93,6 +93,8 @@ namespace KryneEngine::Math
                    && m_vectors[2] == _other.m_vectors[2];
         }
 
+        [[nodiscard]] T* GetPtr() { return m_vectors[0].GetPtr(); }
+
         /**
          * Performs an in-place transposition of the 3x3 matrix.
          *
