@@ -176,26 +176,16 @@ namespace KryneEngine::Math
                 h = m_vectors[2].y,
                 i = m_vectors[2].z;
 
-        const T det = a * (e * i - f * h)
-                    + b * (f * g - d * i)
-                    + c * (d * h - e * g);
+        const T det = Determinant();
 
         KE_ASSERT(det != 0);
 
-        Matrix33Base result;
-        T* mat = result.m_vectors[0].GetPtr();
-
+        // inverse(M^T) = inverse(M)^T, so the formula is layout-independent too.
         const T invDet = 1 / det;
-        mat[0] = (e * i - f * h) * invDet;
-        mat[1] = (c * h - b * i) * invDet;
-        mat[2] = (b * f - c * e) * invDet;
-        mat[3] = (f * g - d * i) * invDet;
-        mat[4] = (a * i - c * g) * invDet;
-        mat[5] = (c * d - a * f) * invDet;
-        mat[6] = (d * h - e * g) * invDet;
-        mat[7] = (b * g - a * h) * invDet;
-        mat[8] = (a * e - b * d) * invDet;
-
+        Matrix33Base result;
+        result.m_vectors[0] = VectorType((e * i - f * h) * invDet, (c * h - b * i) * invDet, (b * f - c * e) * invDet);
+        result.m_vectors[1] = VectorType((f * g - d * i) * invDet, (a * i - c * g) * invDet, (c * d - a * f) * invDet);
+        result.m_vectors[2] = VectorType((d * h - e * g) * invDet, (b * g - a * h) * invDet, (a * e - b * d) * invDet);
         return result;
     }
 
