@@ -86,6 +86,8 @@ namespace KryneEngine::Math
         Matrix33Base operator-(const Matrix33Base& _other) const;
         Matrix33Base operator*(const Matrix33Base& _other) const;
 
+        VectorType operator*(const VectorType& _vector) const;
+
         bool operator==(const Matrix33Base& _other) const
         {
             return m_vectors[0] == _other.m_vectors[0]

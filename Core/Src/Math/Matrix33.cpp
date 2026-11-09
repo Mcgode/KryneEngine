@@ -100,6 +100,27 @@ namespace KryneEngine::Math
     }
 
     template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor>::VectorType Matrix33Base<T, RowMajor>::operator*(const VectorType& _vector) const
+    {
+        if constexpr (RowMajor)
+        {
+            return {
+                Dot(m_vectors[0], _vector),
+                Dot(m_vectors[1], _vector),
+                Dot(m_vectors[2], _vector)
+            };
+        }
+        else
+        {
+            return {
+                m_vectors[0][0] * _vector[0] + m_vectors[1][0] * _vector[1] + m_vectors[2][0] * _vector[2],
+                m_vectors[0][1] * _vector[0] + m_vectors[1][1] * _vector[1] + m_vectors[2][1] * _vector[2],
+                m_vectors[0][2] * _vector[0] + m_vectors[1][2] * _vector[1] + m_vectors[2][2] * _vector[2]
+            };
+        }
+    }
+
+    template <class T, bool RowMajor>
     Matrix33Base<T, RowMajor>& Matrix33Base<T, RowMajor>::Transpose()
     {
         std::swap<T>(m_vectors[0][1], m_vectors[1][0]);
