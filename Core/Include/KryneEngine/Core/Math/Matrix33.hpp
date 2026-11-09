@@ -35,7 +35,10 @@ namespace KryneEngine::Math
         template<class U>
         requires eastl::is_convertible_v<U, T>
         Matrix33Base(U _a11, U _a12, U _a13, U _a21, U _a22, U _a23, U _a31, U _a32, U _a33)
-            : Matrix33Base(_a11, _a12, _a13, _a21, _a22, _a23, _a31, _a32, _a33) {}
+            : Matrix33Base(
+                static_cast<T>(_a11), static_cast<T>(_a12), static_cast<T>(_a13),
+                static_cast<T>(_a21), static_cast<T>(_a22), static_cast<T>(_a23),
+                static_cast<T>(_a31), static_cast<T>(_a32), static_cast<T>(_a33)) {}
 
         /**
          * Constructs a 3x3 matrix from three 3D vectors.
