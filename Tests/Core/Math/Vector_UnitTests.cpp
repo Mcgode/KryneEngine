@@ -442,4 +442,49 @@ namespace KryneEngine::Tests::Math
 
         catcher.ExpectNoMessage();
     }
+
+    TEST(Vector, Dot3)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        {
+            const float3 vecA { 1, 2, 3 };
+            const float3 vecB { 4, -5, 6 };
+            EXPECT_EQ(Dot(vecA, vecB), 12.f);
+            EXPECT_EQ(Dot(vecA, vecB), float3::Dot(vecA, vecB));
+            EXPECT_EQ(Dot(float3(1, 0, 0), float3(0, 1, 0)), 0.f);
+        }
+
+        {
+            const double3 vecA { 1, 2, 3 };
+            const double3 vecB { 4, -5, 6 };
+            EXPECT_EQ(Dot(vecA, vecB), 12.0);
+        }
+
+        {
+            const int3 vecA { 1, 2, 3 };
+            const int3 vecB { 4, -5, 6 };
+            EXPECT_EQ(Dot(vecA, vecB), 12);
+        }
+
+        {
+            const uint3 vecA { 1, 2, 3 };
+            const uint3 vecB { 4, 5, 6 };
+            EXPECT_EQ(Dot(vecA, vecB), 32u);
+        }
+
+        // -----------------------------------------------------------------------
+        // Teardown
+        // -----------------------------------------------------------------------
+
+        catcher.ExpectNoMessage();
+    }
 }
