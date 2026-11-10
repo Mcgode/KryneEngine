@@ -185,6 +185,16 @@ namespace KryneEngine::Modules::ImGui
         m_input->Shutdown();
         m_setIndices.get_allocator().Delete(m_input);
 
+        // Unregister as the renderer backend, which ImGui checks on destruction. The viewport backend already
+        // unregistered the platform side.
+        {
+            ImGuiIO& io = ::ImGui::GetIO();
+            io.BackendRendererUserData = nullptr;
+            io.BackendRendererName = nullptr;
+            io.BackendPlatformName = nullptr;
+            io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasTextures);
+        }
+
         ::ImGui::DestroyContext(m_context);
         m_context = nullptr;
     }
