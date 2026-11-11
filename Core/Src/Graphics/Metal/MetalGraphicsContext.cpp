@@ -20,6 +20,31 @@
 
 namespace KryneEngine
 {
+    namespace
+    {
+        static_assert(sizeof(DrawInstancedDesc) == sizeof(MTL::DrawPrimitivesIndirectArguments));
+        static_assert(offsetof(DrawInstancedDesc, m_vertexCount) == offsetof(MTL::DrawPrimitivesIndirectArguments, vertexCount));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_vertexCount), decltype(MTL::DrawPrimitivesIndirectArguments::vertexCount)>);
+        static_assert(offsetof(DrawInstancedDesc, m_instanceCount) == offsetof(MTL::DrawPrimitivesIndirectArguments, instanceCount));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_instanceCount), decltype(MTL::DrawPrimitivesIndirectArguments::instanceCount)>);
+        static_assert(offsetof(DrawInstancedDesc, m_vertexOffset) == offsetof(MTL::DrawPrimitivesIndirectArguments, vertexStart));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_vertexOffset), decltype(MTL::DrawPrimitivesIndirectArguments::vertexStart)>);
+        static_assert(offsetof(DrawInstancedDesc, m_instanceOffset) == offsetof(MTL::DrawPrimitivesIndirectArguments, baseInstance));
+        static_assert(std::is_same_v<decltype(DrawInstancedDesc::m_instanceOffset), decltype(MTL::DrawPrimitivesIndirectArguments::baseInstance)>);
+
+        static_assert(sizeof(DrawIndexedInstancedDesc) == sizeof(MTL::DrawIndexedPrimitivesIndirectArguments));
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_elementCount) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, indexCount));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_elementCount), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::indexCount)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_instanceCount) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, instanceCount));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_instanceCount), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::instanceCount)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_indexOffset) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, indexStart));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_indexOffset), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::indexStart)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_vertexOffset) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, baseVertex));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_vertexOffset), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::baseVertex)>);
+        static_assert(offsetof(DrawIndexedInstancedDesc, m_instanceOffset) == offsetof(MTL::DrawIndexedPrimitivesIndirectArguments, baseInstance));
+        static_assert(std::is_same_v<decltype(DrawIndexedInstancedDesc::m_instanceOffset), decltype(MTL::DrawIndexedPrimitivesIndirectArguments::baseInstance)>);
+    }
+
     bool MetalGraphicsContext::IsFrameExecuted(const u64 _frameId) const
     {
         const u8 frameIndex = _frameId % m_frameContextCount;
@@ -172,7 +197,7 @@ namespace KryneEngine
     {
         MetalSwapChain* swapChain = m_resources.GetSwapChain(_handle);
         VERIFY_OR_RETURN(swapChain != nullptr, false);
-        swapChain->Resize(_newSize);
+        swapChain->Resize(_newSize, GetCurrentFrameContextIndex(), m_resources);
         return true;
     }
 
@@ -1054,6 +1079,63 @@ namespace KryneEngine
             _desc.m_instanceCount,
             _desc.m_vertexOffset,
             _desc.m_instanceOffset);
+    }
+
+    void MetalGraphicsContext::DrawInstancedIndirect(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferHandle _indirectBuffer,
+        const u64 _indirectBufferOffset,
+        const u32 _drawCount)
+    {
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
+        VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
+        auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
+        const auto* renderState = static_cast<RenderState*>(commandList->m_userData);
+        KE_ASSERT_FATAL(renderState != nullptr);
+
+        constexpr size_t stride = sizeof(DrawInstancedDesc);
+
+        const auto buffer = m_resources.m_buffers.Get(_indirectBuffer.m_handle)->m_buffer;
+        VERIFY_OR_RETURN_VOID(buffer != nullptr);
+
+        for (u64 i = 0; i < _drawCount; ++i)
+        {
+            encoder->drawPrimitives(
+                MetalConverters::GetPrimitiveType(renderState->m_topology),
+                buffer->gpuAddress() + _indirectBufferOffset + stride * i);
+        }
+    }
+
+    void MetalGraphicsContext::DrawIndexedInstancedIndirect(
+        const RenderCommandEncoderHandle _renderEncoder,
+        const BufferHandle _indirectBuffer,
+        const u64 _indirectBufferOffset,
+        const u32 _drawCount)
+    {
+        const auto commandList = static_cast<CommandList>(_renderEncoder.m_handle);
+        VERIFY_OR_RETURN_VOID(commandList->m_encoder != nullptr && commandList->m_type == CommandListData::EncoderType::Render);
+        auto* encoder = reinterpret_cast<MTL4::RenderCommandEncoder*>(commandList->m_encoder.get());
+        const auto* renderState = static_cast<RenderState*>(commandList->m_userData);
+        KE_ASSERT_FATAL(renderState != nullptr);
+
+        constexpr size_t stride = sizeof(DrawIndexedInstancedDesc);
+
+        const MTL::IndexType indexType = renderState->m_indexBufferIsU16 ? MTL::IndexTypeUInt16 : MTL::IndexTypeUInt32;
+
+        const MTL::Buffer* indexBuffer = m_resources.m_buffers.Get(renderState->m_indexBufferView.m_buffer.m_handle)->m_buffer;
+
+        const auto indirectBuffer = m_resources.m_buffers.Get(_indirectBuffer.m_handle)->m_buffer;
+        VERIFY_OR_RETURN_VOID(indirectBuffer != nullptr);
+
+        for (u64 i = 0; i < _drawCount; ++i)
+        {
+            encoder->drawIndexedPrimitives(
+                MetalConverters::GetPrimitiveType(renderState->m_topology),
+                indexType,
+                indexBuffer->gpuAddress() + renderState->m_indexBufferView.m_offset,
+                eastl::min(renderState->m_indexBufferView.m_size, indexBuffer->length() - renderState->m_indexBufferView.m_offset),
+                indirectBuffer->gpuAddress() + _indirectBufferOffset + stride * i);
+        }
     }
 
     void MetalGraphicsContext::SetComputePipeline(

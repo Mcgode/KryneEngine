@@ -36,6 +36,8 @@ namespace KryneEngine
 
         virtual ~Dx12GraphicsContext();
 
+        [[nodiscard]] GraphicsCommon::ContextCreationError Initialize();
+
         [[nodiscard]] u8 GetFrameContextCount() const override { return m_frameContextCount; }
 
         [[nodiscard]] bool IsFrameExecuted(u64 _frameId) const override;
@@ -57,10 +59,10 @@ namespace KryneEngine
         ComPtr<ID3D12CommandQueue> m_computeQueue;
         ComPtr<ID3D12CommandQueue> m_copyQueue;
 
-        u8 m_frameContextCount;
+        u8 m_frameContextCount = 0;
         DynamicArray<Dx12FrameContext> m_frameContexts;
         ComPtr<ID3D12Fence> m_frameFence;
-        HANDLE m_frameFenceEvent;
+        HANDLE m_frameFenceEvent = nullptr;
 
         DWORD m_validationLayerMessageCallbackHandle = 0;
 
@@ -70,10 +72,10 @@ namespace KryneEngine
         double m_directQueueTimestampPeriod = 0;
         u64 m_directQueueTimestampOffset = 0;
 
-        void _CreateDevice(IDXGIFactory4* _factory4);
+        [[nodiscard]] GraphicsCommon::ContextCreationError _CreateDevice(IDXGIFactory4* _factory4);
         void _FindAdapter(IDXGIFactory4* _factory, IDXGIAdapter1** _adapter);
 
-        void _CreateCommandQueues();
+        [[nodiscard]] bool _CreateCommandQueues();
 
     public:
         [[nodiscard]] BufferHandle CreateBuffer(const BufferCreateDesc& _desc) override;
@@ -201,6 +203,16 @@ namespace KryneEngine
             u32 _offset) override;
         void DrawInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc) override;
         void DrawIndexedInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawIndexedInstancedDesc& _desc) override;
+        void DrawInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) override;
+        void DrawIndexedInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) override;
 
         void SetComputePipeline(ComputeCommandEncoderHandle _computeEncoder, ComputePipelineHandle _pipeline) override;
         void SetComputeDescriptorSetsWithOffset(
@@ -233,5 +245,8 @@ namespace KryneEngine
     private:
         Dx12Resources m_resources;
         Dx12DescriptorSetManager m_descriptorSetManager;
+
+        ComPtr<ID3D12CommandSignature> m_drawInstancedIndirectSignature;
+        ComPtr<ID3D12CommandSignature> m_drawIndexedInstancedIndirectSignature;
     };
 } // KryneEngine

@@ -221,7 +221,7 @@ namespace KryneEngine::Samples
                 .m_elementCount = model.m_elementCount,
                 .m_instanceCount = model.m_instanceCount,
                 .m_indexOffset = model.m_indexOffset,
-                .m_vertexOffset = model.m_vertexOffset,
+                .m_vertexOffset = static_cast<s32>(model.m_vertexOffset),
                 .m_instanceOffset = m_dispatchData->m_modelInstanceOffsets[i],
             });
         }

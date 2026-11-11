@@ -11,6 +11,7 @@
 #   include <math.h>
 #endif
 #include <KryneEngine/Core/Common/Types.hpp>
+#include <KryneEngine/Core/Math/Matrix.hpp>
 #include <KryneEngine/Core/Math/Vector.hpp>
 #include <KryneEngine/Core/Math/RotationConversion.hpp>
 #include <gtest/gtest.h>
@@ -186,5 +187,131 @@ namespace KryneEngine::Tests::Math
 
         testBijectiveTransform(0, 0, 0);
         testBijectiveTransform(-0.2f, 0.23f, -0.41f);
+    }
+
+    namespace
+    {
+        template <class T>
+        constexpr T kMatrixToQuaternionTolerance = sizeof(T) == sizeof(float) ? T(1e-5) : T(1e-12);
+
+        /// `q` and `-q` are the same rotation, so the result is compared once aligned on the expected sign.
+        template <class T>
+        void ExpectSameRotation(const QuaternionBase<T>& _expected, QuaternionBase<T> _result)
+        {
+            constexpr T tolerance = kMatrixToQuaternionTolerance<T>;
+            EXPECT_NEAR(_result.Length(), T(1), tolerance);
+
+            if (QuaternionBase<T>::Dot(_expected, _result) < T(0))
+                _result = QuaternionBase<T>(-_result.w, -_result.x, -_result.y, -_result.z);
+            EXPECT_NEAR(_result.w, _expected.w, tolerance);
+            EXPECT_NEAR(_result.x, _expected.x, tolerance);
+            EXPECT_NEAR(_result.y, _expected.y, tolerance);
+            EXPECT_NEAR(_result.z, _expected.z, tolerance);
+        }
+
+        template <Matrix33Type Mat33>
+        void PerformMatrixToQuaternionTest()
+        {
+            using T = typename Mat33::ScalarType;
+            using Quat = QuaternionBase<T>;
+            using Vec3 = Vector3Base<T>;
+            constexpr T tolerance = kMatrixToQuaternionTolerance<T>;
+
+            {
+                // Identity
+                ExpectSameRotation(Quat(), FromMatrix33<Mat33, Quat>(Mat33()));
+            }
+
+            {
+                // Hand-written 90 degree rotations, independent of ToMatrix33
+                const Mat33 rotationX {
+                    1.f, 0.f, 0.f,
+                    0.f, 0.f, -1.f,
+                    0.f, 1.f, 0.f
+                };
+                const Mat33 rotationY {
+                    0.f, 0.f, 1.f,
+                    0.f, 1.f, 0.f,
+                    -1.f, 0.f, 0.f
+                };
+                const Mat33 rotationZ {
+                    0.f, -1.f, 0.f,
+                    1.f, 0.f, 0.f,
+                    0.f, 0.f, 1.f
+                };
+                const T angle = T(M_PI_2);
+                ExpectSameRotation(Quat().FromAxisAngle(Vec3(1, 0, 0), angle), FromMatrix33<Mat33, Quat>(rotationX));
+                ExpectSameRotation(Quat().FromAxisAngle(Vec3(0, 1, 0), angle), FromMatrix33<Mat33, Quat>(rotationY));
+                ExpectSameRotation(Quat().FromAxisAngle(Vec3(0, 0, 1), angle), FromMatrix33<Mat33, Quat>(rotationZ));
+            }
+
+            {
+                // Round trips through ToMatrix33, covering every branch
+                struct AxisAngle
+                {
+                    Vec3 m_axis;
+                    T m_angle;
+                };
+                const AxisAngle cases[] = {
+                    { Vec3(1, 2, 3), T(0.3) },             // Positive trace
+                    { Vec3(-0.5, 0.7, 0.2), T(-1.9) },     // Positive trace, negative angle
+                    { Vec3(1, 0, 0), T(M_PI) },            // Half turns: trace -1, one diagonal entry at 1
+                    { Vec3(0, 1, 0), T(M_PI) },
+                    { Vec3(0, 0, 1), T(M_PI) },
+                    { Vec3(1, 0.2, 0.1), T(2.8) },         // Negative trace, largest diagonal entry on X
+                    { Vec3(0.1, 1, 0.3), T(2.8) },         // ... on Y
+                    { Vec3(0.2, 0.1, 1), T(2.8) },         // ... on Z
+                    { Vec3(1, 1, 1), T(2 * M_PI / 3) },    // Axis permutation: zero trace and diagonal
+                };
+
+                const Vec3 vector(1, 2, 3);
+                for (const AxisAngle& axisAngle : cases)
+                {
+                    const Quat expected = Quat().FromAxisAngle(axisAngle.m_axis.Normalized(), axisAngle.m_angle);
+                    const Mat33 matrix = ToMatrix33<Mat33>(expected);
+                    const Quat result = FromMatrix33<Mat33, Quat>(matrix);
+                    ExpectSameRotation(expected, result);
+
+                    // The quaternion rotates vectors like the matrix does
+                    const Vec3 rotated = result.ApplyTo(vector);
+                    const Vec3 matrixRotated = matrix * vector;
+                    EXPECT_NEAR(rotated.x, matrixRotated.x, tolerance * 10);
+                    EXPECT_NEAR(rotated.y, matrixRotated.y, tolerance * 10);
+                    EXPECT_NEAR(rotated.z, matrixRotated.z, tolerance * 10);
+
+                    // And converts back to the same matrix
+                    const Mat33 roundTrip = ToMatrix33<Mat33>(result);
+                    for (u32 row = 0; row < 3; ++row)
+                    {
+                        for (u32 column = 0; column < 3; ++column)
+                            EXPECT_NEAR(roundTrip.Get(row, column), matrix.Get(row, column), tolerance);
+                    }
+                }
+            }
+        }
+    }
+
+    TEST(RotationConversion, MatrixToQuaternion)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        PerformMatrixToQuaternionTest<float3x3>();
+        PerformMatrixToQuaternionTest<double3x3>();
+        PerformMatrixToQuaternionTest<Matrix33Base<float, false>>();
+        PerformMatrixToQuaternionTest<Matrix33Base<double, false>>();
+
+        // -----------------------------------------------------------------------
+        // Teardown
+        // -----------------------------------------------------------------------
+
+        catcher.ExpectNoMessage();
     }
 }

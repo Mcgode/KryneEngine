@@ -7,6 +7,7 @@
 #include <KryneEngine/Core/Graphics/GraphicsContext.hpp>
 #include <KryneEngine/Core/Graphics/RenderPass.hpp>
 #include <KryneEngine/Core/Memory/Allocators/TlsfAllocator.hpp>
+#include <KryneEngine/Core/Platform/Alert.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Window.hpp>
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
@@ -69,7 +70,13 @@ s32 main(s32 argc, const char** argv)
     const GraphicsCommon::DisplayOptions displayOptions {};
     WindowManager windowManager(allocator);
     Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
-    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    GraphicsCommon::ContextCreationError graphicsContextError;
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator, &graphicsContextError);
+    if (graphicsContext == nullptr)
+    {
+        Platform::ShowAlert(appInfo.m_applicationName, GraphicsCommon::ToString(graphicsContextError));
+        return 1;
+    }
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),
         .m_dimensions = mainWindow->GetFramebufferSize(),

@@ -96,15 +96,21 @@ namespace KryneEngine
          * The context is created without any presentation surface. When `_appInfo.m_features.m_present`
          * is set, the caller must call #CreateSwapChain before rendering a presented frame.
          *
+         * Creation fails without asserting when the host machine cannot satisfy `_appInfo`: no compatible
+         * GPU, or a feature requested as `SoftEnable::ForceEnabled` that is unavailable. The application can
+         * then report the reason (see `GraphicsCommon::ToString`) instead of crashing.
+         *
          * @param _appInfo Application and engine metadata, along with requested features and display options.
          * @param _allocator The memory allocator instance to use for all resources created by this context.
+         * @param error_ Optional. Receives the reason of the failure, or `ContextCreationError::None` on success.
          *
-         * @return A pointer to the newly created `GraphicsContext`. Ownership is transferred to the caller,
-         * who is responsible for calling #Destroy once done with it.
+         * @return A pointer to the newly created `GraphicsContext`, or `nullptr` if creation failed.
+         * Ownership is transferred to the caller, who is responsible for calling #Destroy once done with it.
          */
-        static GraphicsContext* Create(
+        [[nodiscard]] static GraphicsContext* Create(
             const GraphicsCommon::ApplicationInfo& _appInfo,
-            AllocatorInstance _allocator);
+            AllocatorInstance _allocator,
+            GraphicsCommon::ContextCreationError* error_ = nullptr);
 
         /**
          * @brief Destroys a `GraphicsContext` previously created with #Create.
@@ -939,6 +945,69 @@ namespace KryneEngine
         virtual void DrawIndexedInstanced(
             RenderCommandEncoderHandle _renderEncoder,
             const DrawIndexedInstancedDesc& _desc) = 0;
+
+        /**
+         * @brief Records one or more non-indexed, (potentially) instanced draw calls whose parameters are
+         * read from a GPU buffer.
+         *
+         * @details
+         * The indirect buffer holds `_drawCount` tightly packed #DrawInstancedDesc entries (16 bytes each),
+         * which match `VkDrawIndirectCommand`, `D3D12_DRAW_ARGUMENTS` and `MTLDrawPrimitivesIndirectArguments`
+         * byte for byte. They can be written on the CPU or by a compute shader.
+         *
+         * Requirements:
+         * - The buffer must be created with `MemoryUsage::IndirectBuffer`.
+         * - `_indirectBufferOffset` must be a multiple of 4.
+         * - If the buffer is written on the GPU, it must be transitioned to `BarrierSyncStageFlags::ExecuteIndirect`
+         *   / `BarrierAccessFlags::IndirectBuffer` with a consumer barrier passed to #BeginRenderPass.
+         * - On Vulkan, `ApplicationInfo::Features::m_drawIndirect` must have been enabled, as it enables the
+         *   `drawIndirectFirstInstance` device feature needed for a non-zero `m_instanceOffset` in an entry.
+         *   Without the `multiDrawIndirect` device feature, the draws are recorded one by one.
+         *
+         * @param _renderEncoder The command list in which to record the draw calls.
+         * @param _indirectBuffer The buffer holding the draw arguments.
+         * @param _indirectBufferOffset The byte offset of the first entry in `_indirectBuffer`.
+         * @param _drawCount The number of consecutive entries to draw.
+         *
+         * @note The draw count is fixed when recording; there is no GPU-sourced count variant.
+         * @note On Metal, this is recorded as `_drawCount` single indirect draws.
+         * @note On DirectX 12, `SV_InstanceID` does not include the entry's `m_instanceOffset` (it does on
+         *       Vulkan and Metal). Use an instance-rate vertex stream or `SV_StartInstanceLocation` (SM 6.8)
+         *       to read it portably.
+         */
+        virtual void DrawInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) = 0;
+
+        /**
+         * @brief Records one or more indexed, (potentially) instanced draw calls whose parameters are read
+         * from a GPU buffer.
+         *
+         * @details
+         * The indirect buffer holds `_drawCount` tightly packed #DrawIndexedInstancedDesc entries (20 bytes
+         * each), which match `VkDrawIndexedIndirectCommand`, `D3D12_DRAW_INDEXED_ARGUMENTS` and
+         * `MTLDrawIndexedPrimitivesIndirectArguments` byte for byte. `m_vertexOffset` is read as a signed
+         * 32-bit value by every API.
+         *
+         * Indices are read from the index buffer bound with #SetIndexBuffer, and each entry's `m_indexOffset`
+         * is relative to the start of that view.
+         *
+         * Requirements are the same as for #DrawInstancedIndirect.
+         *
+         * @param _renderEncoder The command list in which to record the draw calls.
+         * @param _indirectBuffer The buffer holding the draw arguments.
+         * @param _indirectBufferOffset The byte offset of the first entry in `_indirectBuffer`.
+         * @param _drawCount The number of consecutive entries to draw.
+         *
+         * @see DrawInstancedIndirect
+         */
+        virtual void DrawIndexedInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) = 0;
 
         /**
          * @brief Binds a compute pipeline for use by subsequent dispatch calls.

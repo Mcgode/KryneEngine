@@ -14,7 +14,7 @@
 #   include <emmintrin.h>
 #   include <smmintrin.h>
 #   include <xmmintrin.h>
-#   include <smmintrin.h>
+#   include <immintrin.h>
 #endif
 
 namespace KryneEngine::Simd

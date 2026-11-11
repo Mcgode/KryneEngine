@@ -33,7 +33,7 @@ namespace KryneEngine
             MetalResources& _resources,
             u8 _initialFrameIndex);
 
-        void Resize(uint2 _newSize);
+        void Resize(uint2 _newSize, u8 _frameIndex, MetalResources& _resources);
 
         void Destroy(MetalResources& _resources);
 

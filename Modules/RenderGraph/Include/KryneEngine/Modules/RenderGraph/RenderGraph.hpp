@@ -38,7 +38,8 @@ namespace KryneEngine::Modules::RenderGraph
         [[nodiscard]] double GetTargetTimePerCommandList() const { return m_targetTimePerCommandList; }
         void SetTargetTimePerCommandList(double _milliseconds) { m_targetTimePerCommandList = _milliseconds; }
 
-        void ResetRenderPassCache();
+        /// @brief Destroys every cached render pass. They must not be in use by any pending frame.
+        void ResetRenderPassCache(GraphicsContext& _graphicsContext);
 
     private:
         static constexpr size_t kScratchAllocatorSize = 32 << 10; // 32 KiB
@@ -65,9 +66,21 @@ namespace KryneEngine::Modules::RenderGraph
         u64 m_previousFrameTotalDuration = 0;
         std::atomic<u64> m_currentFrameTotalDuration = 0;
 
-        eastl::hash_map<u64, RenderPassHandle> m_renderPassCache;
+        struct CachedRenderPass
+        {
+            RenderPassHandle m_handle;
+            u64 m_lastUsedFrameId;
+        };
+
+        /// @brief A cached render pass unused for this many frames is destroyed once its last frame has executed.
+        /// Must stay above the frame context count, so per-swap-chain-image passes are not evicted between uses.
+        static constexpr u64 kRenderPassEvictionFrameCount = 8;
+
+        eastl::hash_map<u64, CachedRenderPass> m_renderPassCache;
 
         RenderPassHandle FetchRenderPass(GraphicsContext& _graphicsContext, PassDeclaration& _passDeclaration);
+
+        void EvictUnusedRenderPasses(GraphicsContext& _graphicsContext);
 
         static void ExecuteJob(JobData* _jobData, u16 _jobIndex);
     };

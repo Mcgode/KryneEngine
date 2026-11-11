@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "KryneEngine/Core/Math/Vector3.hpp"
 #include "KryneEngine/Core/Math/Vector4.hpp"
 
 namespace KryneEngine::Math
@@ -107,8 +108,15 @@ namespace KryneEngine::Math
         [[nodiscard]] T Determinant() const;
         [[nodiscard]] Matrix44Base Inverse() const;
 
+        template <Vector3Type V>
+        [[nodiscard]] V Transform(const V& _vector) const
+        {
+            const VectorType result = *this * VectorType(_vector, 1.0f);
+            return V(result.x, result.y, result.z);
+        }
+
         /**
-         * @brief Converts a given 3x3 matrix from a row-major type to a colum-major type, or vice versa.
+         * @brief Converts a given 4x4 matrix from a row-major type to a colum-major type, or vice versa.
          *
          * @details
          * This static method performs a matrix conversion by transposing the input matrix and constructing a new matrix

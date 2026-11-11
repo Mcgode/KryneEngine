@@ -16,6 +16,11 @@ namespace KryneEngine::Math
     //    DECLARATIONS
     // ============================================================================
 
+
+    template <Matrix33Type Mat33, QuaternionType Quat>
+        requires std::is_convertible_v<typename Quat::ScalarType, typename Mat33::ScalarType>
+    Quat FromMatrix33(const Mat33& _matrix);
+
     template <class T, class U, EulerOrder Order = kDefaultEulerOrder>
     requires std::is_convertible_v<U, T>
     QuaternionBase<T> FromEulerAngles(U _x, U _y, U _z);
@@ -46,6 +51,58 @@ namespace KryneEngine::Math
     // ============================================================================
     //    IMPLEMENTATIONS
     // ============================================================================
+
+    template <Matrix33Type Mat33, QuaternionType Quat>
+        requires std::is_convertible_v<typename Quat::ScalarType, typename Mat33::ScalarType>
+    Quat FromMatrix33(const Mat33& _matrix)
+    {
+        // Based on Shepperd's method, choosing the largest component first to stay numerically stable.
+        // Matches the convention used in ToMatrix33.
+
+        using T = typename Quat::ScalarType;
+
+        const T m00 = T(_matrix.Get(0, 0)), m01 = T(_matrix.Get(0, 1)), m02 = T(_matrix.Get(0, 2));
+        const T m10 = T(_matrix.Get(1, 0)), m11 = T(_matrix.Get(1, 1)), m12 = T(_matrix.Get(1, 2));
+        const T m20 = T(_matrix.Get(2, 0)), m21 = T(_matrix.Get(2, 1)), m22 = T(_matrix.Get(2, 2));
+
+        Quat result;
+        const T trace = m00 + m11 + m22;
+
+        if (trace > T(0))
+        {
+            const T s = std::sqrt(trace + T(1)) * T(2); // s = 4 * w
+            result.w = T(0.25) * s;
+            result.x = (m21 - m12) / s;
+            result.y = (m02 - m20) / s;
+            result.z = (m10 - m01) / s;
+        }
+        else if (m00 > m11 && m00 > m22)
+        {
+            const T s = std::sqrt(T(1) + m00 - m11 - m22) * T(2); // s = 4 * x
+            result.w = (m21 - m12) / s;
+            result.x = T(0.25) * s;
+            result.y = (m01 + m10) / s;
+            result.z = (m02 + m20) / s;
+        }
+        else if (m11 > m22)
+        {
+            const T s = std::sqrt(T(1) + m11 - m00 - m22) * T(2); // s = 4 * y
+            result.w = (m02 - m20) / s;
+            result.x = (m01 + m10) / s;
+            result.y = T(0.25) * s;
+            result.z = (m12 + m21) / s;
+        }
+        else
+        {
+            const T s = std::sqrt(T(1) + m22 - m00 - m11) * T(2); // s = 4 * z
+            result.w = (m10 - m01) / s;
+            result.x = (m02 + m20) / s;
+            result.y = (m12 + m21) / s;
+            result.z = T(0.25) * s;
+        }
+
+        return result;
+    }
 
     template <class T, class U, EulerOrder Order>
         requires std::is_convertible_v<U, T>

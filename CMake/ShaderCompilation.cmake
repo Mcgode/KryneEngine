@@ -63,6 +63,8 @@ set_property(GLOBAL PROPERTY KE_SHADER_GENERATE_SCRIPT "${CMAKE_CURRENT_SOURCE_D
 set_property(GLOBAL PROPERTY KE_SHADER_BUILD_COMMAND_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderBuildCommand.py")
 set_property(GLOBAL PROPERTY KE_SHADER_EMBED_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderEmbedGenerator.py")
 find_package(Python3 REQUIRED)
+# Python3_EXECUTABLE is only visible in this directory scope, store it globally for projects consuming the engine
+set_property(GLOBAL PROPERTY KE_SHADER_PYTHON "${Python3_EXECUTABLE}")
 
 # target_compile_shaders implementation
 # Pass the EMBED option to also generate a <TARGET_NAME>_EmbeddedShaders.cpp/.h pair (added to the
@@ -115,6 +117,7 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
     get_property(GENERATE_SCRIPT GLOBAL PROPERTY KE_SHADER_GENERATE_SCRIPT)
     get_property(BUILD_COMMAND_SCRIPT GLOBAL PROPERTY KE_SHADER_BUILD_COMMAND_SCRIPT)
     get_property(EMBED_SCRIPT GLOBAL PROPERTY KE_SHADER_EMBED_SCRIPT)
+    get_property(PYTHON_EXECUTABLE GLOBAL PROPERTY KE_SHADER_PYTHON)
 
     set(EMBED_OUTPUT_DIR "${CMAKE_BINARY_DIR}/Embedded/${TARGET_REL_PATH}")
     if (ARG_EMBED)
@@ -131,7 +134,7 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
             OUTPUT "${COMMANDS_FILE}"
             COMMAND ${CMAKE_COMMAND} -E echo "Generating build commands..."
             COMMAND ${CMAKE_COMMAND} -E make_directory "${BUILD_OUTPUT_DIR}"
-            COMMAND ${Python3_EXECUTABLE} "${GENERATE_SCRIPT}"
+            COMMAND ${PYTHON_EXECUTABLE} "${GENERATE_SCRIPT}"
                 ${TARGET_NAME}
                 ${SHADER_OUTPUT_DIR}
                 ${OutputFormat}

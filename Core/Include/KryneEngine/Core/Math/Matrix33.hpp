@@ -35,7 +35,10 @@ namespace KryneEngine::Math
         template<class U>
         requires eastl::is_convertible_v<U, T>
         Matrix33Base(U _a11, U _a12, U _a13, U _a21, U _a22, U _a23, U _a31, U _a32, U _a33)
-            : Matrix33Base(_a11, _a12, _a13, _a21, _a22, _a23, _a31, _a32, _a33) {}
+            : Matrix33Base(
+                static_cast<T>(_a11), static_cast<T>(_a12), static_cast<T>(_a13),
+                static_cast<T>(_a21), static_cast<T>(_a22), static_cast<T>(_a23),
+                static_cast<T>(_a31), static_cast<T>(_a32), static_cast<T>(_a33)) {}
 
         /**
          * Constructs a 3x3 matrix from three 3D vectors.
@@ -86,12 +89,17 @@ namespace KryneEngine::Math
         Matrix33Base operator-(const Matrix33Base& _other) const;
         Matrix33Base operator*(const Matrix33Base& _other) const;
 
+        VectorType operator*(const VectorType& _vector) const;
+
         bool operator==(const Matrix33Base& _other) const
         {
             return m_vectors[0] == _other.m_vectors[0]
                    && m_vectors[1] == _other.m_vectors[1]
                    && m_vectors[2] == _other.m_vectors[2];
         }
+
+        [[nodiscard]] T* GetPtr() { return m_vectors[0].GetPtr(); }
+        [[nodiscard]] const T* GetPtr() const { return m_vectors[0].GetPtr(); }
 
         /**
          * Performs an in-place transposition of the 3x3 matrix.
@@ -104,6 +112,10 @@ namespace KryneEngine::Math
          */
         Matrix33Base& Transpose();
         [[nodiscard]] Matrix33Base Transposed() const;
+
+        [[nodiscard]] T Determinant() const;
+
+        [[nodiscard]] Matrix33Base Inverse() const requires std::is_floating_point_v<T>;
 
         /**
          * @brief Converts a given 3x3 matrix from a row-major type to a colum-major type, or vice versa.

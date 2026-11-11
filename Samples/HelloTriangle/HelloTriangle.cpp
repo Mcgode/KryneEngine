@@ -13,6 +13,7 @@
 #include <KryneEngine/Core/Graphics/RenderPass.hpp>
 #include <KryneEngine/Core/Graphics/ShaderPipeline.hpp>
 #include <KryneEngine/Core/Memory/DynamicArray.hpp>
+#include <KryneEngine/Core/Platform/Alert.hpp>
 #include <KryneEngine/Core/Profiling/TracyGpuScope.hpp>
 #include <KryneEngine/Core/Profiling/TracyHeader.hpp>
 #include <KryneEngine/Core/Window/Input/InputManager.hpp>
@@ -309,7 +310,13 @@ int main()
     const GraphicsCommon::DisplayOptions displayOptions {};
     WindowManager windowManager{AllocatorInstance()};
     Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
-    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance());
+    GraphicsCommon::ContextCreationError graphicsContextError;
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance(), &graphicsContextError);
+    if (graphicsContext == nullptr)
+    {
+        Platform::ShowAlert(appInfo.m_applicationName, GraphicsCommon::ToString(graphicsContextError));
+        return 1;
+    }
     const SwapChainHandle swapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),
         .m_dimensions = mainWindow->GetFramebufferSize(),

@@ -27,9 +27,74 @@ namespace KryneEngine::Tests::Graphics
         // -----------------------------------------------------------------------
 
         {
-            auto* context = GraphicsContext::Create(appInfo, AllocatorInstance());
+            GraphicsCommon::ContextCreationError error = GraphicsCommon::ContextCreationError::ApiNotSupported;
+            auto* context = GraphicsContext::Create(appInfo, AllocatorInstance(), &error);
+            EXPECT_NE(context, nullptr);
+            EXPECT_EQ(error, GraphicsCommon::ContextCreationError::None);
             GraphicsContext::Destroy(context);
         }
+
+        // -----------------------------------------------------------------------
+        // Teardown
+        // -----------------------------------------------------------------------
+
+        catcher.ExpectNoMessage();
+    }
+
+    TEST(GraphicsContext, CreationFailure)
+    {
+        // -----------------------------------------------------------------------
+        // Setup
+        // -----------------------------------------------------------------------
+
+        ScopedAssertCatcher catcher;
+        GraphicsCommon::ApplicationInfo appInfo = DefaultAppInfo();
+
+        // -----------------------------------------------------------------------
+        // Execute
+        // -----------------------------------------------------------------------
+
+        // An API the backend doesn't implement fails creation softly, without asserting.
+        {
+            appInfo.m_api = GraphicsCommon::Api::None;
+            GraphicsCommon::ContextCreationError error = GraphicsCommon::ContextCreationError::None;
+            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance(), &error);
+            EXPECT_EQ(graphicsContext, nullptr);
+            EXPECT_EQ(error, GraphicsCommon::ContextCreationError::ApiNotSupported);
+            GraphicsContext::Destroy(graphicsContext);
+        }
+
+#if defined(KE_GRAPHICS_API_MTL)
+        // Metal has no geometry shaders: a forced request fails creation, a soft one doesn't.
+        {
+            appInfo = DefaultAppInfo();
+            appInfo.m_features.m_geometryShader = GraphicsCommon::SoftEnable::ForceEnabled;
+            GraphicsCommon::ContextCreationError error = GraphicsCommon::ContextCreationError::None;
+            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance(), &error);
+            EXPECT_EQ(graphicsContext, nullptr);
+            EXPECT_EQ(error, GraphicsCommon::ContextCreationError::GeometryShaderNotSupported);
+
+            appInfo.m_features.m_geometryShader = GraphicsCommon::SoftEnable::TryEnable;
+            graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance(), &error);
+            EXPECT_NE(graphicsContext, nullptr);
+            EXPECT_EQ(error, GraphicsCommon::ContextCreationError::None);
+            GraphicsContext::Destroy(graphicsContext);
+        }
+#else
+        // Geometry shader support depends on the host: a forced request either succeeds, or reports exactly why.
+        {
+            appInfo = DefaultAppInfo();
+            appInfo.m_features.m_geometryShader = GraphicsCommon::SoftEnable::ForceEnabled;
+            GraphicsCommon::ContextCreationError error = GraphicsCommon::ContextCreationError::None;
+            GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, AllocatorInstance(), &error);
+            EXPECT_EQ(
+                error,
+                graphicsContext != nullptr
+                    ? GraphicsCommon::ContextCreationError::None
+                    : GraphicsCommon::ContextCreationError::GeometryShaderNotSupported);
+            GraphicsContext::Destroy(graphicsContext);
+        }
+#endif
 
         // -----------------------------------------------------------------------
         // Teardown

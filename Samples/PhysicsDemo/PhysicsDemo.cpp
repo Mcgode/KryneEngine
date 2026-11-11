@@ -5,6 +5,7 @@
  */
 
 #include "KryneEngine/Core/Memory/Allocators/GlobalScratchAllocator.hpp"
+#include "KryneEngine/Core/Platform/Alert.hpp"
 #include "KryneEngine/Core/Window/Input/InputManager.hpp"
 #include "Rendering/Shadows/CascadedShadowMap.hpp"
 #include "Src/RenderTargetFormats.hpp"
@@ -63,7 +64,13 @@ int main(int _argc, const char* _argv[])
     constexpr GraphicsCommon::DisplayOptions displayOptions {};
     WindowManager windowManager { allocator };
     Window* mainWindow = windowManager.SpawnWindow(appInfo.m_applicationName, displayOptions);
-    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator);
+    GraphicsCommon::ContextCreationError graphicsContextError;
+    GraphicsContext* graphicsContext = GraphicsContext::Create(appInfo, allocator, &graphicsContextError);
+    if (graphicsContext == nullptr)
+    {
+        Platform::ShowAlert(appInfo.m_applicationName, GraphicsCommon::ToString(graphicsContextError));
+        return 1;
+    }
 
     SwapChainHandle mainSwapChain = graphicsContext->CreateSwapChain({
         .m_nativeWindow = mainWindow->GetNativeHandle(),

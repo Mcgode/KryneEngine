@@ -243,31 +243,76 @@ namespace KryneEngine
         return false;
     }
 
+    namespace
+    {
+        // Number of slices as counted by `newTextureView`'s slice range.
+        NS::UInteger GetSliceCount(const MTL::Texture& _texture)
+        {
+            switch (_texture.textureType())
+            {
+            case MTL::TextureType3D:
+                return 1;
+            case MTL::TextureTypeCube:
+            case MTL::TextureTypeCubeArray:
+                return 6 * _texture.arrayLength();
+            default:
+                return _texture.arrayLength();
+            }
+        }
+
+        bool IsIdentitySwizzle(const MTL::TextureSwizzleChannels& _swizzle)
+        {
+            return _swizzle.red == MTL::TextureSwizzleRed
+                && _swizzle.green == MTL::TextureSwizzleGreen
+                && _swizzle.blue == MTL::TextureSwizzleBlue
+                && _swizzle.alpha == MTL::TextureSwizzleAlpha;
+        }
+    }
+
     TextureViewHandle MetalResources::RegisterTextureView(const TextureViewDesc& _desc)
     {
         const TextureHotData* originalTexture = m_textures.Get(_desc.m_texture.m_handle);
         KE_ASSERT_FATAL(originalTexture != nullptr);
+        MTL::Texture* texture = originalTexture->m_texture;
+
+        const MTL::PixelFormat pixelFormat = MetalConverters::ToPixelFormat(_desc.m_format);
+        const MTL::TextureType textureType = MetalConverters::GetTextureType(_desc.m_viewType);
+        const NS::Range mipRange { _desc.m_minMip, static_cast<u32>(_desc.m_maxMip + 1 - _desc.m_minMip) };
+        const NS::Range sliceRange { _desc.m_arrayStart, _desc.m_arrayRange };
+        const MTL::TextureSwizzleChannels swizzle {
+            MetalConverters::GetSwizzle(_desc.m_componentsMapping[0]),
+            MetalConverters::GetSwizzle(_desc.m_componentsMapping[1]),
+            MetalConverters::GetSwizzle(_desc.m_componentsMapping[2]),
+            MetalConverters::GetSwizzle(_desc.m_componentsMapping[3])
+        };
+
+        // If the view covers the whole texture unchanged, reuse the original texture instead of creating a view.
+        const bool isFullView = pixelFormat == texture->pixelFormat()
+            && textureType == texture->textureType()
+            && mipRange.location == 0 && mipRange.length == texture->mipmapLevelCount()
+            && sliceRange.location == 0 && sliceRange.length == GetSliceCount(*texture)
+            && IsIdentitySwizzle(swizzle)
+            && IsIdentitySwizzle(texture->swizzle());
 
         const GenPool::Handle handle = m_textureViews.Allocate();
         TextureViewHotData* hot = m_textureViews.Get(handle);
-        hot->m_texture = originalTexture->m_texture->newTextureView(
-            MetalConverters::ToPixelFormat(_desc.m_format),
-            MetalConverters::GetTextureType(_desc.m_viewType),
-            { _desc.m_minMip, static_cast<u32>(_desc.m_maxMip + 1 - _desc.m_minMip) },
-            { _desc.m_arrayStart, _desc.m_arrayRange },
-            {
-                MetalConverters::GetSwizzle(_desc.m_componentsMapping[0]),
-                MetalConverters::GetSwizzle(_desc.m_componentsMapping[1]),
-                MetalConverters::GetSwizzle(_desc.m_componentsMapping[2]),
-                MetalConverters::GetSwizzle(_desc.m_componentsMapping[3])
-            });
-        KE_ASSERT_FATAL(hot->m_texture != nullptr);
+
+        if (isFullView)
+        {
+            // Retained to balance the release in UnregisterTextureView. No label: it would rename the original texture.
+            hot->m_texture = texture->retain();
+        }
+        else
+        {
+            hot->m_texture = texture->newTextureView(pixelFormat, textureType, mipRange, sliceRange, swizzle);
+            KE_ASSERT_FATAL(hot->m_texture != nullptr);
 
 #if !defined(KE_FINAL)
-        KE_AUTO_RELEASE_POOL;
-        NS::String* label = NS::String::string(_desc.m_debugName.c_str(), NS::UTF8StringEncoding);
-        hot->m_texture->setLabel(label);
+            KE_AUTO_RELEASE_POOL;
+            NS::String* label = NS::String::string(_desc.m_debugName.c_str(), NS::UTF8StringEncoding);
+            hot->m_texture->setLabel(label);
 #endif
+        }
 
         return { handle };
     }

@@ -41,6 +41,8 @@ namespace KryneEngine
 
         virtual ~VkGraphicsContext();
 
+        [[nodiscard]] GraphicsCommon::ContextCreationError Initialize();
+
         [[nodiscard]] u8 GetFrameContextCount() const override { return m_frameContextCount; }
 
         [[nodiscard]] bool IsFrameExecuted(u64 _frameId) const override;
@@ -55,10 +57,10 @@ namespace KryneEngine
         void WaitForFrame(u64 _frameId) const override;
 
     private:
-        VkInstance m_instance;
+        VkInstance m_instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
-        VkPhysicalDevice m_physicalDevice;
-        VkDevice m_device;
+        VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+        VkDevice m_device = VK_NULL_HANDLE;
 
         VkCommonStructures::QueueIndices m_queueIndices {};
         VkQueue m_graphicsQueue {};
@@ -66,7 +68,7 @@ namespace KryneEngine
         VkQueue m_computeQueue {};
         VkQueue m_presentQueue {};
 
-        u32 m_optimalRowPitchAlignment;
+        u32 m_optimalRowPitchAlignment {};
 
         bool m_debugUtils = false;
         bool m_debugMarkers = false;
@@ -74,7 +76,7 @@ namespace KryneEngine
         bool m_supportsTimestampCalibration = false;
         double m_gpuTimestampPeriod = 0;
         u64 m_cpuTimestampOffset = 0;
-        VkTimeDomainKHR m_cpuTimeDomain;
+        VkTimeDomainKHR m_cpuTimeDomain {};
         mutable u64 m_lastResolvedFrame = ~0ull;
         PFN_vkCmdBeginDebugUtilsLabelEXT m_vkCmdBeginDebugUtilsLabelExt = nullptr;
         PFN_vkCmdEndDebugUtilsLabelEXT m_vkCmdEndDebugUtilsLabelExt = nullptr;
@@ -91,7 +93,7 @@ namespace KryneEngine
         eastl::shared_ptr<VkDebugHandler> m_debugHandler;
 #endif
 
-        u8 m_frameContextCount;
+        u8 m_frameContextCount = 0;
         DynamicArray<VkFrameContext> m_frameContexts;
 
         static bool PrepareValidationLayers(VkInstanceCreateInfo& _createInfo);
@@ -107,14 +109,15 @@ namespace KryneEngine
         void _SetupValidationLayersCallback();
 
         [[nodiscard]] eastl::vector_set<eastl::string> _GetRequiredDeviceExtensions() const;
-        void _SelectPhysicalDevice();
+        [[nodiscard]] GraphicsCommon::ContextCreationError _CheckPhysicalDevice(VkPhysicalDevice _physicalDevice);
+        [[nodiscard]] GraphicsCommon::ContextCreationError _SelectPhysicalDevice();
 
         bool _SelectQueues(
             const GraphicsCommon::ApplicationInfo &_appInfo,
             const VkPhysicalDevice &_physicalDevice,
             VkCommonStructures::QueueIndices &_indices);
 
-        void _CreateDevice();
+        [[nodiscard]] bool _CreateDevice();
         void _RetrieveQueues(const VkCommonStructures::QueueIndices &_queueIndices);
 
     public:
@@ -240,8 +243,18 @@ namespace KryneEngine
             u32 _offset) override;
         void DrawInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawInstancedDesc& _desc) override;
         void DrawIndexedInstanced(RenderCommandEncoderHandle _renderEncoder, const DrawIndexedInstancedDesc& _desc) override;
+        void DrawInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) override;
+        void DrawIndexedInstancedIndirect(
+            RenderCommandEncoderHandle _renderEncoder,
+            BufferHandle _indirectBuffer,
+            u64 _indirectBufferOffset,
+            u32 _drawCount) override;
 
-    void SetComputePipeline(ComputeCommandEncoderHandle _computeEncoder, ComputePipelineHandle _pipeline) override;
+        void SetComputePipeline(ComputeCommandEncoderHandle _computeEncoder, ComputePipelineHandle _pipeline) override;
     void SetComputeDescriptorSetsWithOffset(
         ComputeCommandEncoderHandle _computeEncoder,
         PipelineLayoutHandle _layout,

@@ -10,6 +10,9 @@ namespace KryneEngine
 {
     struct VkFeatures
     {
+        bool m_drawIndirect = false;
+        bool m_multiDrawIndirect = false;
+
         bool m_geometryShaders = false;
         bool m_tessellationShaders = false;
         bool m_meshShaders = false;

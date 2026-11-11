@@ -159,6 +159,8 @@ namespace KryneEngine::Modules::RenderGraph
         {
             KE_ZoneScoped("Cleanup");
 
+            EvictUnusedRenderPasses(_graphicsContext);
+
             eastl::swap(m_previousFramePassPerformance, m_currentFramePassPerformance);
             m_currentFramePassPerformance.clear();
 
@@ -224,7 +226,7 @@ namespace KryneEngine::Modules::RenderGraph
                 // PlaceMemoryBarriers inside the encoder is illegal in Vulkan.
                 _jobData->m_passExecutionData.m_renderEncoder =
                     _jobData->m_passExecutionData.m_graphicsContext->BeginRenderPass(
-                        _jobData->m_passExecutionData.m_commandList, it->second,
+                        _jobData->m_passExecutionData.m_commandList, it->second.m_handle,
                         passEntryBarriers,
                         pass.m_name.m_string);
             }
@@ -290,12 +292,13 @@ namespace KryneEngine::Modules::RenderGraph
         GraphicsContext& _graphicsContext,
         PassDeclaration& _passDeclaration)
     {
-        const u64 hash = _passDeclaration.GetRenderPassHash();
+        const u64 hash = _passDeclaration.GetRenderPassHash(*m_registry);
 
         const auto it = m_renderPassCache.find(hash);
         if (it != m_renderPassCache.end())
         {
-            return it->second;
+            it->second.m_lastUsedFrameId = _graphicsContext.GetFrameId();
+            return it->second.m_handle;
         }
 
         RenderPassDesc desc;
@@ -332,12 +335,37 @@ namespace KryneEngine::Modules::RenderGraph
 #endif
 
         const RenderPassHandle handle = _graphicsContext.CreateRenderPass(desc);
-        m_renderPassCache.emplace(hash, handle);
+        m_renderPassCache.emplace(hash, CachedRenderPass { handle, _graphicsContext.GetFrameId() });
         return handle;
     }
 
-    void RenderGraph::ResetRenderPassCache()
+    void RenderGraph::EvictUnusedRenderPasses(GraphicsContext& _graphicsContext)
     {
+        // Render passes keep their attachments alive (e.g. Metal descriptors retain their textures), so passes whose
+        // attachments were replaced (e.g. on swap chain resize) must be destroyed, not just left in the cache.
+        const u64 frameId = _graphicsContext.GetFrameId();
+        for (auto it = m_renderPassCache.begin(); it != m_renderPassCache.end();)
+        {
+            const CachedRenderPass& cached = it->second;
+            if (cached.m_lastUsedFrameId + kRenderPassEvictionFrameCount <= frameId
+                && _graphicsContext.IsFrameExecuted(cached.m_lastUsedFrameId))
+            {
+                KE_VERIFY(_graphicsContext.DestroyRenderPass(cached.m_handle));
+                it = m_renderPassCache.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    void RenderGraph::ResetRenderPassCache(GraphicsContext& _graphicsContext)
+    {
+        for (const auto& [hash, cached] : m_renderPassCache)
+        {
+            KE_VERIFY(_graphicsContext.DestroyRenderPass(cached.m_handle));
+        }
         m_renderPassCache.clear();
     }
 } // namespace KryneEngine::Modules::RenderGraph

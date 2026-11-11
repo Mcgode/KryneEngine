@@ -100,6 +100,32 @@ namespace KryneEngine::Math
     }
 
     template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor>::VectorType Matrix33Base<T, RowMajor>::operator*(const VectorType& _vector) const
+    {
+        // Members are accessed directly: `operator[]` and `Dot` are defined in Vector3.cpp and can't be inlined here.
+        const VectorType& v0 = m_vectors[0];
+        const VectorType& v1 = m_vectors[1];
+        const VectorType& v2 = m_vectors[2];
+
+        if constexpr (RowMajor)
+        {
+            return {
+                v0.x * _vector.x + v0.y * _vector.y + v0.z * _vector.z,
+                v1.x * _vector.x + v1.y * _vector.y + v1.z * _vector.z,
+                v2.x * _vector.x + v2.y * _vector.y + v2.z * _vector.z
+            };
+        }
+        else
+        {
+            return {
+                v0.x * _vector.x + v1.x * _vector.y + v2.x * _vector.z,
+                v0.y * _vector.x + v1.y * _vector.y + v2.y * _vector.z,
+                v0.z * _vector.x + v1.z * _vector.y + v2.z * _vector.z
+            };
+        }
+    }
+
+    template <class T, bool RowMajor>
     Matrix33Base<T, RowMajor>& Matrix33Base<T, RowMajor>::Transpose()
     {
         std::swap<T>(m_vectors[0][1], m_vectors[1][0]);
@@ -114,6 +140,53 @@ namespace KryneEngine::Math
         Matrix33Base transposed = *this;
         transposed.Transpose();
         return transposed;
+    }
+
+    template <class T, bool RowMajor>
+    T Matrix33Base<T, RowMajor>::Determinant() const
+    {
+        // det(M^T) = det(M), so formula is layout-independent.
+
+        const T a = m_vectors[0].x,
+                b = m_vectors[0].y,
+                c = m_vectors[0].z,
+                d = m_vectors[1].x,
+                e = m_vectors[1].y,
+                f = m_vectors[1].z,
+                g = m_vectors[2].x,
+                h = m_vectors[2].y,
+                i = m_vectors[2].z;
+
+        return a * (e * i - f * h)
+             + b * (f * g - d * i)
+             + c * (d * h - e * g);
+    }
+
+    template <class T, bool RowMajor>
+    Matrix33Base<T, RowMajor> Matrix33Base<T, RowMajor>::Inverse() const
+    requires std::is_floating_point_v<T>
+    {
+        const T a = m_vectors[0].x,
+                b = m_vectors[0].y,
+                c = m_vectors[0].z,
+                d = m_vectors[1].x,
+                e = m_vectors[1].y,
+                f = m_vectors[1].z,
+                g = m_vectors[2].x,
+                h = m_vectors[2].y,
+                i = m_vectors[2].z;
+
+        const T det = Determinant();
+
+        KE_ASSERT(det != 0);
+
+        // inverse(M^T) = inverse(M)^T, so the formula is layout-independent too.
+        const T invDet = 1 / det;
+        Matrix33Base result;
+        result.m_vectors[0] = VectorType((e * i - f * h) * invDet, (c * h - b * i) * invDet, (b * f - c * e) * invDet);
+        result.m_vectors[1] = VectorType((f * g - d * i) * invDet, (a * i - c * g) * invDet, (c * d - a * f) * invDet);
+        result.m_vectors[2] = VectorType((d * h - e * g) * invDet, (b * g - a * h) * invDet, (a * e - b * d) * invDet);
+        return result;
     }
 
 #define IMPLEMENTATION_INDIVIDUAL(type, rowMajor) \
