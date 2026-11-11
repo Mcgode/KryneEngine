@@ -249,9 +249,12 @@ namespace KryneEngine::Math
                     Simd::StoreAlignedMat44(result.GetPtr(), inv);
                 else
                     Simd::StoreUnalignedMat44(result.GetPtr(), inv);
+
+                return result;
             }
         }
-        else
+
+        // Scalar fallback: non-float types, or float without runtime SIMD support.
         {
             // Taken from assimp implementation
 
