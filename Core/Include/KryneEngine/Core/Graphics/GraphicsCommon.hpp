@@ -120,6 +120,10 @@ namespace KryneEngine::GraphicsCommon
             bool m_asyncCompute = false;
             bool m_concurrentQueues = true;
 
+            /// @brief Explicit padding so the struct stays free of implicit padding bytes (it is byte-compared).
+            ///        Shrink it when adding new 1-byte fields above.
+            u8 m_reserved[3] {};
+
             u32 m_gpuTimestampBufferCapacity = 4'096;
         }
         m_features {};
