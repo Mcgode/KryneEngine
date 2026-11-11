@@ -33,4 +33,32 @@ namespace KryneEngine::Math
         _matrix.Get(2, 3) = _position.z;
         return _matrix;
     }
+
+    template <class T>
+    struct TransformT
+    {
+        Vector3Base<T> m_position;
+        QuaternionBase<T> m_rotation;
+        Vector3Base<T> m_scale;
+
+        template <Matrix44Type Mat>
+        Mat ToMatrix() const
+        {
+            return ComputeTransformMatrix<Mat>(m_position, m_rotation, m_scale);
+        }
+
+        TransformT ApplyParent(const TransformT& _parent)
+        {
+            KE_ASSERT_MSG(
+                _parent.m_scale.x == _parent.m_scale.y && _parent.m_scale.x == _parent.m_scale.z,
+                "TRS transform is only valid with uniform scale for parents (last children can have non-uniform scale)");
+            return {
+                .m_position = _parent.m_position + _parent.m_rotation.ApplyTo(_parent.m_scale * m_position),
+                .m_rotation = _parent.m_rotation * m_rotation,
+                .m_scale = _parent.m_scale * m_scale,
+            };
+        }
+    };
+
+    using Transform = TransformT<float>;
 }
