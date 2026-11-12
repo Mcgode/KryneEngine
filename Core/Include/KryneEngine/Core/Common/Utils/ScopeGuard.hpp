@@ -6,7 +6,11 @@
 
 #pragma once
 
-#include <algorithm>
+#include "Macros.hpp"
+
+
+#include <type_traits>
+#include <utility>
 
 namespace KryneEngine
 {
@@ -16,9 +20,15 @@ namespace KryneEngine
     {
     public:
         explicit ScopeGuard(Callback&& _functor) : m_callback(std::move(_functor)) {}
-        ~ScopeGuard() { m_callback(); }
+        // Force-inlined so the unwind path does not keep the guard alive on the stack
+        KE_FORCEINLINE ~ScopeGuard() { if (m_active) m_callback(); }
+
+        KE_DEFINE_COPY_MOVE_SEMANTICS(ScopeGuard, delete, delete);
+
+        void Cancel() { m_active = false; }
 
     private:
         Callback m_callback;
+        bool m_active = true;
     };
 }
