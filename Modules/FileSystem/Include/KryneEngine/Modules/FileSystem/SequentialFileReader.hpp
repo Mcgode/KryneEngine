@@ -24,7 +24,10 @@ namespace KryneEngine::Modules::FileSystem
      * read. No decompressed copy of the whole file is made, so the parts of a file can each be read into their final
      * place (a header on the stack, a blob on the heap, a mapped GPU buffer, ...).
      *
-     * For such a file, the compressed data is read in one go at construction, and held until destruction.
+     * For such a file, the compressed data is read in one go at construction, and held until destruction, along with
+     * the decompression context and its streaming buffers. All of it is allocated with the provided allocator.
+     * Only pass a scratch allocator if the reader is destroyed before anything allocated from it afterwards, and
+     * never lives across a yield.
      * Sizes and positions are always those of the decompressed content.
      *
      * The file must outlive the reader. A reader is not thread-safe.
@@ -70,6 +73,7 @@ namespace KryneEngine::Modules::FileSystem
 
         eastl::span<std::byte> m_compressedData {};
         size_t m_compressedPosition = 0;
-        ZSTD_DCtx_s* m_zstdDecompressionContext = nullptr;
+        eastl::span<std::byte> m_zstdWorkspace {};
+        ZSTD_DCtx_s* m_zstdDecompressionContext = nullptr; ///< Lives inside `m_zstdWorkspace`
     };
 }

@@ -7,6 +7,8 @@
 #include "KryneEngine/Modules/FileSystem/SequentialFileReader.hpp"
 
 #include <KryneEngine/Core/Common/BitUtils.hpp>
+
+#define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
 
 #include "KryneEngine/Modules/FileSystem/ReadOnlyFile.hpp"
@@ -39,14 +41,24 @@ namespace KryneEngine::Modules::FileSystem
             return;
         m_size = contentSize;
 
-        m_zstdDecompressionContext = ZSTD_createDCtx();
+        // The context and its streaming buffers live in a single block of `m_allocator`, sized from the frame
+        // header, rather than in zstd's own `malloc`.
+        const size_t workspaceSize = ZSTD_estimateDStreamSize_fromFrame(m_compressedData.data(), compressedSize);
+        if (ZSTD_isError(workspaceSize))
+            return;
+        auto* workspace = static_cast<std::byte*>(m_allocator.allocate(workspaceSize, alignof(u64)));
+        if (workspace == nullptr)
+            return;
+        m_zstdWorkspace = { workspace, workspaceSize };
+        m_zstdDecompressionContext = ZSTD_initStaticDStream(workspace, workspaceSize);
         m_valid = m_zstdDecompressionContext != nullptr;
     }
 
     SequentialFileReader::~SequentialFileReader()
     {
-        if (m_zstdDecompressionContext != nullptr)
-            ZSTD_freeDCtx(m_zstdDecompressionContext);
+        // The context is built in place in its workspace: freeing the workspace frees it.
+        if (!m_zstdWorkspace.empty())
+            m_allocator.deallocate(m_zstdWorkspace.data(), m_zstdWorkspace.size());
         if (!m_compressedData.empty())
             m_allocator.deallocate(m_compressedData.data(), m_compressedData.size());
     }
