@@ -13,6 +13,8 @@ add_library(KryneEngine_Modules_FileSystem STATIC
         Include/KryneEngine/Modules/FileSystem/Utils.hpp
         Src/DirectoryTree.cpp
         Include/KryneEngine/Modules/FileSystem/DirectoryTree.hpp
+        Src/SequentialFileReader.cpp
+        Include/KryneEngine/Modules/FileSystem/SequentialFileReader.hpp
 )
 
 target_include_directories(KryneEngine_Modules_FileSystem PUBLIC Include)
