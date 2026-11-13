@@ -139,7 +139,8 @@ namespace KryneEngine::Tests::Modules::Resources
             void FinalizeResourceLoading(
                 ResourceEntry* _entry,
                 const eastl::span<std::byte> _loadedResourceData,
-                const eastl::string_view _path) override
+                const eastl::string_view _path,
+                const u64 /* _childrenResourcesLoadFlags */) override
             {
                 const std::string content(reinterpret_cast<const char*>(_loadedResourceData.data()), _loadedResourceData.size());
                 GetAllocator().deallocate(_loadedResourceData.data(), _loadedResourceData.size());

@@ -66,7 +66,8 @@ namespace KryneEngine::Modules::TextRendering
     void FontManager::FinalizeResourceLoading(
         Resources::ResourceEntry* _entry,
         const eastl::span<std::byte> _loadedResourceData,
-        const eastl::string_view _path)
+        const eastl::string_view _path,
+        const u64 /* _childrenResourcesLoadFlags */)
     {
         static_assert(offsetof(PreBakedFontFile, m_header) == 0, "The header field must be at the beginning of the class for type check");
 

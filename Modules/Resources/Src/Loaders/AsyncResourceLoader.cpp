@@ -293,7 +293,8 @@ namespace KryneEngine::Modules::Resources
                 request.m_resourceManager->FinalizeResourceLoading(
                     request.m_entry,
                     loadedResource,
-                    path);
+                    path,
+                    request.m_loadFlags & ~m_desc.m_forceReloadFlag);
 
                 MarkRequestDone(_request, request);
             }
@@ -306,9 +307,10 @@ namespace KryneEngine::Modules::Resources
                         KE_ZoneScopedFunction("AsyncResourceLoader::LoadFile (job)")
 
                         request.m_resourceManager->FinalizeResourceLoading(
-                            request.m_entry,
-                            loadedResource,
-                            path);
+                                request.m_entry,
+                                loadedResource,
+                                path,
+                                request.m_loadFlags & ~m_desc.m_forceReloadFlag);
 
                         {
                             KE_ZoneScopedF("%s", request.m_path);

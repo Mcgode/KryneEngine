@@ -6,11 +6,12 @@
 
 #pragma once
 
-#include "KryneEngine/Core/Common/Utils/Macros.hpp"
 
 
 #include <EASTL/span.h>
 #include <EASTL/string_view.h>
+#include <KryneEngine/Core/Common/Types.hpp>
+#include <KryneEngine/Core/Common/Utils/Macros.hpp>
 #include <KryneEngine/Core/Memory/Allocators/Allocator.hpp>
 
 namespace KryneEngine::Modules::FileSystem
@@ -28,7 +29,11 @@ namespace KryneEngine::Modules::Resources
         virtual ~IResourceManager() = default;
 
         virtual eastl::span<std::byte> LoadResource(ResourceEntry* _entry, const FileSystem::ReadOnlyFile& _file);
-        virtual void FinalizeResourceLoading(ResourceEntry* _entry, eastl::span<std::byte> _loadedResourceData, eastl::string_view _path) = 0;
+        virtual void FinalizeResourceLoading(
+            ResourceEntry* _entry,
+            eastl::span<std::byte> _loadedResourceData,
+            eastl::string_view _path,
+            u64 _childrenResourcesLoadFlags) = 0;
         virtual void ReportFailedLoad(ResourceEntry* _entry, eastl::string_view _path) = 0;
         virtual void ReleaseResource(ResourceEntry* _entry) = 0;
 

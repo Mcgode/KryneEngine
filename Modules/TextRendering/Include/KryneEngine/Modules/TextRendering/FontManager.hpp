@@ -35,7 +35,8 @@ namespace KryneEngine::Modules::TextRendering
         void FinalizeResourceLoading(
             Resources::ResourceEntry* _entry,
             eastl::span<std::byte> _loadedResourceData,
-            eastl::string_view _path) override;
+            eastl::string_view _path,
+            u64 _childrenResourcesLoadFlags) override;
 
         void ReportFailedLoad(Resources::ResourceEntry* _entry, eastl::string_view _path) override;
 

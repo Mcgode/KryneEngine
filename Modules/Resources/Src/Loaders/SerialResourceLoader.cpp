@@ -23,7 +23,7 @@ namespace KryneEngine::Modules::Resources
         const StringHash& _path,
         ResourceEntry* _entry,
         IResourceManager* _resourceManager,
-        const u64)
+        const u64 _loadFlags)
     {
         {
             auto lock = m_lock.AutoLock();
@@ -54,7 +54,7 @@ namespace KryneEngine::Modules::Resources
             }
             else
             {
-                _resourceManager->FinalizeResourceLoading(_entry, loadedResourceData, _path.m_string);
+                _resourceManager->FinalizeResourceLoading(_entry, loadedResourceData, _path.m_string, _loadFlags);
             }
         }
 
