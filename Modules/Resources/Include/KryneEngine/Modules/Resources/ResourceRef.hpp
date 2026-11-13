@@ -98,6 +98,9 @@ namespace KryneEngine::Modules::Resources
             return ref;
         }
 
+        [[nodiscard]] bool operator==(const ResourceRef& _rhs) const { return m_entry == _rhs.m_entry; }
+        [[nodiscard]] bool operator<(const ResourceRef& _rhs) const { return m_entry < _rhs.m_entry; }
+
     private:
         ResourceEntry* m_entry = nullptr;
         Resource* m_cachedResource = nullptr;
