@@ -23,12 +23,16 @@ def main():
     embed_script = Path(sys.argv[10])
     embed_cpp_output = Path(sys.argv[11])
     embed_h_output = Path(sys.argv[12])
-    shader_list_files = sys.argv[13:]
+    optimize_spirv = sys.argv[13] == "1"
+    shader_list_files = sys.argv[14:]
 
     working_dir = output_file.parent
 
     if platform.system() in ("Linux", "Darwin"):
         path = shader_tools["dxc"]
+        current_mode = os.stat(path).st_mode
+        os.chmod(path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        path = shader_tools["slangc"]
         current_mode = os.stat(path).st_mode
         os.chmod(path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
@@ -64,6 +68,9 @@ def main():
         if "spirv-cross" in shader_tools:
             writer.variable(spirv_cross_path_name, os.path.relpath(shader_tools["spirv-cross"], working_dir))
 
+        slangc_path_name = "slangc_path"
+        writer.variable(slangc_path_name, os.path.relpath(shader_tools["slangc"], working_dir))
+
         shader_input_dir_name = "input_dir"
         writer.variable(shader_input_dir_name, os.path.relpath(shaders_dir, working_dir))
 
@@ -71,6 +78,8 @@ def main():
         writer.variable(shader_output_dir_name, os.path.relpath(shader_output_dir, working_dir))
 
         writer.newline()
+
+        use_slangc = True
 
         compile_dxc_to_spirv = shader_format == "spirv" or shader_format == "metallib"
         format_is_metal = shader_format == "metallib"
@@ -90,6 +99,28 @@ def main():
         format_extension = ".cso"
         if compile_dxc_to_spirv:
             format_extension = ".spv"
+
+        slangc_target = "dxil"
+        language_define = "-DKE_TARGET_DXIL"
+        if shader_format == "spirv":
+            slangc_target = "spirv"
+            language_define = "-DKE_TARGET_SPIRV"
+        elif shader_format == "metallib":
+            # Emit Metal source and build the metallib through xcrun, so the intermediate .metal file
+            # stays on disk for debugging (and gets recorded in the metallib with -frecord-sources).
+            slangc_target = "metal"
+            if use_slangc:
+                format_extension = ".metal"
+            language_define = "-DKE_TARGET_METALLIB"
+
+
+        slangc_optimization = ""
+        if shader_format == "spirv":
+            slangc_optimization = "-O2" if optimize_spirv else "-O0"
+        slangc_optimization_arguments = f"{slangc_optimization}" if slangc_optimization else ""
+        if shader_format == "spirv":
+            # Slang names every SPIR-V entry point 'main' by default, but pipelines look them up by source name
+            slangc_optimization_arguments += " -fvk-use-entrypoint-name"
 
         writer.comment("--------------------------------------------------------------------")
         writer.comment(f" Build rules")
@@ -113,6 +144,32 @@ def main():
             writer.newline()
             writer.rule("air_to_metallib",
                         "xcrun -sdk macosx metallib $in -o $out")
+
+        writer.rule("slangc_compile",
+                    f"${slangc_path_name} $in -o $out -depfile $out.d $profile_args -entry $entry_point -target {slangc_target} {slangc_optimization_arguments} {language_define}=1 -g $includes",
+                    depfile="$out.d")
+
+        # Shader model profile prefix -> Slang stage name
+        shader_stages = {
+            "vs": "vertex",
+            "ps": "fragment",
+            "cs": "compute",
+            "gs": "geometry",
+            "hs": "hull",
+            "ds": "domain",
+            "ms": "mesh",
+            "as": "amplification",
+        }
+
+        def get_slangc_profile_arguments(_shader_type: str) -> str:
+            if shader_format != "spirv":
+                return f"-profile {_shader_type}"
+            # A shader model profile (vs_6_0, ...) makes Slang emit SPIR-V 1.3, which needs Vulkan 1.1.
+            # Request SPIR-V 1.0 explicitly so the shaders also load on Vulkan 1.0 devices.
+            stage = shader_stages.get(_shader_type.split("_")[0])
+            if stage is None:
+                raise ValueError(f"Unknown shader stage for shader type '{_shader_type}'")
+            return f"-profile spirv_1_0 -stage {stage}"
 
         writer.newline()
         writer.comment("--------------------------------------------------------------------")
@@ -152,27 +209,45 @@ def main():
                     print(input_path)
 
                     writer.newline()
-                    writer.build(
-                        [str(output_shader)],
-                        "dxc_compile",
-                        [str(input_path)],
-                        implicit=[
-                            f"${build_shader_script_name}"
-                        ],
-                        variables={
-                            "shader_type": shader_type,
-                            "entry_point": entry_point
-                        },
-                    )
+                    if not use_slangc:
+                        writer.build(
+                            [str(output_shader)],
+                            "dxc_compile",
+                            [str(input_path)],
+                            implicit=[
+                                f"${build_shader_script_name}"
+                            ],
+                            variables={
+                                "shader_type": shader_type,
+                                "entry_point": entry_point
+                            },
+                        )
+                    else:
+                        writer.build(
+                            [str(output_shader)],
+                            "slangc_compile",
+                            [str(input_path)],
+                            implicit=[
+                                f"${build_shader_script_name}"
+                            ],
+                            variables={
+                                "profile_args": get_slangc_profile_arguments(shader_type),
+                                "entry_point": entry_point
+                            },
+                        )
 
                     final_shader = output_shader
                     final_extension = format_extension
                     if format_is_metal:
-                        metal_shader = get_output_shader_path(".metal")
-                        writer.build(
-                            [str(metal_shader)],
-                            "spirv_to_metal",
-                            str(output_shader))
+                        if use_slangc:
+                            # slangc already produced the Metal source
+                            metal_shader = output_shader
+                        else:
+                            metal_shader = get_output_shader_path(".metal")
+                            writer.build(
+                                [str(metal_shader)],
+                                "spirv_to_metal",
+                                str(output_shader))
                         air_shader = get_output_shader_path(".air")
                         writer.build(
                             [str(air_shader)],

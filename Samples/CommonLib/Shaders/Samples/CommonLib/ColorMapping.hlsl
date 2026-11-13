@@ -8,9 +8,18 @@
 #include "ToneMapping.hlsl"
 #include "FullscreenPassConstants.hlsl"
 
-vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> constants: register(b0, space0);
+struct Constants
+{
+    [[vk::binding(0)]] ConstantBuffer<FullscreenPassConstants> constants: register(b0);
+};
 
-vkBinding(0, 1) Texture2D<float4> inputColor: register(t0, space1);
+struct Parameters
+{
+    [[vk::binding(0)]] Texture2D<float4> inputColor: register(t0);
+};
+
+[[vk::binding(0, 0)]] ParameterBlock<Constants> constantsBlock: register(space0);
+[[vk::binding(0, 1)]] ParameterBlock<Parameters> parameters: register(space1);
 
 struct FsInput
 {
@@ -26,7 +35,7 @@ FsOutput ColorMappingMain(const FsInput _input)
 {
     FsOutput output;
 
-    output.color.rgb = Tonemap_ACES(inputColor.Load(int3(_input.position.xy, 0)).rgb);
+    output.color.rgb = Tonemap_ACES(parameters.inputColor.Load(int3(int2(_input.position.xy), 0)).rgb);
     output.color.a = 1.f;
 
     return output;

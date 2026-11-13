@@ -22,13 +22,17 @@ struct UiCubeData
     float4x4 MvpMatrix;
 };
 
-ConstantBuffer<UiCubeData> uiCubeData;
+struct Parameters
+{
+    [[vk::binding(0)]] ConstantBuffer<UiCubeData> uiCubeData: register(b0);
+};
+[[vk::binding(0, 0)]] ParameterBlock<Parameters> parameters: register(space0);
 
 [shader("vertex")]
 VsOutput MainVS(VsInput _input)
 {
     VsOutput output;
-    output.Position = mul(float4(_input.Position, 1.f), uiCubeData.MvpMatrix);
+    output.Position = mul(float4(_input.Position, 1.f), parameters.uiCubeData.MvpMatrix);
     output.ModelPosition = _input.Position;
     return output;
 }

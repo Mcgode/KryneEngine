@@ -21,19 +21,23 @@
 // directly at mip 0 - fine at the sample counts affordable here), no bent-normal output, and no
 // half-float packing.
 
-vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> SceneConstants: register(b0, space0);
-vkBinding(1, 0) ConstantBuffer<AmbientOcclusionConstants> AoConstants: register(b1, space0);
-vkBinding(2, 0) Texture2D<float> GBufferDepth: register(t0, space0);
-vkBinding(3, 0) Texture2D<float4> GBufferNormal: register(t1, space0);
-vkBinding(4, 0) RWTexture2D<unorm float> AoTermOut: register(u0, space0);
-vkBinding(5, 0) RWTexture2D<unorm float> AoEdgesOut: register(u1, space0);
+struct Parameters
+{
+    [[vk::binding(0)]] ConstantBuffer<FullscreenPassConstants> SceneConstants: register(b0);
+    [[vk::binding(1)]] ConstantBuffer<AmbientOcclusionConstants> AoConstants: register(b1);
+    [[vk::binding(2)]] Texture2D<float> GBufferDepth: register(t0);
+    [[vk::binding(3)]] Texture2D<float4> GBufferNormal: register(t1);
+    [[vk::binding(4)]] RWTexture2D<unorm float> AoTermOut: register(u0);
+    [[vk::binding(5)]] RWTexture2D<unorm float> AoEdgesOut: register(u1);
+};
+[[vk::binding(0, 0)]] ParameterBlock<Parameters> parameters: register(space0);
 
 static const float kPi = 3.14159265358979323846f;
 static const float kHalfPi = 1.57079632679489661923f;
 
 float LinearizeDepth(const in float _depthSs)
 {
-    return SceneConstants.m_depthLinearizationConstants.x / (_depthSs + SceneConstants.m_depthLinearizationConstants.y);
+    return parameters.SceneConstants.m_depthLinearizationConstants.x / (_depthSs + parameters.SceneConstants.m_depthLinearizationConstants.y);
 }
 
 // View-space position for a given (fractional) pixel coordinate and its already-linearized
@@ -42,7 +46,7 @@ float LinearizeDepth(const in float _depthSs)
 float3 ComputeViewPosition(const in float2 _pixelCoord, const in float2 _resolution, const in float _aspect, const in float _viewDepth)
 {
     const float2 ndc = ScreenSpaceToNdc(_pixelCoord, _resolution);
-    const float3 cameraV = float3(ndc.x * _aspect * SceneConstants.m_tanHalfFov, 1.f, ndc.y * SceneConstants.m_tanHalfFov);
+    const float3 cameraV = float3(ndc.x * _aspect * parameters.SceneConstants.m_tanHalfFov, 1.f, ndc.y * parameters.SceneConstants.m_tanHalfFov);
     return _viewDepth * cameraV;
 }
 
@@ -84,55 +88,55 @@ float PackEdges(const in float4 _edgesLRTB)
 void AmbientOcclusionMain(const uint3 id: SV_DispatchThreadID)
 {
     const uint2 pixelCoord = id.xy;
-    const uint2 resolution = uint2(SceneConstants.m_screenResolution);
+    const uint2 resolution = uint2(parameters.SceneConstants.m_screenResolution);
 
     if (any(pixelCoord >= resolution))
     {
         return;
     }
 
-    const float depthSs = GBufferDepth.Load(int3(pixelCoord, 0));
+    const float depthSs = parameters.GBufferDepth.Load(int3(pixelCoord, 0));
     if (depthSs == 0.f)
     {
         // Reversed-Z: 0 is the far plane / background, nothing to occlude.
-        AoTermOut[pixelCoord] = 1.f;
-        AoEdgesOut[pixelCoord] = 0.f;
+        parameters.AoTermOut[pixelCoord] = 1.f;
+        parameters.AoEdgesOut[pixelCoord] = 0.f;
         return;
     }
 
-    const float2 resolutionF = SceneConstants.m_screenResolution;
+    const float2 resolutionF = parameters.SceneConstants.m_screenResolution;
     const float aspect = resolutionF.x / resolutionF.y;
 
     const int2 pc = int2(pixelCoord);
     const int2 clampMax = int2(resolution) - 1;
 
     const float centerZ = LinearizeDepth(depthSs);
-    const float leftZ = LinearizeDepth(GBufferDepth.Load(int3(clamp(pc + int2(-1, 0), 0, clampMax), 0)));
-    const float rightZ = LinearizeDepth(GBufferDepth.Load(int3(clamp(pc + int2(1, 0), 0, clampMax), 0)));
-    const float topZ = LinearizeDepth(GBufferDepth.Load(int3(clamp(pc + int2(0, -1), 0, clampMax), 0)));
-    const float bottomZ = LinearizeDepth(GBufferDepth.Load(int3(clamp(pc + int2(0, 1), 0, clampMax), 0)));
+    const float leftZ = LinearizeDepth(parameters.GBufferDepth.Load(int3(clamp(pc + int2(-1, 0), 0, clampMax), 0)));
+    const float rightZ = LinearizeDepth(parameters.GBufferDepth.Load(int3(clamp(pc + int2(1, 0), 0, clampMax), 0)));
+    const float topZ = LinearizeDepth(parameters.GBufferDepth.Load(int3(clamp(pc + int2(0, -1), 0, clampMax), 0)));
+    const float bottomZ = LinearizeDepth(parameters.GBufferDepth.Load(int3(clamp(pc + int2(0, 1), 0, clampMax), 0)));
 
     const float4 edgesLRTB = CalculateEdges(centerZ, leftZ, rightZ, topZ, bottomZ);
-    AoEdgesOut[pixelCoord] = PackEdges(edgesLRTB);
+    parameters.AoEdgesOut[pixelCoord] = PackEdges(edgesLRTB);
 
     const float3 positionV = ComputeViewPosition(float2(pixelCoord) + 0.5f, resolutionF, aspect, centerZ);
     const float3 viewVec = normalize(-positionV);
 
-    const float4 normalSample = GBufferNormal.Load(int3(pixelCoord, 0));
+    const float4 normalSample = parameters.GBufferNormal.Load(int3(pixelCoord, 0));
     const float3 normalW = normalSample.rgb * 2.f - 1.f;
-    const float3 viewspaceNormal = normalize(Quaternion::Apply(SceneConstants.m_cameraQuaternion, normalW));
+    const float3 viewspaceNormal = normalize(Quaternion::Apply(parameters.SceneConstants.m_cameraQuaternion, normalW));
 
-    const float effectRadius = AoConstants.m_effectRadius;
-    const float sampleDistributionPower = AoConstants.m_sampleDistributionPower;
-    const float thinOccluderCompensation = AoConstants.m_thinOccluderCompensation;
-    const float falloffRange = max(AoConstants.m_falloffRangeFraction * effectRadius, 1e-4f);
-    const float falloffFrom = effectRadius * (1.f - AoConstants.m_falloffRangeFraction);
+    const float effectRadius = parameters.AoConstants.m_effectRadius;
+    const float sampleDistributionPower = parameters.AoConstants.m_sampleDistributionPower;
+    const float thinOccluderCompensation = parameters.AoConstants.m_thinOccluderCompensation;
+    const float falloffRange = max(parameters.AoConstants.m_falloffRangeFraction * effectRadius, 1e-4f);
+    const float falloffFrom = effectRadius * (1.f - parameters.AoConstants.m_falloffRangeFraction);
     const float falloffMul = -1.f / falloffRange;
     const float falloffAdd = falloffFrom / falloffRange + 1.f;
 
     // World-space size of one pixel, in X, at the current depth - used as a proxy for the local
     // screen-to-world scale (the reference also only ever uses the X component of this).
-    const float pixelWorldSize = centerZ * aspect * SceneConstants.m_tanHalfFov * 2.f / resolutionF.x;
+    const float pixelWorldSize = centerZ * aspect * parameters.SceneConstants.m_tanHalfFov * 2.f / resolutionF.x;
     const float screenspaceRadius = effectRadius / max(pixelWorldSize, 1e-6f);
 
     // Avoid sampling the center pixel.
@@ -147,8 +151,8 @@ void AmbientOcclusionMain(const uint3 id: SV_DispatchThreadID)
     const float noiseSlice = frac(52.9829189f * frac(dot(float2(pixelCoord), noiseMagic)));
     const float noiseSample = frac(52.9829189f * frac(dot(float2(pixelCoord) + 11.7f, noiseMagic)));
 
-    const uint sliceCount = max(AoConstants.m_sliceCount, 1u);
-    const uint stepsPerSlice = max(AoConstants.m_stepsPerSlice, 1u);
+    const uint sliceCount = max(parameters.AoConstants.m_sliceCount, 1u);
+    const uint stepsPerSlice = max(parameters.AoConstants.m_stepsPerSlice, 1u);
 
     // Fade out for small screen radii - not enough resolvable samples to be meaningful, and about
     // to disappear entirely anyway.
@@ -199,8 +203,8 @@ void AmbientOcclusionMain(const uint3 id: SV_DispatchThreadID)
             const int2 pixel0 = clamp(pc + sampleOffsetPixels, 0, clampMax);
             const int2 pixel1 = clamp(pc - sampleOffsetPixels, 0, clampMax);
 
-            const float sz0 = LinearizeDepth(GBufferDepth.Load(int3(pixel0, 0)));
-            const float sz1 = LinearizeDepth(GBufferDepth.Load(int3(pixel1, 0)));
+            const float sz0 = LinearizeDepth(parameters.GBufferDepth.Load(int3(pixel0, 0)));
+            const float sz1 = LinearizeDepth(parameters.GBufferDepth.Load(int3(pixel1, 0)));
 
             const float3 samplePos0 = ComputeViewPosition(float2(pixel0) + 0.5f, resolutionF, aspect, sz0);
             const float3 samplePos1 = ComputeViewPosition(float2(pixel1) + 0.5f, resolutionF, aspect, sz1);
@@ -241,10 +245,10 @@ void AmbientOcclusionMain(const uint3 id: SV_DispatchThreadID)
     }
 
     visibility /= float(sliceCount);
-    visibility = pow(max(visibility, 0.f), AoConstants.m_finalValuePower);
+    visibility = pow(max(visibility, 0.f), parameters.AoConstants.m_finalValuePower);
     // Disallow total occlusion: the pixel is visible, so it must be receiving *some* light.
     visibility = max(0.03f, visibility);
-    visibility = lerp(1.f, visibility, AoConstants.m_intensity);
+    visibility = lerp(1.f, visibility, parameters.AoConstants.m_intensity);
 
-    AoTermOut[pixelCoord] = visibility;
+    parameters.AoTermOut[pixelCoord] = visibility;
 }

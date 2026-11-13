@@ -13,29 +13,37 @@
 struct Input  { float4 screenPosition: SV_Position; };
 struct Output { float4 color: SV_Target0; };
 
-vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> SceneConstants;
+struct Parameters
+{
+    [[vk::binding(0)]] ConstantBuffer<FullscreenPassConstants> SceneConstants: register(b0);
+};
+[[vk::binding(0, 0)]] ParameterBlock<Parameters> parameters: register(space0);
 
 Output SkyMain(Input _input)
 {
     Output output;
 
-    const float2 resolution = SceneConstants.m_screenResolution;
+    const float2 resolution = parameters.SceneConstants.m_screenResolution;
     const float2 ndc        = ScreenSpaceToNdc(_input.screenPosition.xy, resolution);
 
     const float  aspect  = resolution.x / resolution.y;
     const float3 cameraV = float3(
-        ndc.x * aspect * SceneConstants.m_tanHalfFov,
+        ndc.x * aspect * parameters.SceneConstants.m_tanHalfFov,
         1.0f,
-        ndc.y * SceneConstants.m_tanHalfFov
+        ndc.y * parameters.SceneConstants.m_tanHalfFov
     );
 
-    const float4 vsToWsQuat = Quaternion::Conjugate(SceneConstants.m_cameraQuaternion);
+    const float4 vsToWsQuat = Quaternion::Conjugate(parameters.SceneConstants.m_cameraQuaternion);
     const float3 cameraW    = Quaternion::Apply(vsToWsQuat, normalize(cameraV));
-    const float3 eyePosW    = SceneConstants.m_cameraTranslation + float3(0, 0, kAtmospherePlanetRadius);
+    const float3 eyePosW    = parameters.SceneConstants.m_cameraTranslation.xyz + float3(0, 0, kAtmospherePlanetRadius);
 
     const AtmoRay rayW = { eyePosW, cameraW };
 
-    output.color = float4(AtmoGetIncidentLight(rayW, SceneConstants.m_sunLightDirection, SceneConstants.m_sunDiffuse) * kPi, 1);
+    output.color = float4(AtmoGetIncidentLight(
+            rayW,
+            parameters.SceneConstants.m_sunLightDirection,
+            parameters.SceneConstants.m_sunDiffuse) * kPi,
+             1);
 
     return output;
 }

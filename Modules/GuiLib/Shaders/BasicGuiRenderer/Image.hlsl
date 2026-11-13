@@ -19,7 +19,7 @@ struct VsOutput
     nointerpolation float2 rectHalfSize: POSITION1;
 };
 
-using FsInput = VsOutput;
+typedef VsOutput FsInput;
 
 [shader("vertex")]
 VsOutput ImageVs(VsInput _input)
@@ -37,14 +37,14 @@ VsOutput ImageVs(VsInput _input)
     const float2 baseVertexPos = vertices[_input.vertexId];
     const float2 relativePixelPosition = baseVertexPos * rectHalfSize;
     const float2 absolutePixelPosition = rectCenter + relativePixelPosition;
-    const float2 ndcPosition = UvToNdc(absolutePixelPosition / viewportConstants.viewportSize);
+    const float2 ndcPosition = UvToNdc(absolutePixelPosition / constantsBlock.viewportConstants.viewportSize);
 
     const float2 relativeUv = baseVertexPos * unpackHalf2x16ToFloat(_input.packedData.w);
     const float2 absoluteUv = relativeUv + unpackHalf2x16ToFloat(_input.packedData.z);
     output.sampleUv = absoluteUv;
 
     output.pixelPosition = relativePixelPosition;
-    output.position = mul(float4(ndcPosition, 0.f, 1.f), viewportConstants.ndcProjectionMatrix);
+    output.position = mul(float4(ndcPosition, 0.f, 1.f), constantsBlock.viewportConstants.ndcProjectionMatrix);
 
     return output;
 }
@@ -76,14 +76,14 @@ float4 ImageFs(FsInput _input): SV_TARGET0
             _input.cornerRadii.y >> 12
         ));
 
-    const float2 dPixelPos = ddx(_input.pixelPosition);
+    const float2 dPixelPos = Ddx(_input.pixelPosition);
     const float scale = length(dPixelPos) * 0.5;
 
     const float4 tintColor = SrgbToLinear(unpackUnorm4x8ToFloat(_input.backgroundColor));
 
     const uint textureId = _input.sampleIds & 0x1f;
     const uint samplerId = _input.sampleIds >> 5;
-    const float4 color = textures[textureId].Sample(samplers[samplerId], _input.sampleUv) * tintColor;
+    const float4 color = parametersBlock.textures[textureId].Sample(parametersBlock.samplers[samplerId], _input.sampleUv) * tintColor;
 
     return lerp(color, float4(color.rgb, 0.f), saturate(d / scale + 0.5f));
 }

@@ -18,10 +18,13 @@
 // two working textures, so it always reads/writes plain "source"/"destination" resources rather
 // than baking in which pass (first or final) this invocation is.
 
-vkBinding(0, 0) ConstantBuffer<AmbientOcclusionConstants> AoConstants: register(b0, space0);
-vkBinding(1, 0) Texture2D<float> SourceAoTerm: register(t0, space0);
-vkBinding(2, 0) Texture2D<float> SourceEdges: register(t1, space0);
-vkBinding(3, 0) RWTexture2D<unorm float> AoTermOut: register(u0, space0);
+struct Parameters{
+    [[vk::binding(0)]] ConstantBuffer<AmbientOcclusionConstants> AoConstants: register(b0);
+    [[vk::binding(1)]] Texture2D<float> SourceAoTerm: register(t0);
+    [[vk::binding(2)]] Texture2D<float> SourceEdges: register(t1);
+    [[vk::binding(3)]] RWTexture2D<unorm float> AoTermOut: register(u0);
+};
+[[vk::binding(0, 0)]] ParameterBlock<Parameters> parameters: register(space0);
 
 float4 UnpackEdges(const in float _packedVal)
 {
@@ -38,7 +41,7 @@ float4 UnpackEdges(const in float _packedVal)
 void AmbientOcclusionDenoiseMain(const uint3 id: SV_DispatchThreadID)
 {
     uint width, height;
-    SourceAoTerm.GetDimensions(width, height);
+    parameters.SourceAoTerm.GetDimensions(width, height);
     const int2 resolution = int2(width, height);
 
     if (any(int2(id.xy) >= resolution))
@@ -49,11 +52,11 @@ void AmbientOcclusionDenoiseMain(const uint3 id: SV_DispatchThreadID)
     const int2 pc = int2(id.xy);
     const int2 clampMax = resolution - 1;
 
-    const float4 edgesC = UnpackEdges(SourceEdges.Load(int3(pc, 0)));
-    const float4 edgesL = UnpackEdges(SourceEdges.Load(int3(clamp(pc + int2(-1, 0), 0, clampMax), 0)));
-    const float4 edgesR = UnpackEdges(SourceEdges.Load(int3(clamp(pc + int2(1, 0), 0, clampMax), 0)));
-    const float4 edgesT = UnpackEdges(SourceEdges.Load(int3(clamp(pc + int2(0, -1), 0, clampMax), 0)));
-    const float4 edgesB = UnpackEdges(SourceEdges.Load(int3(clamp(pc + int2(0, 1), 0, clampMax), 0)));
+    const float4 edgesC = UnpackEdges(parameters.SourceEdges.Load(int3(pc, 0)));
+    const float4 edgesL = UnpackEdges(parameters.SourceEdges.Load(int3(clamp(pc + int2(-1, 0), 0, clampMax), 0)));
+    const float4 edgesR = UnpackEdges(parameters.SourceEdges.Load(int3(clamp(pc + int2(1, 0), 0, clampMax), 0)));
+    const float4 edgesT = UnpackEdges(parameters.SourceEdges.Load(int3(clamp(pc + int2(0, -1), 0, clampMax), 0)));
+    const float4 edgesB = UnpackEdges(parameters.SourceEdges.Load(int3(clamp(pc + int2(0, 1), 0, clampMax), 0)));
 
     // Enforce symmetry between neighbouring edge estimates: edge detection doesn't guarantee that
     // a left edge on this pixel matches the right edge its left neighbour detected, even though
@@ -74,17 +77,17 @@ void AmbientOcclusionDenoiseMain(const uint3 id: SV_DispatchThreadID)
     const float weightBL = diagWeight * (edges.w * edgesB.x + edges.x * edgesL.w);
     const float weightBR = diagWeight * (edges.y * edgesR.w + edges.w * edgesB.y);
 
-    const float valueC = SourceAoTerm.Load(int3(pc, 0));
-    const float valueL = SourceAoTerm.Load(int3(clamp(pc + int2(-1, 0), 0, clampMax), 0));
-    const float valueR = SourceAoTerm.Load(int3(clamp(pc + int2(1, 0), 0, clampMax), 0));
-    const float valueT = SourceAoTerm.Load(int3(clamp(pc + int2(0, -1), 0, clampMax), 0));
-    const float valueB = SourceAoTerm.Load(int3(clamp(pc + int2(0, 1), 0, clampMax), 0));
-    const float valueTL = SourceAoTerm.Load(int3(clamp(pc + int2(-1, -1), 0, clampMax), 0));
-    const float valueTR = SourceAoTerm.Load(int3(clamp(pc + int2(1, -1), 0, clampMax), 0));
-    const float valueBL = SourceAoTerm.Load(int3(clamp(pc + int2(-1, 1), 0, clampMax), 0));
-    const float valueBR = SourceAoTerm.Load(int3(clamp(pc + int2(1, 1), 0, clampMax), 0));
+    const float valueC = parameters.SourceAoTerm.Load(int3(pc, 0));
+    const float valueL = parameters.SourceAoTerm.Load(int3(clamp(pc + int2(-1, 0), 0, clampMax), 0));
+    const float valueR = parameters.SourceAoTerm.Load(int3(clamp(pc + int2(1, 0), 0, clampMax), 0));
+    const float valueT = parameters.SourceAoTerm.Load(int3(clamp(pc + int2(0, -1), 0, clampMax), 0));
+    const float valueB = parameters.SourceAoTerm.Load(int3(clamp(pc + int2(0, 1), 0, clampMax), 0));
+    const float valueTL = parameters.SourceAoTerm.Load(int3(clamp(pc + int2(-1, -1), 0, clampMax), 0));
+    const float valueTR = parameters.SourceAoTerm.Load(int3(clamp(pc + int2(1, -1), 0, clampMax), 0));
+    const float valueBL = parameters.SourceAoTerm.Load(int3(clamp(pc + int2(-1, 1), 0, clampMax), 0));
+    const float valueBR = parameters.SourceAoTerm.Load(int3(clamp(pc + int2(1, 1), 0, clampMax), 0));
 
-    float weightSum = AoConstants.m_denoiseBlurBeta;
+    float weightSum = parameters.AoConstants.m_denoiseBlurBeta;
     float sum = valueC * weightSum;
 
     sum += valueL * edges.x; weightSum += edges.x;
@@ -97,5 +100,5 @@ void AmbientOcclusionDenoiseMain(const uint3 id: SV_DispatchThreadID)
     sum += valueBL * weightBL; weightSum += weightBL;
     sum += valueBR * weightBR; weightSum += weightBR;
 
-    AoTermOut[pc] = sum / max(weightSum, 1e-6f);
+    parameters.AoTermOut[pc] = sum / max(weightSum, 1e-6f);
 }

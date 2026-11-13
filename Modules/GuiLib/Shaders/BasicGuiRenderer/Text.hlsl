@@ -18,7 +18,7 @@ struct VsOutput
     nointerpolation uint pixelRange: TEXCOORD1;
 };
 
-using FsInput = VsOutput;
+typedef VsOutput FsInput;
 
 [shader("vertex")]
 VsOutput TextVs(VsInput _input)
@@ -33,7 +33,7 @@ VsOutput TextVs(VsInput _input)
     const float2 baseVertexPos = vertices[_input.vertexId];
     const float2 relativePixelPosition = baseVertexPos * rectHalfSize;
     const float2 absolutePixelPosition = rectCenter + relativePixelPosition;
-    const float2 ndcPosition = UvToNdc(absolutePixelPosition / viewportConstants.viewportSize);
+    const float2 ndcPosition = UvToNdc(absolutePixelPosition / constantsBlock.viewportConstants.viewportSize);
 
     const float2 msdfPixelCoords = float2(
         baseVertexPos.x < 0.f ? _input.packedData.x & 0xffff : _input.packedData.y & 0xffff,
@@ -42,7 +42,7 @@ VsOutput TextVs(VsInput _input)
     output.pixelRange = _input.packedData.z;
 
     output.pixelPosition = relativePixelPosition;
-    output.position = mul(float4(ndcPosition, 0.f, 1.f), viewportConstants.ndcProjectionMatrix);
+    output.position = mul(float4(ndcPosition, 0.f, 1.f), constantsBlock.viewportConstants.ndcProjectionMatrix);
 
     return output;
 }
@@ -56,13 +56,13 @@ float2 sqr(const in float2 _v)
 float4 TextFs(FsInput _input): SV_TARGET0
 {
     uint w, h;
-    textures[0].GetDimensions(w, h);
+    parametersBlock.textures[0].GetDimensions(w, h);
     const float2 uv = _input.samplePixelCoords / float2(w, h);
-    const float3 msdfSample = textures[0].Sample(samplers[0], uv).rgb;
+    const float3 msdfSample = parametersBlock.textures[0].Sample(parametersBlock.samplers[0], uv).rgb;
     const float median = max(min(msdfSample.r, msdfSample.g), min(max(msdfSample.r, msdfSample.g), msdfSample.b));
 
     const float2 unitRange = float2(_input.pixelRange.xx) / float2(w, h);
-    const float2 screenTextSize = 1.f / sqrt(sqr(ddx(uv)) + sqr(ddy(uv)));
+    const float2 screenTextSize = 1.f / sqrt(sqr(Ddx(uv)) + sqr(Ddy(uv)));
     const float screenPxRange = max(0.5f * dot(unitRange, screenTextSize), 1.f);
 
     const float d = screenPxRange * (median - 0.5f);

@@ -976,20 +976,17 @@ namespace KryneEngine
         const MetalArgumentBufferManager::PushConstantData& pushConstantData =
             m_argumentBufferManager.m_pipelineLayouts.Get(_layout.m_handle)->m_pushConstantsData[_index];
 
-        for (auto& data: pushConstantData.m_data)
+        if (BitUtils::EnumHasAny(pushConstantData.m_visibility, ShaderVisibility::Vertex))
         {
-            if (BitUtils::EnumHasAny(data.m_visibility, ShaderVisibility::Vertex))
-            {
-                renderState->m_vertexArgumentTable->setAddress(
-                    m_byteUploader->SetBytes<u32>(m_device.get(), m_resources, _data, m_frameId % m_frameContextCount),
-                    data.m_bufferIndex);
-            }
-            if (BitUtils::EnumHasAny(data.m_visibility, ShaderVisibility::Fragment))
-            {
-                renderState->m_fragmentArgumentTable->setAddress(
-                    m_byteUploader->SetBytes<u32>(m_device.get(), m_resources, _data, m_frameId % m_frameContextCount),
-                    data.m_bufferIndex);
-            }
+            renderState->m_vertexArgumentTable->setAddress(
+                m_byteUploader->SetBytes<u32>(m_device.get(), m_resources, _data, m_frameId % m_frameContextCount),
+                pushConstantData.m_bufferIndex);
+        }
+        if (BitUtils::EnumHasAny(pushConstantData.m_visibility, ShaderVisibility::Fragment))
+        {
+            renderState->m_fragmentArgumentTable->setAddress(
+                m_byteUploader->SetBytes<u32>(m_device.get(), m_resources, _data, m_frameId % m_frameContextCount),
+                pushConstantData.m_bufferIndex);
         }
     }
 
@@ -1193,11 +1190,11 @@ namespace KryneEngine
         const MetalArgumentBufferManager::PushConstantData& pushConstantData =
             m_argumentBufferManager.m_pipelineLayouts.Get(_layout.m_handle)->m_pushConstantsData[0];
 
-        KE_ASSERT(pushConstantData.m_data.size() == 1);
-        KE_ASSERT(pushConstantData.m_data[0].m_visibility == ShaderVisibility::Compute);
+        KE_ASSERT(m_argumentBufferManager.m_pipelineLayouts.Get(_layout.m_handle)->m_pushConstantsData.size() == 1);
+        KE_ASSERT(pushConstantData.m_visibility == ShaderVisibility::Compute);
         argumentTable->setAddress(
             m_byteUploader->SetBytes<u32>(m_device.get(), m_resources, _data, m_frameId % m_frameContextCount),
-            pushConstantData.m_data[0].m_bufferIndex);
+            pushConstantData.m_bufferIndex);
     }
 
     void MetalGraphicsContext::Dispatch(

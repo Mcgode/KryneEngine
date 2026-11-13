@@ -25,8 +25,13 @@
 
 static const uint kSampleCount = 128;
 
-vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> SceneConstants : register(b0, space0);
-vkBinding(1, 0) RWStructuredBuffer<float4> SkyAmbientOut : register(u0, space0);
+struct Parameters
+{
+    [[vk::binding(0)]] ConstantBuffer<FullscreenPassConstants> SceneConstants : register(b0);
+    [[vk::binding(1)]] RWStructuredBuffer<float4> SkyAmbientOut : register(u0);
+};
+
+[[vk::binding(0, 0)]] ParameterBlock<Parameters> parameters: register(space0);
 
 groupshared float3 gs_radiance[kSampleCount];
 groupshared float3 gs_reduce[kSampleCount];
@@ -52,7 +57,10 @@ void SkyLightingBakeMain(uint3 LocalID : SV_GroupThreadID)
     const float3 eyePosW = float3(0.0f, 0.0f, kAtmospherePlanetRadius);
     const AtmoRay rayW   = { eyePosW, dir };
     const float3  radiance = AtmoGetIncidentLight(
-        rayW, SceneConstants.m_sunLightDirection, SceneConstants.m_sunDiffuse, /* _clampHeightToGround */ true);
+        rayW,
+        parameters.SceneConstants.m_sunLightDirection,
+        parameters.SceneConstants.m_sunDiffuse,
+        /* _clampHeightToGround */ true);
 
     gs_radiance[i] = radiance * kPi;
 
@@ -77,7 +85,7 @@ void SkyLightingBakeMain(uint3 LocalID : SV_GroupThreadID)
         }
 
         if (i == 0)
-            SkyAmbientOut[c] = float4(gs_reduce[0] * ShCosineLobeA(c), 1.0f);
+            parameters.SkyAmbientOut[c] = float4(gs_reduce[0] * ShCosineLobeA(c), 1.0f);
 
         GroupMemoryBarrierWithGroupSync();
     }

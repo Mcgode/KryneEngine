@@ -10,13 +10,17 @@
 #include "FullscreenPassConstants.hlsl"
 #include "CascadeConstants.h"
 
-vkBinding(0, 0) ConstantBuffer<FullscreenPassConstants> SceneConstants: register(b0, space0);
-vkBinding(1, 0) ConstantBuffer<CascadeConstants> Cascades: register(b1, space0);
-vkBinding(2, 0) Texture2D<float> GBufferDepth: register(t0, space0);
-vkBinding(3, 0) Texture2D<float4> GBufferNormal: register(t1, space0);
-vkBinding(4, 0) Texture2DArray<float> ShadowCascades: register(t2, space0);
-vkBinding(5, 0) SamplerState Sampler: register(s0, space0);
-vkBinding(6, 0) RWTexture2D<float> DeferredShadows: register(u0, space0);
+struct Parameters
+{
+    [[vk::binding(0)]] ConstantBuffer<FullscreenPassConstants> SceneConstants: register(b0);
+    [[vk::binding(1)]] ConstantBuffer<CascadeConstants> Cascades: register(b1);
+    [[vk::binding(2)]] Texture2D<float> GBufferDepth: register(t0);
+    [[vk::binding(3)]] Texture2D<float4> GBufferNormal: register(t1);
+    [[vk::binding(4)]] Texture2DArray<float> ShadowCascades: register(t2);
+    [[vk::binding(5)]] SamplerState Sampler: register(s0);
+    [[vk::binding(6)]] RWTexture2D<unorm float> DeferredShadows: register(u0); // R8_UNorm
+};
+[[vk::binding(0, 0)]] ParameterBlock<Parameters> parameters: register(space0);
 
 // Interleaved gradient noise (Jorge Jimenez, "Next Generation Post Processing in Call of Duty:
 // Advanced Warfare"): a cheap per-pixel pseudo-random value, stable across frames (no temporal
@@ -36,10 +40,10 @@ float InterleavedGradientNoise(const in float2 _pixelCoord)
 // only ever touches the one cascade index this function returns).
 uint SelectCascade(const in float _viewDepth, const in float2 _pixelCoord)
 {
-    for (uint i = 0; i < Cascades.m_cascadeCount - 1; i++)
+    for (uint i = 0; i < parameters.Cascades.m_cascadeCount - 1; i++)
     {
-        const float splitFar = Cascades.m_cascadeSplitDepths[i];
-        const float halfBand = 0.5f * Cascades.m_cascadeBlendBandFraction * splitFar;
+        const float splitFar = parameters.Cascades.m_cascadeSplitDepths[i];
+        const float halfBand = 0.5f * parameters.Cascades.m_cascadeBlendBandFraction * splitFar;
         const float bandStart = splitFar - halfBand;
 
         if (_viewDepth < bandStart)
@@ -58,7 +62,7 @@ uint SelectCascade(const in float _viewDepth, const in float2 _pixelCoord)
             return ditherNoise < t ? i + 1 : i;
         }
     }
-    return Cascades.m_cascadeCount - 1;
+    return parameters.Cascades.m_cascadeCount - 1;
 }
 
 // One sample of a Vogel disk: N points distributed over a unit disk via the golden angle, giving
@@ -86,14 +90,14 @@ float2 VogelDiskSample(const in uint _index, const in uint _count, const in floa
 float SampleDepthBilinear(const in uint _cascadeIndex, const in float2 _uv)
 {
     uint width, height, elements;
-    ShadowCascades.GetDimensions(width, height, elements);
+    parameters.ShadowCascades.GetDimensions(width, height, elements);
 
     const float2 texelCoord = _uv * float2(width, height) - 0.5f;
     const float2 base = floor(texelCoord);
     const float2 f = texelCoord - base;
     const int2 baseInt = int2(base);
 
-    const float4 depths = ShadowCascades.GatherRed(Sampler, float3(_uv, _cascadeIndex));
+    const float4 depths = parameters.ShadowCascades.GatherRed(parameters.Sampler, float3(_uv, _cascadeIndex));
     // Gather4 pattern is:
     // | W | Z |
     // | X | Y |
@@ -122,16 +126,16 @@ float ResolvePcss(
     // can never be further from the receiver, along the light axis, than the receiver already is
     // from the near plane.
     const float searchRadiusWorld = clamp(
-        Cascades.m_pcssTanHalfLightAngle * _receiverWorldDepth,
-        Cascades.m_pcssMinPenumbraTexels * _texelWorldSize,
-        Cascades.m_pcssMaxPenumbraTexels * _texelWorldSize);
+        parameters.Cascades.m_pcssTanHalfLightAngle * _receiverWorldDepth,
+        parameters.Cascades.m_pcssMinPenumbraTexels * _texelWorldSize,
+        parameters.Cascades.m_pcssMaxPenumbraTexels * _texelWorldSize);
     const float searchRadiusUv = searchRadiusWorld * _worldToUv;
 
     float blockerSum = 0.f;
     uint blockerCount = 0;
-    for (uint i = 0; i < Cascades.m_pcssBlockerSearchTaps; i++)
+    for (uint i = 0; i < parameters.Cascades.m_pcssBlockerSearchTaps; i++)
     {
-        const float2 offset = VogelDiskSample(i, Cascades.m_pcssBlockerSearchTaps, _rotation) * searchRadiusUv;
+        const float2 offset = VogelDiskSample(i, parameters.Cascades.m_pcssBlockerSearchTaps, _rotation) * searchRadiusUv;
         const float2 sampleUv = _shadowUv + offset;
         const float sampleDepth = any(sampleUv <= 0.f) || any(sampleUv >= 1.f)
             ? 1.f :
@@ -156,9 +160,9 @@ float ResolvePcss(
     // --- PCSS step 2: penumbra size + filtered shadow test ---
     const float gapWorld = _receiverWorldDepth - avgBlockerWorldDepth;
     const float penumbraWorld = clamp(
-        Cascades.m_pcssTanHalfLightAngle * gapWorld,
-        Cascades.m_pcssMinPenumbraTexels * _texelWorldSize,
-        Cascades.m_pcssMaxPenumbraTexels * _texelWorldSize);
+        parameters.Cascades.m_pcssTanHalfLightAngle * gapWorld,
+        parameters.Cascades.m_pcssMinPenumbraTexels * _texelWorldSize,
+        parameters.Cascades.m_pcssMaxPenumbraTexels * _texelWorldSize);
     const float penumbraUv = penumbraWorld * _worldToUv;
 
     // Percentage-closer filter over the penumbra disk: each tap is a plain binary occluded/lit
@@ -166,9 +170,9 @@ float ResolvePcss(
     // result comes entirely from averaging many taps spread across the penumbra radius, which is
     // what actually makes the softening physically track the estimated penumbra size.
     float visibleTaps = 0.f;
-    for (uint j = 0; j < Cascades.m_pcssFilterTaps; j++)
+    for (uint j = 0; j < parameters.Cascades.m_pcssFilterTaps; j++)
     {
-        const float2 offset = VogelDiskSample(j, Cascades.m_pcssFilterTaps, _rotation) * penumbraUv;
+        const float2 offset = VogelDiskSample(j, parameters.Cascades.m_pcssFilterTaps, _rotation) * penumbraUv;
         const float2 sampleUv = _shadowUv + offset;
         if (any(sampleUv <= 0.f) || any(sampleUv >= 1.f))
         {
@@ -180,7 +184,7 @@ float ResolvePcss(
         visibleTaps += sampleDepth >= _receiverDepth ? 1.f : 0.f;
     }
 
-    return visibleTaps / float(Cascades.m_pcssFilterTaps);
+    return visibleTaps / float(parameters.Cascades.m_pcssFilterTaps);
 }
 
 // Dilated Percentage Closer Filtering (Myers, "Shadows of Cold War: A Scalable Approach to
@@ -200,17 +204,17 @@ float ResolveDpcf(
     const in float _worldToUv,
     const in float _rotation)
 {
-    const float kernelUv = Cascades.m_dpcfKernelTexels * _texelWorldSize * _worldToUv;
+    const float kernelUv = parameters.Cascades.m_dpcfKernelTexels * _texelWorldSize * _worldToUv;
 
     float occluderCount = 0.f;
     float occluderGapSum = 0.f;
-    for (uint i = 0; i < Cascades.m_dpcfTaps; i++)
+    for (uint i = 0; i < parameters.Cascades.m_dpcfTaps; i++)
     {
-        const float2 offset = VogelDiskSample(i, Cascades.m_dpcfTaps, _rotation) * kernelUv;
+        const float2 offset = VogelDiskSample(i, parameters.Cascades.m_dpcfTaps, _rotation) * kernelUv;
         const float2 sampleUv = _shadowUv + offset;
         const float4 depths = any(sampleUv <= 0.f) || any(sampleUv >= 1.f)
             ? float4(1.f, 1.f, 1.f, 1.f)
-            : ShadowCascades.GatherRed(Sampler, float3(sampleUv, _cascadeIndex));
+            : parameters.ShadowCascades.GatherRed(parameters.Sampler, float3(sampleUv, _cascadeIndex));
 
         for (uint d = 0; d < 4; d++)
         {
@@ -223,7 +227,7 @@ float ResolveDpcf(
         }
     }
 
-    const float totalSamples = float(Cascades.m_dpcfTaps * 4);
+    const float totalSamples = float(parameters.Cascades.m_dpcfTaps * 4);
     if (occluderCount == 0.f)
     {
         // No occluders in the fixed kernel: fully lit, same fast-out as the PCSS path.
@@ -263,14 +267,14 @@ float ResolveDpcf(
 void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 {
     const uint2 pixelCoordinates = id.xy;
-    const uint2 resolution = uint2(SceneConstants.m_screenResolution);
+    const uint2 resolution = uint2(parameters.SceneConstants.m_screenResolution);
 
     if (any(pixelCoordinates >= resolution))
     {
         return;
     }
 
-    const float depthSs = GBufferDepth.Load(int3(pixelCoordinates, 0));
+    const float depthSs = parameters.GBufferDepth.Load(int3(pixelCoordinates, 0));
     if (depthSs == 0.f)
     {
         // Reversed-Z: 0 is the far plane / background, nothing to shadow.
@@ -280,20 +284,20 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
     const float2 ndc = ScreenSpaceToNdc(pixelCoordinates, resolution);
     const float aspect = float(resolution.x) / float(resolution.y);
     const float3 cameraV = float3(
-        ndc.x * aspect * SceneConstants.m_tanHalfFov,
+        ndc.x * aspect * parameters.SceneConstants.m_tanHalfFov,
         1.0f,
-        ndc.y * SceneConstants.m_tanHalfFov);
+        ndc.y * parameters.SceneConstants.m_tanHalfFov);
 
-    const float depthV = SceneConstants.m_depthLinearizationConstants.x / (depthSs + SceneConstants.m_depthLinearizationConstants.y);
+    const float depthV = parameters.SceneConstants.m_depthLinearizationConstants.x / (depthSs + parameters.SceneConstants.m_depthLinearizationConstants.y);
     const float3 positionV = depthV * cameraV;
-    const float4 vsToWsQuaternion = Quaternion::Conjugate(SceneConstants.m_cameraQuaternion);
-    float3 positionW = Quaternion::Apply(vsToWsQuaternion, positionV - SceneConstants.m_cameraTranslation);
+    const float4 vsToWsQuaternion = Quaternion::Conjugate(parameters.SceneConstants.m_cameraQuaternion);
+    float3 positionW = Quaternion::Apply(vsToWsQuaternion, positionV - parameters.SceneConstants.m_cameraTranslation.xyz);
 
-    const float4 gBufferNormalSample = GBufferNormal.Load(int3(pixelCoordinates, 0));
+    const float4 gBufferNormalSample = parameters.GBufferNormal.Load(int3(pixelCoordinates, 0));
     const float3 normalW = gBufferNormalSample.rgb * 2.f - 1.f;
 
     const uint cascadeIndex = SelectCascade(depthV, float2(pixelCoordinates));
-    const float texelWorldSize = Cascades.m_cascadeTexelWorldSize[cascadeIndex];
+    const float texelWorldSize = parameters.Cascades.m_cascadeTexelWorldSize[cascadeIndex];
 
     // Normal offset bias (as used e.g. by Unity's cascaded shadow maps): nudge the receiver along
     // its own surface normal, in world space, before reprojecting it into the light - rather than
@@ -302,24 +306,24 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
     // depth-bias term that blows up at grazing angles. The offset grows at grazing angles (low
     // N.L) via m_shadowBiasSlopeScale, since those are exactly the surfaces a flat offset alone
     // undercorrects - similar in spirit to a slope-scaled depth bias, but applied geometrically.
-    const float nDotL = saturate(dot(normalW, -Cascades.m_lightForward.xyz));
-    const float normalOffsetTexels = Cascades.m_shadowBiasConstantTexels
-        + Cascades.m_shadowBiasSlopeScale * (1.f - nDotL);
+    const float nDotL = saturate(dot(normalW, -parameters.Cascades.m_lightForward.xyz));
+    const float normalOffsetTexels = parameters.Cascades.m_shadowBiasConstantTexels
+        + parameters.Cascades.m_shadowBiasSlopeScale * (1.f - nDotL);
     positionW += normalW * texelWorldSize * normalOffsetTexels;
 
-    const float4 lightClip = mul(float4(positionW, 1.f), Cascades.m_cascadeViewProj[cascadeIndex]);
+    const float4 lightClip = mul(float4(positionW, 1.f), parameters.Cascades.m_cascadeViewProj[cascadeIndex]);
     const float2 shadowUv = float2(lightClip.x * 0.5f + 0.5f, 0.5f - lightClip.y * 0.5f);
 
     if (any(shadowUv < 0.f) || any(shadowUv > 1.f))
     {
         // Outside this cascade's fitted bounds (e.g. past the max shadow distance): no data,
         // default to unshadowed rather than an incorrect hard edge.
-        DeferredShadows[pixelCoordinates] = 1.f;
+        parameters.DeferredShadows[pixelCoordinates] = 1.f;
         return;
     }
 
     uint shadowWidth, shadowHeight, shadowElements;
-    ShadowCascades.GetDimensions(shadowWidth, shadowHeight, shadowElements);
+    parameters.ShadowCascades.GetDimensions(shadowWidth, shadowHeight, shadowElements);
 
     // World units covered by the whole cascade, and the reverse: how much normalized [0, 1]
     // shadow-map depth changes per world unit along the light's forward axis. Every PCSS distance
@@ -329,7 +333,7 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
     // units.
     const float orthoWidth = texelWorldSize * float(shadowWidth);
     const float worldToUv = 1.f / orthoWidth;
-    const float depthToWorld = 1.f / Cascades.m_cascadeDepthRangeInv[cascadeIndex];
+    const float depthToWorld = 1.f / parameters.Cascades.m_cascadeDepthRangeInv[cascadeIndex];
 
     // No depth bias left to apply here: self-shadowing acne is already handled geometrically, by
     // the normal offset applied to positionW above, before it was ever reprojected into the light.
@@ -340,9 +344,9 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 
     const float rotation = InterleavedGradientNoise(float2(pixelCoordinates)) * 6.2831853f;
 
-    const float visibility = (Cascades.m_shadowTechnique == ShadowTechnique::SHADOW_TECHNIQUE_DPCF)
+    const float visibility = (parameters.Cascades.m_shadowTechnique == ShadowTechnique::SHADOW_TECHNIQUE_DPCF)
         ? ResolveDpcf(cascadeIndex, shadowUv, receiverDepth, texelWorldSize, worldToUv, rotation)
         : ResolvePcss(cascadeIndex, shadowUv, receiverDepth, receiverWorldDepth, texelWorldSize, worldToUv, depthToWorld, rotation);
 
-    DeferredShadows[pixelCoordinates] = visibility;
+    parameters.DeferredShadows[pixelCoordinates] = visibility;
 }

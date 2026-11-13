@@ -23,6 +23,27 @@ else ()
     message(FATAL_ERROR "Host platform unsupported for shader compilation: ${CMAKE_HOST_SYSTEM_NAME}")
 endif ()
 
+if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    set(PLATFORM "macos")
+    set(SLANGC_NAME "slangc")
+elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    set(PLATFORM "windows")
+    set(SLANGC_NAME "slangc.exe")
+elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    set(PLATFORM "linux")
+    set(SLANGC_NAME "slangc")
+endif ()
+
+string(TOLOWER "${CMAKE_HOST_SYSTEM_PROCESSOR}" SYSTEM_PROCESSOR)
+if (SYSTEM_PROCESSOR MATCHES "amd64|x64|x86_64")
+    set(ARCH "x64")
+elseif (SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(ARCH "aarch64")
+endif ()
+
+set(SlangCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/slang/${PLATFORM}/${ARCH}/bin/${SLANGC_NAME}")
+option(KRYNE_ENGINE_OPTIMIZE_SPIRV "Enable Slang SPIR-V optimization" OFF)
+
 # Check that we found the executable
 if (EXISTS "${DirectXShaderCompiler}")
     message(STATUS "Will compile shaders using '${DirectXShaderCompiler}'")
@@ -30,8 +51,14 @@ else ()
     message(FATAL_ERROR "Unable to find '${DirectXShaderCompiler}'")
 endif ()
 
+if (EXISTS "${SlangCompiler}")
+    message(STATUS "Will compile shaders using '${SlangCompiler}'")
+else ()
+    message(FATAL_ERROR "Unable to find '${SlangCompiler}'")
+endif ()
+
 # Add dxc to passed shader tools
-set(ShaderTools "dxc=${DirectXShaderCompiler}")
+set(ShaderTools "dxc=${DirectXShaderCompiler}%%slangc=${SlangCompiler}")
 
 #
 if (GraphicsApi STREQUAL "MTL")
@@ -147,6 +174,7 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
                 ${EMBED_SCRIPT}
                 ${EMBED_CPP}
                 ${EMBED_H}
+                $<BOOL:${KRYNE_ENGINE_OPTIMIZE_SPIRV}>
                 ${ShaderListFiles}
             DEPENDS ${GENERATE_SCRIPT} ${ShaderListFiles}
             COMMENT "Parsing shader list"

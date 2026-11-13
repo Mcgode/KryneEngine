@@ -825,6 +825,7 @@ namespace KryneEngine::Modules::ImGui
             const PushConstantDesc pushConstantDesc[] {
                 {
                     .m_sizeInBytes = sizeof(PushConstants),
+                    .m_index = 2,
                     .m_visibility = ShaderVisibility::Vertex,
                 },
             };
