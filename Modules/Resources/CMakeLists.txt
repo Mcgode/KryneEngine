@@ -11,6 +11,7 @@ add_library(KryneEngine_Modules_Resources
         Include/KryneEngine/Modules/Resources/Loaders/AsyncResourceLoader.hpp
         Include/KryneEngine/Modules/Resources/ResourceBase.hpp
         Src/IResourceManager.cpp
+        Include/KryneEngine/Modules/Resources/ResourceRef.hpp
 )
 
 target_include_directories(KryneEngine_Modules_Resources PUBLIC Include)
