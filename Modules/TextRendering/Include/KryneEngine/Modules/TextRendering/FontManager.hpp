@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "KryneEngine/Modules/Resources/ResourceRef.hpp"
+
+
 #include <EASTL/string_view.h>
 #include <EASTL/vector.h>
 #include <KryneEngine/Core/Common/Types.hpp>
@@ -46,7 +49,7 @@ namespace KryneEngine::Modules::TextRendering
     private:
         AllocatorInstance m_allocator;
         SystemFont m_systemFont;
-        eastl::vector<Font*> m_fonts;
+        eastl::vector<Resources::ResourceRef<Font>> m_fonts;
         FT_LibraryRec_* m_ftLibrary {};
     };
 }

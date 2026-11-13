@@ -119,6 +119,8 @@ s32 main(s32 argc, const char** argv)
     const StringHash notoFontPath { "Resources/Modules/TextRendering/NotoSerif-Regular.ttf" };
     Modules::Resources::ResourceEntry* notoFontEntry = resourceSystem.GetResourceEntry<Modules::TextRendering::Font>(notoFontPath);
     resourceSystem.LoadResource(notoFontPath, notoFontEntry);
+    // Release the current ref immediately, the manager will own it instead
+    fontManager.ReleaseResource(notoFontEntry);
     auto* font = notoFontEntry->GetResource<Modules::TextRendering::Font>();
 
     Modules::GuiLib::Context clayContext { allocatorInstance, &fontManager };
