@@ -26,11 +26,15 @@ namespace KryneEngine::Modules::Resources
         const u64)
     {
         {
-            const auto lock = m_lock.AutoLock();
+            auto lock = m_lock.AutoLock();
             if (m_pendingRequests.find(_path) == m_pendingRequests.end())
                 m_pendingRequests.emplace(_path);
             else
+            {
+                lock.Unlock();
+                _resourceManager->ReleaseResource(_entry); // Release loader ref
                 return;
+            }
         }
 
         {
@@ -58,5 +62,7 @@ namespace KryneEngine::Modules::Resources
             const auto lock = m_lock.AutoLock();
             m_pendingRequests.erase(_path);
         }
+
+        _resourceManager->ReleaseResource(_entry); // Release loader ref
     }
 } // namespace KryneEngine::Modules::Resources

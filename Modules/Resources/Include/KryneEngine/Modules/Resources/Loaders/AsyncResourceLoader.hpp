@@ -102,6 +102,8 @@ namespace KryneEngine::Modules::Resources
             RequestLoad(_path, _entry, _resourceManager, static_cast<u64>(_loadFlags));
         }
 
+        [[nodiscard]] bool AllowReload(u64 _loadFlags) override;
+
         /**
          * @return A pair of u32 values with the following format: `[loaded, remaining]`
          */
@@ -155,6 +157,6 @@ namespace KryneEngine::Modules::Resources
 
         void LoadFile(u32 _request, bool _async);
 
-        void MarkRequestDone(u32 _request, ResourceEntry* _entry, u64 _loadFlags);
+        void MarkRequestDone(u32 _requestId, const LoadRequest& _request);
     };
 }

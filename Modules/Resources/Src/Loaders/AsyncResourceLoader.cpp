@@ -113,7 +113,7 @@ namespace KryneEngine::Modules::Resources
                     const auto lock = m_poolLock.AutoLock();
                     droppedRequest = m_loadRequests[request];
                 }
-                MarkRequestDone(request, droppedRequest.m_entry, droppedRequest.m_loadFlags);
+                MarkRequestDone(request, droppedRequest);
             }
         }
     }
@@ -134,6 +134,7 @@ namespace KryneEngine::Modules::Resources
 
         u32 requestIdx = 0;
         bool sendRequest = false;
+        bool releaseEntry = false;
         {
             const auto lock = m_poolLock.AutoLock();
 
@@ -158,7 +159,16 @@ namespace KryneEngine::Modules::Resources
                     m_requestMap.Erase(it);
                     m_requestMap.Emplace({ _entry, requestIdx });
                 }
+                else
+                {
+                    releaseEntry = true;
+                }
             }
+        }
+
+        if (releaseEntry)
+        {
+            _resourceManager->ReleaseResource(_entry);
         }
 
         if (sendRequest)
@@ -181,6 +191,11 @@ namespace KryneEngine::Modules::Resources
                 m_ioThreadsConditionVariable.notify_one();
             }
         }
+    }
+
+    bool AsyncResourceLoader::AllowReload(const u64 _loadFlags)
+    {
+        return (_loadFlags & m_desc.m_forceReloadFlag) != 0;
     }
 
     eastl::pair<u32, u32> AsyncResourceLoader::GetLoadingScreenProgress() const
@@ -239,7 +254,7 @@ namespace KryneEngine::Modules::Resources
     {
         KE_ZoneScopedFunction("AsyncResourceLoader::LoadFile");
 
-        LoadRequest request;
+        LoadRequest request {};
         {
             const auto lock = m_poolLock.AutoLock();
             request = m_loadRequests[_request];
@@ -250,7 +265,7 @@ namespace KryneEngine::Modules::Resources
 
             if (request.m_canceled)
             {
-                MarkRequestDone(_request, request.m_entry, request.m_loadFlags);
+                MarkRequestDone(_request, request);
                 return;
             }
 
@@ -269,7 +284,7 @@ namespace KryneEngine::Modules::Resources
             if (loadedResource.empty())
             {
                 request.m_resourceManager->ReportFailedLoad(request.m_entry, path);
-                MarkRequestDone(_request, request.m_entry, request.m_loadFlags);
+                MarkRequestDone(_request, request);
                 return;
             }
 
@@ -280,7 +295,7 @@ namespace KryneEngine::Modules::Resources
                     loadedResource,
                     path);
 
-                MarkRequestDone(_request, request.m_entry, request.m_loadFlags);
+                MarkRequestDone(_request, request);
             }
             else
             {
@@ -298,7 +313,7 @@ namespace KryneEngine::Modules::Resources
                         {
                             KE_ZoneScopedF("%s", request.m_path);
 
-                            MarkRequestDone(_request, request.m_entry, request.m_loadFlags);
+                            MarkRequestDone(_request, request);
                         }
 
                         // Last access to the loader, as it may be destroyed right after
@@ -310,24 +325,26 @@ namespace KryneEngine::Modules::Resources
     }
 
     void AsyncResourceLoader::MarkRequestDone(
-        const u32 _request,
-        ResourceEntry* _entry,
-        const u64 _loadFlags)
+        const u32 _requestId,
+        const LoadRequest& _request)
     {
         KE_ZoneScopedFunction("AsyncResourceLoader::MarkRequestDone");
 
-        const auto lock = m_poolLock.AutoLock();
-        const auto it = m_requestMap.Find(_entry);
-        if (it != m_requestMap.end() && it->second == _request)
-            m_requestMap.Erase(it);
-
-        const LoadRequest& request = m_loadRequests[_request];
-        m_allocator.deallocate(request.m_path, request.m_pathSize + 1);
-        m_loadRequests.Free(_request);
-
-        if ((_loadFlags & m_desc.m_priorityMask) == m_desc.m_loadingScreenPriority)
         {
-            m_loadingScreenProgress.fetch_sub(1ull, std::memory_order::release);
+            const auto lock = m_poolLock.AutoLock();
+            const auto it = m_requestMap.Find(_request.m_entry);
+            if (it != m_requestMap.end() && it->second == _requestId)
+                m_requestMap.Erase(it);
+
+            m_allocator.deallocate(_request.m_path, _request.m_pathSize + 1);
+            m_loadRequests.Free(_requestId);
+
+            if ((_request.m_loadFlags & m_desc.m_priorityMask) == m_desc.m_loadingScreenPriority)
+            {
+                m_loadingScreenProgress.fetch_sub(1ull, std::memory_order::release);
+            }
         }
+
+        _request.m_resourceManager->ReleaseResource(_request.m_entry);
     }
 }

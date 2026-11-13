@@ -117,9 +117,9 @@ s32 main(s32 argc, const char** argv)
     Modules::TextRendering::MsdfAtlasManager msdfAtlasManager(allocatorInstance, graphicsContext, &fontManager, 1024, 32);
 
     const StringHash notoFontPath { "Resources/Modules/TextRendering/NotoSerif-Regular.ttf" };
-    Modules::Resources::ResourceEntry* notFontEntry = resourceSystem.GetResourceEntry<Modules::TextRendering::Font>(notoFontPath);
-    resourceSystem.LoadResource(notoFontPath, notFontEntry);
-    auto* font = notFontEntry->UseResource<Modules::TextRendering::Font>();
+    Modules::Resources::ResourceEntry* notoFontEntry = resourceSystem.GetResourceEntry<Modules::TextRendering::Font>(notoFontPath);
+    resourceSystem.LoadResource(notoFontPath, notoFontEntry);
+    auto* font = notoFontEntry->GetResource<Modules::TextRendering::Font>();
 
     Modules::GuiLib::Context clayContext { allocatorInstance, &fontManager };
     Modules::GuiLib::BasicGuiRenderer guiRenderer {

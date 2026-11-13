@@ -36,6 +36,8 @@ namespace KryneEngine::Modules::TextRendering
 
         void ReportFailedLoad(Resources::ResourceEntry* _entry, eastl::string_view _path) override;
 
+        void ReleaseResource(Resources::ResourceEntry* _entry) override;
+
         [[nodiscard]] AllocatorInstance GetAllocator() const override { return m_allocator; }
 
         SystemFont& GetSystemFont() { return m_systemFont; }

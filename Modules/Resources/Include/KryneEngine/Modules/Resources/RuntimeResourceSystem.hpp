@@ -51,7 +51,22 @@ namespace KryneEngine::Modules::Resources
             LoadResource(_name, _entry, static_cast<u64>(_loadFlags));
         }
 
+        /**
+         * @brief Requests a resource load, and acquires a reference to the resource entry.
+         *
+         * @note
+         * Load increments the entry ref count by one which the caller is responsible for.
+         */
         void LoadResource(const StringHash& _name, ResourceEntry* _entry, u64 _loadFlags = 0);
+
+        template <class Resource, class Enum>
+        ResourceEntry* UseOrLoadResource(const StringHash& _name, const Enum _loadFlags)
+        {
+            ResourceEntry* entry = GetResourceEntry<Resource>(_name);
+            if (!entry->TryUseResource())
+                LoadResource(_name, entry, _loadFlags);
+            return entry;
+        }
 
     private:
         AllocatorInstance m_allocator;

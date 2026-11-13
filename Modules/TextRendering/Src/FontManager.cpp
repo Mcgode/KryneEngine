@@ -179,6 +179,11 @@ namespace KryneEngine::Modules::TextRendering
         KE_ERROR("Failed to load font '%s'", _path.data());
     }
 
+    void FontManager::ReleaseResource(Resources::ResourceEntry* _entry)
+    {
+        _entry->ReleaseResource<Font>();
+    }
+
     Font* FontManager::GetFont(const u16 _fontId) const
     {
         return m_fonts[_fontId];
