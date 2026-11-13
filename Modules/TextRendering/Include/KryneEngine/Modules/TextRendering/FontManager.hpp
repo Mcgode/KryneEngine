@@ -36,7 +36,7 @@ namespace KryneEngine::Modules::TextRendering
 
         void ReportFailedLoad(Resources::ResourceEntry* _entry, eastl::string_view _path) override;
 
-        void ReleaseResource(Resources::ResourceEntry* _entry) override;
+        void ReleaseResource(Resources::ResourceEntry* _entry) const override;
 
         [[nodiscard]] AllocatorInstance GetAllocator() const override { return m_allocator; }
 

@@ -207,7 +207,7 @@ namespace KryneEngine::Tests::Modules::Resources
                 return std::count_if(m_loads.begin(), m_loads.end(), [&](const Event& _e) { return _e.m_entry == _entry; });
             }
 
-            void ReleaseResource(ResourceEntry* _entry) override
+            void ReleaseResource(ResourceEntry* _entry) const override
             {
                 _entry->ReleaseResource<DummyResource>();
             }
