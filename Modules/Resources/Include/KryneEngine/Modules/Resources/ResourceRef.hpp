@@ -6,7 +6,10 @@
 
 #pragma once
 
-#include "KryneEngine/Modules/Resources/ResourceEntry.hpp"
+#include <KryneEngine/Core/Common/Assert.hpp>
+#include <KryneEngine/Modules/Resources/ResourceEntry.hpp>
+
+#include "IResourceManager.hpp"
 
 namespace KryneEngine::Modules::Resources
 {
@@ -28,7 +31,7 @@ namespace KryneEngine::Modules::Resources
         ~ResourceRef()
         {
             if (m_entry != nullptr)
-                m_entry->ReleaseResource<Resource>();
+                m_entry->m_manager->ReleaseResource(m_entry);
         }
 
         ResourceRef(const ResourceRef& _other)
@@ -41,7 +44,7 @@ namespace KryneEngine::Modules::Resources
             {
                 if (m_entry != nullptr)
                 {
-                    m_entry->ReleaseResource<Resource>();
+                    m_entry->m_manager->ReleaseResource(m_entry);
                     m_entry = nullptr;
                     m_cachedResource = nullptr;
                 }
@@ -68,7 +71,7 @@ namespace KryneEngine::Modules::Resources
             if (this != &_other)
             {
                 if (m_entry != nullptr)
-                    m_entry->ReleaseResource<Resource>();
+                    m_entry->m_manager->ReleaseResource(m_entry);
                 m_entry = _other.m_entry;
                 m_cachedResource = _other.m_cachedResource;
                 _other.m_entry = nullptr;

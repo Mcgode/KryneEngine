@@ -207,9 +207,14 @@ namespace KryneEngine::Tests::Modules::Resources
                 return std::count_if(m_loads.begin(), m_loads.end(), [&](const Event& _e) { return _e.m_entry == _entry; });
             }
 
-            void ReleaseResource(ResourceEntry* _entry) const override
+            void ReleaseResource(ResourceEntry* _entry) override
             {
-                _entry->ReleaseResource<DummyResource>();
+                const EntryRelease release = UnrefResource(_entry);
+                if (release.m_resourceToDelete != nullptr)
+                {
+                    auto* resource = static_cast<DummyResource*>(release.m_resourceToDelete);
+                    resource->m_allocator.Delete(resource);
+                }
             }
 
         private:
@@ -298,8 +303,8 @@ namespace KryneEngine::Tests::Modules::Resources
                 const Flags _loadFlags)
             {
                 // Only written by the first request of an entry, before the loader knows about it.
-                if (_entry.m_typeId == 0)
-                    _entry.m_typeId = DummyResource::kTypeId;
+                if (_entry.m_manager == nullptr)
+                    _entry.m_manager = &m_manager;
                 _entry.m_refCount.fetch_add(2, std::memory_order::release);
                 _loader.RequestLoad(_path, &_entry, &m_manager, static_cast<u64>(_loadFlags));
             }

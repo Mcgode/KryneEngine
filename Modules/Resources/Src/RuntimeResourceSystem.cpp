@@ -14,9 +14,9 @@
 
 namespace KryneEngine::Modules::Resources
 {
-    RuntimeResourceSystem::RuntimeResourceSystem(AllocatorInstance _allocator, IResourceLoader* _loader)
+    RuntimeResourceSystem::RuntimeResourceSystem(const AllocatorInstance _allocator, IResourceLoader* _resourceLoader)
         : m_allocator(_allocator)
-        , m_resourceLoader(_loader)
+        , m_resourceLoader(_resourceLoader)
         , m_resourceManagers(_allocator)
         , m_resourceEntriesMap(_allocator)
         , m_resourceEntries(_allocator)
@@ -24,20 +24,23 @@ namespace KryneEngine::Modules::Resources
 
     RuntimeResourceSystem::~RuntimeResourceSystem() = default;
 
-    ResourceEntry* RuntimeResourceSystem::GetResourceEntry(const StringHash& _name, u64 _typeId)
+    ResourceEntry* RuntimeResourceSystem::GetResourceEntry(const StringHash& _name, const u64 _typeId)
     {
+        IResourceManager* manager = GetResourceManager(_typeId);
+        VERIFY_OR_RETURN(manager != nullptr, nullptr);
+
         {
             const auto lock = m_resourceEntriesLock.AutoReadLock();
             const auto it = m_resourceEntriesMap.find(_name);
             if (it != m_resourceEntriesMap.end())
             {
-                KE_ASSERT(it->second->m_typeId == _typeId);
+                KE_ASSERT(it->second->m_manager == manager);
                 return it->second;
             }
         }
         const auto lock = m_resourceEntriesLock.AutoWriteLock();
         ResourceEntry& entry = m_resourceEntries.EmplaceBack();
-        entry.m_typeId = _typeId;
+        entry.m_manager = manager;
         m_resourceEntriesMap.emplace(_name, &entry);
         return &entry;
     }
@@ -89,13 +92,7 @@ namespace KryneEngine::Modules::Resources
             return;
         }
 
-        IResourceManager* manager = nullptr;
-        {
-            const auto lock = m_resourceManagersLock.AutoReadLock();
-            const auto it = m_resourceManagers.find(_entry->m_typeId);
-            VERIFY_OR_RETURN_VOID(it != m_resourceManagers.end());
-            manager = it->second;
-        }
+        IResourceManager* manager = _entry->m_manager;
         m_resourceLoader->RequestLoad(_name, _entry, manager, _loadFlags);
     }
 } // namespace KryneEngine::Modules::Resources

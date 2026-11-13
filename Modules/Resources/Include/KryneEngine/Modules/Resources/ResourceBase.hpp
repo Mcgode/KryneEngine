@@ -21,6 +21,8 @@ namespace KryneEngine::Modules::Resources
         friend ResourceManager;
 
     public:
+        using ResourceManagerType = ResourceManager;
+
         [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
 
         [[nodiscard]] ResourceManager* GetResourceManager() const { return m_resourceManager; }

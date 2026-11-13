@@ -11,6 +11,9 @@
 #include <KryneEngine/Modules/FileSystem/ReadOnlyFile.hpp>
 
 #define ZSTD_STATIC_LINKING_ONLY
+#include "KryneEngine/Modules/Resources/ResourceEntry.hpp"
+
+
 #include <zstd.h>
 
 namespace KryneEngine::Modules::Resources
@@ -60,4 +63,34 @@ namespace KryneEngine::Modules::Resources
 
         return { data, size };
     }
-}
+
+    IResourceManager::EntryRelease::~EntryRelease()
+    {
+        if (m_entry != nullptr)
+        {
+            m_entry->m_refCount.store(0, std::memory_order::release);
+        }
+    }
+
+    IResourceManager::EntryRelease IResourceManager::UnrefResource(ResourceEntry* _entry)
+    {
+        s64 current = _entry->m_refCount.load(std::memory_order::acquire);
+        s64 next;
+        do
+        {
+            KE_ASSERT_MSG(current > 0, "More releases than uses");
+            next = current == 1 ? ResourceEntry::kUnloading : current - 1;
+        }
+        while (!_entry->m_refCount.compare_exchange_weak(
+            current,
+            next,
+            std::memory_order::acq_rel,
+            std::memory_order::relaxed));
+
+        if (next == ResourceEntry::kUnloading)
+        {
+            return { _entry, _entry->m_resource.exchange(nullptr, std::memory_order::acq_rel) };
+        }
+        return {};
+    }
+} // namespace KryneEngine::Modules::Resources
