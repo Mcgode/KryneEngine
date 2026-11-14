@@ -8,7 +8,6 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SHADER_LIST_PARSER = PROJECT_ROOT / "CMake" / "ShaderListParser.py"
-SHADER_BUILD_COMMAND = PROJECT_ROOT / "CMake" / "ShaderBuildCommand.py"
 SHADER_EMBED_GENERATOR = PROJECT_ROOT / "CMake" / "ShaderEmbedGenerator.py"
 
 
@@ -28,8 +27,6 @@ class ShaderListParserTests(unittest.TestCase):
                 }],
             }))
 
-            dxc_path = working_dir / "dxc"
-            dxc_path.touch()
             slangc_path = working_dir / "slangc"
             slangc_path.touch()
 
@@ -41,9 +38,9 @@ class ShaderListParserTests(unittest.TestCase):
                 str(working_dir / "output"),
                 shader_format,
                 str(output_file),
-                f"dxc={dxc_path}%%slangc={slangc_path}",
+                str(slangc_path),
+                str(working_dir / "dxc"),
                 str(shaders_dir),
-                str(SHADER_BUILD_COMMAND),
                 "None",
                 "0",
                 str(SHADER_EMBED_GENERATOR),
@@ -71,11 +68,13 @@ class ShaderListParserTests(unittest.TestCase):
 
         self.assertIn("-fvk-use-entrypoint-name", ninja_file)
         self.assertIn("profile_args = -profile spirv_1_0 -stage vertex", ninja_file)
+        self.assertNotIn("-dxc-path", ninja_file)
 
     def test_non_spirv_target_does_not_get_spirv_flags(self):
-        ninja_file = self.generate_ninja_file("dxil", False)
+        ninja_file = self.generate_ninja_file("cso", False)
 
         self.assertIn("-target dxil ", ninja_file)
+        self.assertIn('-dxc-path "dxc"', ninja_file)
         self.assertIn("profile_args = -profile vs_6_0", ninja_file)
         self.assertNotIn("-O0", ninja_file)
         self.assertNotIn("-O2", ninja_file)
