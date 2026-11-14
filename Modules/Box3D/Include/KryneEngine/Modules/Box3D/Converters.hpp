@@ -47,4 +47,15 @@ namespace KryneEngine::Modules::Box3D
             .z = _float3.z
         };
     }
+
+    KE_FORCEINLINE b3Quat ToB3Quat(const Math::Quaternion& _quaternion)
+    {
+        return {
+            .v = {
+                .x = _quaternion.x,
+                .y = _quaternion.y,
+                .z = _quaternion.z},
+            .s = _quaternion.w
+        };
+    }
 }
