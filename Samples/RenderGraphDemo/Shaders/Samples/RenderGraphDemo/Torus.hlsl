@@ -7,12 +7,16 @@
 #include "Platform.hlsl"
 #include "FrameData.hlsl"
 
-vkBinding(0, 0) ConstantBuffer<FrameData> frameData;
+struct Parameters
+{
+    [[vk::binding(0, 0)]] ConstantBuffer<FrameData> frameData;
+};
+[[vk::binding(0, 0)]] ParameterBlock<Parameters> parameters: register(space0);
 
 struct VsInput
 {
-    vkLocation(0) float3 position: POSITION0;
-    vkLocation(1) float3 normal: NORMAL0;
+    [[vk::location(0)]] float3 position: POSITION0;
+    [[vk::location(1)]] float3 normal: NORMAL0;
 };
 
 struct VsOutput
@@ -25,9 +29,9 @@ VsOutput MainVs(const VsInput _input)
 {
     VsOutput output;
 
-    output.normal = mul(float4(_input.normal, 0.f), frameData.m_torusWorldMatrix).xyz;
+    output.normal = mul(float4(_input.normal, 0.f), parameters.frameData.m_torusWorldMatrix).xyz;
 
-    output.position = mul(mul(float4(_input.position, 1.f), frameData.m_torusWorldMatrix), frameData.m_viewProjectionMatrix);
+    output.position = mul(mul(float4(_input.position, 1.f), parameters.frameData.m_torusWorldMatrix), parameters.frameData.m_viewProjectionMatrix);
 
     return output;
 }
@@ -46,8 +50,8 @@ FsOutput MainFs(FsInput _input)
 {
     FsOutput output;
 
-    output.gBuffer0 = float4(frameData.m_torusAlbedo, frameData.m_torusRoughness);
-    output.gBuffer1 = float4(normalize(_input.normal) * 0.5f + 0.5f, frameData.m_torusMetalness);
+    output.gBuffer0 = float4(parameters.frameData.m_torusAlbedo.xyz, parameters.frameData.m_torusRoughness);
+    output.gBuffer1 = float4(normalize(_input.normal) * 0.5f + 0.5f, parameters.frameData.m_torusMetalness);
 
     return output;
 }

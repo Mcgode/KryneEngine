@@ -23,6 +23,7 @@
 #include <KryneEngine/Modules/Resources/IResourceManager.hpp>
 #include <KryneEngine/Modules/Resources/Loaders/AsyncResourceLoader.hpp>
 #include <KryneEngine/Modules/Resources/ResourceEntry.hpp>
+#include <KryneEngine/Modules/Resources/ResourceTypeId.hpp>
 
 #include "Utils/AssertUtils.hpp"
 
@@ -94,6 +95,14 @@ namespace KryneEngine::Tests::Modules::Resources
                 : _desired;
         }
 
+        /// Never instantiated: the test manager publishes no resource, this only gives the entries a type to release.
+        struct DummyResource
+        {
+            static constexpr ResourceTypeId kTypeId = GenerateResourceTypeId("Tests::DummyResource");
+
+            AllocatorInstance m_allocator;
+        };
+
         /**
          * Records every call from the loader. Loads of the blocked entry wait in `LoadResource()` (on the IO thread)
          * until allowed, so tests can control what the IO thread is doing.
@@ -130,7 +139,8 @@ namespace KryneEngine::Tests::Modules::Resources
             void FinalizeResourceLoading(
                 ResourceEntry* _entry,
                 const eastl::span<std::byte> _loadedResourceData,
-                const eastl::string_view _path) override
+                const eastl::string_view _path,
+                const u64 /* _childrenResourcesLoadFlags */) override
             {
                 const std::string content(reinterpret_cast<const char*>(_loadedResourceData.data()), _loadedResourceData.size());
                 GetAllocator().deallocate(_loadedResourceData.data(), _loadedResourceData.size());
@@ -198,6 +208,16 @@ namespace KryneEngine::Tests::Modules::Resources
                 return std::count_if(m_loads.begin(), m_loads.end(), [&](const Event& _e) { return _e.m_entry == _entry; });
             }
 
+            void ReleaseResource(ResourceEntry* _entry) override
+            {
+                const EntryRelease release = UnrefResource(_entry);
+                if (release.m_resourceToDelete != nullptr)
+                {
+                    auto* resource = static_cast<DummyResource*>(release.m_resourceToDelete);
+                    resource->m_allocator.Delete(resource);
+                }
+            }
+
         private:
             mutable std::mutex m_mutex;
             std::condition_variable m_condition;
@@ -214,6 +234,19 @@ namespace KryneEngine::Tests::Modules::Resources
         {
             const auto deadline = std::chrono::steady_clock::now() + kTimeout;
             while (_loader.GetLoadingScreenProgress() != _expected)
+            {
+                if (std::chrono::steady_clock::now() > deadline)
+                    return false;
+                std::this_thread::sleep_for(1ms);
+            }
+            return true;
+        }
+
+        /// The loader releases its reference after the last call to the manager, so the count is polled.
+        bool WaitForRefCount(const ResourceEntry& _entry, const s64 _expected)
+        {
+            const auto deadline = std::chrono::steady_clock::now() + kTimeout;
+            while (_entry.m_refCount.load(std::memory_order::acquire) != _expected)
             {
                 if (std::chrono::steady_clock::now() > deadline)
                     return false;
@@ -259,6 +292,24 @@ namespace KryneEngine::Tests::Modules::Resources
                 return StringHash((m_directory / _name).string().c_str());
             }
 
+            /**
+             * Requests a load the way `RuntimeResourceSystem::LoadResource()` does: with one reference for the
+             * caller, which the tests keep, and one for the loader, which it must release once the request is done.
+             */
+            template <class Flags>
+            void RequestLoad(
+                AsyncResourceLoader& _loader,
+                const StringHash& _path,
+                ResourceEntry& _entry,
+                const Flags _loadFlags)
+            {
+                // Only written by the first request of an entry, before the loader knows about it.
+                if (_entry.m_manager == nullptr)
+                    _entry.m_manager = &m_manager;
+                _entry.m_refCount.fetch_add(2, std::memory_order::release);
+                _loader.RequestLoad(_path, &_entry, &m_manager, static_cast<u64>(_loadFlags));
+            }
+
             ScopedAssertCatcher m_catcher;
             FibersManager m_fibersManager;
             FibersManager* m_previousFibersManager = nullptr;
@@ -282,7 +333,7 @@ namespace KryneEngine::Tests::Modules::Resources
         // -----------------------------------------------------------------------
 
         AsyncResourceLoader loader(AllocatorInstance(), &m_fileSystem, 1, kDesc);
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::Normal);
+        RequestLoad(loader, path, entry, TestLoadFlags::Normal);
 
         // -----------------------------------------------------------------------
         // Verify
@@ -306,6 +357,9 @@ namespace KryneEngine::Tests::Modules::Resources
 
         // Not a loading screen request
         EXPECT_EQ(loader.GetLoadingScreenProgress(), (eastl::pair<u32, u32>(0, 0)));
+
+        // The loader released its reference, only the caller's is left
+        EXPECT_TRUE(WaitForRefCount(entry, 1));
     }
 
     TEST_F(AsyncResourceLoaderTest, BlockingLoad)
@@ -322,7 +376,7 @@ namespace KryneEngine::Tests::Modules::Resources
         // -----------------------------------------------------------------------
 
         AsyncResourceLoader loader(AllocatorInstance(), &m_fileSystem, 1, kDesc);
-        loader.RequestLoad(path, &entry, &m_manager, AsyncResourceLoader::kBlockingPriority);
+        RequestLoad(loader, path, entry, AsyncResourceLoader::kBlockingPriority);
 
         // -----------------------------------------------------------------------
         // Verify
@@ -338,9 +392,13 @@ namespace KryneEngine::Tests::Modules::Resources
         EXPECT_EQ(finalized[0].m_entry, &entry);
         EXPECT_EQ(finalized[0].m_content, "blocking content");
 
+        // The loader reference is released before returning too
+        EXPECT_EQ(entry.m_refCount.load(), 1);
+
         // The request is done, so a new one loads the file again
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::Blocking);
+        RequestLoad(loader, path, entry, TestLoadFlags::Blocking);
         EXPECT_EQ(m_manager.GetFinalized().size(), 2);
+        EXPECT_EQ(entry.m_refCount.load(), 2);
     }
 
     TEST_F(AsyncResourceLoaderTest, MissingFile)
@@ -359,8 +417,8 @@ namespace KryneEngine::Tests::Modules::Resources
         // -----------------------------------------------------------------------
 
         AsyncResourceLoader loader(AllocatorInstance(), &m_fileSystem, 1, kDesc);
-        loader.RequestLoad(blockingPath, &blockingEntry, &m_manager, TestLoadFlags::Blocking);
-        loader.RequestLoad(asyncPath, &asyncEntry, &m_manager, TestLoadFlags::LoadingScreen);
+        RequestLoad(loader, blockingPath, blockingEntry, TestLoadFlags::Blocking);
+        RequestLoad(loader, asyncPath, asyncEntry, TestLoadFlags::LoadingScreen);
 
         // -----------------------------------------------------------------------
         // Verify
@@ -378,6 +436,10 @@ namespace KryneEngine::Tests::Modules::Resources
 
         // A failed load still counts as done for the loading screen
         EXPECT_TRUE(WaitForProgress(loader, { 1, 0 }));
+
+        // A failed load releases the loader reference as well
+        EXPECT_EQ(blockingEntry.m_refCount.load(), 1);
+        EXPECT_TRUE(WaitForRefCount(asyncEntry, 1));
     }
 
     TEST_F(AsyncResourceLoaderTest, PriorityOrder)
@@ -399,18 +461,18 @@ namespace KryneEngine::Tests::Modules::Resources
 
         // Keep the only IO thread busy, so that the requests below are all queued before any of them is served
         m_manager.Block(&blocker);
-        loader.RequestLoad(blockerPath, &blocker, &m_manager, TestLoadFlags::Low);
+        RequestLoad(loader, blockerPath, blocker, TestLoadFlags::Low);
         ASSERT_TRUE(m_manager.WaitForBlockedLoad());
 
         // -----------------------------------------------------------------------
         // Execute
         // -----------------------------------------------------------------------
 
-        loader.RequestLoad(lowPath, &low, &m_manager, TestLoadFlags::Low);
-        loader.RequestLoad(normalPath, &normal, &m_manager, TestLoadFlags::Normal);
-        loader.RequestLoad(highPath, &high, &m_manager, TestLoadFlags::High);
-        loader.RequestLoad(loadingScreenPath, &loadingScreen, &m_manager, TestLoadFlags::LoadingScreen);
-        loader.RequestLoad(highestPath, &highest, &m_manager, static_cast<u64>(TestLoadFlags::Highest));
+        RequestLoad(loader, lowPath, low, TestLoadFlags::Low);
+        RequestLoad(loader, normalPath, normal, TestLoadFlags::Normal);
+        RequestLoad(loader, highPath, high, TestLoadFlags::High);
+        RequestLoad(loader, loadingScreenPath, loadingScreen, TestLoadFlags::LoadingScreen);
+        RequestLoad(loader, highestPath, highest, static_cast<u64>(TestLoadFlags::Highest));
         m_manager.Unblock();
 
         // -----------------------------------------------------------------------
@@ -444,22 +506,22 @@ namespace KryneEngine::Tests::Modules::Resources
         AsyncResourceLoader loader(AllocatorInstance(), &m_fileSystem, 1, kDesc);
 
         m_manager.Block(&blocker);
-        loader.RequestLoad(blockerPath, &blocker, &m_manager, TestLoadFlags::Low);
+        RequestLoad(loader, blockerPath, blocker, TestLoadFlags::Low);
         ASSERT_TRUE(m_manager.WaitForBlockedLoad());
 
         // -----------------------------------------------------------------------
         // Execute
         // -----------------------------------------------------------------------
 
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::Normal);
+        RequestLoad(loader, path, entry, TestLoadFlags::Normal);
         // Same priority: ignored
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::Normal);
+        RequestLoad(loader, path, entry, TestLoadFlags::Normal);
         // Higher priority: replaces the pending request
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::High);
+        RequestLoad(loader, path, entry, TestLoadFlags::High);
         // Lower priority than the pending request: ignored
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::Normal);
+        RequestLoad(loader, path, entry, TestLoadFlags::Normal);
         // Forced reload: replaces the pending request, even with a lower priority
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::Low | TestLoadFlags::ForceReload);
+        RequestLoad(loader, path, entry, TestLoadFlags::Low | TestLoadFlags::ForceReload);
 
         m_manager.Unblock();
 
@@ -473,9 +535,14 @@ namespace KryneEngine::Tests::Modules::Resources
         EXPECT_EQ(m_manager.CountLoads(&entry), 1);
 
         // Nothing is pending anymore, so a new request loads the file again
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::Normal);
+        RequestLoad(loader, path, entry, TestLoadFlags::Normal);
         ASSERT_TRUE(m_manager.WaitForFinalized(3));
         EXPECT_EQ(m_manager.CountLoads(&entry), 2);
+
+        // Ignored, canceled and served requests all released their loader reference: one caller reference is left
+        // per request.
+        EXPECT_TRUE(WaitForRefCount(entry, 6));
+        EXPECT_TRUE(WaitForRefCount(blocker, 1));
     }
 
     // Regression test: replacing a pending request used to leave the entry mapped to the canceled request. Finishing
@@ -500,9 +567,9 @@ namespace KryneEngine::Tests::Modules::Resources
         // -----------------------------------------------------------------------
 
         // The first request is being loaded when the forced reload replaces it
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::LoadingScreen);
+        RequestLoad(loader, path, entry, TestLoadFlags::LoadingScreen);
         ASSERT_TRUE(m_manager.WaitForBlockedLoad());
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::LoadingScreen | TestLoadFlags::ForceReload);
+        RequestLoad(loader, path, entry, TestLoadFlags::LoadingScreen | TestLoadFlags::ForceReload);
         EXPECT_EQ(loader.GetLoadingScreenProgress(), (eastl::pair<u32, u32>(0, 2)));
 
         // Let the first request finish, while the forced reload waits on the IO thread
@@ -510,14 +577,14 @@ namespace KryneEngine::Tests::Modules::Resources
         ASSERT_TRUE(WaitForProgress(loader, { 1, 1 }));
 
         // The forced reload is still pending with a higher priority, so this request must be ignored
-        loader.RequestLoad(path, &entry, &m_manager, TestLoadFlags::Normal);
+        RequestLoad(loader, path, entry, TestLoadFlags::Normal);
 
         m_manager.Unblock();
         ASSERT_TRUE(WaitForProgress(loader, { 2, 0 }));
 
         // Requests are served by priority on the single IO thread, so a duplicated request would be loaded before
         // the sentinel.
-        loader.RequestLoad(sentinelPath, &sentinel, &m_manager, TestLoadFlags::Low);
+        RequestLoad(loader, sentinelPath, sentinel, TestLoadFlags::Low);
         ASSERT_TRUE(m_manager.WaitForFinalized(3));
 
         // -----------------------------------------------------------------------
@@ -526,6 +593,8 @@ namespace KryneEngine::Tests::Modules::Resources
 
         EXPECT_EQ(m_manager.CountLoads(&entry), 2);
         EXPECT_EQ(m_manager.GetFinalized().size(), 3);
+        EXPECT_TRUE(WaitForRefCount(entry, 3));
+        EXPECT_TRUE(WaitForRefCount(sentinel, 1));
     }
 
     TEST_F(AsyncResourceLoaderTest, LoadingScreenProgress)
@@ -553,8 +622,8 @@ namespace KryneEngine::Tests::Modules::Resources
 
         m_manager.Block(&entries[0]);
         for (u32 i = 0; i < 3; ++i)
-            loader.RequestLoad(paths[i], &entries[i], &m_manager, TestLoadFlags::LoadingScreen);
-        loader.RequestLoad(otherPath, &other, &m_manager, TestLoadFlags::Highest);
+            RequestLoad(loader, paths[i], entries[i], TestLoadFlags::LoadingScreen);
+        RequestLoad(loader, otherPath, other, TestLoadFlags::Highest);
         ASSERT_TRUE(m_manager.WaitForBlockedLoad());
 
         // -----------------------------------------------------------------------
@@ -595,7 +664,7 @@ namespace KryneEngine::Tests::Modules::Resources
 
         AsyncResourceLoader loader(AllocatorInstance(), &m_fileSystem, 4, kDesc);
         for (u32 i = 0; i < kFileCount; ++i)
-            loader.RequestLoad(paths[i], &entries[i], &m_manager, TestLoadFlags::LoadingScreen);
+            RequestLoad(loader, paths[i], entries[i], TestLoadFlags::LoadingScreen);
 
         // -----------------------------------------------------------------------
         // Verify
@@ -640,11 +709,11 @@ namespace KryneEngine::Tests::Modules::Resources
             AsyncResourceLoader loader(AllocatorInstance(&allocator), &m_fileSystem, 1, kDesc);
 
             m_manager.Block(&blocker);
-            loader.RequestLoad(blockerPath, &blocker, &m_manager, TestLoadFlags::Highest);
+            RequestLoad(loader, blockerPath, blocker, TestLoadFlags::Highest);
             ASSERT_TRUE(m_manager.WaitForBlockedLoad());
 
             for (u32 i = 0; i < kFileCount; ++i)
-                loader.RequestLoad(paths[i], &entries[i], &m_manager, TestLoadFlags::Low);
+                RequestLoad(loader, paths[i], entries[i], TestLoadFlags::Low);
 
             // Some of the queued requests may be served before the loader stops, the others are dropped
             m_manager.Unblock();
@@ -661,5 +730,10 @@ namespace KryneEngine::Tests::Modules::Resources
         EXPECT_EQ(m_manager.GetLoads().size(), finalizedCount);
         EXPECT_TRUE(m_manager.GetFailed().empty());
         EXPECT_EQ(allocator.m_liveAllocations, baseLiveAllocations);
+
+        // Served or dropped, every request released its loader reference
+        EXPECT_EQ(blocker.m_refCount.load(), 1);
+        for (const ResourceEntry& entry: entries)
+            EXPECT_EQ(entry.m_refCount.load(), 1);
     }
 }

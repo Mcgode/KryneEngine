@@ -83,12 +83,8 @@ namespace KryneEngine
     private:
         struct PushConstantData
         {
-            struct VisibilityData
-            {
-                ShaderVisibility m_visibility;
-                u8 m_bufferIndex;
-            };
-            eastl::fixed_vector<VisibilityData, 1> m_data;
+            ShaderVisibility m_visibility;
+            u8 m_bufferIndex;
         };
 
         struct PipelineLayoutHotData

@@ -31,11 +31,6 @@ namespace KryneEngine::Modules::TextRendering
 
     FontManager::~FontManager()
     {
-        for (Font* font : m_fonts)
-        {
-            font->~Font();
-            m_allocator.deallocate(font);
-        }
         m_fonts.clear();
 
         const FT_Error error = FT_Done_FreeType(m_ftLibrary);
@@ -71,7 +66,8 @@ namespace KryneEngine::Modules::TextRendering
     void FontManager::FinalizeResourceLoading(
         Resources::ResourceEntry* _entry,
         const eastl::span<std::byte> _loadedResourceData,
-        const eastl::string_view _path)
+        const eastl::string_view _path,
+        const u64 /* _childrenResourcesLoadFlags */)
     {
         static_assert(offsetof(PreBakedFontFile, m_header) == 0, "The header field must be at the beginning of the class for type check");
 
@@ -167,9 +163,11 @@ namespace KryneEngine::Modules::TextRendering
         }
 
         newFont->m_fontId = m_fonts.size();
-        m_fonts.push_back(newFont);
+        m_fonts.emplace_back(_entry);
 
         _entry->m_resource.store(newFont, std::memory_order_release);
+        m_fonts.back().FetchResource(true);
+        KE_ASSERT(m_fonts.back().GetCachedResource() == newFont);
         size_t expected = plannedVersion - 1;
         KE_VERIFY(_entry->m_version.compare_exchange_strong(expected, plannedVersion, std::memory_order::acq_rel));
     }
@@ -179,8 +177,18 @@ namespace KryneEngine::Modules::TextRendering
         KE_ERROR("Failed to load font '%s'", _path.data());
     }
 
+    void FontManager::ReleaseResource(Resources::ResourceEntry* _entry)
+    {
+        const EntryRelease release = UnrefResource(_entry);
+        if (release.m_resourceToDelete != nullptr)
+        {
+            auto* font = static_cast<Font*>(release.m_resourceToDelete);
+            m_allocator.Delete(font);
+        }
+    }
+
     Font* FontManager::GetFont(const u16 _fontId) const
     {
-        return m_fonts[_fontId];
+        return m_fonts[_fontId].GetCachedResource();
     }
 } // namespace KryneEngine::Modules::TextRendering

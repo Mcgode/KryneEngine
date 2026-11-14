@@ -2,19 +2,19 @@
 
 struct IaToVs
 {
-    vkLocation(0) float3 m_position: POSITION0;
-    vkLocation(1) float3 m_color: COLOR0;
+    [[vk::location(0)]] float3 m_position: POSITION0;
+    [[vk::location(1)]] float3 m_color: COLOR0;
 };
 
 struct VsToPs
 {
-    vkLocation(0) float4 m_color: COLOR0;
+    [[vk::location(0)]] float4 m_color: COLOR0;
     float4 m_position: SV_POSITION;
 };
 
 struct PsToOm
 {
-    vkLocation(0) float4 m_color: SV_TARGET0;
+    [[vk::location(0)]] float4 m_color: SV_TARGET0;
 };
 
 VsToPs MainVS(IaToVs _input)

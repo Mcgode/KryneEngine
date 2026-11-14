@@ -8,7 +8,7 @@
 
 struct VsInput
 {
-    uint vertexIndex : SV_VertexID;
+    uint vertexIndex : SV_VulkanVertexID;
 };
 
 struct VsOutput
@@ -21,8 +21,7 @@ struct Parameters
     float m_depth;
 };
 
-vkPushConstant
-ConstantBuffer<Parameters> parameters: register(b0, space3);
+[[vk::push_constant]] ConstantBuffer<Parameters> parameters: KE_PUSH_CONSTANT(3);
 
 VsOutput FullScreenMain(VsInput input)
 {

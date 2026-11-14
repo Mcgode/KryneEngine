@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "KryneEngine/Modules/Resources/ResourceRef.hpp"
+
+
 #include <EASTL/string_view.h>
 #include <EASTL/vector.h>
 #include <KryneEngine/Core/Common/Types.hpp>
@@ -32,9 +35,12 @@ namespace KryneEngine::Modules::TextRendering
         void FinalizeResourceLoading(
             Resources::ResourceEntry* _entry,
             eastl::span<std::byte> _loadedResourceData,
-            eastl::string_view _path) override;
+            eastl::string_view _path,
+            u64 _childrenResourcesLoadFlags) override;
 
         void ReportFailedLoad(Resources::ResourceEntry* _entry, eastl::string_view _path) override;
+
+        void ReleaseResource(Resources::ResourceEntry* _entry) override;
 
         [[nodiscard]] AllocatorInstance GetAllocator() const override { return m_allocator; }
 
@@ -44,7 +50,7 @@ namespace KryneEngine::Modules::TextRendering
     private:
         AllocatorInstance m_allocator;
         SystemFont m_systemFont;
-        eastl::vector<Font*> m_fonts;
+        eastl::vector<Resources::ResourceRef<Font>> m_fonts;
         FT_LibraryRec_* m_ftLibrary {};
     };
 }

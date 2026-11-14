@@ -89,6 +89,10 @@ cmake --build build
 `GraphicsApi` defaults to `VK` (Vulkan) if not specified. Additional `KRYNE_ENGINE_*` CMake options let you toggle
 building modules, tools, samples, tests, and profiling/instrumentation — see [`CMakeLists.txt`](CMakeLists.txt).
 
+Vulkan shader compilation disables Slang's SPIR-V optimization by default. To enable optimized SPIR-V output,
+configure with `-DKRYNE_ENGINE_OPTIMIZE_SPIRV=ON`; the `slang-glslang` library it needs is bundled with Slang in
+`External/slang`.
+
 ### Run the tests
 
 ```bash

@@ -27,6 +27,8 @@ namespace KryneEngine::Modules::Resources
             IResourceManager* _resourceManager,
             u64 _loadFlags) override;
 
+        [[nodiscard]] bool AllowReload(const u64 /* _loadFlags */) override { return false; }
+
     private:
         eastl::vector_set<StringHash> m_pendingRequests;
         alignas(Threads::kCacheLineSize) SpinLock m_lock;

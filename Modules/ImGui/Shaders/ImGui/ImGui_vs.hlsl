@@ -6,20 +6,19 @@ struct PushConstants
     float2 translate;
 };
 
-vkPushConstant
-ConstantBuffer<PushConstants> pushConstants: register(b0, space2);
+[[vk::push_constant]] ConstantBuffer<PushConstants> pushConstants: KE_PUSH_CONSTANT(2);
 
 struct VsInput 
 {
-    vkLocation(0) float2 position: POSITION0;
-    vkLocation(1) float2 uv: TEXCOORD0;
-    vkLocation(2) float4 color: COLOR0;
+    [[vk::location(0)]] float2 position: POSITION0;
+    [[vk::location(1)]] float2 uv: TEXCOORD0;
+    [[vk::location(2)]] float4 color: COLOR0;
 };
 
 struct VsOutput
 {
-    vkLocation(0) float4 color: COLOR0;
-    vkLocation(1) float2 uv: TEXCOORD0;
+    [[vk::location(0)]] float4 color: COLOR0;
+    [[vk::location(1)]] float2 uv: TEXCOORD0;
     float4 position: SV_POSITION;
 };
 

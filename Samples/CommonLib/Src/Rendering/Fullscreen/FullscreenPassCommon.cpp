@@ -97,7 +97,7 @@ namespace KryneEngine::Samples::FullscreenPassCommon
         _graphicsContext->SetGraphicsPipeline(_renderEncoder, _pso);
         _graphicsContext->SetGraphicsDescriptorSets(_renderEncoder, _pipelineLayout, _descriptorSets);
 
-        _graphicsContext->SetGraphicsPushConstant(_renderEncoder, _pipelineLayout, {(u32*)(&_fullscreenDepth), 1}, 0, 0);
+        _graphicsContext->SetGraphicsPushConstant(_renderEncoder, _pipelineLayout, {reinterpret_cast<u32*>(&_fullscreenDepth), 1}, 0, 0);
 
         _graphicsContext->DrawInstanced(_renderEncoder, {.m_vertexCount = 3});
     }

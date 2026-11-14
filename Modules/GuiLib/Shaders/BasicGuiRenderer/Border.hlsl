@@ -18,7 +18,7 @@ struct VsOutput
     nointerpolation float2 rectHalfSize: POSITION1;
 };
 
-using FsInput = VsOutput;
+typedef VsOutput FsInput;
 
 [shader("vertex")]
 VsOutput BorderVs(VsInput _input)
@@ -36,10 +36,10 @@ VsOutput BorderVs(VsInput _input)
     const float2 baseVertexPos = vertices[_input.vertexId];
     const float2 relativePixelPosition = baseVertexPos * rectHalfSize;
     const float2 absolutePixelPosition = rectCenter + relativePixelPosition;
-    const float2 ndcPosition = UvToNdc(absolutePixelPosition / viewportConstants.viewportSize);
+    const float2 ndcPosition = UvToNdc(absolutePixelPosition / constantsBlock.viewportConstants.viewportSize);
 
     output.pixelPosition = relativePixelPosition;
-    output.position = mul(float4(ndcPosition, 0.f, 1.f), viewportConstants.ndcProjectionMatrix);
+    output.position = mul(float4(ndcPosition, 0.f, 1.f), constantsBlock.viewportConstants.ndcProjectionMatrix);
 
     return output;
 }
@@ -84,7 +84,7 @@ float4 BorderFs(FsInput _input): SV_TARGET0
     }
     d = abs(d + width.x * 0.5f) - width.x * 0.5f ;
 
-    const float2 dPixelPos = ddx(_input.pixelPosition);
+    const float2 dPixelPos = Ddx(_input.pixelPosition);
     const float scale = length(dPixelPos) * 0.5;
 
     const float4 color = SrgbToLinear(unpackUnorm4x8ToFloat(_input.backgroundColor));

@@ -10,12 +10,13 @@
 #include <KryneEngine/Core/Memory/Containers/StableVector.inl>
 
 #include "KryneEngine/Modules/Resources/IResourceLoader.hpp"
+#include "KryneEngine/Modules/Resources/IResourceManager.hpp"
 
 namespace KryneEngine::Modules::Resources
 {
-    RuntimeResourceSystem::RuntimeResourceSystem(AllocatorInstance _allocator, IResourceLoader* _loader)
+    RuntimeResourceSystem::RuntimeResourceSystem(const AllocatorInstance _allocator, IResourceLoader* _resourceLoader)
         : m_allocator(_allocator)
-        , m_resourceLoader(_loader)
+        , m_resourceLoader(_resourceLoader)
         , m_resourceManagers(_allocator)
         , m_resourceEntriesMap(_allocator)
         , m_resourceEntries(_allocator)
@@ -23,20 +24,23 @@ namespace KryneEngine::Modules::Resources
 
     RuntimeResourceSystem::~RuntimeResourceSystem() = default;
 
-    ResourceEntry* RuntimeResourceSystem::GetResourceEntry(const StringHash& _name, u64 _typeId)
+    ResourceEntry* RuntimeResourceSystem::GetResourceEntry(const StringHash& _name, const u64 _typeId)
     {
+        IResourceManager* manager = GetResourceManager(_typeId);
+        VERIFY_OR_RETURN(manager != nullptr, nullptr);
+
         {
             const auto lock = m_resourceEntriesLock.AutoReadLock();
             const auto it = m_resourceEntriesMap.find(_name);
             if (it != m_resourceEntriesMap.end())
             {
-                KE_ASSERT(it->second->m_typeId == _typeId);
+                KE_ASSERT(it->second->m_manager == manager);
                 return it->second;
             }
         }
         const auto lock = m_resourceEntriesLock.AutoWriteLock();
         ResourceEntry& entry = m_resourceEntries.EmplaceBack();
-        entry.m_typeId = _typeId;
+        entry.m_manager = manager;
         m_resourceEntriesMap.emplace(_name, &entry);
         return &entry;
     }
@@ -57,14 +61,38 @@ namespace KryneEngine::Modules::Resources
 
     void RuntimeResourceSystem::LoadResource(const StringHash& _name, ResourceEntry* _entry, const u64 _loadFlags)
     {
-        IResourceManager* manager = nullptr;
+        // Force increment to unlock the resource entry if it was at zero.
+        // The first ref is the caller's responsibility.
+        // The second ref is the resource loader's responsibility. It is added to avoid the resource being unloaded
+        // during loading.
+        s64 value = _entry->m_refCount.load(std::memory_order::relaxed);
+        for (;;)
         {
-            const auto lock = m_resourceManagersLock.AutoReadLock();
-            const auto it = m_resourceManagers.find(_entry->m_typeId);
-            if (it == m_resourceManagers.end())
-                return;
-            manager = it->second;
+            if (value == ResourceEntry::kUnloading)
+            {
+                Threads::CpuYield();
+                value = _entry->m_refCount.load(std::memory_order::relaxed);
+            }
+            else if (_entry->m_refCount.compare_exchange_weak(
+                value,
+                value + 2,
+                std::memory_order::release,
+                std::memory_order::relaxed))
+            {
+                break;
+            }
         }
+
+        // On rare occasions, two threads can call LoadResource at about the same time for an unloaded entry. To avoid
+        // unnecessary dual loads, we allow to abort early.
+        // This can also trigger on voluntary reloads, so we ask the resource loader if it is allowed to reload.
+        if (value != 0 && !m_resourceLoader->AllowReload(_loadFlags))
+        {
+            KE_VERIFY(_entry->m_refCount.fetch_sub(1, std::memory_order::acq_rel) > 1);
+            return;
+        }
+
+        IResourceManager* manager = _entry->m_manager;
         m_resourceLoader->RequestLoad(_name, _entry, manager, _loadFlags);
     }
 } // namespace KryneEngine::Modules::Resources

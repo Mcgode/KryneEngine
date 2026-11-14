@@ -29,6 +29,8 @@ namespace KryneEngine::Modules::Resources
             IResourceManager* _resourceManager,
             u64 _loadFlags) = 0;
 
+        [[nodiscard]] virtual bool AllowReload(u64 _loadFlags) = 0;
+
     protected:
         explicit IResourceLoader(FileSystem::VirtualFileSystem* _vfs): m_vfs(_vfs) {}
 

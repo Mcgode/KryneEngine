@@ -21,6 +21,8 @@ namespace KryneEngine::Modules::Resources
         friend ResourceManager;
 
     public:
+        using ResourceManagerType = ResourceManager;
+
         [[nodiscard]] AllocatorInstance GetAllocator() const { return m_allocator; }
 
         [[nodiscard]] ResourceManager* GetResourceManager() const { return m_resourceManager; }
@@ -38,32 +40,6 @@ namespace KryneEngine::Modules::Resources
             : m_allocator(_allocator)
             , m_resourceManager(_resourceManager)
             , m_version(_version)
-        {}
-    };
-
-    template <class ResourceManager>
-    class RefCountedResourceBase: public ResourceBase<ResourceManager>
-    {
-        friend ResourceManager;
-
-    public:
-        s32 m_refCount = 0;
-
-        ~RefCountedResourceBase() override
-        {
-            m_entry->m_resource.store(nullptr, std::memory_order::release);
-        }
-
-    protected:
-        ResourceEntry* m_entry;
-
-        RefCountedResourceBase(
-            AllocatorInstance _allocator,
-            ResourceManager* _resourceManager,
-            ResourceEntry* _entry,
-            size_t _version)
-                : ResourceBase<ResourceManager>(_allocator, _resourceManager, _version)
-                , m_entry(_entry)
         {}
     };
 }

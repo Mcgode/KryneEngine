@@ -10,23 +10,32 @@
 #include "FrameData.hlsl"
 #include "TorusKnotSDF.hlsl"
 
-vkBinding(0, 0) ConstantBuffer<FrameData> SceneConstants: register(b0, space0);
+struct Constants
+{
+    [[vk::binding(0)]] ConstantBuffer<FrameData> SceneConstants: register(b0);
+};
 
-vkBinding(0, 1) Texture2D<float> GBufferDepth: register(t0, space1);
-vkBinding(1, 1) RWTexture2D<float> DeferredShadows: register(u0, space1);
+struct Parameters
+{
+    [[vk::binding(0)]] Texture2D<float> GBufferDepth: register(t0);
+    [[vk::binding(1)]] RWTexture2D<unorm float> DeferredShadows: register(u0); // R8_UNorm
+};
+
+[[vk::binding(0, 0)]] ParameterBlock<Constants> constants: register(space0);
+[[vk::binding(0, 1)]] ParameterBlock<Parameters> parameters: register(space1);
 
 [numthreads(8, 8, 1)]
 void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 {
     const uint2 pixelCoordinates = id.xy;
-    const uint2 resolution = uint2(SceneConstants.m_fullscreen.m_screenResolution);
+    const uint2 resolution = uint2(constants.SceneConstants.m_fullscreen.m_screenResolution);
 
     if (any(pixelCoordinates >= resolution))
     {
         return;
     }
 
-    const float depthSs = GBufferDepth.Load(int3(pixelCoordinates, 0));
+    const float depthSs = parameters.GBufferDepth.Load(int3(pixelCoordinates, 0));
 
     if (depthSs == 0.f)
     {
@@ -37,19 +46,19 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
 
     const float aspect = float(resolution.x) / float(resolution.y);
     const float3 cameraV = float3(
-        ndc.x * aspect * SceneConstants.m_fullscreen.m_tanHalfFov,
+        ndc.x * aspect * constants.SceneConstants.m_fullscreen.m_tanHalfFov,
         1.0f,
-        ndc.y * SceneConstants.m_fullscreen.m_tanHalfFov
+        ndc.y * constants.SceneConstants.m_fullscreen.m_tanHalfFov
     );
 
-    const float depthV = SceneConstants.m_fullscreen.m_depthLinearizationConstants.x / (depthSs + SceneConstants.m_fullscreen.m_depthLinearizationConstants.y);
+    const float depthV = constants.SceneConstants.m_fullscreen.m_depthLinearizationConstants.x / (depthSs + constants.SceneConstants.m_fullscreen.m_depthLinearizationConstants.y);
     const float3 positionV = depthV * cameraV;
-    const float4 vsToWsQuaternion = Quaternion::Conjugate(SceneConstants.m_fullscreen.m_cameraQuaternion);
-    const float3 positionW = Quaternion::Apply(vsToWsQuaternion, positionV - SceneConstants.m_fullscreen.m_cameraTranslation);
-    const float3 directionW = -SceneConstants.m_fullscreen.m_sunLightDirection;
+    const float4 vsToWsQuaternion = Quaternion::Conjugate(constants.SceneConstants.m_fullscreen.m_cameraQuaternion);
+    const float3 positionW = Quaternion::Apply(vsToWsQuaternion, positionV - constants.SceneConstants.m_fullscreen.m_cameraTranslation.xyz);
+    const float3 directionW = -constants.SceneConstants.m_fullscreen.m_sunLightDirection;
 
-    const float3 positionM = mul(float4(positionW, 1.0f), SceneConstants.m_torusKnotInverseWorldMatrix).xyz;
-    const float3 directionM = normalize(mul(float4(directionW, 0.0f), SceneConstants.m_torusKnotInverseWorldMatrix).xyz);
+    const float3 positionM = mul(float4(positionW, 1.0f), constants.SceneConstants.m_torusKnotInverseWorldMatrix).xyz;
+    const float3 directionM = normalize(mul(float4(directionW, 0.0f), constants.SceneConstants.m_torusKnotInverseWorldMatrix).xyz);
 
     const float minDist = 0.05f;
     const float maxDist = 10.f;
@@ -63,10 +72,10 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
         const float3 position = positionM + t * directionM;
         const float distance = SdTorusKnot(
             position,
-            SceneConstants.m_torusKnotRadius,
-            SceneConstants.m_torusKnotTubeRadius,
-            SceneConstants.m_torusKnotP,
-            SceneConstants.m_torusKnotQ);
+            constants.SceneConstants.m_torusKnotRadius,
+            constants.SceneConstants.m_torusKnotTubeRadius,
+            constants.SceneConstants.m_torusKnotP,
+            constants.SceneConstants.m_torusKnotQ);
 
         if (distance <= 0.01f)
         {
@@ -77,5 +86,5 @@ void DeferredShadowsMain(const uint3 id: SV_DispatchThreadID)
         t += distance;
     }
 
-    DeferredShadows[pixelCoordinates] = shadow;
+    parameters.DeferredShadows[pixelCoordinates] = shadow;
 }

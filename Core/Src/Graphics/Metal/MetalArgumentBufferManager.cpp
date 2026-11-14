@@ -186,24 +186,12 @@ namespace KryneEngine
             ShaderVisibility::Task
         };
 
-        // Reproduce SpirV cross behaviour regarding push constant buffer index determination.
-        // If no descriptor set is included in shader, takes buffer index 0.
-        // If there's any set, will take the last set index, and add +1.
-        // Push constant buffer index can vary between stages.
         hot->m_pushConstantsData.set_overflow_allocator(GetAllocator());
-        for (auto pushConstantDesc : _desc.m_pushConstants)
+        for (const auto& pushConstantDesc : _desc.m_pushConstants)
         {
             auto& data = hot->m_pushConstantsData.emplace_back();
-            data.m_data.set_overflow_allocator(GetAllocator());
-            for (const ShaderVisibility visibility: testedVisibilities)
-            {
-                if (BitUtils::EnumHasAny(pushConstantDesc.m_visibility, visibility))
-                {
-                    data.m_data.push_back({
-                        .m_visibility = visibility,
-                    });
-                }
-            }
+            data.m_visibility = pushConstantDesc.m_visibility;
+            data.m_bufferIndex = pushConstantDesc.m_index;
         }
 
         hot->m_setVisibilities.set_overflow_allocator(GetAllocator());
@@ -212,23 +200,12 @@ namespace KryneEngine
             const auto& set = _desc.m_descriptorSets[i];
             const ShaderVisibility setVisibility = m_argumentDescriptors.GetCold(set.m_handle)->m_shaderVisibility;
             hot->m_setVisibilities.push_back(setVisibility);
-
-            for (auto& pcData: hot->m_pushConstantsData)
-            {
-                for (auto& visibilityData: pcData.m_data)
-                {
-                    if (BitUtils::EnumHasAny(setVisibility, visibilityData.m_visibility))
-                    {
-                        visibilityData.m_bufferIndex = i + 1;
-                    }
-                }
-            }
         }
 
         return { handle };
     }
 
-    bool MetalArgumentBufferManager::DestroyPipelineLayout(PipelineLayoutHandle _layout)
+    bool MetalArgumentBufferManager::DestroyPipelineLayout(const PipelineLayoutHandle _layout)
     {
         return m_pipelineLayouts.Free(_layout.m_handle);
     }

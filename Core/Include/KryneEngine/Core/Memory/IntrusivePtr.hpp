@@ -7,6 +7,7 @@
 #pragma once
 
 #include <atomic>
+#include <limits>
 
 #include "KryneEngine/Core/Common/Types.hpp"
 #include "KryneEngine/Core/Memory/Allocators/Allocator.hpp"
@@ -80,6 +81,15 @@ namespace KryneEngine
         T* m_ptr = nullptr;
     };
 
+    /**
+     * @brief Shared pointer using a reference count stored in the object itself (`m_refCount`).
+     *
+     * @details
+     * The object is deleted when its last reference is released. A count of 0 alone doesn't mean the object is
+     * released: a new object starts at 0 until its first reference. When the last reference goes, the count is moved
+     * from 0 to a released marker before deleting, so #TryAcquire can tell the two apart and never revives an object
+     * being deleted.
+     */
     template <class T> requires (IsAllocatorIntrusible<T> && IsRefCountIntrusible<T>) || IsIncomplete<T>
     class IntrusiveSharedPtr
     {
@@ -95,16 +105,74 @@ namespace KryneEngine
         IntrusiveSharedPtr& operator=(const IntrusiveSharedPtr& _other) { if (&_other != this) Reset(_other.m_ptr); return *this; }
 
         IntrusiveSharedPtr(IntrusiveSharedPtr&& _other) noexcept: m_ptr(_other.m_ptr) { _other.m_ptr = nullptr; }
-        IntrusiveSharedPtr& operator=(IntrusiveSharedPtr&& _other) noexcept { Reset(_other.m_ptr); _other.m_ptr = nullptr; return *this; }
+        // Takes over the reference of `_other`, without adding one.
+        IntrusiveSharedPtr& operator=(IntrusiveSharedPtr&& _other) noexcept
+        {
+            if (&_other != this)
+            {
+                Reset();
+                m_ptr = _other.m_ptr;
+                _other.m_ptr = nullptr;
+            }
+            return *this;
+        }
+
+        /**
+         * @brief Takes a reference on `_ptr`, unless its last reference was already released.
+         *
+         * @details
+         * Unlike the constructor, this is safe to call on an object that another thread may be releasing at the same
+         * time: either it takes its reference first and the object stays alive, or the object is released first and
+         * this returns an empty pointer.
+         *
+         * @warning The object's memory must stay valid for the duration of the call. The caller must keep the deletion
+         * from completing meanwhile, for example by holding a lock that the object's destructor also takes.
+         */
+        [[nodiscard]] static IntrusiveSharedPtr TryAcquire(T* _ptr)
+        {
+            IntrusiveSharedPtr result;
+            if (_ptr == nullptr)
+                return result;
+
+            std::atomic_ref count(_ptr->m_refCount);
+            auto current = count.load(std::memory_order::relaxed);
+            do
+            {
+                if (current == ReleasedRefCount())
+                    return result;
+            }
+            while (!count.compare_exchange_weak(
+                current,
+                current + 1,
+                std::memory_order::acquire,
+                std::memory_order::relaxed));
+
+            result.m_ptr = _ptr;
+            return result;
+        }
 
         void Reset(T* _ptr = nullptr)
         {
             if (m_ptr != nullptr)
             {
-                const s64 count = std::atomic_ref(m_ptr->m_refCount).fetch_sub(1, std::memory_order::release) - 1;
+                std::atomic_ref refCount(m_ptr->m_refCount);
+                const s64 count = refCount.fetch_sub(1, std::memory_order::release) - 1;
                 if constexpr (HasReleaseNotifier<T>)
                     m_ptr->OnRelease();
-                if (count <= 0)
+
+                // At 0, a concurrent `TryAcquire()` may still take a reference: only delete if the count can be moved
+                // to the released marker first.
+                bool release = count < 0;
+                if (count == 0)
+                {
+                    auto expected = static_cast<decltype(T::m_refCount)>(0);
+                    release = refCount.compare_exchange_strong(
+                        expected,
+                        ReleasedRefCount(),
+                        std::memory_order::acq_rel,
+                        std::memory_order::relaxed);
+                }
+                if (release)
                 {
                     if constexpr (IsAllocatorVarIntrusible<T>)
                     {
@@ -127,6 +195,12 @@ namespace KryneEngine
 
     private:
         T* m_ptr = nullptr;
+
+        /// Count of an object whose last reference was released, so it is being deleted.
+        static constexpr auto ReleasedRefCount()
+        {
+            return std::numeric_limits<decltype(T::m_refCount)>::min();
+        }
     };
 
     template <class T, class... Args> requires IsAllocatorIntrusible<T>

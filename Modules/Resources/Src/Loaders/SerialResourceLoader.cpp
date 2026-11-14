@@ -23,14 +23,18 @@ namespace KryneEngine::Modules::Resources
         const StringHash& _path,
         ResourceEntry* _entry,
         IResourceManager* _resourceManager,
-        const u64)
+        const u64 _loadFlags)
     {
         {
-            const auto lock = m_lock.AutoLock();
+            auto lock = m_lock.AutoLock();
             if (m_pendingRequests.find(_path) == m_pendingRequests.end())
                 m_pendingRequests.emplace(_path);
             else
+            {
+                lock.Unlock();
+                _resourceManager->ReleaseResource(_entry); // Release loader ref
                 return;
+            }
         }
 
         {
@@ -50,7 +54,7 @@ namespace KryneEngine::Modules::Resources
             }
             else
             {
-                _resourceManager->FinalizeResourceLoading(_entry, loadedResourceData, _path.m_string);
+                _resourceManager->FinalizeResourceLoading(_entry, loadedResourceData, _path.m_string, _loadFlags);
             }
         }
 
@@ -58,5 +62,7 @@ namespace KryneEngine::Modules::Resources
             const auto lock = m_lock.AutoLock();
             m_pendingRequests.erase(_path);
         }
+
+        _resourceManager->ReleaseResource(_entry); // Release loader ref
     }
 } // namespace KryneEngine::Modules::Resources

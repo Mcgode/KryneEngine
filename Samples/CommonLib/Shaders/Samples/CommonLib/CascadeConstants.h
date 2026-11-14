@@ -12,6 +12,9 @@
 
 using namespace KryneEngine;
 using uint = u32;
+using PackedFloat3 = float3;
+#else
+#   include "Platform.hlsl"
 #endif
 
 #define CSM_MAX_CASCADES 4
@@ -33,7 +36,7 @@ struct CascadeConstants
     float4 m_cascadeDepthRangeInv;  // 1 / (far - near) of each cascade's light-space depth range
 
     // Light forward direction, the same across every cascade (one directional light).
-    float3 m_lightForward;
+    PackedFloat3 m_lightForward; // Packed so m_cascadeBlendBandFraction shares its 16 bytes on every target
     // Width of the dithered cascade-transition band, as a fraction of the split distance it
     // straddles. Shared across every cascade, so a single float suffices - reuses what would
     // otherwise be m_lightForward's trailing alignment padding.

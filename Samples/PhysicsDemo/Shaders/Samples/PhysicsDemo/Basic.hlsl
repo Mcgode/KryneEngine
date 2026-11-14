@@ -8,16 +8,18 @@
 #include "Instances.hlsl"
 #include "Pass.hlsl"
 
-
-vkBinding(0, 0) ConstantBuffer<PassData> passData: register(b0, space0);
-vkBinding(1, 0) StructuredBuffer<InstanceData> instanceData: register(t0, space0);
-
+struct Parameters
+{
+    [[vk::binding(0)]] ConstantBuffer<PassData> passData: register(b0);
+    [[vk::binding(1)]] StructuredBuffer<InstanceData> instanceData: register(t0);
+};
+[[vk::binding(0, 0)]] ParameterBlock<Parameters> parameters: register(space0);
 
 struct VsInput
 {
-    vkLocation(0) float3 position: POSITION0;
-    vkLocation(1) float3 normal: NORMAL0;
-    vkLocation(2) uint instanceId: BLENDINDICES0;
+    [[vk::location(0)]] float3 position: POSITION0;
+    [[vk::location(1)]] float3 normal: NORMAL0;
+    [[vk::location(2)]] uint instanceId: BLENDINDICES0;
 };
 
 struct VsOutput
@@ -31,14 +33,14 @@ VsOutput MainVs(const in VsInput _input)
 {
     VsOutput output;
 
-    const InstanceData data = instanceData[_input.instanceId];
+    const InstanceData data = parameters.instanceData[_input.instanceId];
 
     float3 position = _input.position;
     float3 normal = _input.normal;
     ApplyTransform(data, position, normal);
 
     output.normal = normal;
-    output.position = mul(float4(position, 1.f), passData.m_viewProjectionMatrix);
+    output.position = mul(float4(position, 1.f), parameters.passData.m_viewProjectionMatrix);
 
     return output;
 }

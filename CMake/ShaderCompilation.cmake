@@ -1,66 +1,58 @@
 
-# Fetch DirectX shader compiler executable.
-# Shaders are compiled at build time, so dxc must be a *host* executable - pick it
+# Fetch the Slang compiler executable.
+# Shaders are compiled at build time, so slangc must be a *host* executable - pick it
 # from CMAKE_HOST_* rather than the (possibly cross-compilation) target.
-string(TOLOWER "${CMAKE_HOST_SYSTEM_PROCESSOR}" _ke_host_proc)
-if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    if (_ke_host_proc MATCHES "aarch64|arm64")
-        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/arm64/bin/dxc")
-    else ()
-        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/x64/bin/dxc")
-    endif ()
+if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    set(PLATFORM "macos")
+    set(SLANGC_NAME "slangc")
 elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    if (_ke_host_proc MATCHES "arm64")
-        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/arm64/dxc.exe")
-    elseif (_ke_host_proc MATCHES "amd64|x86_64|x64")
-        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x64/dxc.exe")
-    else ()
-        set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x86/dxc.exe")
-    endif ()
-elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(DirectXShaderCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/macos/bin/dxc")
+    set(PLATFORM "windows")
+    set(SLANGC_NAME "slangc.exe")
+elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    set(PLATFORM "linux")
+    set(SLANGC_NAME "slangc")
 else ()
     message(FATAL_ERROR "Host platform unsupported for shader compilation: ${CMAKE_HOST_SYSTEM_NAME}")
 endif ()
 
+string(TOLOWER "${CMAKE_HOST_SYSTEM_PROCESSOR}" SYSTEM_PROCESSOR)
+if (SYSTEM_PROCESSOR MATCHES "amd64|x64|x86_64")
+    set(ARCH "x64")
+elseif (SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(ARCH "aarch64")
+endif ()
+
+# Slang emits DXIL through the dxcompiler library, which it does not bundle: point it at ours.
+if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    set(DxcLibraryDir "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/macos/lib")
+elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    if (ARCH STREQUAL "aarch64")
+        set(DxcLibraryDir "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/arm64")
+    else ()
+        set(DxcLibraryDir "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/win32/bin/x64")
+    endif ()
+elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    if (ARCH STREQUAL "aarch64")
+        set(DxcLibraryDir "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/arm64/lib")
+    else ()
+        set(DxcLibraryDir "${CMAKE_CURRENT_SOURCE_DIR}/External/DirectXCompiler/linux/x64/lib")
+    endif ()
+endif ()
+
+set(SlangCompiler "${CMAKE_CURRENT_SOURCE_DIR}/External/slang/${PLATFORM}/${ARCH}/bin/${SLANGC_NAME}")
+option(KRYNE_ENGINE_OPTIMIZE_SPIRV "Enable Slang SPIR-V optimization" OFF)
+
 # Check that we found the executable
-if (EXISTS "${DirectXShaderCompiler}")
-    message(STATUS "Will compile shaders using '${DirectXShaderCompiler}'")
+if (EXISTS "${SlangCompiler}")
+    message(STATUS "Will compile shaders using '${SlangCompiler}'")
 else ()
-    message(FATAL_ERROR "Unable to find '${DirectXShaderCompiler}'")
-endif ()
-
-# Add dxc to passed shader tools
-set(ShaderTools "dxc=${DirectXShaderCompiler}")
-
-#
-if (GraphicsApi STREQUAL "MTL")
-    set(NeedSpirVCross ON)
-else ()
-    set(NeedSpirVCross OFF)
-endif ()
-
-# Optionally fetch spirv-cross executable
-if (NeedSpirVCross)
-    if (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-        set(SpirVCross "${CMAKE_CURRENT_SOURCE_DIR}/External/spirv-cross/macos/bin/spirv-cross")
-    else ()
-        message(FATAL_ERROR "SpirV-Cross: Platform unsupported")
-    endif ()
-
-    if (EXISTS "${SpirVCross}")
-        message(STATUS "Will cross-compile shaders using '${SpirVCross}'")
-    else ()
-        message(FATAL_ERROR "Unable to find '${SpirVCross}'")
-    endif ()
-
-    set(ShaderTools "${ShaderTools}%%spirv-cross=${SpirVCross}")
+    message(FATAL_ERROR "Unable to find '${SlangCompiler}'")
 endif ()
 
 # Global variables set
-set_property(GLOBAL PROPERTY KE_SHADER_TOOLS "${ShaderTools}")
+set_property(GLOBAL PROPERTY KE_SHADER_SLANGC "${SlangCompiler}")
+set_property(GLOBAL PROPERTY KE_SHADER_DXC_LIBRARY_DIR "${DxcLibraryDir}")
 set_property(GLOBAL PROPERTY KE_SHADER_GENERATE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderListParser.py")
-set_property(GLOBAL PROPERTY KE_SHADER_BUILD_COMMAND_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderBuildCommand.py")
 set_property(GLOBAL PROPERTY KE_SHADER_EMBED_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderEmbedGenerator.py")
 find_package(Python3 REQUIRED)
 # Python3_EXECUTABLE is only visible in this directory scope, store it globally for projects consuming the engine
@@ -113,9 +105,9 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
     set(COMMANDS_FILE "${BUILD_OUTPUT_DIR}/build.ninja")
     set(WORKING_DIR ${BUILD_OUTPUT_DIR})
 
-    get_property(ShaderTools GLOBAL PROPERTY KE_SHADER_TOOLS)
+    get_property(SlangCompiler GLOBAL PROPERTY KE_SHADER_SLANGC)
+    get_property(DxcLibraryDir GLOBAL PROPERTY KE_SHADER_DXC_LIBRARY_DIR)
     get_property(GENERATE_SCRIPT GLOBAL PROPERTY KE_SHADER_GENERATE_SCRIPT)
-    get_property(BUILD_COMMAND_SCRIPT GLOBAL PROPERTY KE_SHADER_BUILD_COMMAND_SCRIPT)
     get_property(EMBED_SCRIPT GLOBAL PROPERTY KE_SHADER_EMBED_SCRIPT)
     get_property(PYTHON_EXECUTABLE GLOBAL PROPERTY KE_SHADER_PYTHON)
 
@@ -139,14 +131,15 @@ function(target_compile_shaders TARGET_NAME LOCAL_SHADERS_DIR OUTPUT_DIR_NAME)
                 ${SHADER_OUTPUT_DIR}
                 ${OutputFormat}
                 ${COMMANDS_FILE}
-                "${ShaderTools}"
+                "${SlangCompiler}"
+                "${DxcLibraryDir}"
                 ${SHADER_INPUT_DIR}
-                ${BUILD_COMMAND_SCRIPT}
                 "${SHADER_INCLUDE_LIST}"
                 ${EMBED_ENABLED}
                 ${EMBED_SCRIPT}
                 ${EMBED_CPP}
                 ${EMBED_H}
+                $<BOOL:${KRYNE_ENGINE_OPTIMIZE_SPIRV}>
                 ${ShaderListFiles}
             DEPENDS ${GENERATE_SCRIPT} ${ShaderListFiles}
             COMMENT "Parsing shader list"

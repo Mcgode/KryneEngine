@@ -19,7 +19,7 @@ struct FrameData {
 
     float4x4 m_torusKnotInverseWorldMatrix;
 
-    float3 m_torusAlbedo;
+    PackedFloat3 m_torusAlbedo; // Packed so m_torusKnotQ shares its 16 bytes on every target
     uint m_torusKnotQ;
 
     uint m_torusKnotP;
@@ -28,5 +28,8 @@ struct FrameData {
     float m_torusRoughness;
 
     float m_torusMetalness;
-    uint m_padding[3];
+    // Scalars rather than `uint[3]`: D3D cbuffer arrays use a 16-byte element stride
+    uint m_padding0;
+    uint m_padding1;
+    uint m_padding2;
 };
