@@ -147,7 +147,11 @@ def main():
 
         writer.rule("slangc_compile",
                     f"${slangc_path_name} $in -o $out -depfile $out.d $profile_args -entry $entry_point -target {slangc_target} {slangc_optimization_arguments} {language_define}=1 -g $includes",
-                    depfile="$out.d")
+                    depfile="$out.d",
+                    # slangc leaves the output file untouched when its content did not change, so
+                    # without restat the output stays older than the edited input forever and the
+                    # shader is recompiled on every build.
+                    restat=True)
 
         # Shader model profile prefix -> Slang stage name
         shader_stages = {
