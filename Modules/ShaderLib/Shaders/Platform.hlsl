@@ -1,7 +1,9 @@
 
 #pragma once
 
-#if !defined(__SLANG__)
+// Slang provides these as intrinsics, but lowers them on DXIL to instructions that need shader model 6.6
+// (and silently raises the profile to match), so we keep our own implementation there.
+#if !defined(__SLANG__) || defined(KE_TARGET_DXIL)
 float2 unpackHalf2x16ToFloat(in uint _packedHalf2)
 {
     return f16tof32(uint2(_packedHalf2 & 0xffff, _packedHalf2 >> 16));
@@ -14,6 +16,7 @@ float4 unpackUnorm4x8ToFloat(uint _packedUnorm)
     return float4(rgba) / 255.0f;
 }
 
+// Slang passes SV_VulkanVertexID through to dxc as is, which rejects it.
 #   define SV_VulkanVertexID SV_VertexID
 
 #endif
