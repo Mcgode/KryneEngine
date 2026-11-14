@@ -38,4 +38,13 @@ namespace KryneEngine::Modules::Box3D
             .m_rotation = ToMathQuaternion(_b3Transform.q)
         };
     }
+
+    KE_FORCEINLINE b3Vec3 ToB3Vec(const float3& _float3)
+    {
+        return {
+            .x = _float3.x,
+            .y = _float3.y,
+            .z = _float3.z
+        };
+    }
 }
