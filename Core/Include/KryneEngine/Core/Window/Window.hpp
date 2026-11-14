@@ -57,6 +57,16 @@ namespace KryneEngine
 
         void SetTitle(const eastl::string_view& _title) const;
 
+        /**
+         * @brief Hides the cursor and locks it to the window, for mouse-look.
+         * @details While captured, the cursor position is virtual and unbounded, so the cursor delta keeps tracking
+         * the mouse past the window edges. Raw (unaccelerated) mouse motion is used where the platform supports it.
+         * The OS releases the cursor while the window is unfocused, and captures it again on refocus.
+         * Like every GLFW window call, it must run on the main thread.
+         */
+        void SetCursorCaptured(bool _captured) const;
+        [[nodiscard]] bool IsCursorCaptured() const;
+
         void Show() const;
         void Hide() const;
 

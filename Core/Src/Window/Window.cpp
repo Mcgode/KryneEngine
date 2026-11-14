@@ -111,6 +111,20 @@ namespace KryneEngine
         glfwSetWindowTitle(m_glfwWindow, _title.data());
     }
 
+    void Window::SetCursorCaptured(const bool _captured) const
+    {
+        glfwSetInputMode(m_glfwWindow, GLFW_CURSOR, _captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        if (glfwRawMouseMotionSupported())
+        {
+            glfwSetInputMode(m_glfwWindow, GLFW_RAW_MOUSE_MOTION, _captured ? GLFW_TRUE : GLFW_FALSE);
+        }
+    }
+
+    bool Window::IsCursorCaptured() const
+    {
+        return glfwGetInputMode(m_glfwWindow, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+    }
+
     void Window::Show() const
     {
         glfwShowWindow(m_glfwWindow);
