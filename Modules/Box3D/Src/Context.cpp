@@ -48,7 +48,7 @@ namespace KryneEngine::Modules::Box3D
 
     void* Context::Allocate(const s32 _size, const s32 _alignment)
     {
-        return s_allocator.allocate(_size, _alignment);
+        return s_allocator.allocate(_size, _alignment, 0, 0);
     }
 
     void Context::Deallocate(void* _ptr)
