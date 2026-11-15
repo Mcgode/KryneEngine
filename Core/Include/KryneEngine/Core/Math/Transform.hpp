@@ -47,7 +47,7 @@ namespace KryneEngine::Math
             return ComputeTransformMatrix<Mat>(m_position, m_rotation, m_scale);
         }
 
-        TransformT ApplyParent(const TransformT& _parent)
+        TransformT ApplyParent(const TransformT& _parent) const
         {
             KE_ASSERT_MSG(
                 _parent.m_scale.x == _parent.m_scale.y && _parent.m_scale.x == _parent.m_scale.z,
