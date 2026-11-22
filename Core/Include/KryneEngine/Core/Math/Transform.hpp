@@ -58,6 +58,16 @@ namespace KryneEngine::Math
                 .m_scale = _parent.m_scale * m_scale,
             };
         }
+
+        Vector3Base<T> ApplyToPosition(const Vector3Base<T>& _position) const
+        {
+            return m_rotation.ApplyTo(_position * m_scale) + m_position;
+        }
+
+        Vector3Base<T> ApplyToDirection(const Vector3Base<T>& _rotation) const
+        {
+            return m_rotation.ApplyTo(_rotation);
+        }
     };
 
     using Transform = TransformT<float>;
