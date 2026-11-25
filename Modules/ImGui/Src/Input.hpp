@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <KryneEngine/Core/Window/Input/Enums.hpp>
 #include <KryneEngine/Core/Window/Input/InputConsumer.hpp>
 #include <imgui.h>
@@ -27,6 +28,9 @@ namespace KryneEngine::Modules::ImGui
      * window-lifecycle events are handled by @ref ViewportBackend; this only covers keyboard / text /
      * mouse. Mouse positions are reported in desktop space when `ImGuiConfigFlags_ViewportsEnable` is set
      * (offset by the originating window's position).
+     *
+     * While mouse input is disabled (see #SetMouseEnabled), mouse events skip ImGui entirely and are never consumed,
+     * so they reach the lower-priority consumers and the polling state.
      */
     class Input final : public InputConsumer
     {
@@ -37,7 +41,18 @@ namespace KryneEngine::Modules::ImGui
 
         bool HandleEvent(const InputEvent& _event) override;
 
+        /**
+         * @brief Turns ImGui's mouse input on or off, e.g. off while the application captures the cursor.
+         * @details Disabling releases every ImGui mouse button and moves its mouse off-screen, so nothing stays
+         * hovered or pressed. Re-enabling waits for the next mouse move to place the mouse again.
+         * Call on the thread that runs `ImGui::NewFrame`, with this module's ImGui context current.
+         */
+        void SetMouseEnabled(bool _enabled);
+
     private:
+        /// Read by #HandleEvent, which runs during `InputManager::Update`, possibly on another thread.
+        std::atomic<bool> m_mouseEnabled = true;
+
         static void ApplyModifiers(KeyInputModifiers _modifiers);
 
         [[nodiscard]] static ImGuiKey ToImGuiKey(InputKeys _key);

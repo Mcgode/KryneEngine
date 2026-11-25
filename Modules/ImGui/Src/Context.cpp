@@ -229,6 +229,12 @@ namespace KryneEngine::Modules::ImGui
         ::ImGui::NewFrame();
     }
 
+    void Context::SetMouseInputEnabled(const bool _enabled)
+    {
+        ::ImGui::SetCurrentContext(m_context);
+        m_input->SetMouseEnabled(_enabled);
+    }
+
     void Context::PrepareToRenderFrame(GraphicsContext* _graphicsContext, TransferCommandEncoderHandle _transferEncoder)
     {
         KE_ZoneScopedFunction("Modules::ImGui::ContextPrepareToRenderFrame");

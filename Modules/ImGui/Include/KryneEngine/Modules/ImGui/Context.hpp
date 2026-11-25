@@ -78,6 +78,14 @@ namespace KryneEngine::Modules::ImGui
         void NewFrame(Window* _window, GraphicsContext* _graphicsContext, SwapChainHandle _mainSwapChain);
 
         /**
+         * @brief Turns ImGui's mouse input on or off. Turn it off while the application captures the cursor: the
+         * captured cursor's position is unbounded, and hovering ImGui windows with it would steal the mouse.
+         * @details While off, mouse events go straight to the lower-priority input consumers and the polling state.
+         * Call before #NewFrame, on the same thread.
+         */
+        void SetMouseInputEnabled(bool _enabled);
+
+        /**
          * @brief Prepares the rendering context for a new frame by updating the vertex and index buffers.
          *
          * @param _graphicsContext The graphics context used for rendering.

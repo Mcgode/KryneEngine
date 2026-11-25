@@ -33,6 +33,12 @@ namespace KryneEngine::Modules::ImGui
     {
         ImGuiIO& io = ::ImGui::GetIO();
 
+        const bool isMouseEvent = _event.m_type == InputEventType::MouseMove
+                                  || _event.m_type == InputEventType::MouseButton
+                                  || _event.m_type == InputEventType::Scroll;
+        if (isMouseEvent && !m_mouseEnabled.load(std::memory_order_relaxed))
+            return false;
+
         switch (_event.m_type)
         {
         case InputEventType::Key:
@@ -84,6 +90,27 @@ namespace KryneEngine::Modules::ImGui
         default:
             return false;
         }
+    }
+
+    void Input::SetMouseEnabled(const bool _enabled)
+    {
+        if (m_mouseEnabled.exchange(_enabled, std::memory_order_relaxed) == _enabled)
+            return;
+
+        ImGuiIO& io = ::ImGui::GetIO();
+        if (_enabled)
+        {
+            io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+            return;
+        }
+
+        // Queued after any press ImGui already saw, so the release wins and no button stays down.
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+        for (s32 button = 0; button < ImGuiMouseButton_COUNT; button++)
+        {
+            io.AddMouseButtonEvent(button, false);
+        }
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     }
 
     void Input::ApplyModifiers(KeyInputModifiers _modifiers)
