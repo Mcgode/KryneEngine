@@ -54,6 +54,8 @@ namespace KryneEngine
         [[nodiscard]] bool HasDedicatedComputeQueue() const override;
         // Metal argument tables tolerate unwritten slots that are never dynamically accessed.
         [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return true; }
+        // Metal 4 devices (Apple silicon) support non-uniform indexing into argument table resource arrays.
+        [[nodiscard]] bool SupportsNonUniformResourceIndexing() const override { return true; }
 
     private:
         NsPtr<MTL::Device> m_device;

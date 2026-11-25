@@ -111,6 +111,16 @@ namespace KryneEngine::GraphicsCommon
             ///        `ForceEnabled` fails context creation if unavailable, `TryEnable` silently falls back.
             SoftEnable m_partiallyBoundDescriptors = SoftEnable::Disabled;
 
+            /// @brief Allows shaders to index arrayed descriptor bindings with a non-uniform (divergent
+            ///        within a draw/dispatch) index, wrapped in `NonUniformResourceIndex()`. Covers sampled
+            ///        images (textures & samplers), storage images and storage buffers. On Vulkan this
+            ///        enables the matching `shader*ArrayNonUniformIndexing` descriptor indexing features,
+            ///        which are not guaranteed on Vulkan 1.0 / older Android; query
+            ///        @ref GraphicsContext::SupportsNonUniformResourceIndexing after creation and, when
+            ///        unavailable, keep descriptor array indices uniform.
+            ///        `ForceEnabled` fails context creation if unavailable, `TryEnable` silently falls back.
+            SoftEnable m_nonUniformResourceIndexing = SoftEnable::Disabled;
+
             bool m_graphics = true;
             bool m_present = true;
             bool m_transfer = true;
@@ -122,7 +132,7 @@ namespace KryneEngine::GraphicsCommon
 
             /// @brief Explicit padding so the struct stays free of implicit padding bytes (it is byte-compared).
             ///        Shrink it when adding new 1-byte fields above.
-            u8 m_reserved[3] {};
+            u8 m_reserved[2] {};
 
             u32 m_gpuTimestampBufferCapacity = 4'096;
         }
@@ -177,6 +187,8 @@ namespace KryneEngine::GraphicsCommon
         DrawIndirectNotSupported,
         /// @brief `m_partiallyBoundDescriptors` is `ForceEnabled`, but the GPU does not support them.
         PartiallyBoundDescriptorsNotSupported,
+        /// @brief `m_nonUniformResourceIndexing` is `ForceEnabled`, but the GPU does not support it.
+        NonUniformResourceIndexingNotSupported,
     };
 
     /// @brief Returns a human-readable description of a @ref ContextCreationError.
@@ -206,6 +218,8 @@ namespace KryneEngine::GraphicsCommon
             return "The GPU does not support indirect drawing";
         case ContextCreationError::PartiallyBoundDescriptorsNotSupported:
             return "The GPU does not support partially bound descriptors";
+        case ContextCreationError::NonUniformResourceIndexingNotSupported:
+            return "The GPU does not support non-uniform resource indexing";
         }
         return "Unknown error";
     }

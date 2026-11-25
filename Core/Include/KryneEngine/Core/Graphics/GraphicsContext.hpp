@@ -252,6 +252,17 @@ namespace KryneEngine
         [[nodiscard]] virtual bool SupportsPartiallyBoundDescriptors() const = 0;
 
         /**
+         * @brief Indicates whether shaders may index arrayed descriptor bindings (sampled images,
+         * samplers, storage images and storage buffers) with a non-uniform index, i.e. one that
+         * diverges across invocations of a same draw/dispatch, when wrapped in `NonUniformResourceIndex()`.
+         *
+         * @details
+         * Reflects `ApplicationInfo::Features::m_nonUniformResourceIndexing` combined with device
+         * capability. When this returns `false`, descriptor array indices must be dynamically uniform.
+         */
+        [[nodiscard]] virtual bool SupportsNonUniformResourceIndexing() const = 0;
+
+        /**
          * @brief Retrieves the Tracy GPU profiler context associated with this graphics context, if any.
          *
          * @return A pointer to the `TracyGpuProfilerContext`, or `nullptr` if GPU profiling is not enabled.

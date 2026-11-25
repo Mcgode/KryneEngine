@@ -46,6 +46,8 @@ namespace KryneEngine
         [[nodiscard]] bool HasDedicatedComputeQueue() const override;
         // D3D12 descriptor tables tolerate unwritten entries that are never dynamically accessed.
         [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return true; }
+        // `NonUniformResourceIndex` is available from Shader Model 5.1, which every D3D12 device supports.
+        [[nodiscard]] bool SupportsNonUniformResourceIndexing() const override { return true; }
 
     protected:
         void InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent) override;

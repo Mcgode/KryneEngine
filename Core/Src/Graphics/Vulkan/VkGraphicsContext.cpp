@@ -138,11 +138,17 @@ namespace KryneEngine
             return _limits.timestampPeriod > 0.f && _limits.timestampComputeAndGraphics;
         }
 
-        bool DeviceSupportsPartiallyBoundDescriptors(
+        /// Queries the device's descriptor indexing features. Returns a zeroed struct (everything
+        /// unsupported) when they are neither core nor exposed through VK_EXT_descriptor_indexing.
+        VkPhysicalDeviceDescriptorIndexingFeatures QueryDescriptorIndexingFeatures(
             const GraphicsCommon::ApplicationInfo& _appInfo,
             const VkPhysicalDevice _physicalDevice,
             const bool _hasDescriptorIndexingExtension)
         {
+            VkPhysicalDeviceDescriptorIndexingFeatures supported {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+            };
+
             // `descriptorIndexing` is core in Vulkan 1.2, an extension (VK_EXT_descriptor_indexing) before.
             // The feature query needs vkGetPhysicalDeviceFeatures2, which is core from Vulkan 1.1.
             const bool queryable = GetApiVersion(_appInfo.m_api) >= VK_API_VERSION_1_1;
@@ -150,18 +156,23 @@ namespace KryneEngine
                 GetApiVersion(_appInfo.m_api) >= VK_API_VERSION_1_2 || _hasDescriptorIndexingExtension;
             if (!queryable || !coreOrExtension)
             {
-                return false;
+                return supported;
             }
 
-            VkPhysicalDeviceDescriptorIndexingFeatures supported {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
-            };
             VkPhysicalDeviceFeatures2 supported2 {
                 .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
                 .pNext = &supported,
             };
             vkGetPhysicalDeviceFeatures2(_physicalDevice, &supported2);
-            return supported.descriptorBindingPartiallyBound;
+            supported.pNext = nullptr;
+            return supported;
+        }
+
+        bool DeviceSupportsNonUniformResourceIndexing(const VkPhysicalDeviceDescriptorIndexingFeatures& _features)
+        {
+            return _features.shaderSampledImageArrayNonUniformIndexing
+                && _features.shaderStorageImageArrayNonUniformIndexing
+                && _features.shaderStorageBufferArrayNonUniformIndexing;
         }
     }
 
@@ -767,12 +778,24 @@ namespace KryneEngine
         }
 
         if (features.m_partiallyBoundDescriptors == SoftEnable::ForceEnabled
-            && !DeviceSupportsPartiallyBoundDescriptors(
+            || features.m_nonUniformResourceIndexing == SoftEnable::ForceEnabled)
+        {
+            const VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexing = QueryDescriptorIndexingFeatures(
                 m_appInfo,
                 _physicalDevice,
-                hasExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)))
-        {
-            return ContextCreationError::PartiallyBoundDescriptorsNotSupported;
+                hasExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME));
+
+            if (features.m_partiallyBoundDescriptors == SoftEnable::ForceEnabled
+                && !descriptorIndexing.descriptorBindingPartiallyBound)
+            {
+                return ContextCreationError::PartiallyBoundDescriptorsNotSupported;
+            }
+
+            if (features.m_nonUniformResourceIndexing == SoftEnable::ForceEnabled
+                && !DeviceSupportsNonUniformResourceIndexing(descriptorIndexing))
+            {
+                return ContextCreationError::NonUniformResourceIndexingNotSupported;
+            }
         }
 
         return ContextCreationError::None;
@@ -1070,14 +1093,24 @@ namespace KryneEngine
                 requiredExtensions.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
             }
 
-            if (m_appInfo.m_features.m_partiallyBoundDescriptors != GraphicsCommon::SoftEnable::Disabled)
+            const bool wantsPartiallyBound =
+                m_appInfo.m_features.m_partiallyBoundDescriptors != GraphicsCommon::SoftEnable::Disabled;
+            const bool wantsNonUniformIndexing =
+                m_appInfo.m_features.m_nonUniformResourceIndexing != GraphicsCommon::SoftEnable::Disabled;
+            if (wantsPartiallyBound || wantsNonUniformIndexing)
             {
-                m_descriptorBindingPartiallyBound = DeviceSupportsPartiallyBoundDescriptors(
-                    m_appInfo,
-                    m_physicalDevice,
-                    find(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME));
+                const VkPhysicalDeviceDescriptorIndexingFeatures supportedDescriptorIndexing =
+                    QueryDescriptorIndexingFeatures(
+                        m_appInfo,
+                        m_physicalDevice,
+                        find(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME));
 
-                if (m_descriptorBindingPartiallyBound)
+                m_descriptorBindingPartiallyBound =
+                    wantsPartiallyBound && supportedDescriptorIndexing.descriptorBindingPartiallyBound;
+                m_nonUniformResourceIndexing =
+                    wantsNonUniformIndexing && DeviceSupportsNonUniformResourceIndexing(supportedDescriptorIndexing);
+
+                if (m_descriptorBindingPartiallyBound || m_nonUniformResourceIndexing)
                 {
                     if (VkHelperFunctions::GetApiVersion(m_appInfo.m_api) < VK_API_VERSION_1_2)
                     {
@@ -1086,7 +1119,10 @@ namespace KryneEngine
                     }
                     descriptorIndexingFeatures = {
                         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
-                        .descriptorBindingPartiallyBound = VK_TRUE,
+                        .shaderSampledImageArrayNonUniformIndexing = m_nonUniformResourceIndexing,
+                        .shaderStorageBufferArrayNonUniformIndexing = m_nonUniformResourceIndexing,
+                        .shaderStorageImageArrayNonUniformIndexing = m_nonUniformResourceIndexing,
+                        .descriptorBindingPartiallyBound = m_descriptorBindingPartiallyBound,
                     };
                     *last = &descriptorIndexingFeatures;
                     last = &descriptorIndexingFeatures.pNext;

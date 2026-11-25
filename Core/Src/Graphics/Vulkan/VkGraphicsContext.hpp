@@ -50,6 +50,7 @@ namespace KryneEngine
         [[nodiscard]] bool HasDedicatedTransferQueue() const override;
         [[nodiscard]] bool HasDedicatedComputeQueue() const override;
         [[nodiscard]] bool SupportsPartiallyBoundDescriptors() const override { return m_descriptorBindingPartiallyBound; }
+        [[nodiscard]] bool SupportsNonUniformResourceIndexing() const override { return m_nonUniformResourceIndexing; }
 
     protected:
         void InternalEndFrame(eastl::span<const SwapChainHandle> _swapChainsToPresent) override;
@@ -85,6 +86,7 @@ namespace KryneEngine
 
         bool m_synchronization2 = false;
         bool m_descriptorBindingPartiallyBound = false;
+        bool m_nonUniformResourceIndexing = false;
         PFN_vkCmdPipelineBarrier2KHR m_vkCmdPipelineBarrier2KHR = nullptr;
 
         VkFeatures m_features {};

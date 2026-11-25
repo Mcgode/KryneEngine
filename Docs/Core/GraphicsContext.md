@@ -70,6 +70,8 @@ struct Features {
     SoftEnable m_debugTags = SoftEnable::TryEnable;         // Debug markers
     SoftEnable m_gpuTimestamps = SoftEnable::TryEnable;     // Timestamp queries
     SoftEnable m_drawIndirect = SoftEnable::TryEnable;      // Indirect draws (Vulkan device features)
+    SoftEnable m_partiallyBoundDescriptors = SoftEnable::Disabled;  // Leave arrayed descriptor slots unwritten
+    SoftEnable m_nonUniformResourceIndexing = SoftEnable::Disabled; // `NonUniformResourceIndex()` into descriptor arrays
     u32 m_gpuTimestampBufferCapacity = 4'096;              // Buffer size for timestamps
 
     // Required features
@@ -218,6 +220,7 @@ if (context == nullptr)
 | `GeometryShaderNotSupported` | `m_geometryShader` is `ForceEnabled` but unavailable |
 | `DrawIndirectNotSupported` | `m_drawIndirect` is `ForceEnabled` but unavailable |
 | `PartiallyBoundDescriptorsNotSupported` | `m_partiallyBoundDescriptors` is `ForceEnabled` but unavailable |
+| `NonUniformResourceIndexingNotSupported` | `m_nonUniformResourceIndexing` is `ForceEnabled` but unavailable |
 
 Features requested as `SoftEnable::TryEnable` never fail creation. An invalid `ApplicationInfo` (such as an
 unsupported combination of queue features) is a programming error, and still asserts.
