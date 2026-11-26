@@ -68,6 +68,11 @@ namespace KryneEngine::Modules::ImGui
         io.BackendPlatformName = "KryneEngineWindowManager";
         io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
         io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
+
+        ImGuiPlatformIO& platformIo = ::ImGui::GetPlatformIO();
+        platformIo.Platform_GetClipboardTextFn = [](ImGuiContext*) { return WindowManager::GetClipboardText(); };
+        platformIo.Platform_SetClipboardTextFn = [](ImGuiContext*, const char* _text) { WindowManager::SetClipboardText(_text); };
+
         const float2 dpiScale = _window->GetDpiScale();
         io.DisplayFramebufferScale = { dpiScale.x, dpiScale.y };
 

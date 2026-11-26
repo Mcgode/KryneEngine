@@ -179,6 +179,17 @@ namespace KryneEngine
         return glfwGetKeyName(glfwKey, scancode);
     }
 
+    const char* WindowManager::GetClipboardText()
+    {
+        // GLFW ignores the window argument for clipboard calls since 3.3.
+        return glfwGetClipboardString(nullptr);
+    }
+
+    void WindowManager::SetClipboardText(const char* _text)
+    {
+        glfwSetClipboardString(nullptr, _text);
+    }
+
     void WindowManager::RefreshMonitors()
     {
         KE_ZoneScopedFunction("WindowManager::RefreshMonitors");

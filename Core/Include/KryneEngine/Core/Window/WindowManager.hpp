@@ -113,6 +113,16 @@ namespace KryneEngine
          */
         [[nodiscard]] static const char* GetLabel(InputKeys _key);
 
+        /**
+         * @brief Returns the system clipboard's contents as UTF-8 text, or `nullptr` if it is empty or not text.
+         * @details The returned string is owned by GLFW and stays valid until the next clipboard call.
+         * Must run on the main thread.
+         */
+        [[nodiscard]] static const char* GetClipboardText();
+
+        /// @brief Replaces the system clipboard's contents with the given UTF-8 text. Must run on the main thread.
+        static void SetClipboardText(const char* _text);
+
     private:
         static WindowManager* s_instance;
 
